@@ -327,6 +327,54 @@ int GM_CDECL gmf_getScreenHeight(gmThread* a_thread) {
     return GM_OK;
 }
 
+// getScreenX(x) / getScreenY(y) -- "which screen index does this world
+// coordinate fall on". Same "dead script code in a /* C++ */ comment, moved
+// to a native implementation" situation as getScreenWidth/getScreenHeight
+// above (Platformer/Main.gm 5856-5873 -- the commented-out reference reads
+//
+//     getScreenX=function(x) {
+//         local sx=MATH_INT(x/this.getScreenWidth());
+//         if (x<0) { sx-=1; }
+//         return sx;
+//     },
+//
+// ) and these were the last two of that family still unimplemented.
+//
+// 0x0019f478 / 0x0019f5a0), which computes
+//
+//     iVar4 = (int)(x / ((float)field[0xd4] * DAT_0019f468
+//                        * DAT_0019f46c * DAT_0019f46c));
+//     if (x < DAT_0019f470) iVar4 = iVar4 + -1;
+//
+// with those three constants reading 0.61f, 2.0f and 0.0f out of EBOOT.elf
+// -- i.e. exactly `numCells * SW * 2 * 2` as the divisor (the same
+// expression getScreenWidth uses) and a compare against 0.0 for the
+// negative adjustment. The int cast truncates toward zero, so subtracting
+// one for negative inputs turns it into a floor -- screen -1 is the screen
+// immediately left of the origin, not a second copy of screen 0.
+//
+// Real call site: Main.gm's per-frame "did we change screens?" check
+// (`cx=this.getScreenX(ppos.x); cy=this.getScreenY(ppos.y);`), which drives
+// the camera's screen-to-screen panning during play.
+int GM_CDECL gmf_getScreenX(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
+    const float screenWidth = 16.0f * 0.61f * 2.0f * 2.0f;
+    int sx = (int)(x / screenWidth);
+    if (x < 0.0f) sx -= 1;
+    a_thread->PushInt(sx);
+    return GM_OK;
+}
+int GM_CDECL gmf_getScreenY(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(y, 0, 0.0f);
+    const float screenHeight = 9.0f * 0.61f * 2.0f * 2.0f;
+    int sy = (int)(y / screenHeight);
+    if (y < 0.0f) sy -= 1;
+    a_thread->PushInt(sy);
+    return GM_OK;
+}
+
 // getCurrentScreenX/getCurrentScreenY -- same "dead script code in a /*
 // C++ */ comment, moved to a native implementation" situation as
 // getScreenWidth/getScreenHeight above, a few thousand lines further into
@@ -354,6 +402,40 @@ int GM_CDECL gmf_getCurrentScreenY(gmThread* a_thread) {
     if (!self) return GM_EXCEPTION;
     gmVariable v = self->Get(a_thread->GetMachine(), "currentScreenY");
     a_thread->Push((v.m_type == GM_INT || v.m_type == GM_FLOAT) ? v : gmVariable((gmint)0));
+    return GM_OK;
+}
+
+// setCurrentScreenX/setCurrentScreenY -- the setters matching the two
+// getters above, and the same "dead script code in a /* C++ */ comment,
+// moved native" family as getScreenWidth/getScreenX (Platformer/Main.gm's
+// own commented reference stores straight into this.currentScreenX).
+//
+// Real call site is Main.gm's per-frame screen-change handler, immediately
+// after the getScreenX/getScreenY pair that computes the new indices:
+//
+//     this.setCurrentScreenX(cx);
+//     this.setCurrentScreenY(cy);
+//     this.destroyBullets();
+//
+// so leaving these unbound meant the game recomputed which screen the
+// player had moved to and then never recorded it -- getCurrentScreenX/Y
+// kept reporting the old screen forever, and every "did we change screens?"
+// comparison downstream stayed permanently true.
+//
+// Stored on the process's own script table under the same key the getters
+// read, so the two sides cannot drift apart.
+int GM_CDECL gmf_setCurrentScreenX(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    gmTableObject* self = ThisHandleTable(a_thread);
+    if (!self) return GM_EXCEPTION;
+    self->Set(a_thread->GetMachine(), "currentScreenX", a_thread->Param(0));
+    return GM_OK;
+}
+int GM_CDECL gmf_setCurrentScreenY(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    gmTableObject* self = ThisHandleTable(a_thread);
+    if (!self) return GM_EXCEPTION;
+    self->Set(a_thread->GetMachine(), "currentScreenY", a_thread->Param(0));
     return GM_OK;
 }
 
@@ -464,6 +546,10 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     a_table->Set(&a_machine, "getTable", gmVariable(a_machine.AllocFunctionObject(gmf_getTable)));
     a_table->Set(&a_machine, "getScreenWidth", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenWidth)));
     a_table->Set(&a_machine, "getScreenHeight", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenHeight)));
+    a_table->Set(&a_machine, "getScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenX)));
+    a_table->Set(&a_machine, "getScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenY)));
+    a_table->Set(&a_machine, "setCurrentScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_setCurrentScreenX)));
+    a_table->Set(&a_machine, "setCurrentScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_setCurrentScreenY)));
     a_table->Set(&a_machine, "getCurrentScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_getCurrentScreenX)));
     a_table->Set(&a_machine, "getCurrentScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_getCurrentScreenY)));
     a_table->Set(&a_machine, "setGlobalVolume", gmVariable(a_machine.AllocFunctionObject(gmf_setGlobalVolume)));

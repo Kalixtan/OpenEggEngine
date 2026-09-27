@@ -17,20 +17,41 @@ int GM_CDECL gmf_MATH_ACOS(gmThread* a_thread) {
     a_thread->PushFloat(std::acos(std::clamp(x, -1.0f, 1.0f)));
     return GM_OK;
 }
+// overloaded in retail -- called with 1 arg it's plain cos(ang); called
+// with 2 args it computes the exact same sign-preserving power-curve as
+// the separate MATH_COS_POW function below (same helper calls, same
+// "negate if raw cos < 0" branch). No confirmed corpus call site actually
+// uses the 2-arg form of bare MATH_COS (every real curve call goes through
+// MATH_COS_POW/MATH_SIN_POW instead), but the retail dispatch is
+// unambiguous from the decompiled arg-count branch, so it's honored here
+// too rather than silently throwing GM_EXCEPTION on 2 args.
+float CosPow(float ang, float curve) {
+    float c = std::cos(ang);
+    return Sign(c) * std::pow(std::fabs(c), curve);
+}
+float SinPow(float ang, float curve) {
+    float s = std::sin(ang);
+    return Sign(s) * std::pow(std::fabs(s), curve);
+}
 int GM_CDECL gmf_MATH_COS(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-    a_thread->PushFloat(std::cos(x));
+    int n = a_thread->GetNumParams();
+    GM_FLOAT_OR_INT_PARAM(ang, 0, 0.0f);
+    if (n >= 2) {
+        GM_FLOAT_OR_INT_PARAM(curve, 1, 1.0f);
+        a_thread->PushFloat(CosPow(ang, curve));
+    } else {
+        a_thread->PushFloat(std::cos(ang));
+    }
     return GM_OK;
 }
 // (ang, curve) -- sign-preserving power curve applied to cos(ang) (the
 // "curve" easing-exponent idiom also seen in ENVELOPE.setCurve/
 // MATHUTIL_*); pow() of a negative base with a non-integer exponent is
 // NaN in C, so the magnitude and sign are separated rather than calling
-// pow(cos(ang), curve) directly.
+// @ 0xa6858, and identically inlined into 2-arg MATH_COS @ 0xa6628 above).
 int GM_CDECL gmf_MATH_COS_POW(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2); GM_FLOAT_OR_INT_PARAM(ang, 0, 0.0f); GM_FLOAT_OR_INT_PARAM(curve, 1, 1.0f);
-    float c = std::cos(ang);
-    a_thread->PushFloat(Sign(c) * std::pow(std::fabs(c), curve));
+    a_thread->PushFloat(CosPow(ang, curve));
     return GM_OK;
 }
 int GM_CDECL gmf_MATH_EXP(gmThread* a_thread) {
@@ -83,30 +104,84 @@ int GM_CDECL gmf_MATH_REAL(gmThread* a_thread) {
     a_thread->PushFloat(x);
     return GM_OK;
 }
+// FIXED (this session): was `std::lround(x)` (round-half-away-from-zero).
+// `(int)(x + DAT_000a73d8)` where DAT_000a73d8 was extracted directly from
+// the retail EBOOT.elf at that address (bytes 3f000000 = 0.5f) -- i.e. the
+// naive "add 0.5 then truncate toward zero" trick, which is NOT symmetric
+// for negative numbers (e.g. retail MATH_ROUND(-2.5) == -2, not -3;
+// MATH_ROUND(-2.9) == -2 as well, since -2.9+0.5=-2.4 truncates to -2).
+// std::lround would give -3 and -3 respectively. Not exercised by any
+// corpus call site with a negative half-integer, but this is the confirmed
+// retail formula, bug-for-bug.
 int GM_CDECL gmf_MATH_ROUND(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-    a_thread->PushInt((gmint)std::lround(x));
+    a_thread->PushInt((gmint)(x + 0.5f));
     return GM_OK;
 }
+// FIXED (this session): was pushing a float. Confirmed real
+// (float) -- retail MATH_SIGN returns an int (-1/0/1), and the compare
+// threshold DAT_000a74a4 was extracted from the EBOOT.elf as 0.0f, matching
+// the existing Sign() helper's own >0/<0/==0 split exactly.
 int GM_CDECL gmf_MATH_SIGN(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-    a_thread->PushFloat(Sign(x));
+    a_thread->PushInt((gmint)Sign(x));
     return GM_OK;
 }
+// MATH_SIN is arity-overloaded the same way MATH_COS is -- see comment
 int GM_CDECL gmf_MATH_SIN(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-    a_thread->PushFloat(std::sin(x));
+    int n = a_thread->GetNumParams();
+    GM_FLOAT_OR_INT_PARAM(ang, 0, 0.0f);
+    if (n >= 2) {
+        GM_FLOAT_OR_INT_PARAM(curve, 1, 1.0f);
+        a_thread->PushFloat(SinPow(ang, curve));
+    } else {
+        a_thread->PushFloat(std::sin(ang));
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_MATH_SIN_POW(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2); GM_FLOAT_OR_INT_PARAM(ang, 0, 0.0f); GM_FLOAT_OR_INT_PARAM(curve, 1, 1.0f);
-    float s = std::sin(ang);
-    a_thread->PushFloat(Sign(s) * std::pow(std::fabs(s), curve));
+    a_thread->PushFloat(SinPow(ang, curve));
     return GM_OK;
 }
 int GM_CDECL gmf_MATH_SQRT(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
     a_thread->PushFloat(std::sqrt(std::max(x, 0.0f)));
+    return GM_OK;
+}
+// plain 1-arg (2 for ATAN2) libm wrappers, same shape as MATH_SIN/COS/SQRT
+// above. Previously entirely unregistered (silent null-call no-op).
+int GM_CDECL gmf_MATH_TAN(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
+    a_thread->PushFloat(std::tan(x));
+    return GM_OK;
+}
+int GM_CDECL gmf_MATH_ASIN(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
+    a_thread->PushFloat(std::asin(std::clamp(x, -1.0f, 1.0f)));
+    return GM_OK;
+}
+int GM_CDECL gmf_MATH_ATAN2(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2); GM_FLOAT_OR_INT_PARAM(y, 0, 0.0f); GM_FLOAT_OR_INT_PARAM(x, 1, 0.0f);
+    a_thread->PushFloat(std::atan2(y, x));
+    return GM_OK;
+}
+// MATH_LOG): both call the exact same unrecovered helper (FUN_001dcfb0)
+// with identical arguments including the same trailing flag (0) -- the
+// decompiled evidence can't tell natural log and log10 apart (that helper's
+// own body isn't in the decompiled corpus), and the byte-identical call
+// shape is at minimum consistent with MATH_LN and MATH_LOG being the same
+// operation in retail. Implemented identically (natural log) rather than
+// guessing a log10 split with no evidence either way; not exercised by any
+// corpus call site.
+int GM_CDECL gmf_MATH_LN(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
+    a_thread->PushFloat(std::log(x));
+    return GM_OK;
+}
+int GM_CDECL gmf_MATH_LOG(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
+    a_thread->PushFloat(std::log(x));
     return GM_OK;
 }
 // IsNull(x) -- confirmed real (10 call sites, e.g.
@@ -147,4 +222,9 @@ void RegisterMathBindings(gmMachine& a_machine) {
     a_machine.GetGlobals()->Set(&a_machine, "MATH_SIN", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_SIN)));
     a_machine.GetGlobals()->Set(&a_machine, "MATH_SIN_POW", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_SIN_POW)));
     a_machine.GetGlobals()->Set(&a_machine, "MATH_SQRT", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_SQRT)));
+    a_machine.GetGlobals()->Set(&a_machine, "MATH_TAN", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_TAN)));
+    a_machine.GetGlobals()->Set(&a_machine, "MATH_ASIN", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_ASIN)));
+    a_machine.GetGlobals()->Set(&a_machine, "MATH_ATAN2", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_ATAN2)));
+    a_machine.GetGlobals()->Set(&a_machine, "MATH_LN", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_LN)));
+    a_machine.GetGlobals()->Set(&a_machine, "MATH_LOG", gmVariable(a_machine.AllocFunctionObject(gmf_MATH_LOG)));
 }

@@ -21,6 +21,7 @@
 #include "../render/renderer.h"
 #include "../render/bitmap_font.h"
 #include "../render/draw_list.h"
+#include "../render/draw_context.h"
 #include "../ported_native/ground_renderer.h"
 #include "../ported_native/player_renderer.h"
 #include "../ported_native/save_data_completion.h"
@@ -46,6 +47,9 @@
 #include "../bindings/envelope_bindings.h"
 #include "../bindings/printinfo_bindings.h"
 #include "../bindings/online_coordinator_bindings.h"
+#include "../bindings/watermelon_bindings.h"
+#include "../bindings/videohelper_bindings.h"
+#include "headless_harness.h"
 #include "../bindings/process_handle_bindings.h"
 #include "../bindings/audio_bindings.h"
 #include "../bindings/mathutil_bindings.h"
@@ -118,6 +122,21 @@ int main(int argc, char** argv) {
     if (clearSave) {
         SaveData::ClearAll();
     }
+
+    // GE3_HEADLESS=1: the window is created hidden (see Renderer::Init), so
+    // nothing appears on the host desktop and nothing competes for the
+    // host's real input focus. Deterministic timing + no frame limiter are
+    // what a scripted/CI run almost always wants, so they're implied here
+    // unless explicitly set already.
+    if (std::getenv("GE3_HEADLESS")) {
+        setenv("GE3_FIXED_TIMESTEP_MS", "17", 0);
+        setenv("GE3_NO_FPS_LIMIT", "1", 0);
+    }
+
+    // Scripted input + screenshot capture (GE3_HARNESS=<script>), see
+    // headless_harness.h. Disabled and zero-cost when the env var is unset.
+    HeadlessHarness harness;
+    harness.Init();
 
     // Optional overrides for probing against the full retail game_data tree
     // instead of the game_data_min hello-world scene:
@@ -229,6 +248,8 @@ int main(int argc, char** argv) {
     RegisterMathBindings(vm.Machine());
     RegisterEnvelopeBindings(vm.Machine());
     RegisterOnlineCoordinatorBindings(vm.Machine());
+    RegisterWatermelonBindings(vm.Machine());
+    RegisterVideoHelperBindings(vm.Machine());
     RegisterFoECompatBindings(vm.Machine());
 
     // ENGINE PATCH: tag every native-registered library global so
@@ -328,6 +349,39 @@ int main(int argc, char** argv) {
     // that already rely on it keep working unchanged.
     bool physicsDebugDraw = std::getenv("GE3_PHYSICS_DEBUG_DRAW") != nullptr;
     while (running) {
+        // Scripted input for this frame (no-op unless GE3_HARNESS is set).
+        // Dispatched through exactly the same two sinks as real SDL events
+        // below, so script sees no difference between a harness key and a
+        // physical one.
+        std::vector<int> hKeyDown, hKeyUp, hMouseDown, hMouseUp;
+        harness.BeginFrame(hKeyDown, hKeyUp, hMouseDown, hMouseUp);
+        for (int sc : hKeyDown) {
+            processManager.DispatchKeyEvent(sc, true);
+            DispatchKeyEventToEntities(sc, true);
+        }
+        for (int sc : hKeyUp) {
+            processManager.DispatchKeyReleaseEvent(sc);
+            DispatchKeyEventToEntities(sc, false);
+        }
+        for (int code : hMouseDown) {
+            processManager.DispatchKeyEvent(code, true);
+            DispatchKeyEventToEntities(code, true);
+        }
+        for (int code : hMouseUp) {
+            processManager.DispatchKeyReleaseEvent(code);
+            DispatchKeyEventToEntities(code, false);
+        }
+
+        // Mirror the harness's held keys into the virtual key state that
+        // Input.isKeyPressed reads (input_bindings.h). Menus poll that
+        // directly rather than relying on the onKeyPress dispatch above, so
+        // without this a harness run renders the game but can never
+        // navigate it. No-op when the harness is disabled.
+        if (harness.enabled()) {
+            ClearVirtualKeys();
+            for (int sc : harness.HeldKeys()) SetVirtualKeyDown(sc, true);
+        }
+
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) running = false;
@@ -396,6 +450,13 @@ int main(int argc, char** argv) {
         for (int sc = 0; sc < SDL_NUM_SCANCODES; ++sc) {
             if (keyState[sc]) processManager.DispatchKeyEvent(sc, false);
         }
+        // Keys held by the harness script aren't in SDL's physical keyboard
+        // state, so they need their own onKeyType pass -- without this a
+        // scripted `keydown Right` would fire once and then look released to
+        // anything level-triggered (which is most movement code).
+        for (int sc : harness.HeldKeys()) {
+            if (!keyState[sc]) processManager.DispatchKeyEvent(sc, false);
+        }
 
         Uint32 nowTicks = SDL_GetTicks();
         unsigned int deltaMs = nowTicks - lastTicks;
@@ -441,6 +502,13 @@ int main(int argc, char** argv) {
         UpdateEntitiesWithNativeUpdateHook((float)deltaMs);
 
         renderer.BeginFrame();
+        // Keep the shared DrawContext's colour-mask mirror in step with the
+        // colour writes BeginFrame just re-enabled (see
+        // Renderer::SetColourMask / BeginFrame). Without this, a
+        // popAttributes() later in the frame can restore a stale "masked"
+        // value that no longer reflects real GL state, re-disabling colour
+        // writes for everything after it.
+        GetDrawContext().colourMask = false;
         processManager.PreDrawAll();
         // Real ground-piece rendering (engine/src/ported_native/
         // ground_renderer.h) -- retail itself ported this out of GM script
@@ -519,6 +587,14 @@ int main(int argc, char** argv) {
             renderer.SaveScreenshot(path);
             std::fprintf(stderr, "main: saved screenshot to %s\n", path);
         }
+        // Harness `shot <path>` -- same point in the frame as the
+        // GE3_SCREENSHOT_FRAME capture above (after letterbox bars, before
+        // the swap), so both produce identical output for the same frame.
+        if (!harness.PendingScreenshot().empty()) {
+            renderer.SaveScreenshot(harness.PendingScreenshot().c_str());
+            std::fprintf(stderr, "[harness] frame %d -> %s\n", s_frameIndex,
+                         harness.PendingScreenshot().c_str());
+        }
         ++s_frameIndex;
         renderer.EndFrame();
 
@@ -540,6 +616,7 @@ int main(int argc, char** argv) {
         }
 
         if (ctx.quitRequested) running = false;
+        if (harness.QuitRequested()) running = false;
     }
 
     if (trace) fprintf(trace, "[TRACE] shutting down renderer\n"), fflush(trace);

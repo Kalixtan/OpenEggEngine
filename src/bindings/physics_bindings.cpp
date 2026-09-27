@@ -86,11 +86,16 @@ int GM_CDECL gmf_addPolygon(gmThread* a_thread) {
     gmTableObject* table = (gmTableObject*)m.GetObject(verticesVar.m_value.m_ref);
     int count = (a_thread->GetNumParams() >= 2) ? a_thread->ParamInt(1, 0) : 0;
 
+    // addPolygon's own vertex loop): `if (*(int *)(puVar4 + 0x12) != 3)
+    // goto LAB_0008c49c;` -- retail hard-checks EVERY fetched table
+    // element's type tag against 3 (vector2D) and aborts the ENTIRE call
+    // (GM halt) on the first non-vector2D entry, rather than skipping it.
     std::vector<b2Vec2> pts;
     for (int i = 0; i < count && (int)pts.size() < b2_maxPolygonVertices; ++i) {
         gmVariable v = table->Get(gmVariable((gmint)i));
         float x, y;
-        if (GetVector2D(m, v, x, y)) pts.push_back(b2Vec2(x, y));
+        if (!GetVector2D(m, v, x, y)) return GM_EXCEPTION;
+        pts.push_back(b2Vec2(x, y));
     }
     // b2PolygonShape::Set hard-asserts (aborts the whole process, not a
     // catchable GM exception) on a degenerate point set -- confirmed
@@ -124,10 +129,17 @@ int GM_CDECL gmf_addPolygon(gmThread* a_thread) {
 
 // addCircle(radius, offsetX, offsetY) -- confirmed real method, real usage
 // `sd.addCircle(this.radius,0,0)` in GoAroundGuy.gm.
+//
+// decompiled arg-count dispatch only accepts EXACTLY 1 or EXACTLY 3 args
+// (`if (sVar1 < 2) { ...1-arg body... } else { if (sVar1 != 3) return
+// 0xffffffffffffffff; ...3-arg body... }`) -- a 2-arg call falls into the
+// `else` branch, fails the `sVar1 != 3` check, and GM-halts. Reject it here
+// too rather than silently defaulting offsetY to 0.
 int GM_CDECL gmf_addCircle(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
+    if (a_thread->GetNumParams() == 2) return GM_EXCEPTION;
     GM_FLOAT_OR_INT_PARAM(radius, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(offsetX, 1, 0.0f);
     GM_FLOAT_OR_INT_PARAM(offsetY, 2, 0.0f);
@@ -172,17 +184,54 @@ int GM_CDECL gmf_addEdges(gmThread* a_thread) {
     }
     if (pts.size() < 2) return GM_OK; // degenerate, matches addPolygon's "fail safe rather than crash"
 
-    b2ChainShape* chain = new b2ChainShape();
+    // addEdges, 0x0008c658 -- see its full decompiled body for the exact
+    // register-level derivation this comment summarizes):
+    //
+    //   loop==false: retail does NOT just build the N forward points and
+    //   stop. It ALWAYS additionally appends the same points again in
+    //   REVERSE order right after the forward N (dropping the very last
+    //   duplicate), giving a final vertex count of 2N-1 -- a "there and
+    //   back" path that traces the polyline forward then immediately
+    //   back along itself. This is the classic trick for faking two-sided
+    //   collision on Box2D's inherently one-sided edge/chain primitive.
+    //   Confirmed real, load-bearing case: SafeVine.gm:90's
+    //   `sd.addEdges(this.verts,this.verts.size,false)` -- a vine you'd
+    //   expect to be touchable from either side. Was previously a plain
+    //   one-sided CreateChain over just the original N points.
+    //
+    //   loop==true: retail computes a shoelace-style signed area over the
+    //   closed polygon (including the wrap-around edge) and, if it's
+    //   below a threshold constant (DAT_0008c654 -- its exact value isn't
+    //   recoverable from this decompiled corpus; 0.0f, a plain sign
+    //   check, is the natural reading and is what's used here, but this
+    //   is an ASSUMPTION, not a confirmed constant), completely rebuilds
+    //   the same N points in reverse order before submitting them -- i.e.
+    //   retail normalizes a closed edge loop's winding direction rather
+    //   than trusting whatever the script data happens to have. Vertex
+    //   count stays N either way for the loop case.
     if (loop) {
+        float area2 = 0.0f;
+        for (size_t i = 0; i < pts.size(); ++i) {
+            const b2Vec2& p0 = pts[i];
+            const b2Vec2& p1 = pts[(i + 1) % pts.size()];
+            area2 += p0.x * p1.y - p1.x * p0.y;
+        }
+        if (area2 < 0.0f) std::reverse(pts.begin(), pts.end());
+        b2ChainShape* chain = new b2ChainShape();
         chain->CreateLoop(pts.data(), (int32)pts.size());
+        c->AddFixture(chain);
     } else {
+        std::vector<b2Vec2> doubled = pts;
+        for (int i = (int)pts.size() - 1; i >= 1; --i) doubled.push_back(pts[(size_t)i]);
+        b2ChainShape* chain = new b2ChainShape();
         // This box2d version requires explicit ghost vertices for an open
-        // chain; reusing the first/last real points (zero-length ghost
-        // edges) is the standard degenerate-but-safe stand-in when the
-        // caller has no adjacent-chain data to hand it real ones.
-        chain->CreateChain(pts.data(), (int32)pts.size(), pts.front(), pts.back());
+        // chain; reusing the first/last points of the now-doubled list
+        // (zero-length ghost edges) is the standard degenerate-but-safe
+        // stand-in when the caller has no adjacent-chain data to hand it
+        // real ones.
+        chain->CreateChain(doubled.data(), (int32)doubled.size(), doubled.front(), doubled.back());
+        c->AddFixture(chain);
     }
-    c->AddFixture(chain);
     return GM_OK;
 }
 

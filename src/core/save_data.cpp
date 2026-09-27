@@ -87,6 +87,20 @@ bool FileExists(const std::string& a_relativePath) {
     return fs::exists(full, ec) && fs::is_regular_file(full, ec);
 }
 
+long long FileSize(const std::string& a_relativePath) {
+    fs::path full = fs::path(Dir()) / a_relativePath;
+    std::error_code ec;
+    auto sz = fs::file_size(full, ec);
+    return ec ? -1 : (long long)sz;
+}
+
+bool DeleteFile(const std::string& a_relativePath) {
+    fs::path full = fs::path(Dir()) / a_relativePath;
+    std::error_code ec;
+    fs::remove(full, ec);
+    return !ec;
+}
+
 void ClearAll() {
     std::error_code ec;
     for (auto& entry : fs::directory_iterator(Dir(), ec)) {

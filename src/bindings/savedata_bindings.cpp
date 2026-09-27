@@ -1,6 +1,7 @@
 #include "gmThread.h"
 #include "savedata_bindings.h"
 #include "../core/save_data.h"
+#include "gmTableObject.h"
 #include <cstdio>
 
 namespace {
@@ -107,6 +108,223 @@ int GM_CDECL gmf_SAVEDATA_abortLoad(gmThread* a_thread) {
     return GM_OK;
 }
 
+// ---------------------------------------------------------------------
+// The "ticket" (SaveData request) functions below -- SAVEDATA_reqGetFileSize/
+// reqLoadFile/reqDelete/reqSaveFromLoadRequest/reqSaveScreenShot/
+// reqCreateSave/reqOSFreeSpace/addTicket/calcNeededSpace/resetLastRequests/
+// showNoSpaceOnMediaDialog/showOsMsgDialog/AddString/AddCompressedString/
+// AddScreenShot/SaveAll -- were previously entirely unregistered, despite
+// corpus call sites include game_data/Main.gm's own boot-time save preload
+// (SAVEDATA_reqGetFileSize("save.json")/"myLevels/toc.json" ->
+// .getSize() -> SAVEDATA_reqLoadFile(path, size) -> handed to
+// GameMonkeyScript.loadTableFromJsonSaveRequest, see gamemonkeyscript_
+// bindings.cpp), MyLevelsTOC.gm's file deletion, and SaveDataHelper.gm's
+// save-to-disk path. Without these, the game could never load save.json
+// or myLevels/toc.json on startup.
+//
+// Retail's decompiled bodies are almost entirely opaque Sony SaveData
+// request-queue plumbing (ref-counted request objects, an async ticket
+// system -- see save_data.h's header comment for why none of that is
+// worth or able to be reproduced bit-for-bit); what's actually
+// reproducible and matters is each function's confirmed arg shape (from
+// the arg-count dispatch) and the script-visible contract real call sites
+// depend on. A "ticket" here is a small GM table carrying whatever fields
+// the real corpus call sites actually read off it (getSize/getFilename),
+// consistent with this engine's existing "ticket = a value scripts hand
+// back to another function, not a real async handle" convention
+// (GameMonkeyScript.saveTableToJsonSaveRequest already uses a bare
+// filename string as its ticket for the same reason).
+// ---------------------------------------------------------------------
+
+gmVariable g_getSizeFn;
+gmVariable g_getFilenameFn;
+
+int GM_CDECL gmf_ticket_getSize(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (self) { a_thread->Push(self->Get(a_thread->GetMachine(), "size")); return GM_OK; }
+    a_thread->PushInt(0);
+    return GM_OK;
+}
+int GM_CDECL gmf_ticket_getFilename(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (self) { a_thread->Push(self->Get(a_thread->GetMachine(), "filename")); return GM_OK; }
+    a_thread->PushNewString("");
+    return GM_OK;
+}
+
+// A ticket exposing .getSize()/.getFilename(), for reqGetFileSize/
+// reqOSFreeSpace/reqCreateSave/reqSaveScreenShot-shaped "just give the
+// script something with the right methods" returns. size<0 means "file
+// doesn't exist" -> real call sites (Main.gm) test getSize() as a bool, so
+// stored as 0 (falsy) either way.
+gmVariable MakeSizeTicket(gmMachine& a_machine, const std::string& a_filename, long long a_size) {
+    gmTableObject* t = a_machine.AllocTableObject();
+    t->Set(&a_machine, "filename", gmVariable(a_machine.AllocStringObject(a_filename.c_str())));
+    t->Set(&a_machine, "size", gmVariable((gmint)(a_size > 0 ? a_size : 0)));
+    t->Set(&a_machine, "getSize", g_getSizeFn);
+    t->Set(&a_machine, "getFilename", g_getFilenameFn);
+    return gmVariable(t);
+}
+
+// SaveData.c @ 0xad234). Real call sites (Main.gm, EditScreenInfoPopupBase.gm,
+// MainMenu5*/EditScreen2*.gm) all immediately call .getSize() on the result
+// and treat 0/falsy as "file doesn't exist, skip loading it".
+int GM_CDECL gmf_SAVEDATA_reqGetFileSize(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    a_thread->Push(MakeSizeTicket(*a_thread->GetMachine(), path, SaveData::FileSize(path)));
+    return GM_OK;
+}
+
+// SaveData.c @ 0xad440). `size` (from reqGetFileSize's ticket, or a stored
+// TOC entry field) isn't needed by a synchronous local read; the ticket
+// returned is the relative path itself, matching GameMonkeyScript.
+// loadTableFromJsonSaveRequest's own established string-ticket contract
+// (see that function's comment) so real call sites that hand this straight
+// to it keep working unchanged.
+int GM_CDECL gmf_SAVEDATA_reqLoadFile(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    a_thread->PushNewString(path);
+    return GM_OK;
+}
+
+// SaveData.c @ 0xac618). Real call site (MyLevelsTOC.gm:256-258) never
+// reads the return value, so it only needs to not crash.
+int GM_CDECL gmf_SAVEDATA_reqDelete(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    SaveData::DeleteFile(path);
+    a_thread->Push(MakeSizeTicket(*a_thread->GetMachine(), path, 0));
+    return GM_OK;
+}
+
+// SAVEDATA_reqSaveFromLoadRequest(dstPath, loadTicket) -- confirmed real
+// (EditScreenInfoPopupBase.gm) copy a level's data from one TOC slot to
+// another (level/image/loop file each copied separately). `loadTicket` is
+// whatever SAVEDATA_reqLoadFile returned for the source -- a relative path
+// string, per this engine's ticket convention above -- so this reads that
+// source file and writes it to dstPath, returning dstPath as the new
+// ticket (consistent with saveTableToJsonSaveRequest's own convention).
+int GM_CDECL gmf_SAVEDATA_reqSaveFromLoadRequest(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(dstPath, 0, "");
+    gmVariable srcVar = a_thread->Param(1);
+    if (srcVar.m_type == GM_STRING) {
+        const char* srcPath = ((gmStringObject*)a_thread->GetMachine()->GetObject(srcVar.m_value.m_ref))->GetString();
+        std::string content;
+        if (SaveData::ReadFile(srcPath, content)) {
+            SaveData::WriteFile(dstPath, content);
+        }
+    }
+    a_thread->PushNewString(dstPath);
+    return GM_OK;
+}
+
+// classes/SaveData.c @ 0xac588). Real call sites (DebugMenuNew.gm, Main.gm's
+// `saveSuccessful = SAVEDATA_SaveAll()`) treat the return as success/fail;
+// this engine's writes (via AddString/AddCompressedString below, and
+// GameMonkeyScript.saveTableToJsonSaveRequest for the primary save.json
+// path) already happened synchronously by the time this is called, so
+// always true.
+int GM_CDECL gmf_SAVEDATA_SaveAll(gmThread* a_thread) {
+    a_thread->PushInt(1);
+    return GM_OK;
+}
+
+// SAVEDATA_AddString(filename, content, fileArea=1) / AddCompressedString --
+// is a plain int, not unwrapped through a String -- unlike arg0/arg1 --
+// confirming it's a numeric "area" flag, not a string; defaults to 1 when
+// omitted). Real call sites (Main.gm's level-save flow) always pass
+// already-serialized JSON text. `fileArea` and the "compressed" distinction
+// both have no local-file equivalent (see save_data.h's header comment --
+// this is plain text on disk, nothing to compress into/segregate by area
+// for); both write the content as-is. Return is bool success, matching the
+// confirmed int return tag.
+int GM_CDECL gmf_SAVEDATA_AddString(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(filename, 0, "");
+    GM_STRING_PARAM(content, 1, "");
+    a_thread->PushInt(SaveData::WriteFile(filename, content) ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_SAVEDATA_AddCompressedString(gmThread* a_thread) {
+    return gmf_SAVEDATA_AddString(a_thread);
+}
+
+// SAVEDATA_AddScreenShot(filename, fileArea, sizeDivisor) -- confirmed real
+// return value at all (unlike AddString/AddCompressedString above), so
+// retail scripts never check its result -- matches Main.gm's own call site,
+// which doesn't use one either. No screenshot pixel buffer is available at
+// this binding layer (that's the renderer's -- out of this scope's files),
+// so this is a documented no-op rather than a guess at capturing one.
+int GM_CDECL gmf_SAVEDATA_AddScreenShot(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+// SAVEDATA_reqSaveScreenShot(filename, sizeDivisor) -- confirmed real
+// here" situation as AddScreenShot above. Real call site (Main.gm:3839)
+// only stores the ticket to poll later via the shared doRequest/
+// isRequestDone flow, never reads a field off it directly, so an empty
+// ticket satisfies the contract.
+int GM_CDECL gmf_SAVEDATA_reqSaveScreenShot(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    a_thread->Push(MakeSizeTicket(*a_thread->GetMachine(), path, 0));
+    return GM_OK;
+}
+
+// classes/SaveData.c @ 0xad704/0xad7c4), both real corpus call sites
+// (SaveErrors.gm, all commented-out/dead code in this corpus -- see that
+// file) never read the returned ticket's fields, so an empty ticket is
+// enough.
+int GM_CDECL gmf_SAVEDATA_reqCreateSave(gmThread* a_thread) {
+    a_thread->Push(MakeSizeTicket(*a_thread->GetMachine(), "", 0));
+    return GM_OK;
+}
+int GM_CDECL gmf_SAVEDATA_reqOSFreeSpace(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    a_thread->Push(MakeSizeTicket(*a_thread->GetMachine(), "", 0));
+    return GM_OK;
+}
+
+// SAVEDATA_addTicket (decompiled name: SAVEDATA_addTicketReq) -- confirmed
+// pending-request list Sony's real API tracks internally. This engine's
+// save path is synchronous (every ticket above already did its real work
+// immediately), so there's nothing to queue.
+int GM_CDECL gmf_SAVEDATA_addTicket(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+// classes/SaveData.c @ 0xad9e8). No corpus call site is live (SaveErrors.gm's
+// only reference is commented out) -- 0 matches this engine's "always
+// plenty of space" stance (see kFreeSpaceKb above).
+int GM_CDECL gmf_SAVEDATA_calcNeededSpace(gmThread* a_thread) {
+    a_thread->PushInt(0);
+    return GM_OK;
+}
+// SAVEDATA_resetLastRequests() -- confirmed real 0-arg, no return value
+// SaveErrors.gm) just clear retail's internal pending-request list before
+// starting a fresh batch; nothing queued here to clear.
+int GM_CDECL gmf_SAVEDATA_resetLastRequests(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+// SAVEDATA_showNoSpaceOnMediaDialog(msg)/showOsMsgDialog(msgType) --
+// with no arg-count dispatch, 0 params, and never even reads gmThread's arg
+// slots). Both are real PS3 system-UI dialogs (LoginPopup.gm's real call
+// site passes an SCE_MSG_DIALOG_SYSMSG_TYPE_* constant) this engine has no
+// equivalent on-screen system for -- matching this codebase's existing
+// stance on other unmodeled OS dialogs, a no-op rather than a guessed UI.
+int GM_CDECL gmf_SAVEDATA_showNoSpaceOnMediaDialog(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+int GM_CDECL gmf_SAVEDATA_showOsMsgDialog(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+
 } // namespace
 
 void RegisterSaveDataBindings(gmMachine& a_machine) {
@@ -118,4 +336,25 @@ void RegisterSaveDataBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("SAVEDATA_processRequest", gmf_SAVEDATA_processRequest);
     a_machine.RegisterLibraryFunction("SAVEDATA_clearRequest", gmf_SAVEDATA_clearRequest);
     a_machine.RegisterLibraryFunction("SAVEDATA_abortLoad", gmf_SAVEDATA_abortLoad);
+
+    // Shared, stateless ticket-method function objects (see MakeSizeTicket).
+    g_getSizeFn = gmVariable(a_machine.AllocFunctionObject(gmf_ticket_getSize));
+    g_getFilenameFn = gmVariable(a_machine.AllocFunctionObject(gmf_ticket_getFilename));
+
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqGetFileSize", gmf_SAVEDATA_reqGetFileSize);
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqLoadFile", gmf_SAVEDATA_reqLoadFile);
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqDelete", gmf_SAVEDATA_reqDelete);
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqSaveFromLoadRequest", gmf_SAVEDATA_reqSaveFromLoadRequest);
+    a_machine.RegisterLibraryFunction("SAVEDATA_SaveAll", gmf_SAVEDATA_SaveAll);
+    a_machine.RegisterLibraryFunction("SAVEDATA_AddString", gmf_SAVEDATA_AddString);
+    a_machine.RegisterLibraryFunction("SAVEDATA_AddCompressedString", gmf_SAVEDATA_AddCompressedString);
+    a_machine.RegisterLibraryFunction("SAVEDATA_AddScreenShot", gmf_SAVEDATA_AddScreenShot);
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqSaveScreenShot", gmf_SAVEDATA_reqSaveScreenShot);
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqCreateSave", gmf_SAVEDATA_reqCreateSave);
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqOSFreeSpace", gmf_SAVEDATA_reqOSFreeSpace);
+    a_machine.RegisterLibraryFunction("SAVEDATA_addTicket", gmf_SAVEDATA_addTicket);
+    a_machine.RegisterLibraryFunction("SAVEDATA_calcNeededSpace", gmf_SAVEDATA_calcNeededSpace);
+    a_machine.RegisterLibraryFunction("SAVEDATA_resetLastRequests", gmf_SAVEDATA_resetLastRequests);
+    a_machine.RegisterLibraryFunction("SAVEDATA_showNoSpaceOnMediaDialog", gmf_SAVEDATA_showNoSpaceOnMediaDialog);
+    a_machine.RegisterLibraryFunction("SAVEDATA_showOsMsgDialog", gmf_SAVEDATA_showOsMsgDialog);
 }

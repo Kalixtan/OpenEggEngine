@@ -11,3 +11,13 @@
 // '?' guard -- an undefined `Input` global would otherwise hard-crash the
 // instant that code path is reached.
 void RegisterInputBindings(gmMachine& a_machine);
+
+// Virtual (script-injected) key state, used by the headless harness
+// (platform/headless_harness.h) so a scripted key press is visible to
+// Input.isKeyPressed the same way a physical one is. Real menus poll
+// Input.isKeyPressed rather than relying only on the onKeyPress/onKeyType
+// dispatch, so without this a harness run can render the game but never
+// navigate it. Physical keys are unaffected -- KeyDown ORs the two sources.
+void SetVirtualKeyDown(int a_scancode, bool a_down);
+void ClearVirtualKeys();
+

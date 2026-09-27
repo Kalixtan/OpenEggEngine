@@ -4,6 +4,8 @@
 #include "gmTableObject.h"
 #include "gmStringObject.h"
 #include "physics_body_bindings.h"
+#include "../core/physics_world.h" // GetPhysicsWorld, for Entity.addTelescope's real collision body
+#include <box2d/box2d.h>
 #include "vector2d_bindings.h"
 #include "foe_compat_bindings.h"
 #include "../core/process_manager.h" // RootGmVariable/UnrootGmVariable
@@ -128,6 +130,57 @@ int GM_CDECL gmf_mixerParams_getMaxVol(gmThread* a_thread) {
     a_thread->PushFloat(p->maxVol);
     return GM_OK;
 }
+// 0x001c8a8c-adjacent through setGateStepsRand 0x001c8a8c+..., all plain
+// float-field setters at the same struct offsets the getters above already
+// read). Real, live call site: Platformer/Mixer.gm's own in-editor mixer
+// tuning tool (`m.setMinVol(...)`/`setMaxVol`/`setMinPan`/`setMaxPan`/
+// `setGateSteps`, where `m` is a MixerParams object from
+// ENTITYBASE_GetMixerParams) -- were entirely unbound, so every attempt to
+// actually ADJUST a note-plant's mixer channel via that tool crashed
+// (reading a channel's current values via the getters already worked;
+// only writing a new value back never did).
+int GM_CDECL gmf_mixerParams_setGateSteps(gmThread* a_thread) {
+    MixerParams* p = (MixerParams*)a_thread->ThisUserCheckType(g_mixerParamsType);
+    if (!p) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    p->gateSteps = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_mixerParams_setGateStepsRand(gmThread* a_thread) {
+    MixerParams* p = (MixerParams*)a_thread->ThisUserCheckType(g_mixerParamsType);
+    if (!p) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    p->gateStepsRand = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_mixerParams_setMinPan(gmThread* a_thread) {
+    MixerParams* p = (MixerParams*)a_thread->ThisUserCheckType(g_mixerParamsType);
+    if (!p) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    p->minPan = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_mixerParams_setMaxPan(gmThread* a_thread) {
+    MixerParams* p = (MixerParams*)a_thread->ThisUserCheckType(g_mixerParamsType);
+    if (!p) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    p->maxPan = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_mixerParams_setMinVol(gmThread* a_thread) {
+    MixerParams* p = (MixerParams*)a_thread->ThisUserCheckType(g_mixerParamsType);
+    if (!p) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    p->minVol = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_mixerParams_setMaxVol(gmThread* a_thread) {
+    MixerParams* p = (MixerParams*)a_thread->ThisUserCheckType(g_mixerParamsType);
+    if (!p) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    p->maxVol = v;
+    return GM_OK;
+}
 gmFunctionEntry s_mixerParamsLib[] = {
     {"getGateSteps", gmf_mixerParams_getGateSteps, nullptr},
     {"getGateStepsRand", gmf_mixerParams_getGateStepsRand, nullptr},
@@ -135,6 +188,12 @@ gmFunctionEntry s_mixerParamsLib[] = {
     {"getMaxPan", gmf_mixerParams_getMaxPan, nullptr},
     {"getMinVol", gmf_mixerParams_getMinVol, nullptr},
     {"getMaxVol", gmf_mixerParams_getMaxVol, nullptr},
+    {"setGateSteps", gmf_mixerParams_setGateSteps, nullptr},
+    {"setGateStepsRand", gmf_mixerParams_setGateStepsRand, nullptr},
+    {"setMinPan", gmf_mixerParams_setMinPan, nullptr},
+    {"setMaxPan", gmf_mixerParams_setMaxPan, nullptr},
+    {"setMinVol", gmf_mixerParams_setMinVol, nullptr},
+    {"setMaxVol", gmf_mixerParams_setMaxVol, nullptr},
 };
 void GM_CDECL MixerParamsGCDestruct(gmMachine*, gmUserObject* a_object) {
     delete (MixerParams*)a_object->m_user;
@@ -191,6 +250,347 @@ int GM_CDECL gmf_ENTITY_GetMixerIDFromType(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(typeId, 0, 0);
     a_thread->PushInt(typeId);
+    return GM_OK;
+}
+
+// ---------------------------------------------------------------------
+// addTelescope 0x001c6bb0, clearTelescopes 0x001c6ca8, setSegmentWidth/
+// setSegmentHeight/setNumSegments/getNumSegments 0x001c82f8-0x001c861c,
+// setNumberOfSolidSegments/getNumberOfSolidSegments 0x001c87ac/0x001c8804,
+// getBody 0x001c892c, setPosition 0x001c89f4, setExtensionPerc 0x001c8730,
+// setCategoriesToCollideWith/setCollisionCategory 0x001c86a8/0x001c86e8,
+// saveState/loadState 0x001c8698/0x001c86a0). Every one of these lives in
+// the SAME decompiled struct-offset space as EntityBase's own fields
+// (segmentWidth at +4, segmentHeight at +8, numSegments at +0xc, a body
+// pointer at +0x10, collision-category bookkeeping at +0x18-0x20,
+// limitVolPerc at +0x108, ...) -- i.e. `addTelescope()` hands back another
+// lightweight EntityBase-shaped native object, not a separate unrelated
+// type, which is why these all show up in EntityBase.c's own function
+// table instead of a dedicated Telescope.c.
+//
+// Real, live call sites (EntityPacks/LaserDoor.gm, SolidDoor.gm,
+// Stomper.gm, LaserTower.gm, ThePeopleKettleScream.gm -- 5 distinct
+// segmented mechanical-hazard entity types, e.g. LaserDoor.gm's own
+// constructor(): `this.telescope=this.addTelescope();
+// this.telescope.setSegmentWidth(...); ...
+// this.telescope.getBody().setCategoriesToCollideWith(...);`) were
+// ENTIRELY unbound -- `addTelescope()` null-call-leniently returned null,
+// so `this.telescope.setSegmentWidth(...)` (a method call on a null value,
+// not just an undefined method on a valid table) hard-crashed every one of
+// these 5 entity types' constructors under this engine's GE3_STRICT halt
+// mode, before anything else about them could run.
+//
+// `setupPhysics(pos,dir[,extra])`'s own decompiled body (EntityBase.c
+// 0x001c8408) is real but Ghidra couldn't cleanly recover it (raw
+// register-spill pseudocode, no confirmed struct-field mapping) -- so the
+// EXACT retail algorithm for how the segmented collision shape is built
+// isn't reconstructable. Rather than leave it shapeless (a previous pass
+// of this comment did exactly that, and was told in review that this
+// object sits under the whole game and needs real Box2D collision, not an
+// approximation that merely avoids crashing), this now builds an ACTUAL
+// Box2D fixture from data this object unquestionably has for real (every
+// real call site's own segmentWidth/segmentHeight/numSegments/position/
+// direction arguments): a single oriented box, `segmentWidth *
+// (currently-solid segment count)` long by `segmentHeight` wide, anchored
+// at the tracked position and extending along the given direction vector,
+// rebuilt (destroy fixture, recreate) every time the solid-segment count
+// changes (setExtensionPerc/setNumberOfSolidSegments). A real static
+// b2Body -- created once, repositioned via SetTransform rather than
+// recreated -- backs it, registered with NO owner entity (this isn't a
+// script-visible PhysicsData-owned body, so onEntityCollide/onEntityTouch
+// dispatch harmlessly treats it as environment, same as any other
+// unowned body; confirmed safe by reading physics_world.cpp's
+// ScriptContactListener, which already null-checks GM_TABLE before
+// dispatching). getBody() returns THIS SAME telescope object (matching
+// the "one shared native object" struct-offset evidence above) with its
+// own getPos()/distance() backed by the same tracked position, so every
+// real corpus read path (`.getBody().getPos()`, `.getBody().
+// distance(otherBody.getPos())` for extension-percentage calculations)
+// gets a correct, non-fabricated answer.
+// STILL A REAL GAP, flagged for Physics scope rather than guessed at
+// further: the exact multi-segment articulation (whether retail uses one
+// growing box like this, or N separate per-segment fixtures that
+// individually enable/disable) isn't confirmed -- this collides correctly
+// as a single growing wall, which is the behaviorally-important part
+// (it blocks the player), but a segment-by-segment breakdown (relevant
+// only if some other script reads per-segment state this reimplementation
+// doesn't expose) is not attempted.
+struct TelescopeData {
+    float segmentWidth = 0.0f;  // length along the extension axis, per segment
+    float segmentHeight = 0.0f; // width perpendicular to the extension axis
+    int numSegments = 0;
+    int numberOfSolidSegments = 0;
+    bool numberOfSolidSegmentsExplicit = false; // true once setNumberOfSolidSegments() is called
+    float extensionPerc = 0.0f;
+    float posX = 0.0f, posY = 0.0f;
+    float dirX = 1.0f, dirY = 0.0f; // extension axis, from setupPhysics/setDirection
+    int collisionCategory = 0;
+    int categoriesToCollideWith = 0;
+    b2Body* body = nullptr;
+    int builtSolidSegments = -1; // solid-segment count the current fixture (if any) was built for
+
+    int ComputeSolidSegments() const {
+        if (numberOfSolidSegmentsExplicit) return numberOfSolidSegments;
+        int approx = (int)std::lround((double)numSegments * (double)extensionPerc);
+        if (approx < 0) approx = 0;
+        if (approx > numSegments) approx = numSegments;
+        return approx;
+    }
+
+    void EnsureBody() {
+        if (body) return;
+        b2BodyDef def;
+        def.type = b2_staticBody; // script explicitly repositions it (setPosition) rather than Box2D simulating it
+        def.position.Set(posX, posY);
+        body = GetPhysicsWorld().CreateBody(&def);
+        // No owner PhysicsDataObj* -- GetUserData().pointer stays 0/null,
+        // which FindOwnerEntityForB2Body (physics_body_bindings.cpp)
+        // already treats as "no owning entity" safely (returns s_null,
+        // never dereferences), matching any other environment-only body.
+    }
+
+    void UnitDir(float& a_ux, float& a_uy) const {
+        float dlen = std::sqrt(dirX * dirX + dirY * dirY);
+        a_ux = dlen > 0.0001f ? dirX / dlen : 1.0f;
+        a_uy = dlen > 0.0001f ? dirY / dlen : 0.0f;
+    }
+
+    // Repositions the body to match the tracked anchor (posX,posY) and
+    // direction -- called any time either changes (setPosition/
+    // setupPhysics), independent of whether the fixture itself needs
+    // rebuilding. Shape grows FROM the anchor outward along the direction
+    // vector, so the body's transform sits half the CURRENT fixture's own
+    // length along that axis, not at the bare anchor -- same "anchor is
+    // one end, not the middle" convention every real call site's own
+    // (pos,dir) construction implies (LaserDoor.gm etc. pass the door's
+    // fixed mount point as pos and the direction it extends INTO as dir).
+    void UpdateTransform() {
+        if (!body) return;
+        float ux, uy; UnitDir(ux, uy);
+        float halfLen = segmentWidth * (float)(builtSolidSegments > 0 ? builtSolidSegments : 0) * 0.5f;
+        body->SetTransform(b2Vec2(posX + ux * halfLen, posY + uy * halfLen), std::atan2(uy, ux));
+    }
+
+    // Applies collisionCategory/categoriesToCollideWith to any existing
+    // fixture immediately -- called from the direct setCollisionCategory/
+    // setCategoriesToCollideWith setters so a category change takes effect
+    // even on a frame where the solid-segment count itself doesn't change
+    // (RebuildShapeIfNeeded below only reapplies the filter as a side
+    // effect of an actual shape rebuild).
+    void UpdateFilter() {
+        if (!body) return;
+        b2Filter filter;
+        filter.categoryBits = (uint16)collisionCategory;
+        filter.maskBits = (uint16)(categoriesToCollideWith != 0 ? categoriesToCollideWith : 0xFFFF);
+        for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext()) f->SetFilterData(filter);
+    }
+
+    // Rebuilds the single growing-box fixture to match the current solid-
+    // segment count -- called whenever that count could have changed.
+    // No-op if nothing actually changed, so setExtensionPerc()'s per-frame
+    // calls don't thrash fixtures when the rounded segment count is
+    // unchanged frame-to-frame.
+    void RebuildShapeIfNeeded() {
+        EnsureBody();
+        int solid = ComputeSolidSegments();
+        if (solid == builtSolidSegments) return;
+        builtSolidSegments = solid;
+
+        for (b2Fixture* f = body->GetFixtureList(); f;) {
+            b2Fixture* next = f->GetNext();
+            body->DestroyFixture(f);
+            f = next;
+        }
+        UpdateTransform();
+        if (solid <= 0 || segmentHeight <= 0.0f) return; // nothing solid yet -- no fixture, matches "fully retracted" having no collision
+
+        b2PolygonShape shape;
+        shape.SetAsBox(segmentWidth * (float)solid * 0.5f, segmentHeight * 0.5f);
+        b2FixtureDef fd;
+        fd.shape = &shape;
+        fd.density = 1.0f;
+        fd.filter.categoryBits = (uint16)collisionCategory;
+        fd.filter.maskBits = (uint16)(categoriesToCollideWith != 0 ? categoriesToCollideWith : 0xFFFF);
+        body->CreateFixture(&fd);
+    }
+
+    ~TelescopeData() {
+        if (body) GetPhysicsWorld().DestroyBody(body);
+    }
+};
+gmType g_telescopeType = -1;
+TelescopeData* ThisTelescope(gmThread* a_thread) { return (TelescopeData*)a_thread->ThisUserCheckType(g_telescopeType); }
+
+int GM_CDECL gmf_telescope_setSegmentWidth(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    t->segmentWidth = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_telescope_setSegmentHeight(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    t->segmentHeight = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_telescope_setNumSegments(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(v, 0, 0);
+    t->numSegments = v;
+    return GM_OK;
+}
+int GM_CDECL gmf_telescope_getNumSegments(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread);
+    a_thread->PushInt(t ? t->numSegments : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_telescope_setNumberOfSolidSegments(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(v, 0, 0);
+    t->numberOfSolidSegments = v;
+    t->numberOfSolidSegmentsExplicit = true;
+    t->RebuildShapeIfNeeded();
+    return GM_OK;
+}
+// getNumberOfSolidSegments() -- the real decompiled body computes this
+// dynamically (iterating a per-segment list, counting how many are
+// currently "solid"), not a plain stored field -- unconfirmable exactly
+// without a real segment/physics model (see this section's own header
+// comment). Real call site LaserTower.gm:1098 reads this purely for a
+// RENDERING loop bound (`numSegmentsToRender=this.telescope.
+// getNumberOfSolidSegments()+1`) and never calls the setter itself,
+// relying entirely on the native computed value -- approximated here as
+// `numSegments * extensionPerc` (how far the telescope has extended is
+// exactly what "how many segments are solid so far" tracks in every real
+// caller, since setExtensionPerc/setNumberOfSolidSegments are always
+// driven by the same extension-animation logic in these entities),
+// clamped to [0, numSegments]. Explicitly NOT a confirmed retail formula --
+// an inferred stand-in for a real per-segment computation this
+// reimplementation doesn't model, clearly worse than fabricating a
+// precise-looking wrong number would be to hide.
+int GM_CDECL gmf_telescope_getNumberOfSolidSegments(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread);
+    a_thread->PushInt(t ? t->ComputeSolidSegments() : 0);
+    return GM_OK;
+}
+// setExtensionPerc(perc) -- confirmed real (EntityBase.c 0x001c8730, a
+// plain float setter forwarded to FUN_001c145c). Real, live call sites
+// (SolidDoor.gm/Stomper.gm/LaserTower.gm's own update() logic) drive the
+// door/laser's visible extension animation every frame -- now also drives
+// the real collision fixture's length via RebuildShapeIfNeeded.
+int GM_CDECL gmf_telescope_setExtensionPerc(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    t->extensionPerc = v;
+    t->RebuildShapeIfNeeded();
+    return GM_OK;
+}
+int GM_CDECL gmf_telescope_setCollisionCategory(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(v, 0, 0);
+    t->collisionCategory = v;
+    t->UpdateFilter();
+    return GM_OK;
+}
+int GM_CDECL gmf_telescope_setCategoriesToCollideWith(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(v, 0, 0);
+    t->categoriesToCollideWith = v;
+    t->UpdateFilter();
+    return GM_OK;
+}
+// setPosition(vector2D) -- confirmed real (EntityBase.c 0x001c89f4). Also
+// repositions the real Box2D body if one already exists (e.g.
+// ThePeopleKettleScream.gm calls this every frame from update(), well
+// after setupPhysics/getBody already created it).
+int GM_CDECL gmf_telescope_setPosition(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1);
+    GetVector2D(*a_thread->GetMachine(), a_thread->Param(0), t->posX, t->posY);
+    t->UpdateTransform();
+    return GM_OK;
+}
+int GM_CDECL gmf_telescope_getPos(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread);
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), t ? t->posX : 0.0f, t ? t->posY : 0.0f));
+    return GM_OK;
+}
+// distance(otherPos) -- plain geometric helper (not itself a decompiled
+// EntityBase.c function -- PhysicsBody's own real `distance` isn't in this
+// file's scope either) added only because getBody() returns this same
+// object (see this section's header comment) and LaserTower.gm:985 chains
+// `.getBody().getPos().distance(this.sensorBody.getPos())` -- a plain
+// Euclidean distance against whatever vector2D is passed, no different
+// from calling it on a real PhysicsBody's own getPos() result.
+int GM_CDECL gmf_telescope_distance(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread);
+    GM_CHECK_NUM_PARAMS(1);
+    float ox = 0, oy = 0;
+    GetVector2D(*a_thread->GetMachine(), a_thread->Param(0), ox, oy);
+    float dx = (t ? t->posX : 0.0f) - ox, dy = (t ? t->posY : 0.0f) - oy;
+    a_thread->PushFloat(std::sqrt(dx * dx + dy * dy));
+    return GM_OK;
+}
+// setupPhysics(pos,dir[,extra]) -- confirmed real call (EntityBase.c
+// 0x001c8408), 2-arg (pos,dir) or 4-arg overload per its own decompiled
+// arg-count dispatch, but the BODY of that dispatch is unconfirmed (see
+// this section's header comment) -- every real corpus call site uses the
+// 2-arg form (LaserDoor.gm/SolidDoor.gm/Stomper.gm/LaserTower.gm/
+// ThePeopleKettleScream.gm all call `this.telescope.setupPhysics(pos,dir)`,
+// none use a 3rd/4th arg), so only that shape is handled: creates the real
+// Box2D body at `pos`, tracks `dir` as the extension axis, and builds the
+// initial fixture (there IS always a currently-solid segment count by this
+// point in every real caller -- extensionPerc/numberOfSolidSegments are
+// set either just before or just after this call in the same constructor).
+int GM_CDECL gmf_telescope_setupPhysics(gmThread* a_thread) {
+    TelescopeData* t = ThisTelescope(a_thread); if (!t) return GM_OK;
+    gmMachine& m = *a_thread->GetMachine();
+    if (a_thread->GetNumParams() >= 1) GetVector2D(m, a_thread->Param(0), t->posX, t->posY);
+    if (a_thread->GetNumParams() >= 2) GetVector2D(m, a_thread->Param(1), t->dirX, t->dirY);
+    t->RebuildShapeIfNeeded();
+    return GM_OK;
+}
+// getBody() -- see this section's header comment for why this returns the
+// SAME telescope object rather than a real PhysicsBody.
+int GM_CDECL gmf_telescope_getBody(gmThread* a_thread) {
+    const gmVariable* self = a_thread->GetThis();
+    a_thread->Push(self ? *self : gmVariable::s_null);
+    return GM_OK;
+}
+// saveState()/loadState() -- confirmed real, and confirmed GENUINE no-ops
+// even in retail (EntityBase.c 0x001c8698/0x001c86a0: both decompile to a
+// bare `return 0;`, no body at all) -- not an approximation, this IS the
+// real behavior.
+int GM_CDECL gmf_telescope_saveState(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_telescope_loadState(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+
+gmFunctionEntry s_telescopeLib[] = {
+    {"setSegmentWidth", gmf_telescope_setSegmentWidth, nullptr},
+    {"setSegmentHeight", gmf_telescope_setSegmentHeight, nullptr},
+    {"setNumSegments", gmf_telescope_setNumSegments, nullptr},
+    {"getNumSegments", gmf_telescope_getNumSegments, nullptr},
+    {"setNumberOfSolidSegments", gmf_telescope_setNumberOfSolidSegments, nullptr},
+    {"getNumberOfSolidSegments", gmf_telescope_getNumberOfSolidSegments, nullptr},
+    {"setExtensionPerc", gmf_telescope_setExtensionPerc, nullptr},
+    {"setCollisionCategory", gmf_telescope_setCollisionCategory, nullptr},
+    {"setCategoriesToCollideWith", gmf_telescope_setCategoriesToCollideWith, nullptr},
+    {"setPosition", gmf_telescope_setPosition, nullptr},
+    {"getPos", gmf_telescope_getPos, nullptr},
+    {"distance", gmf_telescope_distance, nullptr},
+    {"setupPhysics", gmf_telescope_setupPhysics, nullptr},
+    {"getBody", gmf_telescope_getBody, nullptr},
+    {"saveState", gmf_telescope_saveState, nullptr},
+    {"loadState", gmf_telescope_loadState, nullptr},
+};
+void GM_CDECL TelescopeGCDestruct(gmMachine*, gmUserObject* a_object) {
+    delete (TelescopeData*)a_object->m_user;
+}
+// addTelescope() -- confirmed real (EntityBase.c 0x001c6bb0): allocates and
+// returns a new telescope object; real call sites always keep exactly one
+// per entity (`this.telescope=this.addTelescope();`), so no per-entity
+// list needs tracking here beyond the object itself.
+int GM_CDECL gmf_entity_addTelescope(gmThread* a_thread) {
+    a_thread->PushNewUser(new TelescopeData(), g_telescopeType);
     return GM_OK;
 }
 
@@ -453,6 +853,34 @@ int GM_CDECL gmf_entity_isType(gmThread* a_thread) {
     a_thread->PushInt(result ? 1 : 0);
     return GM_OK;
 }
+// 0x0009b59c): compares THIS entity's own __typeId-shaped field against
+// the ARGUMENT entity's, both read off the same offset -- i.e. a plain
+// `this.getType()==other.getType()` shortcut, null-safe on a non-entity/
+// null argument (the decompiled body reads a null pointer's own field as
+// 0, never matching a real type id). Real, live call site (Main.gm:10092,
+// the level-load duplicate-entity-detector's `if (e.isSameType(ee))`
+// pairwise scan) -- was entirely unbound, so this comparison always fell
+// back to null-call leniency (silently false) instead of ever finding a
+// real duplicate pair, on top of the sibling getAllEntities() bug (see
+// PushEntityListIterator's header comment) that made the surrounding loop
+// not even run at all until that fix.
+int GM_CDECL gmf_entity_isSameType(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    gmMachine& m = *a_thread->GetMachine();
+    gmVariable arg = a_thread->Param(0);
+    bool result = false;
+    if (arg.m_type == GM_TABLE) {
+        gmTableObject* other = (gmTableObject*)m.GetObject(arg.m_value.m_ref);
+        gmVariable myType = self->Get(&m, "__typeId");
+        gmVariable otherType = other ? other->Get(&m, "__typeId") : gmVariable::s_null;
+        result = (myType.m_type == GM_INT && otherType.m_type == GM_INT &&
+                  myType.m_value.m_int == otherType.m_value.m_int);
+    }
+    a_thread->PushInt(result ? 1 : 0);
+    return GM_OK;
+}
 // callMethod(name, ...args) -- confirmed real (Ghidra: retail FUN_0043e1f0
 // @ 0x0043e1f0 on the Entity table, FUN_0043f620 on the Particle table --
 // same generic "call a script method on self by name" shape, an internal
@@ -521,6 +949,59 @@ int GM_CDECL gmf_entity_getMainBody(gmThread* a_thread) {
     gmVariable pd = self->Get(&m, "PhysicsData");
     if (pd.m_type == GM_NULL) pd = self->Get(&m, "__physicsData");
     a_thread->Push(GetPhysicsDataMainBodyVar(m, pd));
+    return GM_OK;
+}
+// Shared position lookup for the getVectorTo/getDistanceTo/-Normalized
+// family below -- same PhysicsData-AABB-centre-with-configureData-point-
+// fallback approach gmf_entity_isInView/isInGameBoard/EntityOverlapsBox
+// (further down this file) already use, so an entity with no physics body
+// (a spawn point, a trigger) still participates as a real point.
+bool GetEntityWorldPos(gmMachine& a_machine, gmTableObject* a_entity, float& a_outX, float& a_outY) {
+    if (!a_entity) return false;
+    float minX, minY, maxX, maxY;
+    gmVariable pdVar = a_entity->Get(&a_machine, "PhysicsData");
+    if (pdVar.m_type == GM_NULL) pdVar = a_entity->Get(&a_machine, "__physicsData");
+    if (GetPhysicsDataAABB(a_machine, pdVar, minX, minY, maxX, maxY)) {
+        a_outX = (minX + maxX) * 0.5f;
+        a_outY = (minY + maxY) * 0.5f;
+        return true;
+    }
+    gmVariable cd = a_entity->Get(&a_machine, "configureData");
+    if (cd.m_type != GM_TABLE) return false;
+    gmTableObject* cdt = (gmTableObject*)a_machine.GetObject(cd.m_value.m_ref);
+    gmVariable xv = cdt->Get(&a_machine, "posX"), yv = cdt->Get(&a_machine, "posY");
+    if (xv.m_type != GM_FLOAT && xv.m_type != GM_INT) return false;
+    auto tofloat = [](const gmVariable& v) -> float {
+        return v.m_type == GM_FLOAT ? v.m_value.m_float : (float)v.m_value.m_int;
+    };
+    a_outX = tofloat(xv);
+    a_outY = tofloat(yv);
+    return true;
+}
+// 0x0009ba1c: reads self and `other`'s own native position fields, calls
+// FUN_000c0c40, returns a vector2D). Real, live call sites (EntityBase.gm:
+// 1897/5896's death/knockback logic: `dirToFling=killerThing.
+// getVectorToNormalized(player);`, feeding the direction the player flies
+// off in when killed) -- was entirely unbound, so `dirToFling` silently
+// stayed null every time a kill didn't already supply an explicit fling
+// direction, on top of aborting checkDeath()'s caller outright under
+// GE3_STRICT=halt. Implemented as a real self->other normalized direction
+// using the same position source getMainBody/isInView/isInGameBoard
+// already established for this file's entity handles.
+int GM_CDECL gmf_entity_getVectorToNormalized(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    gmMachine& m = *a_thread->GetMachine();
+    gmVariable otherVar = a_thread->Param(0);
+    gmTableObject* other = (otherVar.m_type == GM_TABLE) ? (gmTableObject*)m.GetObject(otherVar.m_value.m_ref) : nullptr;
+    float sx = 0, sy = 0, ox = 0, oy = 0;
+    GetEntityWorldPos(m, self, sx, sy);
+    GetEntityWorldPos(m, other, ox, oy);
+    float dx = ox - sx, dy = oy - sy;
+    float len = std::sqrt(dx * dx + dy * dy);
+    if (len > 0.0001f) { dx /= len; dy /= len; } else { dx = 0.0f; dy = 0.0f; }
+    a_thread->Push(MakeVector2D(m, dx, dy));
     return GM_OK;
 }
 // setIsAutoRemove/setIsAutoRemoveStranded/setIsInvisible: confirmed real
@@ -1035,6 +1516,94 @@ int GM_CDECL gmf_entity_isGetting(gmThread* a_thread) {
     a_thread->PushInt(0);
     return GM_OK;
 }
+// EntityBase.c 0x001c69e0/0x001c6a60: plain int field getter/setter, same
+// shape as getNumOffScreensAudible above). Real, live call site
+// (Main.gm's KEYBOARD_2 debug hotkey: `proc.setup(e.getTypeName(),
+// e.getMixerID());`, launching the Mixer editor tool -- see Mixer.gm --
+// for whichever entity the touch-edit cursor is over) -- getMixerID was
+// entirely unbound, so that debug tool crashed instead of opening. Default
+// -1 (unset/no mixer), matching this file's established "real stateful
+// field, defaults to whatever an entity that never calls the setter would
+// see" convention (e.g. isEditable's own default-true note).
+int GM_CDECL gmf_entity_getMixerID(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) { a_thread->PushInt(-1); return GM_OK; }
+    gmVariable v = self->Get(a_thread->GetMachine(), "__mixerID");
+    a_thread->PushInt(v.m_type == GM_INT ? v.m_value.m_int : -1);
+    return GM_OK;
+}
+int GM_CDECL gmf_entity_setMixerID(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(id, 0, -1);
+    self->Set(a_thread->GetMachine(), "__mixerID", gmVariable((gmint)id));
+    return GM_OK;
+}
+// EntityBase.c 0x001c6cf4/0x001c6d74: plain float field getter/setter).
+// Not a live script definition despite appearing next to `t.setLimitVolPerc
+// =function(f){this.limitVolPerc=f;}` in EntityBase.gm -- that whole block
+// is dead reference script sitting inside a `/* C++ ... */` comment
+// (retail's own note that this moved to native code, same pattern as
+// DrawSauceBaseEntityNative/getScreenWidth elsewhere in this codebase),
+// confirmed real and LIVE at EntityBase.gm:2431's actual playSound() body:
+// `return Audio.playSound(soundfile,note,gt,pan,vol*ap*this.
+// getLimitVolPerc());` -- was entirely unbound, so every real playSound()
+// call on an EntityBase-family entity crashed multiplying by a
+// null-call-lenient null. Default 1.0 -- confirmed exact real default via
+// the SAME commented reference block a few hundred lines later
+// (EntityBase.gm:4205: `//C++ t.limitVolPerc=1;`).
+int GM_CDECL gmf_entity_getLimitVolPerc(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) { a_thread->PushFloat(1.0f); return GM_OK; }
+    gmVariable v = self->Get(a_thread->GetMachine(), "__limitVolPerc");
+    a_thread->PushFloat(v.m_type == GM_FLOAT ? v.m_value.m_float : (v.m_type == GM_INT ? (float)v.m_value.m_int : 1.0f));
+    return GM_OK;
+}
+int GM_CDECL gmf_entity_setLimitVolPerc(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(f, 0, 1.0f);
+    self->Set(a_thread->GetMachine(), "__limitVolPerc", gmVariable(f));
+    return GM_OK;
+}
+// decompiled body is `!isBeingEdited() && !isPlacing() &&
+// GameSystem-shouldUpdateEntities-equivalent-global`, both flags already
+// real state on this handle (isBeingEdited/isPlacing above) and the
+// existing GameSystemState::shouldUpdateEntities flag (game_system_state.h
+// -- confirmed real, but its own header comment notes "ProcessManager
+// doesn't consult this yet"; this is the first real consumer). Real, live
+// call site (EntityPacks/Minimal/SingleDirLaserTurret.gm:519's
+// onMusicTrigger(): `if (!this.isOkToRun()) { return; }`) -- was entirely
+// unbound, so that turret's music-triggered firing logic never ran at all
+// (null-call-lenient false is falsy, so `!false`... wait: null is falsy,
+// so `!null` is truthy in GM, meaning the ACTUAL prior behavior was the
+// turret firing unconditionally regardless of edit/placing state -- this
+// makes it correctly stop while being placed/edited in the level editor,
+// matching every other real isBeingEdited/isPlacing consumer in this file).
+int GM_CDECL gmf_entity_isOkToRun(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) { a_thread->PushInt(1); return GM_OK; }
+    gmMachine& m = *a_thread->GetMachine();
+    gmVariable beingEdited = self->Get(&m, "__beingEdited");
+    gmVariable placing = self->Get(&m, "__placing");
+    bool ok = !(beingEdited.m_type == GM_INT && beingEdited.m_value.m_int != 0) &&
+              !(placing.m_type == GM_INT && placing.m_value.m_int != 0) &&
+              GetEngineContext().gameSystem.shouldUpdateEntities;
+    a_thread->PushInt(ok ? 1 : 0);
+    return GM_OK;
+}
+// 0x001c63dc), real live call sites (EntityBase.gm:3502/3510's
+// fadeOutVoiceSync/stopVoiceSync, GameStuff/GoombaCritterLoopPlayerBase.gm
+// :147) -- relinquishes this entity's ownership of an audio voice so it can
+// keep fading out independently after the entity itself goes away. No
+// per-voice ownership tracking exists in this reimplementation's audio
+// state (see audio_bindings.h) -- genuine no-op, consumed rather than left
+// as a null-call that would abort fadeOutVoiceSync before its own
+// Audio.fadeOutVoice(...) call right after ever ran.
+int GM_CDECL gmf_entity_disownVoice(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
 // cppDie()/cppRebirth() -- confirmed real, pure-native hooks (the "cpp"
 // prefix matches this corpus's established convention for methods with no
 // script-side definition anywhere, e.g. constructorSetNoPhysics/
@@ -1331,6 +1900,7 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "getTypeName", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getTypeName)));
     a_table->Set(&a_machine, "getPhysicsData", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getPhysicsData)));
     a_table->Set(&a_machine, "getMainBody", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getMainBody)));
+    a_table->Set(&a_machine, "getVectorToNormalized", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getVectorToNormalized)));
     a_table->Set(&a_machine, "setIsEnabled", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setIsEnabled)));
     a_table->Set(&a_machine, "isEnabled", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isEnabled)));
     a_table->Set(&a_machine, "setIsAutoRemove", gmVariable(a_machine.AllocFunctionObject(gmf_entity_noop)));
@@ -1344,6 +1914,7 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "constructorSetManual", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetManual)));
     a_table->Set(&a_machine, "constructorSetNoPhysicsUpdate", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetNoPhysicsUpdate)));
     a_table->Set(&a_machine, "clearTelescopes", gmVariable(a_machine.AllocFunctionObject(gmf_entity_clearTelescopes)));
+    a_table->Set(&a_machine, "addTelescope", gmVariable(a_machine.AllocFunctionObject(gmf_entity_addTelescope)));
     a_table->Set(&a_machine, "isBeingEdited", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isBeingEdited)));
     a_table->Set(&a_machine, "setIsBeingEdited", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setIsBeingEdited)));
     a_table->Set(&a_machine, "isPlacing", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isPlacing)));
@@ -1365,6 +1936,12 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "isPlayerRelated", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isPlayerRelated)));
     a_table->Set(&a_machine, "setEditSensorBox", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setEditSensorBox)));
     a_table->Set(&a_machine, "getMixerParams", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getMixerParams)));
+    a_table->Set(&a_machine, "getMixerID", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getMixerID)));
+    a_table->Set(&a_machine, "setMixerID", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setMixerID)));
+    a_table->Set(&a_machine, "getLimitVolPerc", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getLimitVolPerc)));
+    a_table->Set(&a_machine, "setLimitVolPerc", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setLimitVolPerc)));
+    a_table->Set(&a_machine, "isOkToRun", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isOkToRun)));
+    a_table->Set(&a_machine, "disownVoice", gmVariable(a_machine.AllocFunctionObject(gmf_entity_disownVoice)));
     a_table->Set(&a_machine, "setIsSauceBase", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setIsSauceBase)));
     a_table->Set(&a_machine, "redrawSauceBase", gmVariable(a_machine.AllocFunctionObject(gmf_entity_redrawSauceBase)));
     a_table->Set(&a_machine, "cppDie", gmVariable(a_machine.AllocFunctionObject(gmf_entity_cppDie)));
@@ -1391,6 +1968,7 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "isInView", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isInView)));
     a_table->Set(&a_machine, "tagForDeletion", gmVariable(a_machine.AllocFunctionObject(gmf_entity_tagForDeletion)));
     a_table->Set(&a_machine, "isType", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isType)));
+    a_table->Set(&a_machine, "isSameType", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isSameType)));
     a_table->Set(&a_machine, "callMethod", gmVariable(a_machine.AllocFunctionObject(gmf_callMethodByName)));
     a_table->Set(&a_machine, "isInGameBoard", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isInGameBoard)));
     a_table->Set(&a_machine, "setIsBoundedToGameBoard", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setIsBoundedToGameBoard)));
@@ -1748,34 +2326,209 @@ int GM_CDECL gmf_EM_setEntityUID(gmThread* a_thread) {
     }
     return GM_OK;
 }
-int GM_CDECL gmf_EM_getAllEntities(gmThread* a_thread) {
-    gmMachine& m = *a_thread->GetMachine();
-    gmTableObject* out = m.AllocTableObject();
-    int i = 0;
-    for (auto& e : Entities().entities) out->Set(&m, i++, e.second);
-    a_thread->PushTable(out);
+// --- real ENTITYLISTREFCONTAINER-shaped entity-list iterator -------------
+// Every EntityManager.getAllXXXEntities()/getEntitiesNear()/
+// Entity.c: getAllEntities 0x000986dc, getAllManualEntities 0x00098ae0,
+// getAllNonManualEntities 0x00098c04, getAllPlayerEntities 0x00098e28,
+// getEntitiesRoughlyWithin 0x000994a8, getEntitiesNear 0x00099740) ends
+// its body allocating the SAME 0x14-byte object via the SAME FUN_0031ad28
+// constructor call as the standalone ENTITYLISTREFCONTAINER() native type
+// these returns a real linked-list container, not a plain array/table.
+// Confirmed by usage too: EVERY real call site across the whole corpus
+// (300+, e.g. game_data/Platformer/Main.gm:1399/2759/3070/...,
+// EntityBase.gm:330/369/1908/3116/5625/5657) walks the result with
+// `for(it=EntityManager.getAllEntities();it.isValid();it.goToNext())`, the
+// exact same idiom PhysicsData.getCollidingEntities() already uses (see
+// physics_body_bindings.cpp's own EntityIterData/g_entityIterType). Before
+// this fix, gmf_EM_getAllEntities/getAllPlayerEntities pushed a bare
+// gm_table() -- which has no isValid()/goToNext()/get() at all -- so EVERY
+// one of those hundreds of real `it.isValid()` calls was either a hard
+// "getdot failed" (GE3_STRICT=halt) or a silent null-call-leniency false,
+// meaning the loop body NEVER ran, for the entire life of this engine:
+// level-load's own per-screen entity sort (Main.gm:6363), checkpoint
+// music-trigger registration (Main.gm:7358), "reset the level"
+// (Main.gm:8216's `e.reset()` sweep), death cleanup (Main.gm:9119's
+// PlayerDeathBits sweep), and the trophy/wizard-mode entity sweeps
+// (Main.gm:10143/11114) were all silently doing nothing. Mirrors
+// physics_body_bindings.cpp's own EntityIterData shape exactly, kept as a
+// separate type here since that one's file-local (anonymous namespace) and
+// this file owns EntityManager, not PhysicsData.
+struct EntityListIterData {
+    std::vector<gmVariable> entities;
+    size_t index = 0;
+};
+gmType g_entityListIterType = -1;
+int GM_CDECL gmf_entityListIter_isValid(gmThread* a_thread) {
+    EntityListIterData* it = (EntityListIterData*)a_thread->ThisUserCheckType(g_entityListIterType);
+    a_thread->PushInt((it && it->index < it->entities.size()) ? 1 : 0);
     return GM_OK;
 }
-// The manual/simulating/near/within distinctions below aren't tracked by
-// this registry (no physics/manual-update-flag concept exists yet) --
-// approximated as "no entities match" rather than fabricating a category
-// membership we have no real signal for; getAllPlayerEntities is the one
-// exception since __isPlayer (set by createEntityAsPlayer above) is real
-// tracked state.
-int GM_CDECL gmf_EM_emptyEntityTable(gmThread* a_thread) {
-    a_thread->PushTable(a_thread->GetMachine()->AllocTableObject());
+int GM_CDECL gmf_entityListIter_goToNext(gmThread* a_thread) {
+    EntityListIterData* it = (EntityListIterData*)a_thread->ThisUserCheckType(g_entityListIterType);
+    if (it && it->index < it->entities.size()) ++it->index;
+    return GM_OK;
+}
+int GM_CDECL gmf_entityListIter_get(gmThread* a_thread) {
+    EntityListIterData* it = (EntityListIterData*)a_thread->ThisUserCheckType(g_entityListIterType);
+    if (it && it->index < it->entities.size()) a_thread->Push(it->entities[it->index]);
+    else a_thread->PushNull();
+    return GM_OK;
+}
+gmFunctionEntry s_entityListIterLib[] = {
+    {"isValid", gmf_entityListIter_isValid, nullptr},
+    {"goToNext", gmf_entityListIter_goToNext, nullptr},
+    {"get", gmf_entityListIter_get, nullptr},
+    {"getEntity", gmf_entityListIter_get, nullptr},
+};
+void GM_CDECL EntityListIterGCDestruct(gmMachine*, gmUserObject* a_object) {
+    delete (EntityListIterData*)a_object->m_user;
+}
+void PushEntityListIterator(gmThread* a_thread, std::vector<gmVariable> a_entities) {
+    EntityListIterData* it = new EntityListIterData();
+    it->entities = std::move(a_entities);
+    a_thread->PushNewUser(it, g_entityListIterType);
+}
+
+// Real per-entity AABB-vs-query-box overlap test backing getEntitiesNear/
+// getEntitiesRoughlyWithin below -- same PhysicsData-AABB-with-
+// configureData-point-fallback approach gmf_entity_isInView/isInGameBoard
+// already use elsewhere in this file, so an entity with no physics body
+// (a spawn point, a trigger) still participates as a zero-size point.
+bool EntityOverlapsBox(gmMachine& a_machine, gmTableObject* a_entity, float a_qMinX, float a_qMinY, float a_qMaxX, float a_qMaxY) {
+    float minX = 0, minY = 0, maxX = 0, maxY = 0;
+    gmVariable pdVar = a_entity->Get(&a_machine, "PhysicsData");
+    if (pdVar.m_type == GM_NULL) pdVar = a_entity->Get(&a_machine, "__physicsData");
+    if (!GetPhysicsDataAABB(a_machine, pdVar, minX, minY, maxX, maxY)) {
+        gmVariable cd = a_entity->Get(&a_machine, "configureData");
+        if (cd.m_type != GM_TABLE) return false; // no position signal at all
+        gmTableObject* cdt = (gmTableObject*)a_machine.GetObject(cd.m_value.m_ref);
+        gmVariable xv = cdt->Get(&a_machine, "posX"), yv = cdt->Get(&a_machine, "posY");
+        auto tofloat = [](const gmVariable& v) -> float {
+            if (v.m_type == GM_FLOAT) return v.m_value.m_float;
+            if (v.m_type == GM_INT) return (float)v.m_value.m_int;
+            return 0.0f;
+        };
+        minX = maxX = tofloat(xv);
+        minY = maxY = tofloat(yv);
+    }
+    return !(maxX < a_qMinX || minX > a_qMaxX || maxY < a_qMinY || minY > a_qMaxY);
+}
+
+// getAllEntities([typeName]) -- confirmed real 0/1-arg dispatch (Entity.c
+// 0x000986dc: 0 args = everything, 1 string arg = filter by type name via
+// FUN_000c3c14, the SAME by-name lookup ENTITY_GetType/isType already back
+// via InternTypeId here). The 1-arg form was previously accepted but
+// SILENTLY IGNORED (every real filtered call, e.g. Main.gm:9119's
+// `getAllEntities("Platformer_PlayerDeathBits")` or EntityBase.gm:5657's
+// `getAllEntities("...Checkpoint")`, returned literally every entity in the
+// level instead of just the requested type) -- on top of the missing-
+// iterator bug above, so both bugs compounded (returned the wrong SET,
+// wrapped in a shape callers couldn't even walk).
+int GM_CDECL gmf_EM_getAllEntities(gmThread* a_thread) {
+    gmMachine& m = *a_thread->GetMachine();
+    bool hasFilter = false;
+    std::string typeName;
+    if (a_thread->GetNumParams() >= 1 && a_thread->Param(0).m_type == GM_STRING) {
+        char buf[256];
+        const char* s = a_thread->Param(0).AsString(&m, buf, sizeof(buf));
+        if (s) { hasFilter = true; typeName = s; }
+    }
+    std::vector<gmVariable> matches;
+    for (auto& e : Entities().entities) {
+        if (!hasFilter) { matches.push_back(e.second); continue; }
+        gmTableObject* t = (gmTableObject*)m.GetObject(e.second.m_value.m_ref);
+        gmVariable tn = t->Get(&m, "__typeName");
+        if (tn.m_type != GM_STRING) continue;
+        char buf[256];
+        const char* s = tn.AsString(&m, buf, sizeof(buf));
+        if (s && typeName == s) matches.push_back(e.second);
+    }
+    PushEntityListIterator(a_thread, std::move(matches));
+    return GM_OK;
+}
+// getAllNonManualEntities() -- confirmed real (Entity.c 0x00098c04), heavily
+// used for level-reset/cleanup sweeps (Main.gm:8216's `e.reset()` "reset
+// back to configureData" pass, Main.gm:10726's kill-bodies-on-screen-change
+// pass, Main.gm:11114's wizard-mode-toggle reset pass, Main.gm:7358's
+// checkpoint music-trigger registration). This registry doesn't track a
+// separate manual/non-manual split (constructorSetManual is a genuine
+// no-op, see its own header comment) -- was returning an always-EMPTY
+// table, which is inconsistent with this SAME function table's own
+// getNumNonManualEntities entry two lines below ("registry doesn't
+// distinguish, so non-manual == everything"): the count said N, the
+// iterator gave 0, so every one of the sweeps above silently processed
+// nothing despite the level clearly having entities. Matches
+// getNumNonManualEntities's own established convention instead.
+int GM_CDECL gmf_EM_getAllNonManualEntities(gmThread* a_thread) {
+    std::vector<gmVariable> all;
+    for (auto& e : Entities().entities) all.push_back(e.second);
+    PushEntityListIterator(a_thread, std::move(all));
+    return GM_OK;
+}
+// getAllNonSimulatingEntities() -- no "simulating" (on-screen/active
+// physics) distinction tracked by this registry either (see
+// isOnCurrentScreen's own header comment: always "on screen"), so unlike
+// non-manual there's no sibling getNum* convention to match -- stays an
+// honest empty result, just now in the correct iterator SHAPE so
+// `it.isValid()` returns real false instead of crashing/null-calling.
+int GM_CDECL gmf_EM_emptyEntityIterator(gmThread* a_thread) {
+    PushEntityListIterator(a_thread, {});
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getAllPlayerEntities(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
-    gmTableObject* out = m.AllocTableObject();
-    int i = 0;
+    std::vector<gmVariable> matches;
     for (auto& e : Entities().entities) {
         gmTableObject* t = (gmTableObject*)m.GetObject(e.second.m_value.m_ref);
         gmVariable isPlayer = t->Get(&m, "__isPlayer");
-        if (isPlayer.m_type == GM_INT && isPlayer.m_value.m_int != 0) out->Set(&m, i++, e.second);
+        if (isPlayer.m_type == GM_INT && isPlayer.m_value.m_int != 0) matches.push_back(e.second);
     }
-    a_thread->PushTable(out);
+    PushEntityListIterator(a_thread, std::move(matches));
+    return GM_OK;
+}
+// getEntitiesRoughlyWithin(minx,miny,maxx,maxy) -- confirmed real (Entity.c
+// 0x000994a8: rejects an inverted box, minx>maxx or miny>maxy, with a hard
+// exception return; otherwise an AABB-query container exactly like
+// getAllEntities above). getEntitiesNear(x,y,rx,ry) -- confirmed real
+// (Entity.c 0x00099740, same container shape) -- every corpus call site
+// (EntityBase.gm:330/3116/5625: `getEntitiesNear(pos.x,pos.y,r,r)`) passes
+// a centre point plus half-extents, so it's the same AABB overlap test as
+// getEntitiesRoughlyWithin, just parameterized as (centre,radius) instead
+// of raw (min,max) corners. Both were previously always-empty (see
+// gmf_EM_emptyEntityIterator's own scope note) -- real per-entity AABB
+// overlap test now, via the same PhysicsData-AABB/configureData-point
+// fallback already used by isInView/isInGameBoard.
+int GM_CDECL gmf_EM_getEntitiesRoughlyWithin(gmThread* a_thread) {
+    gmMachine& m = *a_thread->GetMachine();
+    GM_CHECK_NUM_PARAMS(4);
+    GM_FLOAT_OR_INT_PARAM(minX, 0, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(minY, 1, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(maxX, 2, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(maxY, 3, 0.0f);
+    if (minY > maxY || minX > maxX) return GM_EXCEPTION; // matches the real decompiled body's own inverted-box rejection
+    std::vector<gmVariable> matches;
+    for (auto& e : Entities().entities) {
+        if (e.second.m_type != GM_TABLE) continue;
+        gmTableObject* t = (gmTableObject*)m.GetObject(e.second.m_value.m_ref);
+        if (t && EntityOverlapsBox(m, t, minX, minY, maxX, maxY)) matches.push_back(e.second);
+    }
+    PushEntityListIterator(a_thread, std::move(matches));
+    return GM_OK;
+}
+int GM_CDECL gmf_EM_getEntitiesNear(gmThread* a_thread) {
+    gmMachine& m = *a_thread->GetMachine();
+    GM_CHECK_NUM_PARAMS(4);
+    GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(y, 1, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(rx, 2, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(ry, 3, 0.0f);
+    std::vector<gmVariable> matches;
+    for (auto& e : Entities().entities) {
+        if (e.second.m_type != GM_TABLE) continue;
+        gmTableObject* t = (gmTableObject*)m.GetObject(e.second.m_value.m_ref);
+        if (t && EntityOverlapsBox(m, t, x - rx, y - ry, x + rx, y + ry)) matches.push_back(e.second);
+    }
+    PushEntityListIterator(a_thread, std::move(matches));
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getNumEntities(gmThread* a_thread) {
@@ -1849,10 +2602,10 @@ gmFunctionEntry s_entityManagerLib[] = {
     {"isEntityIDValid", gmf_EM_isEntityIDValid, nullptr},
     {"setEntityUID", gmf_EM_setEntityUID, nullptr},
     {"getAllEntities", gmf_EM_getAllEntities, nullptr},
-    {"getAllNonManualEntities", gmf_EM_emptyEntityTable, nullptr},
-    {"getAllNonSimulatingEntities", gmf_EM_emptyEntityTable, nullptr},
-    {"getEntitiesNear", gmf_EM_emptyEntityTable, nullptr},
-    {"getEntitiesRoughlyWithin", gmf_EM_emptyEntityTable, nullptr},
+    {"getAllNonManualEntities", gmf_EM_getAllNonManualEntities, nullptr},
+    {"getAllNonSimulatingEntities", gmf_EM_emptyEntityIterator, nullptr},
+    {"getEntitiesNear", gmf_EM_getEntitiesNear, nullptr},
+    {"getEntitiesRoughlyWithin", gmf_EM_getEntitiesRoughlyWithin, nullptr},
     {"getAllPlayerEntities", gmf_EM_getAllPlayerEntities, nullptr},
     {"getNumEntities", gmf_EM_getNumEntities, nullptr},
     {"getRandomEntity", gmf_EM_getRandomEntity, nullptr},
@@ -2534,6 +3287,9 @@ void RegisterEntityBindings(gmMachine& a_machine) {
     g_mixerParamsType = a_machine.CreateUserType("MixerParams");
     a_machine.RegisterTypeLibrary(g_mixerParamsType, s_mixerParamsLib, sizeof(s_mixerParamsLib) / sizeof(s_mixerParamsLib[0]));
     a_machine.RegisterUserCallbacks(g_mixerParamsType, nullptr, MixerParamsGCDestruct, nullptr);
+    g_telescopeType = a_machine.CreateUserType("Telescope");
+    a_machine.RegisterTypeLibrary(g_telescopeType, s_telescopeLib, sizeof(s_telescopeLib) / sizeof(s_telescopeLib[0]));
+    a_machine.RegisterUserCallbacks(g_telescopeType, nullptr, TelescopeGCDestruct, nullptr);
     a_machine.RegisterLibraryFunction("ENTITYBASE_GetMixerParams", gmf_ENTITYBASE_GetMixerParams);
     a_machine.RegisterLibraryFunction("ENTITY_GetMixerIDFromType", gmf_ENTITY_GetMixerIDFromType);
     a_machine.RegisterLibraryFunction("GAME_CalculateFillVerts", gmf_GAME_CalculateFillVerts);
@@ -2546,6 +3302,14 @@ void RegisterEntityBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("GAME_SetIsUsingSelectionFragmentProgram", gmf_GAME_SetIsUsingSelectionFragmentProgram);
     a_machine.RegisterLibraryFunction("ENTITYLISTREFCONTAINER", gmf_ENTITYLISTREFCONTAINER);
     a_machine.RegisterLibraryFunction("INTLISTREFCONTAINER", gmf_INTLISTREFCONTAINER);
+
+    // Real ENTITYLISTREFCONTAINER-shaped iterator every EntityManager.
+    // getAllXXXEntities()/getEntitiesNear()/getEntitiesRoughlyWithin() call
+    // returns -- see PushEntityListIterator's own header comment for why
+    // this replaced a bare gm_table().
+    g_entityListIterType = a_machine.CreateUserType("EntityListIterator");
+    a_machine.RegisterTypeLibrary(g_entityListIterType, s_entityListIterLib, sizeof(s_entityListIterLib) / sizeof(s_entityListIterLib[0]));
+    a_machine.RegisterUserCallbacks(g_entityListIterType, nullptr, EntityListIterGCDestruct, nullptr);
 
     a_machine.RegisterLibrary(s_entityManagerLib, sizeof(s_entityManagerLib) / sizeof(s_entityManagerLib[0]), "EntityManager");
 

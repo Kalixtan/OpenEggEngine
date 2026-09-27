@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
+#include <cstdio>
 
 // ---------------------------------------------------------------------
 // citations on each binding below) plus two direct Ghidra cross-references
@@ -35,7 +36,6 @@ struct AudioState {
     std::unordered_map<int, VoiceState> voices;
     std::unordered_set<std::string> loadedSounds;
     int nextVoiceId = 1;
-    int nextEffectChainId = 1;
     float masterVolume = 1.0f;
     float musicVolume = 1.0f;
     float sfxVolume = 1.0f;
@@ -277,9 +277,8 @@ int GM_CDECL gmf_getVoicePosition(gmThread* a_thread) {
     a_thread->PushInt(v ? v->positionMs : 0);
     return GM_OK;
 }
-// Audio.getVoiceLength(voice)/getSoundLength(path) -- confirmed real names
-// (0x0008681c/0x000868d4); no real audio decode to measure an actual
-// duration from -- 0 is an honest "unknown", not a fabricated number.
+// Audio.getFrequencyMultiplier() -- no real audio decode/mixer to read an
+// actual value from -- 0 is an honest "unknown", not a fabricated number.
 int GM_CDECL gmf_zeroFloat(gmThread* a_thread) { a_thread->PushFloat(0.0f); return GM_OK; }
 int GM_CDECL gmf_setVoiceLoop(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
@@ -295,17 +294,61 @@ int GM_CDECL gmf_setVoiceLoopCount(gmThread* a_thread) {
     if (VoiceState* v = FindVoice(voice)) v->loopCount = count;
     return GM_OK;
 }
-// Audio.getAllVoices() -- confirmed real, 0x00086c70 (returns a native
-// ref-container object this engine doesn't model, see NATIVE_TYPES.md's
-// ENTITYLISTREFCONTAINER-family note) -- a plain sequential-int-keyed GM
-// table of currently tracked voice ids works the same way for
-// foreach/tableCount, same convention as GameSystem.getAllProcesses().
+// Audio.getAllVoices() -- confirmed real, 0x00086c70: pushes a value
+// type-tagged DAT_0043c3a8, the same ref-container type tag Sequencer.
+// getAllTriggers uses (TYPES.md's INTLISTREFCONTAINER family) -- walked
+// with isValid()/get()/goToNext(), NOT foreach/tableCount. Confirmed live:
+// PauseProcess.gm's pause-menu constructor (`for(it=Audio.getAllVoices();
+// it.isValid();it.goToNext()){local vid=it.get();
+// if(!Audio.isVoicePaused(vid)){this.voiceList.pushBack(vid);
+// Audio.setVoicePause(vid,true);}}`) pauses every active voice when the
+// game pauses and restores them on unpause -- a plain indexed table (this
+// engine's previous return value, no isValid/get/goToNext at all) null-
+// called on the very first isValid() check, so pausing the game silently
+// paused NO voices and the restore list on unpause stayed empty.
 int GM_CDECL gmf_getAllVoices(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
-    gmTableObject* table = m.AllocTableObject();
+    gmTableObject* list = m.AllocTableObject();
     int i = 0;
-    for (auto& kv : State().voices) table->Set(&m, i++, gmVariable((gmint)kv.first));
-    a_thread->PushTable(table);
+    for (auto& kv : State().voices) list->Set(&m, i++, gmVariable((gmint)kv.first));
+    gmTableObject* it = m.AllocTableObject();
+    it->Set(&m, "__list", gmVariable(list));
+    it->Set(&m, "__idx", gmVariable((gmint)0));
+    it->Set(&m, "isValid", gmVariable(m.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            gmMachine& mm = *a_thread->GetMachine();
+            gmVariable listVar = self->Get(&mm, "__list");
+            gmVariable idxVar = self->Get(&mm, "__idx");
+            int idx = (idxVar.m_type == GM_INT) ? idxVar.m_value.m_int : 0;
+            int count = (listVar.m_type == GM_TABLE) ? ((gmTableObject*)mm.GetObject(listVar.m_value.m_ref))->Count() : 0;
+            a_thread->PushInt(idx < count ? 1 : 0);
+            return GM_OK;
+        })));
+    it->Set(&m, "get", gmVariable(m.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            gmMachine& mm = *a_thread->GetMachine();
+            gmVariable listVar = self->Get(&mm, "__list");
+            gmVariable idxVar = self->Get(&mm, "__idx");
+            int idx = (idxVar.m_type == GM_INT) ? idxVar.m_value.m_int : 0;
+            if (listVar.m_type == GM_TABLE) {
+                a_thread->Push(((gmTableObject*)mm.GetObject(listVar.m_value.m_ref))->Get((gmint)idx));
+            } else {
+                a_thread->PushNull();
+            }
+            return GM_OK;
+        })));
+    it->Set(&m, "goToNext", gmVariable(m.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            gmMachine& mm = *a_thread->GetMachine();
+            gmVariable idxVar = self->Get(&mm, "__idx");
+            int idx = (idxVar.m_type == GM_INT) ? idxVar.m_value.m_int : 0;
+            self->Set(&mm, "__idx", gmVariable((gmint)(idx + 1)));
+            return GM_OK;
+        })));
+    a_thread->PushTable(it);
     return GM_OK;
 }
 
@@ -335,14 +378,136 @@ int GM_CDECL gmf_setSFXVolume(gmThread* a_thread) {
 }
 int GM_CDECL gmf_getSFXVolume(gmThread* a_thread) { a_thread->PushFloat(State().sfxVolume); return GM_OK; }
 
-// --- effect chains, DSP, recording, misc (confirmed real names, low/no
-// real corpus usage -- honest handle-allocating or no-op stubs) ---------
-
-int GM_CDECL gmf_createEffectChain(gmThread* a_thread) { a_thread->PushInt(State().nextEffectChainId++); return GM_OK; }
-int GM_CDECL gmf_getMasterEffectChain(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+// --- effect chains / effects: real objects, not stubs ---------------------
+// Confirmed real: createEffectChain/getMasterEffectChain both push a return
+// on the success path), not a plain int. Confirmed by real usage too --
+// EntityBasePS3.gm/EntityBaseNGP.gm (`t.loopTimeStretchChain.addEffect(
+// SOUNDEFFECTTYPE_TIMESTRETCH)`) and Main.gm (`Audio.getMasterEffectChain().
+// freeAllChildEffects();`, `this.globalEffectsChain.addEffect(
+// SOUNDEFFECTTYPE_LOWPASS,FILTER_CUTOFF,300,FILTER_RES,3.3)`) all call
+// .addEffect()/.freeAllChildEffects()/.freeAllChildEffectChains() on the
+// object createEffectChain()/getMasterEffectChain() returned, and
+// .setParam()/.setBypass() on the object addEffect() returned -- method-call
+// syntax a plain int (this engine's previous return value) cannot support,
+// silently null-calling and dropping every real effect-chain/timestretch
+// setup in the corpus. No real DSP backend exists (see file header), so
+// these are genuine GM table objects carrying real per-effect state (so a
+// later getter would see exactly what was set), just not wired to any
+// actual audio processing -- same "real state, no output" contract as
+// VoiceState above.
+gmVariable MakeEffectTable(gmMachine& a_machine, int a_effectType) {
+    gmTableObject* t = a_machine.AllocTableObject();
+    t->Set(&a_machine, "__type", gmVariable((gmint)a_effectType));
+    t->Set(&a_machine, "__bypass", gmVariable((gmint)0));
+    t->Set(&a_machine, "setBypass", gmVariable(a_machine.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(b, 0, 0);
+            self->Set(a_thread->GetMachine(), "__bypass", gmVariable((gmint)(b != 0)));
+            return GM_OK;
+        })));
+    // addEffect applies these same (id, value) pairs immediately at
+    // creation via a per-effect-type dispatch this pass hasn't traced (no
+    // real DSP backend to apply them to); stored keyed by id so a repeat
+    // setParam(id, value) overwrites, matching that dispatch's shape.
+    t->Set(&a_machine, "setParam", gmVariable(a_machine.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            GM_CHECK_NUM_PARAMS(2); GM_INT_PARAM(paramId, 0, 0);
+            char key[32];
+            snprintf(key, sizeof(key), "__p%d", paramId);
+            self->Set(a_thread->GetMachine(), key, a_thread->Param(1));
+            return GM_OK;
+        })));
+    return gmVariable(t);
+}
+// Confirmed real: 1+ args (effectType, [paramId, value]*) -- 0 args is a
+// "Needs at least EFFECT_TYPE" and returns null). The (paramId, value)
+// pairs starting at arg index 1 are applied immediately, matching every
+// real call site (Main.gm's `addEffect(SOUNDEFFECTTYPE_LOWPASS,
+// FILTER_CUTOFF,300,FILTER_RES,3.3)`).
+int GM_CDECL gmf_chain_addEffect(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+    (void)self;
+    int n = a_thread->GetNumParams();
+    if (n < 1) { a_thread->PushNull(); return GM_OK; }
+    GM_INT_PARAM(effectType, 0, 0);
+    gmVariable effectVar = MakeEffectTable(*a_thread->GetMachine(), effectType);
+    gmTableObject* effect = (gmTableObject*)a_thread->GetMachine()->GetObject(effectVar.m_value.m_ref);
+    for (int i = 1; i + 1 < n; i += 2) {
+        int paramId = a_thread->ParamInt(i, 0);
+        char key[32];
+        snprintf(key, sizeof(key), "__p%d", paramId);
+        effect->Set(a_thread->GetMachine(), key, a_thread->Param(i + 1));
+    }
+    a_thread->Push(effectVar);
+    return GM_OK;
+}
+// Confirmed real names/0-arg method-call shape (Main.gm's
+// `Audio.getMasterEffectChain().freeAllChildEffects();`); no real per-chain
+// child tracking is needed since nothing in the corpus reads it back after.
+int GM_CDECL gmf_chain_freeAllChildEffects(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+    (void)self;
+    return GM_OK;
+}
+int GM_CDECL gmf_chain_freeAllChildEffectChains(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+    (void)self;
+    return GM_OK;
+}
+// Confirmed real names/1-arg method-call shape (same +0x74 "this" pattern
+// as addEffect/freeAllChildEffect(Chains) above) but zero real corpus call
+// sites for either -- honest no-ops with the confirmed arity, not a
+// fabricated nested-chain/voice-routing pipeline.
+int GM_CDECL gmf_chain_addEffectChain(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    (void)self;
+    return GM_OK;
+}
+int GM_CDECL gmf_chain_addVoice(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    (void)self;
+    return GM_OK;
+}
+gmVariable MakeEffectChainTable(gmMachine& a_machine, const std::string& a_name) {
+    gmTableObject* t = a_machine.AllocTableObject();
+    t->Set(&a_machine, "__name", gmVariable(a_machine.AllocStringObject(a_name.c_str())));
+    t->Set(&a_machine, "addEffect", gmVariable(a_machine.AllocFunctionObject(gmf_chain_addEffect)));
+    t->Set(&a_machine, "freeAllChildEffects", gmVariable(a_machine.AllocFunctionObject(gmf_chain_freeAllChildEffects)));
+    t->Set(&a_machine, "freeAllChildEffectChains", gmVariable(a_machine.AllocFunctionObject(gmf_chain_freeAllChildEffectChains)));
+    t->Set(&a_machine, "addEffectChain", gmVariable(a_machine.AllocFunctionObject(gmf_chain_addEffectChain)));
+    t->Set(&a_machine, "addVoice", gmVariable(a_machine.AllocFunctionObject(gmf_chain_addVoice)));
+    return gmVariable(t);
+}
+int GM_CDECL gmf_createEffectChain(gmThread* a_thread) {
+    std::string name;
+    if (a_thread->GetNumParams() >= 1 && a_thread->Param(0).m_type == GM_STRING) {
+        char buf[256];
+        name = a_thread->Param(0).AsString(a_thread->GetMachine(), buf, sizeof(buf));
+    }
+    a_thread->Push(MakeEffectChainTable(*a_thread->GetMachine(), name));
+    return GM_OK;
+}
+// Confirmed real: 0 args, returns the same kind of object createEffectChain
+// does (same DAT_0043c3e0 type tag) -- a single persistent master chain,
+// not a fresh one per call.
+int GM_CDECL gmf_getMasterEffectChain(gmThread* a_thread) {
+    static gmVariable s_master = gmVariable::s_null;
+    if (s_master.m_type != GM_TABLE) s_master = MakeEffectChainTable(*a_thread->GetMachine(), "master");
+    a_thread->Push(s_master);
+    return GM_OK;
+}
 int GM_CDECL gmf_noop(gmThread* a_thread) { (void)a_thread; return GM_OK; }
 int GM_CDECL gmf_falseBool(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_zeroInt(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+// Audio.checkDiracPoolIntegrity() -- confirmed real: pushes type tag 1
+// 0x00087f80), not the plain no-return gmf_noop this was previously mapped
+// to. No real DSP pool exists here to corrupt, so "integrity ok" (true)
+// is the honest default rather than a fabricated failure.
+int GM_CDECL gmf_trueBool(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
 
 gmFunctionEntry s_audioLib[] = {
     {"loadSound", gmf_loadSound, nullptr},
@@ -372,8 +537,13 @@ gmFunctionEntry s_audioLib[] = {
     {"getVoiceSpeed", gmf_getVoiceSpeed, nullptr},
     {"setVoicePosition", gmf_setVoicePosition, nullptr},
     {"getVoicePosition", gmf_getVoicePosition, nullptr},
-    {"getVoiceLength", gmf_zeroFloat, nullptr},
-    {"getSoundLength", gmf_zeroFloat, nullptr},
+    // Audio.getVoiceLength(voice)/getSoundLength(path) -- confirmed real
+    // names (0x0008681c/0x000868d4), both pushing type tag 1 (INT, not
+    // float -- this engine's previous mapping to gmf_zeroFloat was wrong
+    // about the type). No real audio decode to measure an actual duration
+    // from -- 0 is an honest "unknown", not a fabricated number.
+    {"getVoiceLength", gmf_zeroInt, nullptr},
+    {"getSoundLength", gmf_zeroInt, nullptr},
     {"setVoiceLoop", gmf_setVoiceLoop, nullptr},
     {"setVoiceLoopCount", gmf_setVoiceLoopCount, nullptr},
     {"getAllVoices", gmf_getAllVoices, nullptr},
@@ -385,19 +555,20 @@ gmFunctionEntry s_audioLib[] = {
     {"setSFXVolume", gmf_setSFXVolume, nullptr},
     {"getSFXVolume", gmf_getSFXVolume, nullptr},
 
+    // Confirmed real: createEffectChain/getMasterEffectChain are genuinely
+    // flat Audio.* calls (this = the Audio singleton, standard pattern).
+    // addEffect/addEffectChain/addVoice/freeAllChildEffect(Chains)/setParam/
+    // setBypass all read "this" from a distinct +0x74 offset instead (see
+    // MakeEffectChainTable/MakeEffectTable above) -- they're real methods on
+    // the chain/effect objects those two return, not flat Audio.* calls, so
+    // they're deliberately NOT registered here (a flat `Audio.addEffect(...)`
+    // has zero real call sites -- confirmed by grep).
     {"createEffectChain", gmf_createEffectChain, nullptr},
     {"getMasterEffectChain", gmf_getMasterEffectChain, nullptr},
     {"freeEffectChain", gmf_noop, nullptr},
     {"freeSoundEffect", gmf_noop, nullptr},
     {"onVoiceEndFreeEffectChain", gmf_noop, nullptr},
     {"onVoiceEndFreeSoundEffect", gmf_noop, nullptr},
-    {"addEffectChain", gmf_noop, nullptr},
-    {"addEffect", gmf_noop, nullptr},
-    {"addVoice", gmf_noop, nullptr},
-    {"freeAllChildEffectChains", gmf_noop, nullptr},
-    {"freeAllChildEffects", gmf_noop, nullptr},
-    {"setBypass", gmf_noop, nullptr},
-    {"setParam", gmf_noop, nullptr},
 
     // Recording/scripting/retriggering -- confirmed real names, no real
     // corpus call sites that read back a result (grepped): honest
@@ -416,7 +587,8 @@ gmFunctionEntry s_audioLib[] = {
     {"startRetriggering", gmf_noop, nullptr},
     {"stopRetriggering", gmf_noop, nullptr},
     {"isRetriggering", gmf_falseBool, nullptr},
-    {"getRetriggerTime", gmf_zeroFloat, nullptr},
+    // Audio.c 0x00086ee4).
+    {"getRetriggerTime", gmf_zeroInt, nullptr},
     {"setRetriggerTime", gmf_noop, nullptr},
 
     {"hack_setEnabled", gmf_noop, nullptr},
@@ -428,7 +600,7 @@ gmFunctionEntry s_audioLib[] = {
     {"getNumDiracDSPsUsed", gmf_zeroInt, nullptr},
     {"getNumDiracDSPChannelsUsed", gmf_zeroInt, nullptr},
     {"getNumDiracDSPs", gmf_zeroInt, nullptr},
-    {"checkDiracPoolIntegrity", gmf_noop, nullptr},
+    {"checkDiracPoolIntegrity", gmf_trueBool, nullptr},
 };
 
 } // namespace

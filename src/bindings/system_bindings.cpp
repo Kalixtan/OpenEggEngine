@@ -1,13 +1,21 @@
 #include "gmThread.h"
 #include "system_bindings.h"
 #include "gmTableObject.h"
+#include "gmStringObject.h"
 #include "../core/system_config.h"
 #include "../core/engine_context.h"
 #include "../core/strict_calls.h"
 #include "../core/save_data.h"
+#include "../core/file_helper.h"
+#include "gamemonkeyscript_bindings.h"
 #include <cstdio>
 #include <ctime>
 #include <string>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+
+gmType g_fileType = -1;
 
 namespace {
 
@@ -27,12 +35,537 @@ int GM_CDECL gmf_FILE_IsExists(gmThread* a_thread) {
     return GM_OK;
 }
 
+namespace fs = std::filesystem;
+
+// ---------------------------------------------------------------------
+// functions, but none were registered anywhere -- corpus grep confirms
+// real, live (non-commented-out) call sites for GetFileListing,
+// VirtualSpaceLeft, DeleteFile, CopyFile, WriteString, LoadString, and
+// EnsurePathExists (game_data/Platformer/{Main,LoginProcess,Instrument,
+// FileSelectorProcess,DebugMenu,MainMenu5/EditScreenSidePanel}.gm), unlike
+// FILE_IsExists above (File.c, a different native type) each of these
+// takes a FILEHELPER_AREA_* 2nd/4th arg that real call sites actually vary
+// (LoginProcess.gm explicitly sets `loginFileArea=FILEHELPER_AREA_SAVEDATA`;
+// EditScreenSidePanel.gm's CopyFile calls always pass AREA_SAVEDATA to copy
+// between myLevels save slots -- files that only exist under
+// SaveData::Dir(), never in the read-only game_data tree), so unlike
+// FILE_IsExists's existing "area ignored" stance, area is honored here.
+// AREA_SAVEDATA(0) routes to SaveData::Dir(); AREA_GAMEDATA(1, the default
+// whenever a real call site omits the arg) routes to FileHelper's primary
+// root; AREA_HOST(2) is used as a literal, already-absolute host path (real
+// call sites are dev-tool-only for this one); AREA_NULL(3) or anything else
+// resolves to nothing, matching its name.
+std::optional<std::string> FileHelperAreaRoot(int a_area) {
+    switch (a_area) {
+        case 0: return SaveData::Dir();
+        case 1: {
+            FileHelper* fh = GetEngineContext().fileHelper;
+            if (fh && !fh->PrimaryRoot().empty()) return fh->PrimaryRoot();
+            return std::nullopt;
+        }
+        default: return std::nullopt;
+    }
+}
+bool FileHelperResolvePath(int a_area, const std::string& a_relPath, std::string& a_out) {
+    if (a_area == 2) { a_out = a_relPath; return true; } // AREA_HOST: literal path
+    auto root = FileHelperAreaRoot(a_area);
+    if (!root) return false;
+    a_out = *root + "/" + a_relPath;
+    return true;
+}
+bool FileHelperAreaReadFile(int a_area, const std::string& a_relPath, std::string& a_out) {
+    std::string full;
+    if (!FileHelperResolvePath(a_area, a_relPath, full)) return false;
+    std::ifstream f(full, std::ios::binary);
+    if (!f) return false;
+    std::ostringstream ss; ss << f.rdbuf();
+    a_out = ss.str();
+    return true;
+}
+bool FileHelperAreaWriteFile(int a_area, const std::string& a_relPath, const std::string& a_content) {
+    std::string full;
+    if (!FileHelperResolvePath(a_area, a_relPath, full)) return false;
+    std::error_code ec;
+    fs::create_directories(fs::path(full).parent_path(), ec);
+    std::ofstream f(full, std::ios::binary | std::ios::trunc);
+    if (!f) return false;
+    f.write(a_content.data(), (std::streamsize)a_content.size());
+    return f.good();
+}
+
+// classes/FileHelper.c @ 0xac0f8). Only real call sites are commented out
+// (EditScreenInfoPopupBase.gm, EditScreen2Base.gm, EditScreenSidePanel.gm
+// all have it behind `//`), matching this engine's "always plenty of
+// space" stance elsewhere (SAVEDATA_getSystemFreeSpaceQuota/Media above).
+int GM_CDECL gmf_FILEHELPER_VirtualSpaceLeft(gmThread* a_thread) {
+    a_thread->PushInt(1000000000);
+    return GM_OK;
+}
+
+// FILEHELPER_GetFileListing(dirPath, area=AREA_GAMEDATA) -- confirmed real
+// (Instrument.gm, FileSelectorProcess.gm, TouchEditProcessNGP.gm's explicit
+// AREA_GAMEDATA, Main.gm's editor level-directory listing) all just
+// foreach/tableCount the result, matching this codebase's existing
+// "plain sequential-int-keyed table" convention for unmodeled ref-container
+// return types (see Audio.getAllVoices).
+int GM_CDECL gmf_FILEHELPER_GetFileListing(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(dir, 0, "");
+    int area = 1;
+    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
+    gmMachine& m = *a_thread->GetMachine();
+    gmTableObject* table = m.AllocTableObject();
+    std::string full;
+    if (FileHelperResolvePath(area, dir, full)) {
+        std::error_code ec;
+        int i = 0;
+        for (auto& entry : fs::directory_iterator(full, ec)) {
+            if (ec) break;
+            table->Set(&m, i++, gmVariable(m.AllocStringObject(entry.path().filename().string().c_str())));
+        }
+    }
+    a_thread->PushTable(table);
+    return GM_OK;
+}
+
+// FILEHELPER_DeleteFile(path, area=AREA_GAMEDATA) -- confirmed real
+// grep hits (MyLevelsTOC.gm) are commented out, so this is exercised by no
+// live corpus call site, but is cheap and correct to implement properly.
+int GM_CDECL gmf_FILEHELPER_DeleteFile(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    int area = 1;
+    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
+    std::string full;
+    bool ok = FileHelperResolvePath(area, path, full);
+    if (ok) { std::error_code ec; ok = fs::remove(full, ec); }
+    a_thread->PushInt(ok ? 1 : 0);
+    return GM_OK;
+}
+
+// FILEHELPER_CopyFile(srcPath, srcArea, dstPath, dstArea) -- confirmed real
+// Real call site (EditScreenSidePanel.gm:351-353) copies a level's
+// level/image/loop files between two AREA_SAVEDATA myLevels slots.
+int GM_CDECL gmf_FILEHELPER_CopyFile(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(4);
+    GM_STRING_PARAM(srcPath, 0, "");
+    GM_INT_PARAM(srcArea, 1, 1);
+    GM_STRING_PARAM(dstPath, 2, "");
+    GM_INT_PARAM(dstArea, 3, 1);
+    std::string srcFull, dstFull;
+    if (FileHelperResolvePath(srcArea, srcPath, srcFull) && FileHelperResolvePath(dstArea, dstPath, dstFull)) {
+        std::error_code ec;
+        fs::create_directories(fs::path(dstFull).parent_path(), ec);
+        fs::copy_file(srcFull, dstFull, fs::copy_options::overwrite_existing, ec);
+    }
+    return GM_OK;
+}
+
+// FILEHELPER_WriteString(path, content, area=AREA_GAMEDATA) /
+// classes/FileHelper.c @ 0xabe3c/0xabbf4). Real call site (LoginProcess.gm)
+// always passes AREA_SAVEDATA explicitly. No public retail compression
+// format to reproduce (same reasoning as SAVEDATA_AddCompressedString,
+// savedata_bindings.cpp), so both write plain text.
+int GM_CDECL gmf_FILEHELPER_WriteString(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    GM_STRING_PARAM(content, 1, "");
+    int area = 1;
+    if (a_thread->GetNumParams() > 2) { GM_INT_PARAM(a, 2, 1); area = a; }
+    a_thread->PushInt(FileHelperAreaWriteFile(area, path, content) ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_FILEHELPER_WriteCompressedString(gmThread* a_thread) { return gmf_FILEHELPER_WriteString(a_thread); }
+
+// FILEHELPER_LoadString(path, area=AREA_GAMEDATA) / LoadCompressedString --
+// @ 0xabf30/0xabce8). Empty string on a missing file/area (no corpus call
+// site checks for null vs. empty, only truthiness of the later
+// FILE_IsExists guard in LoginProcess.gm's real usage).
+int GM_CDECL gmf_FILEHELPER_LoadString(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    int area = 1;
+    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
+    std::string content;
+    FileHelperAreaReadFile(area, path, content);
+    a_thread->PushNewString(content.c_str());
+    return GM_OK;
+}
+int GM_CDECL gmf_FILEHELPER_LoadCompressedString(gmThread* a_thread) { return gmf_FILEHELPER_LoadString(a_thread); }
+
+// FILEHELPER_EnsurePathExists(path, area=AREA_GAMEDATA) -- confirmed real
+// site (Main.gm:3886) ensures a backup-file's parent directory exists
+// before writing into it.
+int GM_CDECL gmf_FILEHELPER_EnsurePathExists(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    int area = 1;
+    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
+    std::string full;
+    bool ok = FileHelperResolvePath(area, path, full);
+    if (ok) { std::error_code ec; fs::create_directories(fs::path(full).parent_path(), ec); ok = !ec; }
+    a_thread->PushInt(ok ? 1 : 0);
+    return GM_OK;
+}
+
+// ---------------------------------------------------------------------
+// constructor and 6 instance methods (openForWrite/openForRead/
+// openForAppend/write/readAll/close), plus 3 bare-global convenience
+// functions (FILE_IsExists -- already registered above, a different
+// function despite the shared name; FILE_Write/FILE_Append). Was entirely
+// unimplemented (not even a stub) -- real corpus call sites (Main.gm,
+// Mixer.gm, User.gm, EntityMenuTopBaseOld.gm, PresetHelper.gm,
+// SavePresetProcess.gm, SystemHelper.gm, all editor/dev-tool code writing
+// generated .gm/preset/backup files back into the Platformer/ tree) always
+// construct `local file=FILE();` then call `.openForWrite(filename)` --
+// with FILE() unregistered, that call returned null via GM's null-call
+// leniency, and `file.openForWrite(...)` on a null `file` likewise no-op'd
+// to null, so `!file.openForWrite(filename)` was always true and every one
+// of these editor save/export paths always hit its own "Can't open file!"
+// failure branch and never wrote anything.
+//
+// Exact fopen mode strings and write format strings recovered directly
+// from the retail EBOOT.elf at the DAT_ addresses Ghidra's decompile left
+// opaque: openForWrite/FILE_Write use "w"; openForRead defaults to "r",
+// or "rb" when explicitly called with a falsy 2nd arg; openForAppend/
+// FILE_Append use "a"; write()/FILE_Write's format is bare "%s" (no
+// trailing newline), while FILE_Append's format is "%s\n" (WITH a
+// trailing newline) -- a real, confirmed asymmetry between write() and
+// FILE_Append, not a guess.
+//
+// File has no FILEHELPER_AREA_* concept of its own (unlike FileHelper.c's
+// functions) -- real call sites pass plain Platformer/-rooted paths and
+// write straight into the game_data tree (an editor/dev-tool workflow, not
+// a shipped-game save path), so this resolves relative to FileHelper's
+// primary game_data root (same area FILEHELPER_AREA_GAMEDATA would use),
+// falling back to the path as-is if no FileHelper root is registered.
+// ---------------------------------------------------------------------
+
+struct FileData {
+    std::fstream stream;
+    bool isOpen = false;
+};
+
+FileData* ThisFile(gmThread* a_thread) {
+    return (FileData*)a_thread->ThisUserCheckType(g_fileType);
+}
+
+std::string FileResolvePath(const std::string& a_relPath) {
+    if (!a_relPath.empty() && a_relPath[0] == '/') return a_relPath; // already absolute
+    FileHelper* fh = GetEngineContext().fileHelper;
+    if (fh && !fh->PrimaryRoot().empty()) return fh->PrimaryRoot() + "/" + a_relPath;
+    return a_relPath;
+}
+
+int GM_CDECL gmf_File_ctor(gmThread* a_thread) {
+    // arg0 (default 1), if present, isn't read by any of the 6 confirmed
+    // instance methods below -- accepted for signature-completeness only.
+    FileData* data = new FileData();
+    gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(data, g_fileType);
+    a_thread->Push(gmVariable(obj));
+    return GM_OK;
+}
+
+int GM_CDECL gmf_File_openForWrite(gmThread* a_thread) {
+    FileData* f = ThisFile(a_thread); if (!f) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    std::string full = FileResolvePath(path);
+    std::error_code ec;
+    fs::create_directories(fs::path(full).parent_path(), ec);
+    f->stream.close(); f->stream.clear();
+    f->stream.open(full, std::ios::out | std::ios::trunc);
+    f->isOpen = f->stream.is_open();
+    a_thread->PushInt(f->isOpen ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_File_openForRead(gmThread* a_thread) {
+    FileData* f = ThisFile(a_thread); if (!f) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    bool textMode = true;
+    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(t, 1, 1); textMode = (t != 0); }
+    std::string full = FileResolvePath(path);
+    f->stream.close(); f->stream.clear();
+    f->stream.open(full, textMode ? std::ios::in : (std::ios::in | std::ios::binary));
+    f->isOpen = f->stream.is_open();
+    a_thread->PushInt(f->isOpen ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_File_openForAppend(gmThread* a_thread) {
+    FileData* f = ThisFile(a_thread); if (!f) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    std::string full = FileResolvePath(path);
+    std::error_code ec;
+    fs::create_directories(fs::path(full).parent_path(), ec);
+    f->stream.close(); f->stream.clear();
+    f->stream.open(full, std::ios::out | std::ios::app);
+    f->isOpen = f->stream.is_open();
+    a_thread->PushInt(f->isOpen ? 1 : 0);
+    return GM_OK;
+}
+// write(str) -- confirmed real "%s" format (no newline appended).
+int GM_CDECL gmf_File_write(gmThread* a_thread) {
+    FileData* f = ThisFile(a_thread); if (!f) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(text, 0, "");
+    if (!f->isOpen) { a_thread->PushInt(0); return GM_OK; }
+    f->stream << text;
+    a_thread->PushInt(1);
+    return GM_OK;
+}
+// readAll() -- confirmed real: "" (not null) when no file is open.
+int GM_CDECL gmf_File_readAll(gmThread* a_thread) {
+    FileData* f = ThisFile(a_thread); if (!f) return GM_EXCEPTION;
+    if (!f->isOpen) { a_thread->PushNewString(""); return GM_OK; }
+    std::ostringstream ss; ss << f->stream.rdbuf();
+    a_thread->PushNewString(ss.str().c_str());
+    return GM_OK;
+}
+int GM_CDECL gmf_File_close(gmThread* a_thread) {
+    FileData* f = ThisFile(a_thread); if (!f) return GM_EXCEPTION;
+    if (f->isOpen) { f->stream.close(); f->isOpen = false; }
+    return GM_OK;
+}
+
+gmFunctionEntry s_fileLib[] = {
+    {"openForWrite", gmf_File_openForWrite, nullptr},
+    {"openForRead", gmf_File_openForRead, nullptr},
+    {"openForAppend", gmf_File_openForAppend, nullptr},
+    {"write", gmf_File_write, nullptr},
+    {"readAll", gmf_File_readAll, nullptr},
+    {"close", gmf_File_close, nullptr},
+};
+
+void GM_CDECL FileGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
+    (void)a_machine;
+    delete (FileData*)a_object->m_user;
+}
+
+// FILE_Write(path, content) / FILE_Append(path, content) -- confirmed real
+// close in one call, bool return. Confirmed real format-string asymmetry
+// (see header comment above): Write uses "%s" (no newline), Append uses
+// "%s\n" (WITH a trailing newline).
+int GM_CDECL gmf_FILE_Write(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    GM_STRING_PARAM(content, 1, "");
+    std::string full = FileResolvePath(path);
+    std::error_code ec;
+    fs::create_directories(fs::path(full).parent_path(), ec);
+    std::ofstream f(full, std::ios::out | std::ios::trunc);
+    bool ok = f.is_open();
+    if (ok) { f << content; ok = f.good(); }
+    a_thread->PushInt(ok ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_FILE_Append(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    GM_STRING_PARAM(content, 1, "");
+    std::string full = FileResolvePath(path);
+    std::error_code ec;
+    fs::create_directories(fs::path(full).parent_path(), ec);
+    std::ofstream f(full, std::ios::out | std::ios::app);
+    bool ok = f.is_open();
+    if (ok) { f << content << "\n"; ok = f.good(); }
+    a_thread->PushInt(ok ? 1 : 0);
+    return GM_OK;
+}
+
 // 0x000a2a18: a plain global debug flag setter, bare-global call site
 // Main.gm:1453 `SetIsOccludingUpdates(true);`). An occlusion-culling debug
 // toggle with no consumer this reimplementation models -- genuine no-op,
 // consumed rather than left as a null-call.
 int GM_CDECL gmf_SetIsOccludingUpdates(gmThread* a_thread) {
     (void)a_thread;
+    return GM_OK;
+}
+
+// ---------------------------------------------------------------------
+// DumpObject are already implemented elsewhere (gamesystem_bindings.cpp).
+// GameMonkey2JSON/JSON2GameMonkey now share the real JSON<->gmVariable
+// mapping gamemonkeyscript_bindings.cpp already has internally
+// (saveTableToJsonSaveRequest/loadTableFromJsonSaveRequest use the same
+// code), exposed via JsonStringToGmVariable/GmVariableToJsonString
+// (gamemonkeyscript_bindings.h) rather than duplicated here -- see
+// GitHub issue #7.
+// ---------------------------------------------------------------------
+
+// @ 0x001afb58. Real usage (Platformer/Main.gm's level-save flow:
+// SAVEDATA_AddString(filename, GameMonkey2JSON(jsonTable), ...)) always
+// passes a table and uses the string result directly.
+int GM_CDECL gmf_GameMonkey2JSON(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    std::string json = GmVariableToJsonString(*a_thread->GetMachine(), a_thread->Param(0));
+    a_thread->PushNewString(json.c_str());
+    return GM_OK;
+}
+
+// JSON2GameMonkey(jsonString[, extraTable]) -- confirmed real,
+// checks for exactly 2 args with the second one type-tagged 0x26 (GM_TABLE)
+// before treating it as a merge target -- a 1-arg call always allocates a
+// fresh table.
+int GM_CDECL gmf_JSON2GameMonkey(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(json, 0, "");
+    const gmVariable* extra = nullptr;
+    if (a_thread->GetNumParams() >= 2 && a_thread->Param(1).m_type == GM_TABLE) {
+        extra = &a_thread->Param(1);
+    }
+    a_thread->Push(JsonStringToGmVariable(*a_thread->GetMachine(), json, extra));
+    return GM_OK;
+}
+
+// BreakPoint(msg) -- confirmed real: retail's own decompiled body is
+// `return 0;` with ZERO argument reads, a genuine unconditional no-op even
+// on retail hardware (not something this reimplementation is choosing to
+// skip) -- 10 real call sites all just expect it to do nothing observable.
+int GM_CDECL gmf_BreakPoint(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+// Debug.assert()/myprint() -- confirmed real: both are `return 0;` with no
+// body at all in retail (a stripped/disabled assert, matching real usage
+// treating it as a statement with no observable effect).
+int GM_CDECL gmf_assert(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+int GM_CDECL gmf_myprint(gmThread* a_thread) {
+    (void)a_thread;
+    return GM_OK;
+}
+// Debug.c @ 0x1af584); real call site (ColourEditorProcess.gm:569) doesn't
+// check a return value, so a debug log line satisfies the contract.
+int GM_CDECL gmf_mybreak(gmThread* a_thread) {
+    (void)a_thread;
+    std::fprintf(stderr, "[mybreak]\n");
+    return GM_OK;
+}
+// @ 0xa2978): prints msg (only if an arg was actually passed). No corpus
+// call sites use it, but it's a trivial, safe stderr log.
+int GM_CDECL gmf_DebugPrintf(gmThread* a_thread) {
+    if (a_thread->GetNumParams() > 0) {
+        GM_STRING_PARAM(msg, 0, "");
+        std::fprintf(stderr, "[DebugPrintf] %s\n", msg);
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_SetDebuggingSomething(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_TraceCallStack(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_PrintTableStats(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_DumpTextures(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_DumpSounds(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+
+// Debug.GetTableSize(table)/GetTableActualUsageSize(table) -- confirmed
+// two distinct internal fields off the real retail table object (a used-
+// slot count and a separate "actual usage" byte count) that this engine's
+// gmTableObject doesn't expose two different numbers for -- Count() (used
+// key/value slots) is the only metric available, so both use it. Real call
+// site (Main.gm:52-53) just sums both into running debug-stat totals, so
+// reporting the same number for both is a safe approximation.
+int GM_CDECL gmf_GetTableSize(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_CHECK_TABLE_PARAM(t, 0);
+    a_thread->PushInt((gmint)t->Count());
+    return GM_OK;
+}
+int GM_CDECL gmf_GetTableActualUsageSize(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_CHECK_TABLE_PARAM(t, 0);
+    a_thread->PushInt((gmint)t->Count());
+    return GM_OK;
+}
+
+// Debug.c @ 0xa2bc8): copies every key/value pair from each additional
+// table arg into dest, later tables' keys overwriting earlier ones on
+// collision. Throws if any 2nd+ arg isn't a table (confirmed: retail
+// returns the exception sentinel on the first non-table).
+int GM_CDECL gmf_MergeTables(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_CHECK_TABLE_PARAM(dest, 0);
+    gmMachine& m = *a_thread->GetMachine();
+    int n = a_thread->GetNumParams();
+    for (int i = 1; i < n; ++i) {
+        gmVariable v = a_thread->Param(i);
+        if (v.m_type != GM_TABLE) { GM_EXCEPTION_MSG("MergeTables: expecting a table"); return GM_EXCEPTION; }
+        gmTableObject* src = (gmTableObject*)m.GetObject(v.m_value.m_ref);
+        gmTableIterator it;
+        for (gmTableNode* node = src->GetFirst(it); node; node = src->GetNext(it)) {
+            dest->Set(&m, node->m_key, node->m_value);
+        }
+    }
+    return GM_OK;
+}
+// Debug.MergeTablesIntoFirstTakingMax(dest, ...tables) -- confirmed real
+// on a key collision keeps whichever of the two values is numerically
+// larger instead of blindly overwriting -- confirmed by its one real,
+// live call site (CloudSaveHelper.gm:294's
+// `MergeTablesIntoFirstTakingMax(SAVE_DATA, this.saveDataFromServer)`, a
+// classic "keep the higher score/stat between local and cloud save"
+// conflict resolution). Non-numeric values (or a key not already present
+// in dest) are just set directly, matching MergeTables.
+float AsNumber(const gmVariable& a_v, bool& a_ok) {
+    if (a_v.m_type == GM_INT) { a_ok = true; return (float)a_v.m_value.m_int; }
+    if (a_v.m_type == GM_FLOAT) { a_ok = true; return a_v.m_value.m_float; }
+    a_ok = false;
+    return 0.0f;
+}
+// ---------------------------------------------------------------------
+// Memory.c), entirely unregistered. All are debug/profiling-only
+// utilities with no gameplay-observable effect to model: PROFILE_MARKER_
+// PUSH_PROCESS/POP are literally no-op stubs even in retail (empty
+// decompiled bodies), PROFILER_WidgetCmd drives an on-screen profiler HUD
+// this engine doesn't have, and the Memory_* functions probe/print real
+// PS3 heap statistics this engine doesn't share (a different allocator on
+// a different platform) -- safe no-ops / stderr logs, matching this
+// codebase's existing stance on other unmodeled debug-only subsystems.
+// ---------------------------------------------------------------------
+int GM_CDECL gmf_PROFILER_WidgetCmd(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_PROFILE_MARKER_PUSH_PROCESS(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_PROFILE_MARKER_POP(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_Memory_StatsPrintAll(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_Memory_StatsPrintDelta(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+// Memory_ProbeLargestBlock/ProbeCapacity -- confirmed real int-returning
+// (byte counts on retail's own heap); zero corpus call sites. A large,
+// clearly-arbitrary constant matches this codebase's existing "always
+// plenty of [resource] available" stance for other unmodeled capacity
+// queries (SAVEDATA_getSystemFreeSpaceQuota/Media, FILEHELPER_
+// VirtualSpaceLeft above).
+int GM_CDECL gmf_Memory_ProbeLargestBlock(gmThread* a_thread) {
+    (void)a_thread;
+    a_thread->PushInt(0x7fffffff);
+    return GM_OK;
+}
+int GM_CDECL gmf_Memory_ProbeCapacity(gmThread* a_thread) {
+    a_thread->PushInt(0x7fffffff);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_MergeTablesIntoFirstTakingMax(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_CHECK_TABLE_PARAM(dest, 0);
+    gmMachine& m = *a_thread->GetMachine();
+    int n = a_thread->GetNumParams();
+    for (int i = 1; i < n; ++i) {
+        gmVariable v = a_thread->Param(i);
+        if (v.m_type != GM_TABLE) { GM_EXCEPTION_MSG("MergeTablesIntoFirstTakingMax: expecting a table"); return GM_EXCEPTION; }
+        gmTableObject* src = (gmTableObject*)m.GetObject(v.m_value.m_ref);
+        gmTableIterator it;
+        for (gmTableNode* node = src->GetFirst(it); node; node = src->GetNext(it)) {
+            gmVariable existing = dest->Get(node->m_key);
+            bool existingIsNum = false, newIsNum = false;
+            float existingNum = AsNumber(existing, existingIsNum);
+            float newNum = AsNumber(node->m_value, newIsNum);
+            if (existing.m_type != GM_NULL && existingIsNum && newIsNum) {
+                if (newNum > existingNum) dest->Set(&m, node->m_key, node->m_value);
+            } else {
+                dest->Set(&m, node->m_key, node->m_value);
+            }
+        }
+    }
     return GM_OK;
 }
 
@@ -75,6 +608,41 @@ int GM_CDECL gmf_SYSTEM_IsRetailBuild(gmThread* a_thread) {
 
 int GM_CDECL gmf_SYSTEM_GetLanguage(gmThread* a_thread) {
     a_thread->PushInt(SystemConfig::Get().languageCode);
+    return GM_OK;
+}
+
+// classes/System.c @ 0xab58c): parses the string as a 64-bit integer
+// (same "%lld" format as STRINGHELPER_ConvertMSStringToSecondInt, and
+// same divide-by-1000 fixed-point constant -- so a server timestamp in
+// milliseconds), null on a failed/empty parse (confirmed, same 0/-1
+// sscanf-failure branch as every other STRINGHELPER_ConvertXxx-shaped
+// function in this codebase), else a table -- confirmed return-slot tag
+// 0x26 (table). Field names "day"/"month"/"year" are directly confirmed by
+// the only real call site (CommunityLevelInfoPopupTableBase.gm:278/1035:
+// `this.publishDate = SYSTEM_ServerTimeStampToDayMonthYear(publishDate);
+// ... "%1/%2/%3", this.parent.publishDate.day, .month, .year`). The exact
+// calendar-breakdown routine (FUN_00016b34) isn't independently
+// decompiled, so this uses the standard UTC gmtime breakdown of the
+// timestamp (in whole seconds after the confirmed /1000).
+int GM_CDECL gmf_SYSTEM_ServerTimeStampToDayMonthYear(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(str, 0, "");
+    char* end = nullptr;
+    long long ms = std::strtoll(str, &end, 10);
+    if (end == str) { a_thread->PushNull(); return GM_OK; }
+    std::time_t seconds = (std::time_t)(ms / 1000);
+    std::tm tmVal{};
+#if defined(_WIN32)
+    gmtime_s(&tmVal, &seconds);
+#else
+    gmtime_r(&seconds, &tmVal);
+#endif
+    gmMachine& m = *a_thread->GetMachine();
+    gmTableObject* out = m.AllocTableObject();
+    out->Set(&m, "day", gmVariable((gmint)tmVal.tm_mday));
+    out->Set(&m, "month", gmVariable((gmint)(tmVal.tm_mon + 1)));
+    out->Set(&m, "year", gmVariable((gmint)(tmVal.tm_year + 1900)));
+    a_thread->PushTable(out);
     return GM_OK;
 }
 
@@ -124,6 +692,19 @@ int GM_CDECL gmf_Translate(gmThread* a_thread) {
 // preTutorial.png/logo.png/winTitle.png, matching
 // Localization::LocaleDirForLanguageCode's folder names exactly -- so
 // this inserts the current locale directory right before the filename.
+// Localization.c @ 0x1aeacc). Only real call site (LoginPopup.gm:20) gates
+// a PSN chat-restriction dialog behind it; that dialog is already a no-op
+// in this engine (SAVEDATA_showOsMsgDialog, system_bindings.cpp), so the
+// practical effect of this value is nil either way. This engine has no
+// SCEE/territory concept at all (only OsId and a language code, see
+// SystemConfig/Localization above) -- not SCEE by default, since inventing
+// a region flag with no real basis to gate a dialog this engine doesn't
+// render anyway isn't worth the false confidence.
+int GM_CDECL gmf_Localization_IsSCEE(gmThread* a_thread) {
+    a_thread->PushInt(0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_Localization_LocalizeFilename(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
@@ -206,12 +787,48 @@ gmFunctionEntry s_systemLib[] = {
     {"SYSTEM_IsRetailBuild", gmf_SYSTEM_IsRetailBuild, nullptr},
     {"SYSTEM_GetLanguage", gmf_SYSTEM_GetLanguage, nullptr},
     {"SYSTEM_getUNIXTimestamp", gmf_SYSTEM_getUNIXTimestamp, nullptr},
+    {"SYSTEM_ServerTimeStampToDayMonthYear", gmf_SYSTEM_ServerTimeStampToDayMonthYear, nullptr},
     {"SYSTEM_Execute", gmf_SYSTEM_Execute, nullptr},
     {"SPLASHSCREEN_FinalizeSplashScreenAndGetResults", gmf_SPLASHSCREEN_FinalizeSplashScreenAndGetResults, nullptr},
     {"_", gmf_Translate, nullptr},
     {"Localization_LocalizeFilename", gmf_Localization_LocalizeFilename, nullptr},
+    {"Localization_IsSCEE", gmf_Localization_IsSCEE, nullptr},
     {"FILE_IsExists", gmf_FILE_IsExists, nullptr},
     {"SetIsOccludingUpdates", gmf_SetIsOccludingUpdates, nullptr},
+    {"FILEHELPER_VirtualSpaceLeft", gmf_FILEHELPER_VirtualSpaceLeft, nullptr},
+    {"FILEHELPER_GetFileListing", gmf_FILEHELPER_GetFileListing, nullptr},
+    {"FILEHELPER_DeleteFile", gmf_FILEHELPER_DeleteFile, nullptr},
+    {"FILEHELPER_CopyFile", gmf_FILEHELPER_CopyFile, nullptr},
+    {"FILEHELPER_WriteString", gmf_FILEHELPER_WriteString, nullptr},
+    {"FILEHELPER_WriteCompressedString", gmf_FILEHELPER_WriteCompressedString, nullptr},
+    {"FILEHELPER_LoadString", gmf_FILEHELPER_LoadString, nullptr},
+    {"FILEHELPER_LoadCompressedString", gmf_FILEHELPER_LoadCompressedString, nullptr},
+    {"FILEHELPER_EnsurePathExists", gmf_FILEHELPER_EnsurePathExists, nullptr},
+    {"FILE_Write", gmf_FILE_Write, nullptr},
+    {"FILE_Append", gmf_FILE_Append, nullptr},
+    {"BreakPoint", gmf_BreakPoint, nullptr},
+    {"assert", gmf_assert, nullptr},
+    {"myprint", gmf_myprint, nullptr},
+    {"mybreak", gmf_mybreak, nullptr},
+    {"DebugPrintf", gmf_DebugPrintf, nullptr},
+    {"SetDebuggingSomething", gmf_SetDebuggingSomething, nullptr},
+    {"TraceCallStack", gmf_TraceCallStack, nullptr},
+    {"PrintTableStats", gmf_PrintTableStats, nullptr},
+    {"DumpTextures", gmf_DumpTextures, nullptr},
+    {"DumpSounds", gmf_DumpSounds, nullptr},
+    {"GetTableSize", gmf_GetTableSize, nullptr},
+    {"GetTableActualUsageSize", gmf_GetTableActualUsageSize, nullptr},
+    {"MergeTables", gmf_MergeTables, nullptr},
+    {"MergeTablesIntoFirstTakingMax", gmf_MergeTablesIntoFirstTakingMax, nullptr},
+    {"PROFILER_WidgetCmd", gmf_PROFILER_WidgetCmd, nullptr},
+    {"PROFILE_MARKER_PUSH_PROCESS", gmf_PROFILE_MARKER_PUSH_PROCESS, nullptr},
+    {"PROFILE_MARKER_POP", gmf_PROFILE_MARKER_POP, nullptr},
+    {"Memory_StatsPrintAll", gmf_Memory_StatsPrintAll, nullptr},
+    {"Memory_StatsPrintDelta", gmf_Memory_StatsPrintDelta, nullptr},
+    {"Memory_ProbeLargestBlock", gmf_Memory_ProbeLargestBlock, nullptr},
+    {"Memory_ProbeCapacity", gmf_Memory_ProbeCapacity, nullptr},
+    {"GameMonkey2JSON", gmf_GameMonkey2JSON, nullptr},
+    {"JSON2GameMonkey", gmf_JSON2GameMonkey, nullptr},
 };
 
 } // namespace
@@ -230,4 +847,10 @@ void RegisterSystemBindings(gmMachine& a_machine) {
     g->Set(&a_machine, "OSID_PS4", gmVariable((gmint)OsId::PS4));
     g->Set(&a_machine, "OSID_NGP", gmVariable((gmint)OsId::NGP));
     g->Set(&a_machine, "OSID_VITATV", gmVariable((gmint)OsId::VITATV));
+
+    // File native type (see header comment above s_fileLib).
+    g_fileType = a_machine.CreateUserType("File");
+    a_machine.RegisterTypeLibrary(g_fileType, s_fileLib, sizeof(s_fileLib) / sizeof(s_fileLib[0]));
+    a_machine.RegisterUserCallbacks(g_fileType, nullptr, FileGCDestruct, nullptr);
+    a_machine.RegisterLibraryFunction("FILE", gmf_File_ctor);
 }

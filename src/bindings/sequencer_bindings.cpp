@@ -15,7 +15,21 @@ gmType g_sequencerType = -1;
 struct SequencerTrigger {
     int step = 0;
     gmVariable action = gmVariable::s_null; // whatever was passed to setTrigger -- commonly a SEQUENCERACTION table
-    bool enabled = true;
+    // SequencerAction.c) -- NOT a fire/don't-fire mask (that was this
+    // engine's previous, unconfirmed "enabled" reading). Every real call
+    // site is consistent with "does this trigger keep firing every time
+    // the pattern loops back to its step (true), or fire once and then
+    // remove itself (false)": SequencerHelper.gm passes false for one-shot
+    // sync/volume-fade actions and true for repeating rhythm-pattern
+    // triggers. The exact retail removal mechanics aren't decompiled (no
+    // sequencer-tick body in the corpus), so "fire once, then erase" is
+    // our best-supported reading, not a confirmed decompiled port.
+    bool looped = true;
+    // Confirmed real: setTrigger/setTrigger16/setTriggerOnNext return a
+    // native trigger-id result via a SEQUENCERACTION-typed object), and
+    // getAllTriggers()/moveTriggerToFront operate on that same handle, not
+    // a bare index -- see CreateSequencerActionTable.
+    gmVariable handle = gmVariable::s_null;
 };
 
 // Confirmed direct-offset fields from the decompiled body (currentStep at
@@ -69,6 +83,18 @@ void FireTrigger(gmMachine& a_machine, const gmVariable& a_action) {
 
 SequencerData* ThisSequencer(gmThread* a_thread) {
     return (SequencerData*)a_thread->ThisUserCheckType(g_sequencerType);
+}
+
+// Forward declaration -- defined alongside the rest of the SEQUENCERACTION
+// section below, but needed here by setTrigger/setTriggerOnNext.
+gmTableObject* CreateSequencerActionTable(gmMachine& a_machine, int a_initialStep);
+
+bool IsHandleTagged(gmMachine& a_machine, const gmVariable& a_handle) {
+    if (a_handle.m_type != GM_TABLE) return false;
+    gmTableObject* t = (gmTableObject*)a_machine.GetObject(a_handle.m_value.m_ref);
+    if (!t) return false;
+    gmVariable v = t->Get(&a_machine, "__tagged");
+    return v.m_type == GM_INT && v.m_value.m_int != 0;
 }
 
 // ---------------------------------------------------------------------
@@ -189,37 +215,69 @@ int GM_CDECL gmf_getMSPerStep(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 2, 3, or 4 args -- (step, action, [enabled]) or
-// (step, pattern, action, [enabled]). Only the (step, action, [enabled])
-// form is exercised anywhere in the real script corpus (confirmed by grep:
-// every real `.setTrigger(` call site uses exactly 3 args, step+action+bool)
-// so that's the form actually implemented; the pattern-indexed 4-arg form
-// is accepted syntactically (arg count checked, no exception) but the
-// pattern argument is currently ignored rather than guessed at.
+// or 4 args. The arg-count/type dispatch itself is confirmed from the
+// decompiled body:
+//   2 args            -> (step, action), looped defaults true
+//   3 args, arg1 is int -> (step, pattern, action), looped defaults true
+//   3 args, arg1 not int -> (step, action, looped)
+//   4 args            -> (step, pattern, action, looped) unconditionally
+//                         (no type check on arg1 for the 4-arg form)
+// Only the (step, action, looped) 3-arg form is exercised anywhere in the
+// real script corpus (confirmed by grep: every real `.setTrigger(` call
+// site uses exactly 3 args, step+action+bool) -- the pattern-indexed forms
+// are accepted and the pattern value is recorded (getPattern() on the
+// returned handle reflects it) but nothing in this reimplementation's
+// firing logic gates on it (no decompiled sequencer-tick body to confirm
+// what pattern-scoping should do).
 int GM_CDECL gmf_setTrigger(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
+    gmMachine& m = *a_thread->GetMachine();
     int n = a_thread->GetNumParams();
     if (n < 2 || n > 4) { GM_EXCEPTION_MSG("setTrigger: expecting 2-4 params"); return GM_EXCEPTION; }
     GM_INT_PARAM(step, 0, 0);
     gmVariable action;
-    bool enabled = true;
+    int pattern = 0;
+    bool looped = true;
     if (n == 2) {
         action = a_thread->Param(1);
     } else if (n == 3 && a_thread->Param(1).m_type == GM_INT) {
-        // (step, pattern, action) -- pattern ignored, see comment above.
+        // (step, pattern, action) -- looped defaults true.
+        pattern = a_thread->Param(1).m_value.m_int;
         action = a_thread->Param(2);
-    } else {
+    } else if (n == 3) {
+        // (step, action, looped)
         action = a_thread->Param(1);
-        GM_INT_PARAM(en, (n == 4 ? 3 : 2), 1);
-        enabled = (en != 0);
+        GM_INT_PARAM(lp, 2, 1);
+        looped = (lp != 0);
+    } else {
+        // n == 4: (step, pattern, action, looped) -- always this shape,
+        // regardless of arg1's type (confirmed: the decompiled 4-arg branch
+        // has no type check, unlike the 3-arg branch).
+        GM_INT_PARAM(pat, 1, 0);
+        pattern = pat;
+        action = a_thread->Param(2);
+        GM_INT_PARAM(lp, 3, 1);
+        looped = (lp != 0);
     }
+
+    int wrappedStep = WrapStep(step, s->EffectiveLen());
+    gmTableObject* handleTable = CreateSequencerActionTable(m, wrappedStep);
+    handleTable->Set(&m, "__pattern", gmVariable((gmint)pattern));
+    handleTable->Set(&m, "__looped", gmVariable((gmint)(looped ? 1 : 0)));
+    handleTable->Set(&m, "__action", action);
+    gmVariable handleVar(handleTable);
+
     SequencerTrigger t;
-    t.step = WrapStep(step, s->EffectiveLen());
+    t.step = wrappedStep;
     t.action = action;
-    t.enabled = enabled;
-    RootGmVariable(*a_thread->GetMachine(), t.action); // see process_manager.h
+    t.looped = looped;
+    t.handle = handleVar;
+    RootGmVariable(m, t.action);  // see process_manager.h
+    RootGmVariable(m, t.handle);
     s->triggers.push_back(t);
-    a_thread->PushInt((int)s->triggers.size() - 1); // handle: index into our own trigger list
+    // Confirmed real: setTrigger returns a SEQUENCERACTION-shaped handle,
+    // not a bare index (previously PushInt'd our own list index).
+    a_thread->Push(handleVar);
     return GM_OK;
 }
 // setTrigger16: confirmed real, same overload shape as setTrigger. The
@@ -227,38 +285,63 @@ int GM_CDECL gmf_setTrigger(gmThread* a_thread) {
 // delegates to the same trigger list/step-space as setTrigger.
 int GM_CDECL gmf_setTrigger16(gmThread* a_thread) { return gmf_setTrigger(a_thread); }
 
+// Confirmed real: 2 or 3 args (step, action, [looped]) -- unlike setTrigger,
+// no pattern-indexed overload exists for this one (the decompiled 3-arg
+// branch is unconditional, no int-vs-callback type check on arg1).
 int GM_CDECL gmf_setTriggerOnNext(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
+    gmMachine& m = *a_thread->GetMachine();
     int n = a_thread->GetNumParams();
     if (n < 2 || n > 3) { GM_EXCEPTION_MSG("setTriggerOnNext: expecting 2-3 params"); return GM_EXCEPTION; }
     GM_INT_PARAM(step, 0, 0);
     gmVariable action = a_thread->Param(1);
-    bool enabled = true;
-    if (n == 3) { GM_INT_PARAM(en, 2, 1); enabled = (en != 0); }
+    bool looped = true;
+    if (n == 3) { GM_INT_PARAM(lp, 2, 1); looped = (lp != 0); }
+
+    int wrappedStep = WrapStep(step, s->EffectiveLen());
+    gmTableObject* handleTable = CreateSequencerActionTable(m, wrappedStep);
+    handleTable->Set(&m, "__looped", gmVariable((gmint)(looped ? 1 : 0)));
+    handleTable->Set(&m, "__action", action);
+    gmVariable handleVar(handleTable);
+
     SequencerTrigger t;
-    t.step = WrapStep(step, s->EffectiveLen());
+    t.step = wrappedStep;
     t.action = action;
-    t.enabled = enabled;
-    RootGmVariable(*a_thread->GetMachine(), t.action); // see process_manager.h
+    t.looped = looped;
+    t.handle = handleVar;
+    RootGmVariable(m, t.action); // see process_manager.h
+    RootGmVariable(m, t.handle);
     s->triggers.insert(s->triggers.begin(), t); // "OnNext": front of the queue, see moveTriggerToFront below
-    a_thread->PushInt(0);
+    a_thread->Push(handleVar); // confirmed real: same SEQUENCERACTION-shaped handle as setTrigger
     return GM_OK;
 }
-// Confirmed real: 1 arg, a trigger handle. Our handle is the index
-// setTrigger/setTrigger16/setTriggerOnNext returned.
+// Confirmed real: 1 arg, a trigger handle -- the decompiled body
+// dereferences it as a user object (`*(*(arg0)+0x14)`), i.e. the
+// SEQUENCERACTION-shaped handle setTrigger/setTrigger16/setTriggerOnNext
+// returned, not a bare integer index (this engine's previous reading).
 int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(handle, 0, -1);
-    if (handle >= 0 && handle < (int)s->triggers.size() && handle != 0) {
-        SequencerTrigger t = s->triggers[handle];
-        s->triggers.erase(s->triggers.begin() + handle);
-        s->triggers.insert(s->triggers.begin(), t);
+    GM_CHECK_NUM_PARAMS(1);
+    gmVariable handle = a_thread->Param(0);
+    if (handle.m_type == GM_TABLE) {
+        for (size_t i = 0; i < s->triggers.size(); ++i) {
+            if (s->triggers[i].handle.m_type == GM_TABLE &&
+                s->triggers[i].handle.m_value.m_ref == handle.m_value.m_ref) {
+                SequencerTrigger t = s->triggers[i];
+                s->triggers.erase(s->triggers.begin() + i);
+                s->triggers.insert(s->triggers.begin(), t);
+                break;
+            }
+        }
     }
     return GM_OK;
 }
 int GM_CDECL gmf_clearTriggers(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    for (auto& t : s->triggers) UnrootGmVariable(*a_thread->GetMachine(), t.action);
+    for (auto& t : s->triggers) {
+        UnrootGmVariable(*a_thread->GetMachine(), t.action);
+        UnrootGmVariable(*a_thread->GetMachine(), t.handle);
+    }
     s->triggers.clear();
     return GM_OK;
 }
@@ -313,13 +396,62 @@ int GM_CDECL gmf_getMSTillNextStep16(gmThread* a_thread) { return gmf_getMSTillN
 // Depends on the same unconfirmed noteType->step-subdivision approximation
 // as getNumStepsPerNote above.
 GE3_REMOVED(gmf_getMSTillNextNoteStep, "SEQUENCER.getMSTillNextNoteStep")
+// Confirmed real by usage: getAllTriggers() returns an object walked with
+// isValid()/get()/goToNext() -- SequencerHelper.gm's
+// SEQUENCERHELPER_printSequencer/_getLastTrigger and ScaleOfTheWorld.gm's
+// noteRecorder_addTrigger all do
+// `for(it=seq.getAllTriggers();it.isValid();it.goToNext()){local tr=it.get(); ...}`
+// then call tr.getStep()/tr.getAction() -- matching the confirmed
+// decompiled body's FUN_0031aa10 wrap (the same ref-container shape as
+// EntityListRefContainer/IntListRefContainer, TYPES.md) around a list of
+// SEQUENCERACTION-typed elements. Previously returned a plain
+// integer-indexed table (no isValid/get/goToNext at all), which null-called
+// on the very first isValid() check in every one of those real call sites.
 int GM_CDECL gmf_getAllTriggers(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    gmTableObject* table = a_thread->GetMachine()->AllocTableObject();
+    gmMachine& m = *a_thread->GetMachine();
+    gmTableObject* list = m.AllocTableObject();
     for (size_t i = 0; i < s->triggers.size(); ++i) {
-        table->Set(a_thread->GetMachine(), (int)i, s->triggers[i].action);
+        list->Set(&m, (int)i, s->triggers[i].handle);
     }
-    a_thread->PushTable(table);
+    gmTableObject* it = m.AllocTableObject();
+    it->Set(&m, "__list", gmVariable(list));
+    it->Set(&m, "__idx", gmVariable((gmint)0));
+    it->Set(&m, "isValid", gmVariable(m.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            gmMachine& mm = *a_thread->GetMachine();
+            gmVariable listVar = self->Get(&mm, "__list");
+            gmVariable idxVar = self->Get(&mm, "__idx");
+            int idx = (idxVar.m_type == GM_INT) ? idxVar.m_value.m_int : 0;
+            int count = (listVar.m_type == GM_TABLE) ? ((gmTableObject*)mm.GetObject(listVar.m_value.m_ref))->Count() : 0;
+            a_thread->PushInt(idx < count ? 1 : 0);
+            return GM_OK;
+        })));
+    it->Set(&m, "get", gmVariable(m.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            gmMachine& mm = *a_thread->GetMachine();
+            gmVariable listVar = self->Get(&mm, "__list");
+            gmVariable idxVar = self->Get(&mm, "__idx");
+            int idx = (idxVar.m_type == GM_INT) ? idxVar.m_value.m_int : 0;
+            if (listVar.m_type == GM_TABLE) {
+                a_thread->Push(((gmTableObject*)mm.GetObject(listVar.m_value.m_ref))->Get((gmint)idx));
+            } else {
+                a_thread->PushNull();
+            }
+            return GM_OK;
+        })));
+    it->Set(&m, "goToNext", gmVariable(m.AllocFunctionObject(
+        [](gmThread* a_thread) -> int {
+            gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
+            gmMachine& mm = *a_thread->GetMachine();
+            gmVariable idxVar = self->Get(&mm, "__idx");
+            int idx = (idxVar.m_type == GM_INT) ? idxVar.m_value.m_int : 0;
+            self->Set(&mm, "__idx", gmVariable((gmint)(idx + 1)));
+            return GM_OK;
+        })));
+    a_thread->PushTable(it);
     return GM_OK;
 }
 // Depends on the same unconfirmed noteType->step-subdivision approximation
@@ -366,7 +498,10 @@ gmFunctionEntry s_sequencerLib[] = {
 
 void GM_CDECL SequencerGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
     SequencerData* data = (SequencerData*)a_object->m_user;
-    for (auto& t : data->triggers) UnrootGmVariable(*a_machine, t.action); // see process_manager.h
+    for (auto& t : data->triggers) {
+        UnrootGmVariable(*a_machine, t.action); // see process_manager.h
+        UnrootGmVariable(*a_machine, t.handle);
+    }
     auto& all = AllSequencers();
     for (auto it = all.begin(); it != all.end(); ++it) {
         if (*it == data) { all.erase(it); break; }
@@ -418,20 +553,25 @@ gmTableObject* ThisActionTable(gmThread* a_thread) {
     return a_thread->ThisTable();
 }
 
-// Confirmed real: 0 or 1 args -- the 1-arg form's value ends up stored at a
-// fixed offset with no further use visible in the constructor itself. Real
-// usage (`act=SEQUENCERACTION();`) is always 0-arg, so the 1-arg form's
-// exact meaning is unconfirmed; stored as the initial step.
-int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
-    gmTableObject* table = a_thread->GetMachine()->AllocTableObject();
-    int initialStep = a_thread->GetNumParams() >= 1 ? a_thread->ParamInt(0, 0) : 0;
-    table->Set(a_thread->GetMachine(), "__pattern", gmVariable((gmint)0));
-    table->Set(a_thread->GetMachine(), "__step", gmVariable((gmint)initialStep));
-    table->Set(a_thread->GetMachine(), "__looped", gmVariable((gmint)0));
-    table->Set(a_thread->GetMachine(), "__tagged", gmVariable((gmint)0));
-    table->Set(a_thread->GetMachine(), "__boundTable", gmVariable::s_null);
+// Shared builder for both the user-facing `SEQUENCERACTION()` constructor
+// and the internal per-trigger handle setTrigger/setTrigger16/
+// setTriggerOnNext create (see CreateSequencerActionTable's forward
+// declaration above) -- both are the same native type/method set per the
+gmTableObject* CreateSequencerActionTable(gmMachine& a_machine, int a_initialStep) {
+    gmTableObject* table = a_machine.AllocTableObject();
+    table->Set(&a_machine, "__pattern", gmVariable((gmint)0));
+    table->Set(&a_machine, "__step", gmVariable((gmint)a_initialStep));
+    table->Set(&a_machine, "__looped", gmVariable((gmint)0));
+    table->Set(&a_machine, "__tagged", gmVariable((gmint)0));
+    table->Set(&a_machine, "__boundTable", gmVariable::s_null);
+    // Confirmed real field (SequencerAction.getAction reads a distinct
+    // offset from __boundTable/setTable's field, never written by any of
+    // the 8 recovered SequencerAction.c methods -- it's populated by the
+    // SEQUENCER's own setTrigger/setTriggerOnNext, see below) -- defaults
+    // null for a plain script-constructed `SEQUENCERACTION()`.
+    table->Set(&a_machine, "__action", gmVariable::s_null);
 
-    table->Set(a_thread->GetMachine(), "setTable", gmVariable(a_thread->GetMachine()->AllocFunctionObject(
+    table->Set(&a_machine, "setTable", gmVariable(a_machine.AllocFunctionObject(
         [](gmThread* a_thread) -> int {
             gmTableObject* self = ThisActionTable(a_thread);
             if (!self) return GM_EXCEPTION;
@@ -439,14 +579,14 @@ int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
             self->Set(a_thread->GetMachine(), "__boundTable", a_thread->Param(0));
             return GM_OK;
         })));
-    table->Set(a_thread->GetMachine(), "tagForRemoval", gmVariable(a_thread->GetMachine()->AllocFunctionObject(
+    table->Set(&a_machine, "tagForRemoval", gmVariable(a_machine.AllocFunctionObject(
         [](gmThread* a_thread) -> int {
             gmTableObject* self = ThisActionTable(a_thread);
             if (!self) return GM_EXCEPTION;
             self->Set(a_thread->GetMachine(), "__tagged", gmVariable((gmint)1));
             return GM_OK;
         })));
-    table->Set(a_thread->GetMachine(), "isTaggedForRemoval", gmVariable(a_thread->GetMachine()->AllocFunctionObject(
+    table->Set(&a_machine, "isTaggedForRemoval", gmVariable(a_machine.AllocFunctionObject(
         [](gmThread* a_thread) -> int {
             gmTableObject* self = ThisActionTable(a_thread);
             if (!self) return GM_EXCEPTION;
@@ -454,21 +594,21 @@ int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
             a_thread->PushInt(v.m_type == GM_INT && v.m_value.m_int != 0 ? 1 : 0);
             return GM_OK;
         })));
-    table->Set(a_thread->GetMachine(), "getPattern", gmVariable(a_thread->GetMachine()->AllocFunctionObject(
+    table->Set(&a_machine, "getPattern", gmVariable(a_machine.AllocFunctionObject(
         [](gmThread* a_thread) -> int {
             gmTableObject* self = ThisActionTable(a_thread);
             if (!self) return GM_EXCEPTION;
             a_thread->Push(self->Get(a_thread->GetMachine(), "__pattern"));
             return GM_OK;
         })));
-    table->Set(a_thread->GetMachine(), "getStep", gmVariable(a_thread->GetMachine()->AllocFunctionObject(
+    table->Set(&a_machine, "getStep", gmVariable(a_machine.AllocFunctionObject(
         [](gmThread* a_thread) -> int {
             gmTableObject* self = ThisActionTable(a_thread);
             if (!self) return GM_EXCEPTION;
             a_thread->Push(self->Get(a_thread->GetMachine(), "__step"));
             return GM_OK;
         })));
-    table->Set(a_thread->GetMachine(), "getLooped", gmVariable(a_thread->GetMachine()->AllocFunctionObject(
+    table->Set(&a_machine, "getLooped", gmVariable(a_machine.AllocFunctionObject(
         [](gmThread* a_thread) -> int {
             gmTableObject* self = ThisActionTable(a_thread);
             if (!self) return GM_EXCEPTION;
@@ -476,31 +616,32 @@ int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
             a_thread->PushInt(v.m_type == GM_INT && v.m_value.m_int != 0 ? 1 : 0);
             return GM_OK;
         })));
-    // Confirmed body passes the calling thread itself into a native helper
-    // -- the most plausible read is "invoke the bound action and return its
-    // result", which matches real usage exactly (act.execute=function(){...}).
-    table->Set(a_thread->GetMachine(), "getAction", gmVariable(a_thread->GetMachine()->AllocFunctionObject(
+    // Confirmed real: the decompiled body (SequencerAction.getAction,
+    // field and pushes it as-is -- it does NOT invoke execute() (this
+    // engine's previous reading). Confirmed by real usage too:
+    // ScaleOfTheWorld.gm's `local currentAct=tr.getAction();
+    // if(currentAct.entityID==entityID)` reads a property the script set
+    // directly on the original action table (`act.entityID=entityID;`) --
+    // that only works if getAction() returns the bound table itself, not
+    // whatever calling its execute() happened to return (none of the real
+    // execute() functions in the corpus return anything).
+    table->Set(&a_machine, "getAction", gmVariable(a_machine.AllocFunctionObject(
         [](gmThread* a_thread) -> int {
             gmTableObject* self = ThisActionTable(a_thread);
             if (!self) return GM_EXCEPTION;
-            gmVariable boundOrSelf = self->Get(a_thread->GetMachine(), "__boundTable");
-            gmTableObject* callTarget = self;
-            gmVariable callTargetVar = *a_thread->GetThis();
-            if (boundOrSelf.m_type == GM_TABLE) {
-                callTarget = (gmTableObject*)a_thread->GetMachine()->GetObject(boundOrSelf.m_value.m_ref);
-                callTargetVar = boundOrSelf;
-            }
-            gmCall call;
-            if (call.BeginTableFunction(a_thread->GetMachine(), "execute", callTarget, callTargetVar)) {
-                call.End();
-                if (call.DidReturnVariable()) a_thread->Push(call.GetReturnedVariable());
-                else a_thread->PushNull();
-            } else {
-                a_thread->PushNull();
-            }
+            a_thread->Push(self->Get(a_thread->GetMachine(), "__action"));
             return GM_OK;
         })));
+    return table;
+}
 
+// Confirmed real: 0 or 1 args -- the 1-arg form's value ends up stored at a
+// fixed offset with no further use visible in the constructor itself. Real
+// usage (`act=SEQUENCERACTION();`) is always 0-arg, so the 1-arg form's
+// exact meaning is unconfirmed; stored as the initial step.
+int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
+    int initialStep = a_thread->GetNumParams() >= 1 ? a_thread->ParamInt(0, 0) : 0;
+    gmTableObject* table = CreateSequencerActionTable(*a_thread->GetMachine(), initialStep);
     a_thread->PushTable(table);
     return GM_OK;
 }
@@ -521,6 +662,41 @@ int GM_CDECL gmf_SEQUENCE_FromTable(gmThread* a_thread) {
     return GM_OK;
 }
 
+// SEQUENCE_ToString(seq)/SEQUENCE_FromString(str, seq)/SEQUENCE_ToTable(seq,
+// (EntityBase.gm:175 `SEQUENCE_ToString(obj.customSequence)`, :312
+// `SEQUENCE_ToTable(obj.customSequence,jsonTable.customSequence)`, :704
+// `SEQUENCE_FromString(this.configureData.customSequence,
+// this.customSequence)`; Main.gm's screen-clipboard copy/paste) but were
+// entirely UNBOUND -- a hard null-call on every one of those, same gap
+// SEQUENCE_FromTable above was found and fixed for. The real encoding
+// (SEQUENCE_ToString's 'z'-prefixed per-step character packing, keyed off
+// an external, unrecovered lookup table -- DAT_003726f4 -- and helper
+// functions FUN_000f193c/FUN_000f2150 with no decompiled body in this
+// corpus) isn't recoverable here, so a byte-faithful port of custom-
+// rhythm-pattern save/load isn't possible with what this pass has -- same
+// "no real customSequence-playback consumer yet" scope gap as
+// SEQUENCE_FromTable. These are honest, arity-correct stubs rather than a
+// guessed-at encoding: ToString returns the confirmed real 'z' prefix with
+// an empty (no active steps) body, FromString is consumed as a no-op
+// (matching FromTable's own precedent), and ToTable returns its own arg1
+// (confirmed real: the decompiled body's return value type-tags as
+// GM_TABLE and its value IS arg1) unmodified rather than null, since real
+// callers immediately re-serialize that exact table to JSON.
+int GM_CDECL gmf_SEQUENCE_ToString(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    a_thread->PushString(a_thread->GetMachine()->AllocStringObject("z"));
+    return GM_OK;
+}
+int GM_CDECL gmf_SEQUENCE_FromString(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    return GM_OK;
+}
+int GM_CDECL gmf_SEQUENCE_ToTable(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    a_thread->Push(a_thread->Param(1));
+    return GM_OK;
+}
+
 } // namespace
 
 void RegisterSequencerBindings(gmMachine& a_machine) {
@@ -536,6 +712,9 @@ void RegisterSequencerBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("SEQUENCER_OnNoteCollect", gmf_SEQUENCER_OnNoteCollect);
     a_machine.RegisterLibraryFunction("SEQUENCER_SetMasterPulse", gmf_SEQUENCER_SetMasterPulse);
     a_machine.RegisterLibraryFunction("SEQUENCE_FromTable", gmf_SEQUENCE_FromTable);
+    a_machine.RegisterLibraryFunction("SEQUENCE_ToString", gmf_SEQUENCE_ToString);
+    a_machine.RegisterLibraryFunction("SEQUENCE_FromString", gmf_SEQUENCE_FromString);
+    a_machine.RegisterLibraryFunction("SEQUENCE_ToTable", gmf_SEQUENCE_ToTable);
 
     a_machine.RegisterLibraryFunction("SEQUENCERACTION", gmf_SEQUENCERACTION);
 }
@@ -552,10 +731,38 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
             s->msAccumulator -= msPerStep;
             s->currentStep = WrapStep(s->currentStep + 1, s->EffectiveLen());
             if (s->currentStep == 0) s->currentPattern++;
-            for (auto& t : s->triggers) {
-                if (t.enabled && t.step == s->currentStep) {
-                    FireTrigger(a_machine, t.action);
+
+            // Prune any trigger a script tagged for removal (SequencerAction.
+            // SequencerAction.c) before firing this step's triggers, e.g.
+            // ScaleOfTheWorld.gm scanning getAllTriggers() and tagging ones
+            // to drop.
+            for (size_t i = 0; i < s->triggers.size(); ) {
+                if (IsHandleTagged(a_machine, s->triggers[i].handle)) {
+                    UnrootGmVariable(a_machine, s->triggers[i].action);
+                    UnrootGmVariable(a_machine, s->triggers[i].handle);
+                    s->triggers.erase(s->triggers.begin() + i);
+                } else {
+                    ++i;
                 }
+            }
+
+            for (size_t i = 0; i < s->triggers.size(); ) {
+                SequencerTrigger& t = s->triggers[i];
+                if (t.step == s->currentStep) {
+                    FireTrigger(a_machine, t.action);
+                    // See SequencerTrigger::looped's comment: a non-looped
+                    // trigger fires once and removes itself; a looped one
+                    // can still self-remove via tagForRemoval() from inside
+                    // its own execute() (SequencerHelper.gm's
+                    // SEQUENCERHELPER_AddTriggerWithSkip does exactly this).
+                    if (!t.looped || IsHandleTagged(a_machine, t.handle)) {
+                        UnrootGmVariable(a_machine, t.action);
+                        UnrootGmVariable(a_machine, t.handle);
+                        s->triggers.erase(s->triggers.begin() + i);
+                        continue;
+                    }
+                }
+                ++i;
             }
         }
     }

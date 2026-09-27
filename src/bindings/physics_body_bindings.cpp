@@ -1,5 +1,6 @@
 #include "gmThread.h"
 #include "physics_body_bindings.h"
+#include <algorithm>
 #include "physics_bindings.h"
 #include "vector2d_bindings.h"
 #include "../core/physics_world.h"
@@ -627,6 +628,53 @@ int GM_CDECL gmf_pb_getCategoriesToCollideWith(gmThread* a_thread) {
     a_thread->PushInt(f ? (int)f->GetFilterData().maskBits : -1);
     return GM_OK;
 }
+// setCollisionGroup(group)/getCollisionGroup() -- confirmed real and
+// (0x00090394, `FUN_00032470(self, 0)` -- the hardcoded literal 0 second
+// arg means this always resolves the body's first/only fixture, matching
+// the "apply to every fixture uniformly" pattern setCollisionCategory/
+// setCategoriesToCollideWith already use). No decompiled setter exists in
+// this corpus, but game_data/Platformer/EntityBase.gm:914 -- part of
+// EVERY entity's configure() step, live and uncommented -- calls
+// `this.PhysicsData.setCollisionGroup((this.configureData.uid +
+// RESERVED_UIDS)*-1);`. The value is forced negative, which is exactly
+// Box2D's b2Filter::groupIndex semantic (nonzero group index: negative =
+// never collide with same group, positive = always collide, independent
+// of and orthogonal to categoryBits/maskBits) -- a THIRD filter field,
+// distinct from setCollisionCategory/setCategoriesToCollideWith, so this
+// must not be aliased onto those. Was entirely missing (grepped, zero
+// matches anywhere in the corpus of binding files), meaning every entity
+// hit "getdot failed" during configure() before this fix.
+int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(group, 0, 0);
+    for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
+        b2Filter filter = f->GetFilterData();
+        filter.groupIndex = (int16)group;
+        f->SetFilterData(filter);
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getCollisionGroup(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    b2Fixture* f = b->body->GetFixtureList();
+    a_thread->PushInt(f ? (int)f->GetFilterData().groupIndex : 0);
+    return GM_OK;
+}
+// 0x0008fafc) and confirmed-live: `this.mainpb.isSleeping()`
+// (SpiralLightBulb.gm:1005,1013; SpiralStaircaseLightBulb.gm:183) and
+// `PHYSICSBODY_GetBodyByID(this.endBody).isSleeping()` (Chain2.gm:402,509,
+// 786). Retail's own internal "is asleep" bit (flags bit 2) is cleared by
+// setAngularVel/applyForce/wakeUp whenever a nonzero velocity/force is
+// applied (see PhysicsShape.c:1242-1268,1904-1930 and PhysicsBody.c:
+// 309-329) -- i.e. its semantic is exactly Box2D's own awake flag, so no
+// need to replicate the bit trick, just proxy Box2D's real (and already
+// auto-managed) IsAwake().
+int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    a_thread->PushInt(b->body->IsAwake() ? 0 : 1);
+    return GM_OK;
+}
 int GM_CDECL gmf_pb_setIsSensor(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -709,6 +757,75 @@ int GM_CDECL gmf_pb_setShapeDensity(gmThread* a_thread) {
         for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetDensity(d);
     }
     SyncBodyTypeFromMass(b->body);
+    return GM_OK;
+}
+// setIsShapeSensor(shapeIndex, bool)/setShapeCategoriesToCollideWith(
+// shapeIndex, mask)/getShapeCategoriesToCollideWith(shapeIndex) --
+// confirmed real, decompiled per-fixture (index-addressed) siblings of the
+// "all fixtures" setIsSensor/setCategoriesToCollideWith/
+// 1761-1832, 0x000912d8/0x00091bec/0x00091d8c -- getShapeCategoriesToCollideWith
+// reads a ushort at the resolved fixture struct's +0x3e, matching Box2D's
+// own b2Filter::maskBits field). Same "falls back to all fixtures on an
+// out-of-range index" no-crash convention as setShapeDensity above, for
+// the same reason (no confirmed decompiled out-of-range behavior to match
+// against, and every real call site the corpus has for setShapeDensity
+// uses a valid index).
+int GM_CDECL gmf_pb_setIsShapeSensor(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    GM_INT_PARAM(isSensor, 1, 0);
+    int idx = 0;
+    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext(), ++idx) {
+        if (idx == shapeIndex) { fx->SetSensor(isSensor != 0 || !b->isCollidable); break; }
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_setShapeCategoriesToCollideWith(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    GM_INT_PARAM(mask, 1, -1);
+    int idx = 0;
+    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext(), ++idx) {
+        if (idx == shapeIndex) {
+            b2Filter filter = fx->GetFilterData();
+            filter.maskBits = (uint16)mask;
+            fx->SetFilterData(filter);
+            break;
+        }
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getShapeCategoriesToCollideWith(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    int idx = 0;
+    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext(), ++idx) {
+        if (idx == shapeIndex) { a_thread->PushInt((int)fx->GetFilterData().maskBits); return GM_OK; }
+    }
+    a_thread->PushInt(-1);
+    return GM_OK;
+}
+// 1436-1452, 0x0008ff6c, reads flag bit 8) counterpart to the already-
+// implemented setter (setIsUsingContinuousPhysics, confirmed live:
+// Player.gm:66). No confirmed-live call site for the getter itself was
+// found, but it's a trivial, direct proxy for Box2D's own IsBullet() --
+// the exact flag setIsUsingContinuousPhysics's SetBullet call sets.
+int GM_CDECL gmf_pb_isBullet(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    a_thread->PushInt(b->body->IsBullet() ? 1 : 0);
+    return GM_OK;
+}
+// 1934-1959, 0x000922dc, reads body fields +0x24/+0x28 directly, i.e. a
+// bare field read with no formula) -- Box2D's own GetWorldCenter() is the
+// direct real equivalent (the body's centroid in world space, matching
+// what those two fields would hold in a real Box2D-backed body).
+int GM_CDECL gmf_pb_getCenterOfMass(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    b2Vec2 c = b->body->GetWorldCenter();
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), c.x, c.y));
     return GM_OK;
 }
 // setMass(density) -- confirmed real, single-arg (e.g. `this.mainpb.
@@ -1142,6 +1259,9 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"getCollisionCategory", gmf_pb_getCollisionCategory, nullptr},
     {"setCategoriesToCollideWith", gmf_pb_setCategoriesToCollideWith, nullptr},
     {"getCategoriesToCollideWith", gmf_pb_getCategoriesToCollideWith, nullptr},
+    {"setCollisionGroup", gmf_pb_setCollisionGroup, nullptr},
+    {"getCollisionGroup", gmf_pb_getCollisionGroup, nullptr},
+    {"isSleeping", gmf_pb_isSleeping, nullptr},
     {"setIsSensor", gmf_pb_setIsSensor, nullptr},
     {"isSensor", gmf_pb_isSensor, nullptr},
     {"setIsCollidable", gmf_pb_setIsCollidable, nullptr},
@@ -1149,6 +1269,11 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"setFriction", gmf_pb_setFriction, nullptr},
     {"setRestitution", gmf_pb_setRestitution, nullptr},
     {"setShapeDensity", gmf_pb_setShapeDensity, nullptr},
+    {"setIsShapeSensor", gmf_pb_setIsShapeSensor, nullptr},
+    {"setShapeCategoriesToCollideWith", gmf_pb_setShapeCategoriesToCollideWith, nullptr},
+    {"getShapeCategoriesToCollideWith", gmf_pb_getShapeCategoriesToCollideWith, nullptr},
+    {"isBullet", gmf_pb_isBullet, nullptr},
+    {"getCenterOfMass", gmf_pb_getCenterOfMass, nullptr},
     {"setMass", gmf_pb_setMass, nullptr},
     {"getMass", gmf_pb_getMass, nullptr},
     {"getShapeObjectID", gmf_pb_getShapeObjectID, nullptr},
@@ -1185,6 +1310,21 @@ gmFunctionEntry s_physicsBodyLib[] = {
 void GM_CDECL PhysicsBodyGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
     (void)a_machine;
     PhysicsBodyData* b = (PhysicsBodyData*)a_object->m_user;
+    if (!b) return;
+    // Drop the registry entry BEFORE freeing. g_allPhysicsBodies is the list
+    // StepPhysicsBodyMovement() walks every tick, and it was only ever
+    // pushed to -- nothing erased from it, here or anywhere else. So every
+    // garbage-collected body left a dangling PhysicsBodyData* behind, and
+    // the next tick dereferenced freed memory.
+    //
+    // Not a latent worry: this is the segfault that killed the run the
+    // moment the tutorial level started loading (SIGSEGV inside
+    // StepPhysicsBodyMovement, straight after Platformer/colours.dat
+    // loaded), because level load is the first point where entities -- and
+    // therefore bodies -- are created and collected in bulk.
+    g_allPhysicsBodies.erase(
+        std::remove(g_allPhysicsBodies.begin(), g_allPhysicsBodies.end(), b),
+        g_allPhysicsBodies.end());
     if (b->body) GetPhysicsWorld().DestroyBody(b->body);
     delete b;
 }
@@ -1995,6 +2135,107 @@ int GM_CDECL gmf_pd_setCategoriesToCollideWith(gmThread* a_thread) {
     }
     return GM_OK;
 }
+// setCollisionGroup/getCollisionGroup/isSleeping -- see the gmf_pb_ versions
+// above for the full decompiled/live-call-site justification (this is the
+// SAME real method, real scripts call it directly on PhysicsData, e.g.
+// EntityBase.gm:914's `this.PhysicsData.setCollisionGroup(...)` -- the
+// exact "delegate to body 0" pattern every other pd_/pb_ pair here uses).
+int GM_CDECL gmf_pd_setCollisionGroup(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(group, 0, 0);
+    PhysicsBodyData* b = MainBody(a_thread, d);
+    if (b) {
+        for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
+            b2Filter filter = f->GetFilterData();
+            filter.groupIndex = (int16)group;
+            f->SetFilterData(filter);
+        }
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_pd_getCollisionGroup(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    PhysicsBodyData* b = MainBody(a_thread, d);
+    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
+    a_thread->PushInt(f ? (int)f->GetFilterData().groupIndex : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_pd_isSleeping(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    PhysicsBodyData* b = MainBody(a_thread, d);
+    a_thread->PushInt((b && !b->body->IsAwake()) ? 1 : 0);
+    return GM_OK;
+}
+// 0x00094e78): walks every body pointer this PhysicsData owns and clears
+// its "asleep" bit -- i.e. wakes every body this entity has, not just the
+// main one (distinct from the isSleeping()/getPos() etc "just body 0"
+// pattern above). Box2D's SetAwake(true) is the direct real equivalent.
+int GM_CDECL gmf_pd_wakeUp(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    gmMachine& m = *a_thread->GetMachine();
+    for (gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(m, bodyVar);
+        if (b && b->body) b->body->SetAwake(true);
+    }
+    return GM_OK;
+}
+// appendShapes(index, shapeDefCollection) -- confirmed real 2-arg overload
+// on PhysicsData itself (distinct from the single-body, 1-arg gmf_pb_
+// appendShapes above): CONFIRMED LIVE, game_data/Platformer/EntityPacks/
+// Minimal/SingleDirLaserTurret.gm:445-446 --
+//   `this.PhysicsData.replaceBody(0); this.PhysicsData.appendShapes(0,sd);`
+// -- both uncommented, genuinely reachable. Was entirely missing (only the
+// 1-arg per-body form existed), so any level containing this entity hit
+// "getdot failed" here. Resolves the body at `index` the same way getBody/
+// removeBody do, then does exactly what gmf_pb_appendShapes does to it.
+int GM_CDECL gmf_pd_appendShapes(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(index, 0, 0);
+    GM_CHECK_USER_PARAM(ShapeDefCollection*, g_physicsShapeDefType, sd, 1);
+    if (index < 0 || index >= (int)d->bodies.size()) return GM_OK;
+    PhysicsBodyData* b = GetBodyData(*a_thread->GetMachine(), d->bodies[(size_t)index]);
+    if (!b || !b->body) return GM_OK;
+    for (auto& def : sd->fixtureDefs) {
+        b2Fixture* fx = b->body->CreateFixture(&def);
+        RegisterShapeGlobalId(fx);
+        if (def.shape->GetType() == b2Shape::e_circle) {
+            b->radius = ((b2CircleShape*)def.shape)->m_radius;
+        }
+    }
+    SyncBodyTypeFromMass(b->body);
+    return GM_OK;
+}
+// 88-114, 0x00092810: `FUN_0002ef8c(world, index, 1)`, returns either null
+// or a fresh PhysicsBody wrapper) and CONFIRMED LIVE (see appendShapes
+// comment above -- SingleDirLaserTurret.gm:445, immediately followed by
+// appendShapes(0,sd) re-populating the fresh body's fixtures). Exact
+// semantics of FUN_0002ef8c are AMBIGUOUS -- needs a comment, not a
+// guess: the internals aren't in this decompiled corpus, so "destroy the
+// body at this slot and replace it with a fresh, empty one at the same
+// index/position" is inferred only from the immediately-following
+// appendShapes(0,sd) call needing something to attach fixtures to, not
+// from decompiled proof. Out-of-range index returns null, matching
+// getBody's existing convention.
+int GM_CDECL gmf_pd_replaceBody(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    gmMachine& m = *a_thread->GetMachine();
+    if (index < 0 || index >= (int)d->bodies.size()) { a_thread->PushNull(); return GM_OK; }
+    PhysicsBodyData* old = GetBodyData(m, d->bodies[(size_t)index]);
+    float x = 0.0f, y = 0.0f;
+    if (old && old->body) { b2Vec2 p = old->body->GetPosition(); x = p.x; y = p.y; }
+    UnrootGmVariable(m, d->bodies[(size_t)index]);
+    gmVariable fresh = MakePhysicsBody(m, x, y, false, true);
+    PhysicsBodyData* bd = GetBodyData(m, fresh);
+    if (bd && bd->body) bd->body->GetUserData().pointer = (uintptr_t)d;
+    RootGmVariable(m, fresh);
+    d->bodies[(size_t)index] = fresh;
+    a_thread->Push(fresh);
+    return GM_OK;
+}
 int GM_CDECL gmf_pd_getMass(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
@@ -2479,6 +2720,10 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         {"getBody", gmf_pd_getBody, nullptr},
         {"getNumBodies", gmf_pd_getNumBodies, nullptr},
         {"removeBody", gmf_pd_removeBody, nullptr},
+        {"replaceBody", gmf_pd_replaceBody, nullptr},
+        {"appendShapes", gmf_pd_appendShapes, nullptr},
+        {"wakeUp", gmf_pd_wakeUp, nullptr},
+        {"isSleeping", gmf_pd_isSleeping, nullptr},
         {"getCollidingEntities", gmf_pd_getCollidingEntities, nullptr},
         {"getJointsOnMe", gmf_pd_getJointsOnMe, nullptr},
         {"getCollisionInfo", gmf_pd_getCollisionInfo, nullptr},
@@ -2523,6 +2768,8 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         {"getCollisionCategory", gmf_pd_getCollisionCategory, nullptr},
         {"setCategoriesToCollideWith", gmf_pd_setCategoriesToCollideWith, nullptr},
         {"getCategoriesToCollideWith", gmf_pd_getCategoriesToCollideWith, nullptr},
+        {"setCollisionGroup", gmf_pd_setCollisionGroup, nullptr},
+        {"getCollisionGroup", gmf_pd_getCollisionGroup, nullptr},
         {"getMass", gmf_pd_getMass, nullptr},
         {"isSensor", gmf_pd_isSensor, nullptr},
         {"setIsCollidable", gmf_pd_setIsCollidable, nullptr},

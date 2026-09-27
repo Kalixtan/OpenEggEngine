@@ -36,6 +36,16 @@ bool WriteFile(const std::string& a_relativePath, const std::string& a_content);
 
 bool FileExists(const std::string& a_relativePath);
 
+// Byte size of a_relativePath under the save directory, or -1 if it doesn't
+// exist / can't be stat'd. Backs SAVEDATA_reqGetFileSize's ticket.
+long long FileSize(const std::string& a_relativePath);
+
+// Deletes a_relativePath under the save directory. True if it existed and
+// was removed, or didn't exist to begin with (matches the real
+// SAVEDATA_reqDelete contract of "not an error if already gone" -- retail's
+// file being missing).
+bool DeleteFile(const std::string& a_relativePath);
+
 // Deletes everything under the save directory -- "start a new game, no
 // leftover save data affecting anything" for testing. See main.cpp's
 // GE3_CLEAR_SAVE handling for how this gets triggered at boot.

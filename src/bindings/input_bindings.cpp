@@ -6,6 +6,7 @@
 #include "../render/renderer.h"
 #include <SDL2/SDL.h>
 #include <string>
+#include <cctype>
 
 // Real SDL keyboard-driven implementation -- per explicit direction, PC
 // desktop keyboard only for now; no joystick/gamepad hardware support
@@ -24,8 +25,13 @@ int GM_CDECL gmf_zeroInt(gmThread* a_thread) { a_thread->PushInt(0); return GM_O
 int GM_CDECL gmf_emptyString(gmThread* a_thread) { a_thread->PushNewString(""); return GM_OK; }
 int GM_CDECL gmf_noop(gmThread* a_thread) { return GM_OK; }
 
+// Virtual key state -- see SetVirtualKeyDown's header comment. File-scope
+// (not in the anonymous namespace) so the setters below can reach it.
+bool g_virtualKeys[SDL_NUM_SCANCODES] = {false};
+
 bool KeyDown(int a_scancode) {
     if (a_scancode <= SDL_SCANCODE_UNKNOWN || a_scancode >= SDL_NUM_SCANCODES) return false;
+    if (g_virtualKeys[a_scancode]) return true;
     return SDL_GetKeyboardState(nullptr)[a_scancode] != 0;
 }
 
@@ -125,6 +131,66 @@ int GM_CDECL gmf_getMousePosVec(gmThread* a_thread) {
 // different return shape, so treated as an alias.
 int GM_CDECL gmf_getMousePos(gmThread* a_thread) { return gmf_getMousePosVec(a_thread); }
 
+// classes/KeyCode.c @ 0xa9ef0): 1 or 2 args, returns a length-1 string for
+// a printable key or null for a non-printable one (real call sites --
+// GenericTextInputProcess.gm/2.gm, ColourEditorProcess*.gm's text-entry
+// widgets -- check `?cha` for "was this printable" before appending it to
+// a text buffer). Since this engine's KEYBOARD_*/JOYSTICK0_* constants are
+// SDL_Scancode values directly (see header comment above), this maps
+// SDL_Scancode -> ASCII the same way, respecting the shift flag for
+// letter case and the standard US-QWERTY shifted symbols.
+int GM_CDECL gmf_KEYCODE_GetAscii(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(code, 0, 0);
+    bool shift = false;
+    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(s, 1, 0); shift = (s != 0); }
+
+    char c = 0;
+    if (code >= SDL_SCANCODE_A && code <= SDL_SCANCODE_Z) {
+        c = (char)('a' + (code - SDL_SCANCODE_A));
+        if (shift) c = (char)std::toupper((unsigned char)c);
+    } else if (code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9) {
+        static const char kShifted[] = "!@#$%^&*(";
+        c = shift ? kShifted[code - SDL_SCANCODE_1] : (char)('1' + (code - SDL_SCANCODE_1));
+    } else if (code == SDL_SCANCODE_0) {
+        c = shift ? ')' : '0';
+    } else if (code == SDL_SCANCODE_SPACE) {
+        c = ' ';
+    } else {
+        switch (code) {
+            case SDL_SCANCODE_MINUS: c = shift ? '_' : '-'; break;
+            case SDL_SCANCODE_EQUALS: c = shift ? '+' : '='; break;
+            case SDL_SCANCODE_COMMA: c = shift ? '<' : ','; break;
+            case SDL_SCANCODE_PERIOD: c = shift ? '>' : '.'; break;
+            case SDL_SCANCODE_SLASH: c = shift ? '?' : '/'; break;
+            case SDL_SCANCODE_BACKSLASH: c = shift ? '|' : '\\'; break;
+            case SDL_SCANCODE_SEMICOLON: c = shift ? ':' : ';'; break;
+            case SDL_SCANCODE_APOSTROPHE: c = shift ? '"' : '\''; break;
+            case SDL_SCANCODE_LEFTBRACKET: c = shift ? '{' : '['; break;
+            case SDL_SCANCODE_RIGHTBRACKET: c = shift ? '}' : ']'; break;
+            case SDL_SCANCODE_GRAVE: c = shift ? '~' : '`'; break;
+            case SDL_SCANCODE_KP_0: c = '0'; break;
+            case SDL_SCANCODE_KP_1: c = '1'; break;
+            case SDL_SCANCODE_KP_2: c = '2'; break;
+            case SDL_SCANCODE_KP_3: c = '3'; break;
+            case SDL_SCANCODE_KP_4: c = '4'; break;
+            case SDL_SCANCODE_KP_5: c = '5'; break;
+            case SDL_SCANCODE_KP_6: c = '6'; break;
+            case SDL_SCANCODE_KP_7: c = '7'; break;
+            case SDL_SCANCODE_KP_8: c = '8'; break;
+            case SDL_SCANCODE_KP_9: c = '9'; break;
+            case SDL_SCANCODE_KP_PLUS: c = '+'; break;
+            case SDL_SCANCODE_KP_MINUS: c = '-'; break;
+            case SDL_SCANCODE_KP_MULTIPLY: c = '*'; break;
+            default: c = 0; break;
+        }
+    }
+    if (c == 0) { a_thread->PushNull(); return GM_OK; }
+    char buf[2] = { c, 0 };
+    a_thread->PushNewString(buf);
+    return GM_OK;
+}
+
 gmVariable ZeroVec2(gmMachine& a_machine) { return MakeVector2D(a_machine, 0.0f, 0.0f); }
 int GM_CDECL gmf_zeroVec2(gmThread* a_thread) {
     a_thread->Push(ZeroVec2(*a_thread->GetMachine()));
@@ -165,6 +231,10 @@ gmFunctionEntry s_inputLib[] = {
 
 void RegisterInputBindings(gmMachine& a_machine) {
     a_machine.RegisterLibrary(s_inputLib, sizeof(s_inputLib) / sizeof(s_inputLib[0]), "Input");
+
+    // KeyCode.c), not under "Input." or "KeyCode." -- matches every real
+    // call site (`local cha=KEYCODE_GetAscii(kc);`).
+    a_machine.RegisterLibraryFunction("KEYCODE_GetAscii", gmf_KEYCODE_GetAscii);
 
     // Not decompiled-confirmed exact integer values -- real scripts only
     // ever compare these symbolically, never against a literal number
@@ -304,3 +374,13 @@ void RegisterInputBindings(gmMachine& a_machine) {
     // platform -- still true for Sound Shapes, not for FoE.)
     for (auto& k : kKeys) { g->Set(&a_machine, k.name, gmVariable((gmint)k.code)); }
 }
+
+void SetVirtualKeyDown(int a_scancode, bool a_down) {
+    if (a_scancode <= SDL_SCANCODE_UNKNOWN || a_scancode >= SDL_NUM_SCANCODES) return;
+    g_virtualKeys[a_scancode] = a_down;
+}
+
+void ClearVirtualKeys() {
+    for (int i = 0; i < SDL_NUM_SCANCODES; ++i) g_virtualKeys[i] = false;
+}
+

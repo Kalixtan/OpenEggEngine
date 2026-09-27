@@ -596,9 +596,22 @@ int GM_CDECL gmf_getAutoLoadArea(gmThread* a_thread) {
 // runaway trace() burst, not just this one script's bug. Legitimate,
 // occasional real traces (the overwhelming majority of real call sites)
 // are completely unaffected.
+// ENGINE PATCH: the whole body below had been short-circuited by an
+// unconditional `return GM_OK; // ignore for now.` on the first line, which
+// silently disabled the game's OWN diagnostic channel -- retail scripts
+// trace their state machines through this (game_data/Main.gm's InitGame
+// traces "initing mixer", the splash/save state machine reports its
+// progress, etc), and with it dead there is no way to see how far the boot
+// sequence actually got. Restored, but OPT-IN via GE3_TRACE=1 rather than
+// on by default: the flood guard below exists because a real script bug
+// once drove thousands of unbuffered stderr writes per second and stalled a
+// level load for ~37 seconds, and a default-on trace channel also buries
+// the engine's own diagnostics. The dead code was also a trap -- it read as
+// a working implementation to anyone grepping for it.
 int GM_CDECL gmf_GameSystem_trace(gmThread* a_thread) {
-    return GM_OK; // ignore for now.
-    
+    static const bool s_enabled = std::getenv("GE3_TRACE") != nullptr;
+    if (!s_enabled) return GM_OK;
+
     using clock = std::chrono::steady_clock;
     static clock::time_point windowStart = clock::now();
     static int windowCount = 0;

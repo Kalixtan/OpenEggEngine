@@ -12,4 +12,7 @@
 // of a GE3_REMOVED trap, matching retail's own real fallback behavior when
 // PSN is unreachable (Main.gm's ONLINESTATE_OFFLINE state, which every one
 // of these calls gates, is built to run forever in that branch already).
+// confirmed PSN/PS Store/PS Vita Near functions) with real corpus call
+// sites -- same "no online backend, permanently-offline stub" stance, see
+// online_coordinator_bindings.cpp for the per-function reasoning.
 void RegisterOnlineCoordinatorBindings(gmMachine& a_machine);

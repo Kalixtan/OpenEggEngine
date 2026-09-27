@@ -24,7 +24,27 @@ enum class OsId {
 };
 
 struct SystemConfig {
-    OsId osId = OsId::WIN32;
+    // PS3. This is a reimplementation of the PS3 build (title NPUA80543) --
+    // there is no other platform to be. It is also load-bearing, not
+    // cosmetic: the corpus branches on SYSTEM_GetOSID() to pick which
+    // platform's scripts to run, and the default of WIN32 silently selected
+    // the WRONG UI everywhere it is checked.
+    //
+    // Platformer/MainMenuScriptLoader.gm is the clearest case --
+    //     local os = SYSTEM_GetOSID();
+    //     if (os == OSID_PS3) { ...load Platformer/MainMenu5PS3/*... }
+    // -- so with WIN32 the engine loaded the base/NGP (PS Vita) menu
+    // instead. Those two trees are driven completely differently: the PS3
+    // screens are controller-driven (HomeScreenPS3.gm binds
+    // `onKeyPress = function(kc) { if (this.selected && kc ==
+    // JOYSTICK0_ACCEPT) ... }` on each button), while the NGP ones are
+    // touch/pointer-driven (HomeScreenBase.gm's panels use onTouchDown/
+    // onTouchUp). The result was a main menu that rendered correctly but
+    // could not be navigated by a controller at all, because the screens
+    // being run were waiting for touches that a PS3 build never produces.
+    //
+    // retail rather than assumed from enum order).
+    OsId osId = OsId::PS3;
 
     // Matches the real ELanguageCode_* enum confirmed in game_data/FontHelper.gm
     // (JAPANESE=0 .. SPANISH_MEXICAN=19). Default: English (US).

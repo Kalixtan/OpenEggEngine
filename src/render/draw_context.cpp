@@ -143,19 +143,34 @@ int GM_CDECL DC_gmf_setColourMask(gmThread* a_thread) {
     });
 }
 
-// drawList.setAttrStencil(func, [sfail, dpfail,] dppass, ref) -- confirmed
-// real in both a 3-arg (func, dppass, ref -- sfail/dpfail implicitly KEEP)
-// and 5-arg (func, sfail, dpfail, dppass, ref) form across the corpus
-// (e.g. GroundProcessNEW.gm's 3-arg `setAttrStencil(VIDEOPARAMS_GREATER,
-// this.parent.OUTLINE_STENCIL_VALUE)` -- wait, that's Video.setStencilFunc,
-// 2-arg (func,ref), separate from drawList.setAttrStencil which always
-// carries an op; see Main.gm's confirmed 5-arg
-// `setAttrStencil(VIDEOPARAMS_EQUAL,VIDEOPARAMS_KEEP,VIDEOPARAMS_KEEP,
-// VIDEOPARAMS_KEEP,0x08)` and EntityMenu_ColourSchemeCell.gm's confirmed
-// 3-arg `setAttrStencil(VIDEOPARAMS_EQUAL,VIDEOPARAMS_KEEP,20)` --
-// (func, dppass, ref), sfail/dpfail defaulting to KEEP since the 3-arg
-// form's real call sites never need to touch the stencil buffer on a
-// failed test, only on pass.
+// drawList.setAttrStencil(func, op, ref) / (func, sfail, dpfail, dppass, ref)
+//
+// DECOMPILED EXACTLY (0x000804d0), closing the gap
+// layout not decoded in this pass ... flagged as a gap, not guessed"). The
+// body accepts ONLY 3 or 5 arguments (any other count returns -1) and
+// marshals them into a 0x18-byte / six-field struct pushed as opcode 0x22:
+//
+//     struct { u32 func, sfail, dpfail, dppass, ref, mask; }
+//
+// 5-arg form (0x80604), reading GM args 0..4 at the 12-byte gmVariable
+// stride (+0, +0xc, +0x18, +0x24, +0x30):
+//     func=arg0  sfail=arg1  dpfail=arg2  dppass=arg3  ref=arg4  mask=-1
+// which is what this engine already did.
+//
+// 3-arg form (0x8053c) -- and this is the correction:
+//     r6 = arg0; r5 = arg1; r4 = arg2; r7 = -1
+//     stw r6,0x88   stw r5,0x8c   stw r5,0x90   stw r5,0x94
+//     stw r4,0x98   stw r7,0x9c
+// i.e. func=arg0, ref=arg2, mask=-1, and the SINGLE op argument is stored
+// into all three op fields: sfail = dpfail = dppass = arg1. This engine
+// previously defaulted sfail/dpfail to KEEP and only applied arg1 to
+// dppass, on the reasoning that the 3-arg call sites "never need to touch
+// the stencil buffer on a failed test". Retail simply does not make that
+// distinction -- with the stencil test disabled or always-passing the two
+// readings coincide, which is why it went unnoticed, but they diverge the
+// moment a 3-arg REPLACE runs against a failing stencil or depth test.
+//
+// mask is the literal -1 (0xFFFFFFFF) in both forms, not GL's default 0xFF.
 int GM_CDECL DC_gmf_setAttrStencil(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     GM_CHECK_NUM_PARAMS(3);
@@ -165,9 +180,13 @@ int GM_CDECL DC_gmf_setAttrStencil(gmThread* a_thread) {
         GM_INT_PARAM(sfail_, 1, 100); GM_INT_PARAM(dpfail_, 2, 100);
         GM_INT_PARAM(dppass_, 3, 100); GM_INT_PARAM(ref_, 4, 0);
         sfail = sfail_; dpfail = dpfail_; dppass = dppass_; ref = ref_;
+    } else if (n == 3) {
+        // Single op argument -> all three op fields (see header comment).
+        GM_INT_PARAM(op_, 1, 100); GM_INT_PARAM(ref_, 2, 0);
+        sfail = dpfail = dppass = op_; ref = ref_;
     } else {
-        GM_INT_PARAM(dppass_, 1, 100); GM_INT_PARAM(ref_, 2, 0);
-        dppass = dppass_; ref = ref_;
+        // Retail returns -1 for any count other than 3 or 5.
+        return GM_EXCEPTION;
     }
     return DC_RecordOrRun(a_thread, [func, sfail, dpfail, dppass, ref] {
         DrawContext& ctx = GetDrawContext();
@@ -688,6 +707,15 @@ int GM_CDECL DC_gmf_print(gmThread* a_thread) { return PrintImpl(a_thread, true)
 int GM_CDECL DC_gmf_printUntranslated(gmThread* a_thread) { return PrintImpl(a_thread, false); }
 int GM_CDECL DC_gmf_printArray(gmThread* a_thread) { return PrintArrayImpl(a_thread); }
 
+// SOUND SHAPES: takes an OPTIONAL trailing boolean. Confirmed from its own
+// it records FUN_0003e198(list, 0), with 1 it records FUN_0003e198(list,
+// arg != 0), and any other count returns -1. What the flag selects is NOT
+// recoverable from the recorder alone -- it is consumed downstream in the
+// RSX command path (FUN_0004cea0, unanalysed in the committed Ghidra
+// project) -- and all 55 corpus call sites use the bare 0-argument form, so
+// nothing here can currently distinguish the two states. Accepted and
+// ignored rather than guessed at; flagged so the flag is not mistaken for
+// an argument retail does not have.
 int GM_CDECL DC_gmf_setupWorldView(gmThread* a_thread) {
     // Establishes the world->screen projection for subsequent draws this
     // frame -- our Renderer recomputes this per-draw-call already (fixed
@@ -719,9 +747,34 @@ int GM_CDECL DC_gmf_setupWorldOrthoView(gmThread* a_thread) {
 // Video.setupOrthoView -- retail binding +0x40 -> device +0x64
 // (FUN_00421640), gluOrtho2D(0, 1, 0, 1). This previously used the
 // aspect-ratio form, which is a different mode (see below).
+// SOUND SHAPES: this takes EITHER no arguments OR exactly four, confirmed
+// it reads the GM argument count and dispatches `if (count < 1) { ortho(
+// DAT_0008132c, DAT_00081330, DAT_0008132c, DAT_00081330, list) } else if
+// (count == 4) { ...read four float-or-int args... } else { return -1 }`.
+// The 0-arg constants read 0.0f/1.0f out of EBOOT.elf, i.e. the 0..1 unit
+// square -- so the 4-arg form is the same (left, right, bottom, top) tuple
+// made explicit. Anything other than 0 or 4 arguments is a real error in
+// retail, matched here.
+//
+// The four-argument form was previously ignored outright (the arguments were
+// never even read), silently projecting any caller's custom bounds as the
+// unit square. Stock game_data only calls the 0-arg form, so this is an
+// accuracy fix rather than a live bug fix -- but a silent one is exactly
+// what would make a future custom-bounds caller mysteriously misrender.
 int GM_CDECL DC_gmf_setupOrthoView(gmThread* a_thread) {
-    return DC_RecordOrRun(a_thread, [] {
-        GetEngineContext().renderer->SetViewMode(Renderer::ViewMode::UnitOrtho);
+    const int n = GM_NUM_PARAMS;
+    if (n != 0 && n != 4) return GM_EXCEPTION;
+    if (n == 0) {
+        return DC_RecordOrRun(a_thread, [] {
+            GetEngineContext().renderer->SetViewMode(Renderer::ViewMode::UnitOrtho);
+        });
+    }
+    const float l = a_thread->ParamFloatOrInt(0, 0.0f);
+    const float r = a_thread->ParamFloatOrInt(1, 1.0f);
+    const float b = a_thread->ParamFloatOrInt(2, 0.0f);
+    const float t = a_thread->ParamFloatOrInt(3, 1.0f);
+    return DC_RecordOrRun(a_thread, [l, r, b, t] {
+        GetEngineContext().renderer->SetCustomOrtho(l, r, b, t);
     });
 }
 // Video.setupAspectRatioOrthoView -- retail binding +0x44 -> device +0x68

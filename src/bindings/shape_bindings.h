@@ -53,3 +53,22 @@ int GM_CDECL DC_gmf_drawShapeWithTexture(gmThread* a_thread);
 int GM_CDECL gmf_Shape_beginShape(gmThread* a_thread);
 int GM_CDECL gmf_Shape_plotVertexCurrent(gmThread* a_thread);
 int GM_CDECL gmf_Shape_endShapeCurrent(gmThread* a_thread);
+
+// Builds (or repopulates) a VMSHAPE natively from an explicit local-space
+// vertex list and pushes it as the calling thread's return value. Exposed so
+// videohelper_bindings.cpp's VIDEOHELPER_DrawFilledRect/DrawFilledPolygon --
+// which retail implements as real native functions, not script (see that
+// file's header comment) -- can build shape geometry without going through
+// the beginShape/plotVertex/endShape trap thunks above.
+//
+// a_shapeType uses the same SHAPETYPE_* numbering as SHAPE()/beginShape().
+// a_xy is a_count consecutive x,y pairs. a_existing, when non-null, is
+// repopulated and re-pushed instead of allocating a new shape (retail's own
+// leading-SHAPE-argument overload of both functions).
+void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
+                        int a_count, float a_z, gmUserObject* a_existing);
+
+// Returns a_var as a VMSHAPE user object, or null if it isn't one -- lets
+// videohelper_bindings.cpp detect retail's leading-SHAPE overload without
+// duplicating the user-type id lookup.
+gmUserObject* AsShapeObject(gmMachine& a_machine, const gmVariable& a_var);

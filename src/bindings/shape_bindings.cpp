@@ -632,6 +632,44 @@ void GM_CDECL ShapeGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
 
 } // namespace
 
+// See header comment. Builds shape geometry directly, bypassing the
+// beginShape/plotVertex/endShape trap thunks -- those are trapped because
+// retail's bodies for them aren't recovered, but a NATIVE VideoHelper
+// function doesn't call them in the first place: retail's own
+// VIDEOHELPER_DrawFilledRect/DrawFilledPolygon are native code
+// the shape's vertex buffer directly, exactly as this does.
+void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
+                        int a_count, float a_z, gmUserObject* a_existing) {
+    ShapeData* data;
+    if (a_existing) {
+        data = (ShapeData*)a_existing->m_user;
+    } else {
+        data = new ShapeData();
+    }
+    data->glMode = ToGLMode(a_shapeType);
+    data->capacity = a_count;
+    data->localZ = a_z;
+    data->verts.assign(a_xy, a_xy + (size_t)a_count * 2);
+    // Per-vertex colour/uv stay empty: these shapes carry no gradient and no
+    // real UVs, so they draw under the current flat draw colour (the same
+    // thing setAsFilledCircle's precomputed ring does).
+    data->colors.clear();
+    data->uvs.clear();
+    data->needsClearOnNextPlot = false;
+    if (a_existing) {
+        a_thread->Push(gmVariable(GM_USER, (gmptr)a_existing));
+    } else {
+        a_thread->PushNewUser(data, g_shapeType);
+    }
+}
+
+gmUserObject* AsShapeObject(gmMachine& a_machine, const gmVariable& a_var) {
+    if (a_var.m_type < GM_USER) return nullptr;
+    gmUserObject* obj = (gmUserObject*)a_machine.GetObject(a_var.m_value.m_ref);
+    if (!obj || obj->m_userType != g_shapeType) return nullptr;
+    return obj;
+}
+
 // See header comment -- redraws a shape's stored (local-space) geometry
 // under the caller's CURRENT transform/colour, without touching its
 // plotVertex/endShape rebuild state.

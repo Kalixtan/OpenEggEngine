@@ -21,6 +21,13 @@ public:
     // Reads a whole file as text via Resolve(). Returns false if not found.
     bool ReadTextFile(const std::string& a_relativePath, std::string& a_out) const;
 
+    // The first registered root (registration order), or "" if none. Used
+    // by FILEHELPER_AREA_GAMEDATA-targeted writes/listings (FILEHELPER_*
+    // bindings, system_bindings.cpp) that need a concrete directory to act
+    // on rather than Resolve()'s "does this exact file already exist"
+    // check.
+    const std::string& PrimaryRoot() const;
+
 private:
     std::vector<std::string> m_roots;
 };

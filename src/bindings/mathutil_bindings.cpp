@@ -33,11 +33,21 @@ bool ReadVec2(gmThread* a_thread, int a_param, float& a_x, float& a_y) {
 // scale animation, camera logic, etc, all previously aborted mid-function
 // by the uncaught exception) keep running instead of silently skipping
 // the rest of the frame.
+//
+// FIXED (this session): was `min(hi, max(lo, v))`, which silently returns
+// a wrong (out-of-order) result whenever hi<lo -- e.g. GETINRANGE(5,10,0)
+// @ 0xa369c (MATHUTIL_GETINRANGE): retail computes
+// `min(max(lo,hi), max(v, (lo<hi) ? max(v,lo) : max(v,hi)))`-shaped algebra
+// that reduces, for lo<=hi, to the ordinary clamp(v,lo,hi), but for lo>hi
+// clamps against [hi,lo] instead of always trusting arg order -- i.e. it's
+// robust to the two bound args being swapped. Reproduced here by min/max-ing
+// the bounds up front, which is algebraically identical for every ordering.
 int GM_CDECL gmf_GETINRANGE(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     float v = a_thread->ParamFloatOrInt(0, 0.0f);
     float lo = a_thread->ParamFloatOrInt(1, 0.0f);
     float hi = a_thread->ParamFloatOrInt(2, 0.0f);
+    if (lo > hi) std::swap(lo, hi);
     a_thread->PushFloat(std::min(hi, std::max(lo, v)));
     return GM_OK;
 }
@@ -50,14 +60,19 @@ int GM_CDECL gmf_GETINRANGE(gmThread* a_thread) {
 // non-integer call, permanently breaking that frame's pause-menu update()
 // (and, via the exception aborting mid-function, its own
 // setGlobalVolume() call right after). Widened to accept float args like
-// GETINRANGE does; still truncates to int on return to match the other
-// confirmed-integer real call site (array index/count clamping).
+// GETINRANGE does; truncates to int on return to match the other
+// confirmed-integer real call site (array index/count clamping) --
+// FIXED (this session): the code here was pushing a float despite this
+// very comment already saying "truncates to int on return"; ground truth
+// (int), like MATH_MINI/MATH_MAXI. Same bound-order-robustness fix as
+// GETINRANGE above -- identical algebra, just an int return-slot tag.
 int GM_CDECL gmf_GETINRANGEI(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(lo, 1, 0.0f);
     GM_FLOAT_OR_INT_PARAM(hi, 2, 0.0f);
-    a_thread->PushFloat(std::min(hi, std::max(lo, v)));
+    if (lo > hi) std::swap(lo, hi);
+    a_thread->PushInt((gmint)std::min(hi, std::max(lo, v)));
     return GM_OK;
 }
 
@@ -83,11 +98,13 @@ int GM_CDECL gmf_GetPercentageInRange(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Not decompiled-confirmed (no reveng match, never assigned in game_data --
-// same "native bootstrap" gap as SW/BASE_MS_PER_STEP), but real usage
-// pins the contract down unambiguously: 2 args (percent, peakPercent),
-// both real call sites feed the result straight into something expecting
-// a plain 0..1 value (EntityPacks/StaticDangerAsteroid.gm:205's
+// Confirmed real 2-arg (percent, peakPercent) -> float shape
+// both args read via the same float-or-int branch as every other MATHUTIL_*
+// function here) -- but the actual curve math lives in an un-decompiled
+// helper (FUN_000c6720), so the exact formula below is still inferred from
+// name + real usage, not read off the decompiled body. Both real call sites
+// feed the result straight into something expecting a plain 0..1 value
+// (EntityPacks/StaticDangerAsteroid.gm:205's
 // `Audio.setVoiceVolume(id, MATHUTIL_GetTrianglePercentage(volPerc,0.5)*0.39)`
 // as a volume multiplier; EntityPacks/SwayingTree.gm:473's
 // `MATH_POW(MATHUTIL_GetTrianglePercentage(perc,0.9),0.7)` feeding a power

@@ -69,36 +69,27 @@ int GM_CDECL gmf_RANDOM_GetRandomBoolean(gmThread* a_thread) {
     return GM_OK;
 }
 
-// REALPOINT type -- 2D point/vector
-// Decompiled from FoE @ 0x0042d1f0 (via Ghidra on flowers of error.exe)
-// Sound Shapes equivalent: vector2D type in vector2d_bindings.cpp
+// REALPOINT type -- SUPERSEDED, see GitHub issue #9.
+//
+// This used to be a working (x,y)-constructing global, ported unmodified
+// from Flowers-of-Error's own, different binary (the decompiled address
+// below, 0x0042d1f0, is FoE's x86 executable, not Sound Shapes' PS3 one --
+// same class of carried-over mistake as the old SetDepthTest).
+//
+// REALPOINT_MakeRandomDir(), and getRef() all unconditionally
+// `return 0xffffffffffffffff` (the GM exception sentinel) with zero
+// argument-count branching -- unlike every other native constructor in the
+// corpus, which at least dispatches on arg count before failing. RealPoint
+// values genuinely exist at runtime (Vector2D's own constructor has a
+// branch that reads one by offset), they just can't be constructed or
+// queried directly from a script; retail keeps RealPoint an internal,
+// opaque C++ value passed between other natives. Zero real `RealPoint(`
+// call sites anywhere in game_data/, so this has no observable gameplay
+// impact -- fixed for correctness, not because anything was broken in
+// practice.
 int GM_CDECL gmf_REALPOINT(gmThread* a_thread) {
-    int n = a_thread->GetNumParams();
-    if (n >= 2) {
-        // Two-parameter: (x, y)
-        GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-        GM_FLOAT_OR_INT_PARAM(y, 1, 0.0f);
-        a_thread->Push(MakeVector2D(*a_thread->GetMachine(), x, y));
-    } else if (n >= 1) {
-        // One-parameter: try to extract x, y from input
-        const gmVariable& param = a_thread->Param(0);
-        float x = 0.0f, y = 0.0f;
-        if (GetVector2D(*a_thread->GetMachine(), param, x, y)) {
-            // It's already a vector2D, just return a copy
-            a_thread->Push(MakeVector2D(*a_thread->GetMachine(), x, y));
-        } else if (param.m_type == GM_INT || param.m_type == GM_FLOAT) {
-            // Single scalar -- treat as x only (y=0)
-            x = (param.m_type == GM_INT) ? (float)param.m_value.m_int : param.m_value.m_float;
-            a_thread->Push(MakeVector2D(*a_thread->GetMachine(), x, 0.0f));
-        } else {
-            // Invalid -- return origin
-            a_thread->Push(MakeVector2D(*a_thread->GetMachine(), 0.0f, 0.0f));
-        }
-    } else {
-        // Zero-parameter: origin
-        a_thread->Push(MakeVector2D(*a_thread->GetMachine(), 0.0f, 0.0f));
-    }
-    return GM_OK;
+    (void)a_thread;
+    return GM_EXCEPTION;
 }
 
 // getUniqueAlarmID() -- allocate and return a unique alarm ID
@@ -443,7 +434,9 @@ gmVariable MakeLFO(gmMachine& a_machine, int a_waveform) {
 }
 int GM_CDECL gmf_SAWLFO(gmThread* a_thread) { a_thread->Push(MakeLFO(*a_thread->GetMachine(), 0)); return GM_OK; }
 int GM_CDECL gmf_PULSELFO(gmThread* a_thread) { a_thread->Push(MakeLFO(*a_thread->GetMachine(), 1)); return GM_OK; }
-int GM_CDECL gmf_TRIANGLELFO(gmThread* a_thread) { a_thread->Push(MakeLFO(*a_thread->GetMachine(), 2)); return GM_OK; }
+// No gmf_TRIANGLELFO here -- lfo_bindings.cpp registers the real global
+// "TRIANGLELFO" constructor now (see RegisterFoECompatBindings's own
+// comment on why this file no longer competes with it).
 
 // addLFO(slotId, lfoObj) -- confirmed real (Player.gm:23:
 // `this.testlfo1=this.Entity.addLFO(0,TRIANGLELFO());`) -- returns the
@@ -640,8 +633,17 @@ void RegisterFoECompatBindings(gmMachine& a_machine) {
         gmVariable(a_machine.AllocFunctionObject(gmf_SAWLFO)));
     a_machine.GetGlobals()->Set(&a_machine, "PULSELFO",
         gmVariable(a_machine.AllocFunctionObject(gmf_PULSELFO)));
-    a_machine.GetGlobals()->Set(&a_machine, "TRIANGLELFO",
-        gmVariable(a_machine.AllocFunctionObject(gmf_TRIANGLELFO)));
+    // TRIANGLELFO deliberately NOT registered here (see gmf_TRIANGLELFO's
+    // issue #2: lfo_bindings.cpp's RegisterLfoBindings (main.cpp, runs
+    // BEFORE this function) already registers a real "TRIANGLELFO" global
+    // backed by a full oscillator matching the confirmed decompiled
+    // setRandomPhase/setContour, all confirmed bodies) -- this file's own
+    // simpler stand-in was clobbering it here since RegisterFoECompatBindings
+    // runs last, making the real implementation permanently dead code.
+    // PulseLfo.c only have their CONSTRUCTOR recovered (no further methods),
+    // and lfo_bindings.cpp doesn't register global constructors for either
+    // -- this file's shared LFOData stand-in is the only implementation
+    // either one has.
 
     // REALPOINT type (2D point/vector)
     a_machine.GetGlobals()->Set(&a_machine, "REALPOINT",

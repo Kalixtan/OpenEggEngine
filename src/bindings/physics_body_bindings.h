@@ -46,11 +46,14 @@ constexpr float kScriptVelocityToSimScale = 1000.0f; // ms -> s; retail dt = 16.
 // real by extensive corpus usage (Player.gm's constructor alone: getBody,
 // createBody, appendShapes, setCollisionCategory, setMaxSpeed,
 // setVelocityDecayRate, setMaxRotateSpeed, setRotationDecayRate,
-// setRotateAcc, setIsUsingContinuousPhysics, getShapeObjectID, getDir) but
-// decompile against -- real Box2D 2.4.1 (vendor/box2d) backs both, per the
-// same "just import the real lib" approach as PHYSICSSHAPECOLLECTIONDEF
-// (physics_bindings.h/.cpp), which supplies the b2FixtureDef list
-// `appendShapes` consumes.
+// setRotateAcc, setIsUsingContinuousPhysics, getShapeObjectID, getDir).
+// container-level (PhysicsData/gmf_pd_) API by explicit index -- an
+// earlier pass of this comment claimed otherwise; that was wrong (see its
+// 10 functions: createBody, replaceBody, removeBody, getBodyIndex,
+// wakeUp, getBodyPos/setBodyPos/getBodyBBox by index, etc). Real Box2D
+// 2.4.1 (vendor/box2d) backs both types, per the same "just import the
+// real lib" approach as PHYSICSSHAPECOLLECTIONDEF (physics_bindings.h/
+// .cpp), which supplies the b2FixtureDef list `appendShapes` consumes.
 //
 // Position/velocity are stored 1:1 in Box2D's own units (no evidence of a
 // pixel<->meter conversion constant anywhere in the corpus -- scripts pass

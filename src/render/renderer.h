@@ -60,6 +60,10 @@ public:
     // perspective image is exactly the kind of ~20% error that produces.)
     // Use GetWorldHalfHeight()/GetWorldHalfWidth() instead.
     static constexpr float kTanHalfFovY = 0.5f;
+    // Half-depth of the orthographic world view's z band, centred on the
+    // camera plane -- see ApplyProjection's WorldPerspective case for why a
+    // tight band matters (ZINCER-sized layering vs depth-buffer precision).
+    static constexpr float kLayerDepthRange = 200.0f;
     static constexpr float kNearClip = 1.0f;
     static constexpr float kFarClip = 1000000.0f;
 
@@ -121,6 +125,7 @@ public:
         WorldPerspective,   // setupWorldView
         WorldOrtho,         // setupWorldOrthoView -- GameBoard bounds
         UnitOrtho,          // setupOrthoView -- gluOrtho2D(0,1,0,1)
+        CustomOrtho,        // setupOrthoView(l,r,b,t) -- explicit bounds
         AspectRatioOrtho,   // setupAspectRatioOrthoView -- +/-0.5 vertical
     };
 
@@ -198,10 +203,14 @@ public:
     // (ported_native/ground_renderer.cpp, draw_context.cpp's attribute
     // stack) still drives them, and removing them would regress that path.
     // They are inert for FoE, whose scripts never reach them.
-    void SetColourMask(bool a_enabled);
+    void SetColourMask(bool a_maskEnabled);
     void SetCulling(int a_mode);
     void FillStencilFullscreen(float a_z);
-    void SetStencilFunc(int a_func, int a_ref, unsigned int a_mask = 0xFF);
+    // Default mask is retail's own literal -1 (0xFFFFFFFF), stored into the
+    // sixth field of setAttrStencil's 0x18-byte command struct in both its
+    // 3-arg and 5-arg forms (see DC_gmf_setAttrStencil) -- not GL's 0xFF
+    // default.
+    void SetStencilFunc(int a_func, int a_ref, unsigned int a_mask = 0xFFFFFFFFu);
     void SetStencilOp(int a_sfail, int a_dpfail, int a_dppass);
     void SetDefaultStencil();
 
@@ -216,6 +225,13 @@ public:
     // treat it as.
     void SetCameraPos(float a_x, float a_y, float a_z = 0.0f);
     void SetViewMode(ViewMode a_mode) { m_viewMode = a_mode; }
+    // DrawList.setupOrthoView(left, right, bottom, top) -- Sound Shapes'
+    // own 4-argument form of setupOrthoView (see DC_gmf_setupOrthoView).
+    void SetCustomOrtho(float a_left, float a_right, float a_bottom, float a_top) {
+        m_orthoLeft = a_left; m_orthoRight = a_right;
+        m_orthoBottom = a_bottom; m_orthoTop = a_top;
+        m_viewMode = ViewMode::CustomOrtho;
+    }
     ViewMode GetViewMode() const { return m_viewMode; }
     // Compatibility shim for the existing call sites (draw_list,
     // ground_renderer, player_renderer): true selects the world
@@ -294,7 +310,20 @@ private:
     void UpdateLetterboxBars();
 
     float m_colour[4] = {1, 1, 1, 1};
-    float m_cameraX = 0.0f, m_cameraY = 0.0f, m_cameraZ = 0.0f;
+    // getCameraPosZ()` reads 26.879999 on retail before any script ever
+    // calls setCameraPos, not 0.0). This isn't just an accuracy nit: with
+    // cameraZ=0, WorldPerspective content drawn at its own z=0 sits exactly
+    // at the eye plane, which is degenerate for gluPerspective's projection
+    // (eye.z=0 -> clip.w=0 -> the perspective divide produces NDC (0,0,0)
+    // for every vertex, collapsing every triangle to a point regardless of
+    // its x/y). Any scene that never calls setCameraPos (game_data_min's
+    // hello-world Main.gm included) rendered nothing at all until this was
+    // fixed -- confirmed by instrumenting DrawTexturedQuad's own clip-space
+    // math, not a guess.
+    float m_cameraX = 0.0f, m_cameraY = 0.0f, m_cameraZ = 26.879999f;
+    // setupOrthoView(l,r,b,t)'s explicit bounds; only read in CustomOrtho
+    // mode. Defaults are the 0-arg form's own (0,1,0,1) constants.
+    float m_orthoLeft = 0.0f, m_orthoRight = 1.0f, m_orthoBottom = 0.0f, m_orthoTop = 1.0f;
     float m_cameraPitch = 0.0f;
     ViewMode m_viewMode = ViewMode::AspectRatioOrtho;
 

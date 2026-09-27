@@ -2,6 +2,7 @@
 #include "vector2d_bindings.h"
 #include "gmStringObject.h"
 #include <cmath>
+#include <random>
 
 gmType g_vector2DType = -1;
 
@@ -87,10 +88,16 @@ int GM_CDECL gmf_distance(gmThread* a_thread) {
     a_thread->PushFloat(std::sqrt(dx * dx + dy * dy));
     return GM_OK;
 }
+// FIXED (this session): epsilon was a guessed 0.0001f. Confirmed real
+// `DAT_000e56f4 / (DAT_000e56f0 ^ 5)` via an inlined fast-exponentiation
+// loop, where DAT_000e56f4=1.0f and DAT_000e56f0=2.0f were read directly
+// out of the retail EBOOT.elf -- i.e. epsilon = 1.0/(2.0^5) = 1/32 =
+// 0.03125 exactly, compared independently against |dx| and |dy| (not a
+// combined distance).
 int GM_CDECL gmf_isPrettyMuchEqual(gmThread* a_thread) {
     Vector2DData* v = ThisVec2(a_thread); if (!v) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_CHECK_USER_PARAM(Vector2DData*, g_vector2DType, other, 0);
-    const float kEpsilon = 0.0001f; // exact constant not byte-confirmed, structurally obvious near-equality tolerance
+    const float kEpsilon = 0.03125f; // 1.0f / (2.0f^5), confirmed via EBOOT.elf constant extraction
     a_thread->PushInt((std::fabs(v->x - other->x) <= kEpsilon && std::fabs(v->y - other->y) <= kEpsilon) ? 1 : 0);
     return GM_OK;
 }
@@ -113,6 +120,21 @@ int GM_CDECL gmf_vectorProjectOnto(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), nx * scalar, ny * scalar));
     return GM_OK;
 }
+// no `this` pointer read, matching the `vector2D(...)` constructor's own
+// registration style below): a uniform-random unit vector. Retail calls
+// its random-real helper with bounds (0.0, 6.28) -- not 2*pi (6.283185...)
+// -- then takes (cos, sin) of the result, both constants read directly out
+// of the EBOOT.elf. Reproduced bug-for-bug with the same slightly-truncated
+// upper bound rather than a precise 2*pi. Not registered until now (no
+// corpus call sites found either, same class as RANDOM -- see Random.c).
+int GM_CDECL gmf_MakeRandomDir(gmThread* a_thread) {
+    static thread_local std::mt19937 rng{std::random_device{}()};
+    std::uniform_real_distribution<float> dist(0.0f, 6.28f);
+    float ang = dist(rng);
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), std::cos(ang), std::sin(ang)));
+    return GM_OK;
+}
+
 int GM_CDECL gmf_isvector2D(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     a_thread->PushInt(a_thread->Param(0).m_type == g_vector2DType ? 1 : 0);
@@ -305,4 +327,5 @@ void RegisterVector2DBindings(gmMachine& a_machine) {
     a_machine.RegisterTypeOperator(g_vector2DType, O_NEG, nullptr, OpNeg);
 
     a_machine.RegisterLibraryFunction("vector2D", gmf_vector2D);
+    a_machine.RegisterLibraryFunction("MakeRandomDir", gmf_MakeRandomDir);
 }

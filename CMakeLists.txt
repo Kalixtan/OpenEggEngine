@@ -53,6 +53,7 @@ target_include_directories(tinyxml2 PUBLIC vendor/tinyxml2)
 # --- engine ---
 add_executable(gameengine3
   src/platform/main.cpp
+  src/platform/headless_harness.cpp
   src/core/gm_vm.cpp
   src/core/strict_calls.cpp
   src/core/save_data.cpp
@@ -84,6 +85,8 @@ add_executable(gameengine3
   src/bindings/vector2d_bindings.cpp
   src/bindings/printinfo_bindings.cpp
   src/bindings/online_coordinator_bindings.cpp
+  src/bindings/watermelon_bindings.cpp
+  src/bindings/videohelper_bindings.cpp
   src/bindings/audio_bindings.cpp
   src/bindings/mathutil_bindings.cpp
   src/bindings/math_bindings.cpp

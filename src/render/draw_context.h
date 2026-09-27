@@ -22,7 +22,10 @@
 struct DrawContext {
     bool depthTest = false;
     bool depthWrite = true;
-    bool colourMask = true;
+    // "is the colour mask enabled", i.e. true = colour writes BLOCKED (see
+    // Renderer::SetColourMask). The default must be false: a frame starts
+    // drawing visible colour, and only a stencil-only pass turns it off.
+    bool colourMask = false;
     int stencilFunc = 8;   // VIDEOPARAMS_DISABLE
     int stencilRef = 0;
     int stencilSfail = 100, stencilDpfail = 100, stencilDppass = 100; // VIDEOPARAMS_KEEP

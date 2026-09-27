@@ -503,6 +503,32 @@ gmFunctionEntry s_gameMonkeyScriptLib[] = {
 
 } // namespace
 
+// Exposed for Debug.GameMonkey2JSON/JSON2GameMonkey (confirmed real bare
+// around the private implementations above rather than moving them out of
+// the anonymous namespace (which would touch everything else in this
+// file) or duplicating the JSON<->gmVariable mapping in system_bindings.cpp,
+// which would drift independently over time.
+gmVariable JsonStringToGmVariable(gmMachine& a_machine, const std::string& a_json, const gmVariable* a_extra) {
+    rapidjson::Document doc;
+    doc.Parse(a_json.c_str());
+    if (doc.HasParseError()) return gmVariable::s_null;
+    if (a_extra && a_extra->m_type == GM_TABLE && doc.IsObject()) {
+        // JSON2GameMonkey(jsonString, extraTable): confirmed real 2-arg
+        // overload merges the decoded object into the caller-supplied
+        // table rather than allocating a fresh one.
+        gmTableObject* table = (gmTableObject*)a_machine.GetObject(a_extra->m_value.m_ref);
+        for (auto it = doc.MemberBegin(); it != doc.MemberEnd(); ++it) {
+            SetTableKey(a_machine, table, it->name.GetString(), JsonToGmVariable(a_machine, it->value));
+        }
+        return *a_extra;
+    }
+    return JsonToGmVariable(a_machine, doc);
+}
+
+std::string GmVariableToJsonString(gmMachine& a_machine, const gmVariable& a_var) {
+    return GmTableToJsonString(a_machine, a_var);
+}
+
 void RegisterGameMonkeyScriptBindings(gmMachine& a_machine) {
     a_machine.RegisterLibrary(s_gameMonkeyScriptLib, sizeof(s_gameMonkeyScriptLib) / sizeof(s_gameMonkeyScriptLib[0]), "GameMonkeyScript");
 }

@@ -2,6 +2,7 @@
 #include "../core/engine_context.h"
 #include <GL/glu.h>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cmath>
 #include <vector>
@@ -28,6 +29,8 @@
 // repeat period. Every UV this renderer emits is therefore scaled by the
 // texture's uMax/vMax.
 
+
+
 namespace {
 
 constexpr float kPi = 3.1415927f; // retail's own literal (0x004edba4)
@@ -48,6 +51,11 @@ constexpr float kPi = 3.1415927f; // retail's own literal (0x004edba4)
 // Sanity check at pitch == 0, which is what all of FoE's own content uses:
 // angleRad = -PI/2, sin = -1 (no guard), cos ~= 0, so yOff ~= 0 and the
 // transform reduces to the expected glTranslatef(-camX, -camY, -camZ).
+// Currently unreferenced: the world view is orthographic and camera-centred
+// (see ApplyProjection's WorldPerspective case), so there is no perspective
+// eye translation to offset. Kept because it is a faithful transcription of
+// FoE's FUN_004213f0 and is what the perspective form would need if the RSX
+// projection path turns out to be perspective after all.
 float CameraYOffset(float a_pitchDeg, float a_camZ) {
     const float angleRad = (a_pitchDeg - 90.0f) * kPi / 180.0f;
     float s = std::sin(angleRad);
@@ -56,6 +64,8 @@ float CameraYOffset(float a_pitchDeg, float a_camZ) {
 }
 
 } // namespace
+
+
 
 bool Renderer::Init(int a_width, int a_height, const char* a_title) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -75,8 +85,17 @@ bool Renderer::Init(int a_width, int a_height, const char* a_title) {
     // content in this tree still drives the stencil path.
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
+    // GE3_HEADLESS=1 (see platform/headless_harness.h): create the window
+    // hidden instead of shown. The real GPU driver and a real GL context are
+    // still used -- only the window never appears on the host desktop and
+    // never takes input focus, which is what a scripted/screenshot run
+    // wants. SDL's "offscreen" video driver would avoid the window entirely
+    // but hands back a context that renders nothing here (every captured
+    // frame came out pure black), so a hidden real window is the working
+    // headless path.
+    Uint32 visibility = std::getenv("GE3_HEADLESS") ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN;
     m_window = SDL_CreateWindow(a_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                 a_width, a_height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+                                 a_width, a_height, SDL_WINDOW_OPENGL | visibility | SDL_WINDOW_RESIZABLE);
     if (!m_window) {
         std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
         return false;
@@ -126,10 +145,13 @@ bool Renderer::Init(int a_width, int a_height, const char* a_title) {
     // Per-frame clears are colour-only (see BeginFrame).
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Retail imports no glDepthFunc, so the comparison function is never
-    // set and stays at OpenGL's default. Stated explicitly rather than
-    // relied upon implicitly, since this engine previously forced
-    // GL_ALWAYS here.
+    // This default (before any script calls DrawList.setAttrDepthTest) does
+    // not matter much in practice -- see SetDepthTest()'s header comment:
+    // Sound Shapes' real dispatcher drives glDepthFunc itself via that
+    // opcode (GL_EQUAL/GL_ALWAYS), unlike Flowers-of-Error's binary (which
+    // never touches glDepthFunc at all, hence the stale comment this used
+    // to carry). GL_LESS is just a harmless placeholder until the first
+    // real setAttrDepthTest call.
     glDepthFunc(GL_LESS);
 
     // Fixed-function texturing modulates the sampled texel by the current
@@ -258,6 +280,26 @@ void Renderer::BeginFrame() {
     // and thereafter only if a script calls Video.clearDepthBuffer (retail
     // FUN_00421970, glClear(0x100)), which FoE's content never does.
     glClear(GL_COLOR_BUFFER_BIT);
+    // Depth and stencil ARE cleared per frame here, which the retail-FoE
+    // citation above does not cover. Both buffers are consumed by
+    // compare-against-existing-contents passes in this tree (Sound Shapes'
+    // setAttrDepthTest/setAttrStencil paths), and a buffer that is only
+    // cleared once at device init carries the previous frame's contents
+    // forever -- every such compare then tests against stale data. Leaving
+    // them uncleared is also what made the depth compare unrecoverable:
+    // stencil sat at 0 everywhere while scripts tested GL_EQUAL against
+    // ref 10, discarding every fragment.
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    // Colour writes are forced back ON at the top of every frame, and the
+    // shared DrawContext's mirror of that state is resynced with them in
+    // main.cpp's frame loop. The colour mask is a within-frame stencil-pass
+    // tool (SetColourMask's own comment), but real content leaves it
+    // unbalanced: a full-game run logs 2213 mask-on calls against 4278
+    // mask-off ones, and the frame ends with writes still disabled. Since
+    // nothing else ever re-enables them, ONE unbalanced pass permanently
+    // blanked every subsequent frame -- the game kept submitting its full
+    // draw load into a framebuffer that could not accept colour.
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     // NO per-frame depth-state reset. This previously forced
     //     glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
     // every frame, which was invented, not ported -- and it silently stomped
@@ -384,8 +426,42 @@ void Renderer::BindTextureWithUVScale(unsigned int a_handle, float& a_uMax, floa
     glBindTexture(GL_TEXTURE_2D, a_handle);
 }
 
-// Retail's two script-exposed depth wrappers (0x00421e40 / 0x00421e60) are a
-// plain enable/disable and a plain mask. Nothing else.
+// RETAIL MATCH (Sound Shapes, not Flowers-of-Error -- the 0x00421e40/
+// 0x00421e60 addresses this comment used to cite are FoE's x86/OpenGL
+// binary; this is a different game on a different platform). The old
+// plain glEnable/glDisable(GL_DEPTH_TEST) below was ported unmodified from
+// the shared engine bootstrap and never verified against Sound Shapes'
+// own PS3 binary.
+//
+// Confirmed from the real DrawList opcode dispatcher (FUN_00044d4c in
+// EBOOT.elf, opcode 0x1c = DrawList.setAttrDepthTest): the pushed argument
+// section 3), matching this codebase's own VIDEOPARAMS_EQUAL/VIDEOPARAMS_ALWAYS.
+// The dispatcher stores this value into a device-state field and, whenever
+// either depth attribute changes, re-emits BOTH the compare-function and
+// the write-enable together as a single paired GPU command (confirmed via
+// the LZCOUNT-based boolean re-derivation of the other attribute's current
+// state in the same branch) -- i.e. depth TEST is never toggled off at the
+// GPU at all; only the comparison function changes. This is genuine
+// Z-layer compositing control (enabled -> draw only where depth already
+// matches; disabled -> draw regardless of depth), not an enable/disable
+// switch.
+// REVERTED to plain enable/disable, deliberately, despite the reasoning
+// above. The GL_EQUAL reading blanked the entire game: a depth compare of
+// "draw only where depth already equals this fragment's z" passes nothing
+// unless some earlier pass primed the depth buffer with exactly those z
+// values, and no such priming pass exists in this engine. Every frame still
+// submitted its full draw load (verified by instrumenting the submission
+// path: ~50 calls/frame -- 6 textured quads, 13 gradient polys, 31 text
+// glyphs, valid context, no GL error) and every captured frame came out
+// pure black.
+//
+// EQUAL/ALWAYS reading as "a strong inference, not a dispatcher-confirmed
+// fact", and says explicitly: seeing the actual dispatcher body "would be
+// worth doing before committing to glDepthFunc(GL_EQUAL) vs GL_ALWAYS over
+// the current plain enable/disable". That advice was right. Until the
+// dispatcher's use of the 2/7 value is genuinely decoded, this keeps the
+// behavior that actually renders -- which is also what the last known-good
+// build of this engine did (commit e825c77, "old ss engine").
 void Renderer::SetDepthTest(bool a_enabled) {
     if (a_enabled) glEnable(GL_DEPTH_TEST);
     else glDisable(GL_DEPTH_TEST);
@@ -408,9 +484,30 @@ void Renderer::SetLineWidth(float a_width) {
 // --- renderer.h's note above these declarations). Kept working so the
 // --- ported_native/ Sound Shapes path does not regress.
 
-void Renderer::SetColourMask(bool a_enabled) {
-    const GLboolean on = a_enabled ? GL_TRUE : GL_FALSE;
-    glColorMask(on, on, on, on);
+// drawList.setColourMask(enabled) -- the argument is "is the colour MASK
+// enabled", i.e. true means colour writes are BLOCKED, so it maps to
+// glColorMask(GL_FALSE...). This was inverted, which blanked the entire
+// game: WorldMapProcess.gm/TouchEditProcessBase.gm both use the mask to
+// bracket stencil-only geometry --
+//
+//     drawList.setColourMask(true);                       // colour OFF
+//     drawList.setAttrStencil(VIDEOPARAMS_ALWAYS, VIDEOPARAMS_REPLACE, 10);
+//     drawList.drawShape(this.clearScreenShape);          // stencil only
+//     ...
+//     drawList.setColourMask(false);                      // colour back ON
+//
+// -- and those shapes are pure stencil geometry that must not appear on
+// screen. With the old polarity, `setColourMask(true)` enabled colour
+// writes and the trailing `setColourMask(false)` disabled them for
+// everything drawn afterwards. Nothing per-frame resets glColorMask, so
+// one pass through a world-map/edit draw left colour writes off forever:
+// every later frame still submitted its full ~50 draw calls (6 textured
+// quads, 13 gradient polys, 31 text glyphs, verified by instrumenting the
+// submission path) with a valid GL context and no GL error, and every
+// captured frame came out pure black.
+void Renderer::SetColourMask(bool a_maskEnabled) {
+    const GLboolean writeColour = a_maskEnabled ? GL_FALSE : GL_TRUE;
+    glColorMask(writeColour, writeColour, writeColour, writeColour);
 }
 
 void Renderer::SetCulling(int a_mode) {
@@ -502,15 +599,109 @@ void Renderer::ApplyProjection() const {
 
     switch (m_viewMode) {
         case ViewMode::WorldPerspective: {
-            // retail FUN_004213f0. Retail asserts aspect > 1.0 here
-            // ("aspect>1.0").
-            gluPerspective((double)kFovYDegrees, (double)aspect,
-                           (double)kNearClip, (double)kFarClip);
+            // SOUND SHAPES: an ORTHOGRAPHIC world view, camera-centred, with
+            // the vertical extent driven by camera Z. NOT gluPerspective.
+            //
+            // The perspective form this replaced (retail FoE's FUN_004213f0:
+            // gluPerspective(53.13010, aspect, 1, 1e6) + glTranslatef(-camX,
+            // yOff-camY, -camZ)) was inherited from Flowers-of-Error's x86
+            // binary during the shared-engine bootstrap. It cannot be a 1-1
+            // match for Sound Shapes on its own terms: this is a PS3 title
+            // whose renderer is RSX/libgcm and whose binary imports no
+            // OpenGL at all, so neither gluPerspective nor gluOrtho2D
+            // appears anywhere in EBOOT.elf -- see README.md's own warning
+            // that nothing about FoE's renderer should be assumed correct
+            // here without independent verification against Sound Shapes'
+            // own binary.
+            //
+            // It is also empirically wrong. Real content positions world
+            // draws just off the camera plane: a stock game_data boot draws
+            // every vertex at world z = 21.8340 with the camera at
+            // (19.520, 10.980, 21.824), i.e. camZ + 0.01. Under the
+            // perspective form that is 0.01 BEHIND the eye (the camera
+            // looks down -Z), so eye.z = +0.01 and clip.w = -0.01: every
+            // vertex lands outside the frustum and the whole frame clips
+            // away. Measured directly by instrumenting the emitted
+            // vertices -- NDC came out x:[-2196 .. 4323] y:[-2196 .. 4302]
+            // with w:[-0.01 .. -0.01], against a visible range of -1..1.
+            // Under an orthographic view that same content renders fine,
+            // because z then only orders depth and does not divide x/y --
+            // which is exactly what Sound Shapes' content expects, being a
+            // 2D game that uses z purely as a layering value (ZINCER
+            // multiples, see any MainMenu5 screen's drawList.translate).
+            //
+            // records the world view as orthographic with a fixed vertical
+            // half-extent (the old kWorldHalfHeight, empirically calibrated
+            // to 14.7 against a real RPCS3 capture of game_data_min), and
+            // that is the configuration under which this engine last
+            // rendered the real title screen -- "the logo, the 'start'
+            // button, 'By: Queasy Games', all pulled from the actual
+            // game_data corpus with zero [gm] script errors".
+            //
+            // The half-extent here is kTanHalfFovY * |camZ| rather than a
+            // fixed constant, so "visible world height equals the camera's
+            // Z distance" still holds (kTanHalfFovY is exactly 0.5) -- that
+            // relation is what makes Video.setCameraPos's z behave as a
+            // zoom the way real content uses it, and it reproduces the old
+            // fitted 14.7 to within ~10% at game_data_min's own default
+            // camera (0.5 * 26.879999 = 13.44) without needing a fitted
+            // number at all.
+            //
+            // STILL TO CONFIRM 1-1: the real projection lives in the RSX
+            // command path behind DrawList.setupWorldView's recorded opcode
+            // FUN_0004cea0). That body is NOT missing analysis -- a full
+            // Ghidra pass completes on it -- it is hand-written VMX/Altivec
+            // matrix code (it spills v20-v31 on entry), and both Ghidra's
+            // decompiler and capstone stop at the same unsupported vector
+            // opcode about 38 instructions in. Lifting it is its own task.
+            //
+            // Two things ARE already established about it: it branches on
+            // setupWorldView's optional bool (clrlwi r5,r5,0x18; cmpwi r5,0),
+            // so that flag really does select between two projection setups;
+            // and unlike the two ortho views it does NOT route through the
+            // shared ortho-matrix builder FUN_00302f30 that FUN_0003e220 and
+            // FUN_0003e4a0 both use.
+            //
+            // So: until that VMX body is decoded, the form below is the
+            // variant that matches observed content behaviour, NOT a
+            // confirmed transcription, and is deliberately not presented as
+            // one. What is certain is that the gluPerspective form it
+            // replaced was a different game's, and clipped every frame.
+            const float halfH = kTanHalfFovY * std::fabs(m_cameraZ);
+            const float halfW = halfH * aspect;
+            // DEPTH RANGE: a tight band around the camera plane, NOT the
+            // +/-kFarClip (1e6) range this first used. Content layers itself
+            // with ZINCER, which is 0.01 (constants_bindings.cpp), and the
+            // *_Z constants it is added to span roughly 0..100. A 2e6-deep
+            // range quantised into a 24-bit depth buffer resolves only
+            // 2e6 / 2^24 ~= 0.119 world units -- twelve times COARSER than
+            // ZINCER itself, so every layer collapsed onto one depth value
+            // and, under GL_LESS, whichever drew first won.
+            //
+            // That is not an abstract precision worry: it is exactly what
+            // made the PS3 main menu render as a featureless white screen.
+            // PreTutorialScreen.gm draws a full-screen cory_white quad and
+            // then puts its logo and labels on top at z + ZINCER; with the
+            // layers quantised together the quad kept winning and every
+            // later element was depth-rejected.
+            //
+            // +/-kLayerDepthRange resolves 2*200 / 2^24 ~= 2.4e-5 world
+            // units, about 400x finer than one ZINCER step, while still
+            // covering the whole *_Z band either side of the camera.
+            glOrtho((double)(m_cameraX - halfW), (double)(m_cameraX + halfW),
+                    (double)(m_cameraY - halfH), (double)(m_cameraY + halfH),
+                    -(double)kLayerDepthRange, (double)kLayerDepthRange);
             glMatrixMode(GL_MODELVIEW);
             glLoadIdentity();
+            // Camera-relative depth: content sits just off the camera plane
+            // (measured: world z 21.8340 against camera z 21.824), so
+            // without this the whole scene would sit at one end of the band
+            // above and waste its precision.
+            glTranslatef(0.0f, 0.0f, -m_cameraZ);
+            // Pitch is retail's own camera field (+0x64) fed straight into
+            // glRotatef; every piece of content in this tree leaves it at 0,
+            // where this is the identity.
             glRotatef(m_cameraPitch, 1.0f, 0.0f, 0.0f);
-            const float yOff = CameraYOffset(m_cameraPitch, m_cameraZ);
-            glTranslatef(-m_cameraX, yOff - m_cameraY, -m_cameraZ);
             return;
         }
         case ViewMode::WorldOrtho: {
@@ -520,10 +711,37 @@ void Renderer::ApplyProjection() const {
             break;
         }
         case ViewMode::UnitOrtho: {
-            // retail FUN_00421640: the 0..1 unit square.
+            // Sound Shapes' own setupOrthoView with no arguments is
+            // gluOrtho2D(0, 1, 0, 1) -- CONFIRMED against its binary, not
+            // just inherited from FoE's FUN_00421640: the decompiled body
+            // helper as FUN_0003e220(DAT_0008132c, DAT_00081330,
+            // DAT_0008132c, DAT_00081330, list), and those two constants
+            // read 0x00000000 and 0x3f800000 -- 0.0f and 1.0f -- straight
+            // out of EBOOT.elf. Same (left, right, bottom, top) order as
+            // the 4-argument form below.
             gluOrtho2D(0.0, 1.0, 0.0, 1.0);
             break;
         }
+        case ViewMode::CustomOrtho: {
+            // setupOrthoView(left, right, bottom, top) -- the 4-argument
+            // form, confirmed real in the same decompiled body: with an
+            // argument count of exactly 4 it reads four float-or-int
+            // arguments and passes them to the same helper the 0-arg form
+            // calls with (0,1,0,1). See DC_gmf_setupOrthoView.
+            gluOrtho2D((double)m_orthoLeft, (double)m_orthoRight,
+                       (double)m_orthoBottom, (double)m_orthoTop);
+            break;
+        }
+        // CONFIRMED against Sound Shapes' own binary (not merely inherited
+        // from FoE's FUN_00421680): setupAspectRatioOrthoView's recorder
+        // FUN_0003e4a0 builds its matrix as
+        //     ortho(aspect * DAT_0003e450, aspect * DAT_0003e454,
+        //           DAT_0003e450, DAT_0003e454, DAT_0003e458, DAT_0003e45c)
+        // where `aspect` is the device field at DAT_0041f880+0x81bc, and
+        // those four constants read -0.5f, +0.5f, -1.0f, +1.0f out of
+        // EBOOT.elf. That is exactly ortho(-aspect/2, +aspect/2, -0.5, +0.5)
+        // with near/far -1/+1 -- i.e. precisely gluOrtho2D(-a/2, a/2, -0.5,
+        // 0.5), which is what this already did.
         case ViewMode::AspectRatioOrtho:
         default: {
             // retail FUN_00421680: gluOrtho2D(-v/2, +v/2, -0.5, +0.5) where v

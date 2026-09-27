@@ -40,6 +40,11 @@ std::optional<std::string> FileHelper::Resolve(const std::string& a_relativePath
     return std::nullopt;
 }
 
+const std::string& FileHelper::PrimaryRoot() const {
+    static const std::string kEmpty;
+    return m_roots.empty() ? kEmpty : m_roots.front();
+}
+
 bool FileHelper::ReadTextFile(const std::string& a_relativePath, std::string& a_out) const {
     auto path = Resolve(a_relativePath);
     if (!path) return false;
