@@ -1,0 +1,59 @@
+#
+# ignore for GM
+# General ignores
+#
+
+*.lock
+*~
+*.obj
+*.tlog
+*.pdb
+*.idb
+*.ipch
+*.pch
+*.ilk
+*.manifest
+*.ncb
+*.opt
+*.sdf
+*.suo
+*.plg
+*.old
+*.user
+*.log
+*.lastbuildstate
+*.unsuccessfulbuild
+*.dep
+*.vssscc
+*.vspscc
+*.SCC
+*.opensdf
+*.vc.db
+*.vc.opendb
+Debug/
+debug/
+Release/
+release/
+_UpgradeReport_Files/
+UpgradeLog*.XML
+log.txt
+
+#
+# GM specific ignores
+#
+
+*/bin/gmd.debug.exe
+*/bin/gmd.exe
+*/bin/gme.debug.exe
+*/bin/gme.exe
+*/bin/gme64.Debug.exe
+*/bin/gme64.exe
+*/bin/gml.debug.exe
+*/bin/gml.exe
+*/bin/gml.exe
+# Generated code. We may want to check this in for convenience
+# */*/gm/gmParser.cpp
+# */*/gm/gmParser.cpp.h
+# */*/gm/gmScanner.cpp
+gmdoc.html
+gmdoc.xml
