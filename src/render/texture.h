@@ -1,6 +1,7 @@
 #pragma once
 #include <GL/glew.h>
 #include <string>
+#include <vector>
 
 // Loose confirmed contract: Video.getTexture(path, area) returns a handle;
 // drawList.drawTextureByHandle(...) draws it. We use the raw GL texture id
@@ -92,6 +93,7 @@ struct Texture {
     bool hasGeneratedTint = false;
     float fillTintR = 1.0f, fillTintG = 1.0f, fillTintB = 1.0f;
     float outlineTintR = 1.0f, outlineTintG = 1.0f, outlineTintB = 1.0f;
+    std::vector<unsigned char> paletteTemplateRgba;
 
     static bool LoadFromFile(const std::string& a_path, Texture& a_out);
 

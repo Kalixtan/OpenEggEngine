@@ -5,8 +5,11 @@
 #include "../bindings/process_handle_bindings.h"
 #include "../bindings/foe_compat_bindings.h"
 #include "../render/draw_list.h"
+#include "../render/draw_context.h"
+#include "../render/renderer.h"
 #include "engine_context.h"
 #include <cstdio>
+#include <cstdint>
 
 // Real drawList instances now record rather than draw immediately (see
 // draw_list.h's RecordingTarget/DrawListData header comment) -- a process's
@@ -107,29 +110,27 @@ bool ProcessManager::TryAutoLoadScript(const std::string& a_processName) {
     return false;
 }
 
-int ProcessManager::StartNewProcessList(const std::string& a_name) {
-    // Confirmed necessary by a real corpus bug that only makes sense if
-    // retail's own startNewProcessList behaves this way: game_data/Main.gm's
-    // top-level update() has no guard at all around
-    // `GameSystem.startNewProcessList("Platformer_MainMenu5")` -- it
-    // relies entirely on `this.stateCountDown <= 0.0`, which the code path
-    // that calls startNewProcessList never resets (it `return`s
-    // immediately after, deliberately skipping the reset code below it to
-    // avoid an out-of-bounds `this.states[this.stateIndex]` access) --
-    // meaning every frame after the boot sequence finishes, Main.gm calls
-    // this again, forever, with no de-dup on the caller's end. Confirmed
-    // NOT a problem for legitimately-repeatable calls like
-    // `Platformer_PopupProcess` (started many times for distinct popups)
-    // since real callers always terminate/dismiss a popup before
-    // requesting the next one -- by the time a new one is requested, the
-    // old one is no longer live, so this lookup naturally finds nothing
-    // and falls through to actually creating one, same as before.
-    if (Process* existing = GetByName(a_name)) {
-        if (existing->constructed && !existing->wantsQuit) {
-            return existing->id;
-        }
+int ProcessManager::StartNewProcessList(const std::string& a_name, bool a_cleanupPrevious) {
+    const int id = CreateProcess(a_name);
+    if (id >= 0 && a_cleanupPrevious) {
+        // Retail creates a ParanoidCleanUpProcess controller for this path.
+        // Its exact per-frame teardown timing is not yet reproduced; mark
+        // old processes for removal through the next manager queue drain.
+        std::vector<int> oldIds;
+        for (const Process& process : m_processes) if (process.id != id) oldIds.push_back(process.id);
+        for (int oldId : oldIds) QueueTerminate(oldId);
     }
+    return id;
+}
 
+int ProcessManager::RunProcess(const std::string& a_name, bool a_replaceExisting) {
+    if (a_replaceExisting) {
+        if (Process* existing = GetByName(a_name)) QueueTerminate(existing->id);
+    }
+    return CreateProcess(a_name);
+}
+
+int ProcessManager::CreateProcess(const std::string& a_name) {
     gmVariable globalFunc = m_machine.GetGlobals()->Get(&m_machine, a_name.c_str());
     if (globalFunc.m_type != GM_FUNCTION && TryAutoLoadScript(a_name)) {
         globalFunc = m_machine.GetGlobals()->Get(&m_machine, a_name.c_str());
@@ -148,14 +149,27 @@ int ProcessManager::StartNewProcessList(const std::string& a_name) {
     Process proc;
     proc.id = id;
     proc.name = a_name;
+    proc.activationGeneration = m_dispatchGeneration + 1;
     m_processes.push_back(proc);
+
+    // The script factory can call back into GameSystem and create another
+    // process before returning. Remove this reservation by id on failure;
+    // pop_back() would erase that nested process if it became the new tail.
+    auto discardReservation = [this, id]() {
+        for (auto it = m_processes.begin(); it != m_processes.end(); ++it) {
+            if (it->id == id) {
+                m_processes.erase(it);
+                return;
+            }
+        }
+    };
 
     gmVariable handle = CreateProcessHandle(m_machine, id);
 
     gmCall call;
     if (!call.BeginGlobalFunction(&m_machine, a_name.c_str())) {
         std::fprintf(stderr, "ProcessManager::StartNewProcessList: failed to begin call to '%s'\n", a_name.c_str());
-        m_processes.pop_back();
+        discardReservation();
         return -1;
     }
     call.AddParam(handle);
@@ -163,7 +177,7 @@ int ProcessManager::StartNewProcessList(const std::string& a_name) {
 
     if (!call.DidReturnVariable() || call.GetReturnedVariable().m_type != GM_TABLE) {
         std::fprintf(stderr, "ProcessManager::StartNewProcessList: '%s(p)' did not return a table\n", a_name.c_str());
-        m_processes.pop_back();
+        discardReservation();
         return -1;
     }
 
@@ -192,62 +206,130 @@ void ProcessManager::FinishBringUp(int a_id) {
     if (proc) proc->constructed = true;
 }
 
-void ProcessManager::RunInitPass() {
-    for (size_t i = 0; i < m_processes.size(); ++i) {
-        Process& proc = m_processes[i];
-        if (!proc.constructed || !proc.needsInit || proc.wantsQuit) continue;
-        int id = proc.id;
-        gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
-        gmVariable tableVar = proc.table;
+void ProcessManager::RunInit(int a_id) {
+    Process* proc = Get(a_id);
+    if (!proc || !proc->constructed || !proc->needsInit) return;
+    gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc->table.m_value.m_ref);
+    gmVariable tableVar = proc->table;
 
-        // "expecting init() to return a boolean. Assuming true."
-        // Confirmed real async multi-step init convention (Platformer/Main.gm's
-        // own init(): `if (!?this.groundProcess) { this.groundProcess=this.runProc(...);
-        // return false; }` -- deliberately incomplete on this call, expecting
-        // to be called AGAIN next frame once the dependency it just started
-        // is ready) -- init() returning false must NOT be treated as done.
-        // Previously marked needsInit=false unconditionally after a single
-        // call, so this early-return half of Main.gm's init() ran exactly
-        // once and the rest of its setup (camera position, deleteAllEntities,
-        // etc, gated behind the SAME `if (!?this.groundProcess)` on the next
-        // call) never executed -- update()/preDraw() still ran anyway since
-        // `initialized` was set true regardless, leaving the process in a
-        // half-initialized state for the rest of its life.
-        gmCall initCall;
-        gmint result = 1;
-        if (initCall.BeginTableFunction(&m_machine, "init", table, tableVar)) {
-            initCall.End();
-            if (initCall.DidReturnVariable() && initCall.GetReturnedVariable().m_type == GM_INT) {
-                initCall.GetReturnedInt(result);
-            }
-        }
-
-        Process* p = Get(id); // init() may have reallocated m_processes
-        if (p) {
-            if (result) {
-                p->needsInit = false;
-                p->initialized = true;
-            }
-            // else: leave needsInit true so RunInitPass calls init() again
-            // next frame; initialized stays false so update()/preDraw() don't
-            // run on a still-initializing process (matches every other real
-            // caller's `initialized` gate in this file).
+    // "expecting init() to return a boolean. Assuming true."
+    // Confirmed real async multi-step init convention (Platformer/Main.gm's
+    // own init(): `if (!?this.groundProcess) { this.groundProcess=this.runProc(...);
+    // return false; }` -- deliberately incomplete on this call, expecting
+    // to be called AGAIN next frame once the dependency it just started
+    // is ready) -- init() returning false must NOT be treated as done.
+    // Previously marked needsInit=false unconditionally after a single
+    // call, so this early-return half of Main.gm's init() ran exactly
+    // once and the rest of its setup (camera position, deleteAllEntities,
+    // etc, gated behind the SAME `if (!?this.groundProcess)` on the next
+    // call) never executed -- update()/preDraw() still ran anyway since
+    // `initialized` was set true regardless, leaving the process in a
+    // half-initialized state for the rest of its life.
+    gmCall initCall;
+    gmint result = 1;
+    if (initCall.BeginTableFunction(&m_machine, "init", table, tableVar)) {
+        initCall.End();
+        if (initCall.DidReturnVariable() && initCall.GetReturnedVariable().m_type == GM_INT) {
+            initCall.GetReturnedInt(result);
+        } else {
+            // Retail FUN_000b02f8 logs this exact warning when init()
+            // exists but does not return the GM boolean/int tag, then
+            // assumes initialization succeeded. Keep that malformed
+            // return case observable while preserving its default.
+            std::fprintf(stderr,
+                         ": expecting 'init()' to return a boolean.  Assuming true.\n");
         }
     }
+
+    Process* p = Get(a_id); // init() may have reallocated m_processes
+    if (p && result) {
+        p->needsInit = false;
+        p->initialized = true;
+    }
+    // On false, leave needsInit set and retry on the next manager dispatch.
 }
 
 bool ProcessManager::IsRunning(int a_id) const {
     for (const auto& proc : m_processes) {
-        if (proc.id == a_id) return proc.initialized && !proc.wantsQuit;
+        if (proc.id == a_id) return true;
     }
     return false;
 }
 
+void ProcessManager::QueueTerminate(int a_id) {
+    Process* proc = Get(a_id);
+    if (!proc || proc->terminationQueued) return;
+    proc->terminationQueued = true;
+    m_queuedOperations.push_back({QueuedOperation::Type::Terminate, a_id, false});
+}
+
+void ProcessManager::QueuePauseState(bool a_active, int a_exemptProcessId) {
+    m_queuedOperations.push_back({QueuedOperation::Type::Pause, a_exemptProcessId, a_active});
+}
+
+void ProcessManager::DrainOperationQueue() {
+    // Retail swaps its active queue buffer before dispatch. Operations
+    // enqueued by a destructor during this drain therefore wait for the
+    // following frame, rather than being consumed recursively here. Pause
+    // changes and terminations share that queue, preserving insertion order.
+    std::vector<QueuedOperation> queued;
+    queued.swap(m_queuedOperations);
+    for (const QueuedOperation& op : queued) {
+        if (op.type == QueuedOperation::Type::Terminate) {
+            DestroyProcess(op.processId);
+        } else if (!op.active || op.processId < 0 || Get(op.processId)) {
+            ApplyPauseState(op.active, op.processId);
+        }
+    }
+}
+
+void ProcessManager::DestroyProcess(int a_id) {
+    Process* proc = Get(a_id);
+    if (!proc) return;
+
+    if (a_id == m_pauseExemptProcessId) ApplyPauseState(false, -1);
+    gmVariable tableVar = proc->table;
+    gmTableObject* table = (gmTableObject*)m_machine.GetObject(tableVar.m_value.m_ref);
+    gmCall call;
+    if (call.BeginTableFunction(&m_machine, "destructor", table, tableVar)) call.End();
+
+    for (auto it = m_processes.begin(); it != m_processes.end(); ++it) {
+        if (it->id != a_id) continue;
+        UnrootGmVariable(m_machine, it->table);
+        UnrootGmVariable(m_machine, it->preDrawList);
+        UnrootGmVariable(m_machine, it->postDrawList);
+        m_processes.erase(it);
+        break;
+    }
+}
+
 Process* ProcessManager::GetByIndex(int a_index) {
-    int n = (int)m_processes.size();
-    if (a_index < 0) a_index += n; // Python-style: -1 = last, see process_manager.h
-    if (a_index < 0 || a_index >= n) return nullptr;
-    return &m_processes[a_index];
+    // The retail circular list contains only processes whose queued
+    // run/list operation has entered the active manager registry. A process
+    // created during a callback is available by name but absent from this
+    // list until the following drain.
+    const std::int64_t count = static_cast<std::int64_t>(GetCount());
+    const std::int64_t ringSize = count + 1;
+    const std::int64_t index = static_cast<std::int64_t>(a_index);
+    std::int64_t slot = index >= 0
+        ? index % ringSize
+        : (ringSize - ((-index) % ringSize)) % ringSize;
+    if (slot == count) return nullptr; // linked-list sentinel
+    for (Process& process : m_processes) {
+        if (!process.constructed || process.activationGeneration > m_dispatchGeneration)
+            continue;
+        if (slot-- == 0) return &process;
+    }
+    return nullptr;
+}
+
+int ProcessManager::GetCount() const {
+    int count = 0;
+    for (const Process& process : m_processes) {
+        if (process.constructed && process.activationGeneration <= m_dispatchGeneration)
+            ++count;
+    }
+    return count;
 }
 
 Process* ProcessManager::GetByName(const std::string& a_name) {
@@ -257,29 +339,65 @@ Process* ProcessManager::GetByName(const std::string& a_name) {
     return nullptr;
 }
 
-void ProcessManager::UpdateAll(float a_deltaMs) {
-    RunInitPass();
-    TickAlarms(m_machine, a_deltaMs);
+Process* ProcessManager::GetEntityUpdateProcess() {
+    for (auto& proc : m_processes) {
+        if (proc.updatesEntities) return &proc;
+    }
+    return nullptr;
+}
 
-    // Index-based with a re-read size -- same reentrancy hazard as
-    // FinishBringUp/PreDrawAll: update() can start further processes and
-    // reallocate m_processes mid-iteration.
+void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_updateEntities) {
+    DrainOperationQueue();
+    ++m_dispatchGeneration;
+    TickAlarms(m_machine, a_deltaMs);
+    // FUN_00188608 snapshots the first process with native byte +9 set
+    // before it starts the registry walk. Its event adapter then dispatches
+    // entities immediately after that process, even if the process just ran
+    // init rather than update.
+    const Process* selected = GetEntityUpdateProcess();
+    const int entityProcessId = selected ? selected->id : -1;
+    bool entitiesDispatched = false;
+
+    // Retail FUN_00188608 walks the process registry once per update event.
+    // Its update adapter calls FUN_0018c8d4, which dispatches init() OR
+    // update() for each process. A separate init pass would initialize later
+    // processes before an earlier process's update callback runs.
+    // Re-read size after callbacks because either callback can add processes.
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
-        if (!proc.initialized || proc.wantsQuit) continue;
-        if (m_paused && proc.id != m_pauseExemptProcessId) continue; // see SetPauseState
-        gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
-        gmVariable tableVar = proc.table;
-        gmCall call;
-        if (call.BeginTableFunction(&m_machine, "update", table, tableVar)) {
-            call.AddParamFloat(a_deltaMs);
-            call.End();
+        if (proc.activationGeneration > m_dispatchGeneration) continue;
+        if (m_paused && proc.id != m_pauseExemptProcessId) continue; // see QueuePauseState
+        if (!proc.constructed) continue;
+        const int processId = proc.id; // callbacks may reallocate m_processes
+        if (proc.needsInit) {
+            RunInit(processId);
+        } else if (proc.initialized) {
+            gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
+            gmVariable tableVar = proc.table;
+            gmCall call;
+            if (call.BeginTableFunction(&m_machine, "update", table, tableVar)) {
+                call.AddParamFloat(a_deltaMs);
+                call.End();
+            }
+        }
+        if (!entitiesDispatched && processId == entityProcessId) {
+            a_updateEntities();
+            entitiesDispatched = true;
         }
     }
+    // FUN_00188608's no-selected-process fallback is guarded by manager
+    // field +0x48, the active pause-process pointer. Without this check,
+    // entities keep updating when a pause process is active but does not
+    // itself own the entity-update flag.
+    if (!entitiesDispatched && !m_paused) a_updateEntities();
+}
 
-    // postUpdate() -- confirmed real, reserved lifecycle key (see this
-    // function's own header comment), but never actually called anywhere in
-    // this engine until now. Platformer/Main.gm's own postUpdate() is where
+void ProcessManager::PostUpdateAll(float a_deltaMs) {
+    // postUpdate() is a distinct retail manager event, dispatched after the
+    // process and entity callbacks of the update event
+    // (FUN_0018a2e8 -> FUN_00188608). Its native wrapper
+    // checks only whether the cached callback exists; it does not check the
+    // process init-state byte. Platformer/Main.gm's postUpdate() is where
     // `this.camera.update(msElapsed)` lives -- the per-frame camera-follow/
     // pan logic that reads the player's current screen and interpolates
     // Video.setCameraPos toward it. Without this call, the camera is
@@ -288,13 +406,15 @@ void ProcessManager::UpdateAll(float a_deltaMs) {
     // level, no matter how far the player actually walks -- confirmed via a
     // live trace: the player's tracked body position moved ~19 world units
     // over several seconds of real movement while Video.getCameraPosX/Y()
-    // stayed byte-identical the entire time. Run as its own pass, after
-    // every process's update() this frame, matching postDraw's relationship
-    // to preDraw (see ProcessManager::PostDrawAll's header comment).
+    // stayed byte-identical the entire time. Run as its own pass after
+    // update(), and allow it on a constructed process even when init() is
+    // still pending. The same retail dispatcher applies the process pause
+    // selection to both update and postUpdate events.
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
-        if (!proc.initialized || proc.wantsQuit) continue;
-        if (m_paused && proc.id != m_pauseExemptProcessId) continue; // see SetPauseState
+        if (proc.activationGeneration > m_dispatchGeneration) continue;
+        if (!proc.constructed) continue;
+        if (m_paused && proc.id != m_pauseExemptProcessId) continue;
         gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
         gmVariable tableVar = proc.table;
         gmCall call;
@@ -303,42 +423,29 @@ void ProcessManager::UpdateAll(float a_deltaMs) {
             call.End();
         }
     }
+}
 
-    // Reap anything that called Process.terminate() this frame (or earlier),
-    // then erase. Collect ids first: erasing from m_processes while a range over
-    // it is still conceptually "in progress" (destructor() calls can also
-    // start/terminate further processes) is safer done as a separate pass.
-    std::vector<int> toRemove;
-    for (const auto& proc : m_processes) {
-        if (proc.wantsQuit) toRemove.push_back(proc.id);
-    }
-    for (int id : toRemove) {
-        Process* proc = Get(id);
-        if (!proc) continue; // already gone, e.g. a nested terminate()
-        // The pause-exempt process going away without ever calling
-        // setAsPauseProcess(false, ...) first is real, confirmed corpus
-        // behavior -- ResizeScreenProcess.gm's onKeyPress just calls
-        // this._process.terminate() directly on accept, with no matching
-        // unpause anywhere in the file. Left unhandled, every other
-        // process's update()/postUpdate() would stay frozen forever once
-        // this one is reaped (see ProcessManager::SetPauseState). Clearing
-        // pause here is the same safety net a real engine needs regardless
-        // of what retail's own native process teardown does internally.
-        if (id == m_pauseExemptProcessId) SetPauseState(false, -1);
-        gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc->table.m_value.m_ref);
-        gmVariable tableVar = proc->table;
+void ProcessManager::NotifyEntityDeleted(const gmVariable& a_entity) {
+    // The retail EntityManager packages the target entity in its delete event
+    // and delivers that event through the process manager before removing
+    // the entity's indexes. Call script hooks in process registration order.
+    // Snapshot ids because an onEntityDelete callback can start or terminate
+    // processes and invalidate m_processes storage while it runs.
+    std::vector<int> processIds;
+    processIds.reserve(m_processes.size());
+    for (const Process& process : m_processes) processIds.push_back(process.id);
+
+    for (int id : processIds) {
+        Process* process = Get(id);
+        if (!process || process->table.m_type != GM_TABLE) continue;
+        gmVariable tableVar = process->table;
+        gmTableObject* table = (gmTableObject*)m_machine.GetObject(tableVar.m_value.m_ref);
+        if (!table || table->Get(&m_machine, "onEntityDelete").m_type != GM_FUNCTION) continue;
+
         gmCall call;
-        if (call.BeginTableFunction(&m_machine, "destructor", table, tableVar)) {
+        if (call.BeginTableFunction(&m_machine, "onEntityDelete", table, tableVar)) {
+            call.AddParam(a_entity);
             call.End();
-        }
-        for (auto it = m_processes.begin(); it != m_processes.end(); ++it) {
-            if (it->id == id) {
-                UnrootGmVariable(m_machine, it->table);
-                UnrootGmVariable(m_machine, it->preDrawList);
-                UnrootGmVariable(m_machine, it->postDrawList);
-                m_processes.erase(it);
-                break;
-            }
         }
     }
 }
@@ -361,7 +468,8 @@ void ProcessManager::DispatchKeyEventNamed(int a_keycode, const char* methodName
     // any -- see header comment.
     int focusId = -1;
     for (const auto& proc : m_processes) {
-        if (proc.initialized && !proc.wantsQuit && proc.stealsInputFocus) focusId = proc.id;
+        if (proc.activationGeneration <= m_dispatchGeneration &&
+            proc.initialized && proc.stealsInputFocus) focusId = proc.id;
     }
 
     if (focusId >= 0) {
@@ -382,7 +490,8 @@ void ProcessManager::DispatchKeyEventNamed(int a_keycode, const char* methodName
     // processes mid-iteration (same reentrancy hazard as UpdateAll).
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
-        if (!proc.initialized || proc.wantsQuit) continue;
+        if (proc.activationGeneration > m_dispatchGeneration) continue;
+        if (!proc.initialized) continue;
         gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
         gmVariable tableVar = proc.table;
         gmCall call;
@@ -400,6 +509,7 @@ void ProcessManager::PreDrawAll() {
     // mid-iteration.
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
+        if (proc.activationGeneration > m_dispatchGeneration) continue;
         if (!proc.initialized) continue;
         gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
         gmVariable tableVar = proc.table;
@@ -419,7 +529,15 @@ void ProcessManager::PostDrawAll() {
     // Same reentrancy/iteration reasoning as PreDrawAll.
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
+        if (proc.activationGeneration > m_dispatchGeneration) continue;
         if (!proc.initialized) continue;
+        // Each process overlay begins with writable colour. Gameplay lists
+        // use colour masking for stencil setup and can leave it disabled;
+        // a later pause or loading list has no setColourMask call of its
+        // own, so inheriting that state makes its entire overlay invisible.
+        GetDrawContext().colourMask = false;
+        if (Renderer* renderer = GetEngineContext().renderer)
+            renderer->SetColourMask(false);
         gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
         gmVariable tableVar = proc.table;
         int id = proc.id;
@@ -432,14 +550,14 @@ void ProcessManager::PostDrawAll() {
     }
 }
 
-void ProcessManager::SetPauseState(bool a_active, int a_exemptProcessId) {
+void ProcessManager::ApplyPauseState(bool a_active, int a_exemptProcessId) {
     m_paused = a_active;
     m_pauseExemptProcessId = a_active ? a_exemptProcessId : -1;
 }
 
 bool ProcessManager::AnyWantQuit() const {
-    for (const auto& proc : m_processes) {
-        if (proc.wantsQuit) return true;
+    for (const QueuedOperation& op : m_queuedOperations) {
+        if (op.type == QueuedOperation::Type::Terminate) return true;
     }
     return false;
 }

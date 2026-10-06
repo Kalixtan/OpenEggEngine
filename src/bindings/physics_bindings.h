@@ -19,17 +19,9 @@ struct ShapeDefCollection {
         shapes.emplace_back(a_shape);
         b2FixtureDef def;
         def.shape = a_shape;
-        // Box2D's own b2FixtureDef default is categoryBits=0x0001 -- the
-        // exact same bit constants_bindings.cpp assigned
-        // PLAYER_COLLISION_CATEGORY (1<<0), confirmed real usage
-        // (Platformer/Player.gm explicitly calls
-        // `pb.setCollisionCategory(PLAYER_COLLISION_CATEGORY)`). Any shape
-        // whose own script never calls setCollisionCategory would
-        // otherwise incidentally collide with that bit, making
-        // category-based "is this the player" checks (e.g. the render
-        // camera's player-tracking, draw_list.cpp) unreliable -- explicit
-        // 0 here means "no category set" is unambiguous.
-        def.filter.categoryBits = 0;
+        // Keep Box2D's default category (1). Retail also assigns ground=1;
+        // shapes without an explicit category, including checkpoint
+        // sensors, must still be able to generate contacts.
         fixtureDefs.push_back(def);
     }
 };

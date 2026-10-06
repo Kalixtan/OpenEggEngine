@@ -698,7 +698,18 @@ namespace {
 
 int GM_CDECL gmf_COLOURSCHEME_SetColour(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_STRING_PARAM(name, 0, "clear");
+    // Lenient read, same reasoning as gmf_DC_scale/gmf_DC_translate:
+    // GM_STRING_PARAM expands to the STRICT variant, which throws a
+    // blank-message GM_EXCEPTION when the parameter exists but isn't a
+    // string -- and that aborts the entire calling draw(), not just this
+    // statement. EntityPacks/BrianMover.gm:726 calls
+    // `COLOURSCHEME_SetColour(this.fillcn, this.drawList)` every frame with
+    // `fillcn` still null on entities whose configure hasn't assigned it,
+    // which threw ~1100 times over one tutorial run and discarded all of
+    // those entities' remaining draw calls. Falling back to the same "clear"
+    // default the strict macro already declared keeps the draw alive.
+    const char* name = a_thread->ParamString(0, "clear");
+    if (!name) name = "clear";
 
     ColourData c;
     float r, g, b;
@@ -840,6 +851,7 @@ int GM_CDECL gmf_COLOURSCHEME_SetInterpolatedColour(gmThread* a_thread) {
             if (obj) target = (DrawListData*)obj->m_user;
         }
     }
+    if (!target) target = RecordingTarget(a_thread);
     float r = result.r, g = result.g, bl = result.b;
     if (target) {
         target->commands.push_back([r, g, bl] { GetEngineContext().renderer->SetColour(r, g, bl, 1.0f); });
@@ -871,6 +883,11 @@ int GM_CDECL gmf_COLOURSCHEME_SetInterpolatedColour(gmThread* a_thread) {
 // (g_currentColourSchemeID itself now declared near the top of this file,
 // initialized to 9 -- see that declaration's comment.)
 int GM_CDECL gmf_COLOURSCHEME_SetColourScheme(gmThread* a_thread) {
+    if (std::getenv("GE3_DIAG_COL")) {
+        static int n = 0;
+        if (n++ < 30) std::fprintf(stderr, "[scheme] SetColourScheme(%d)\n",
+                                   a_thread->GetNumParams() >= 1 ? (int)a_thread->ParamInt(0, -1) : -1);
+    }
     if (a_thread->GetNumParams() >= 1) g_currentColourSchemeID = a_thread->ParamInt(0, 0);
     return GM_OK;
 }
@@ -1014,7 +1031,12 @@ int GM_CDECL gmf_COLOURSCHEME_SetGeneratedPaletteColour(gmThread* a_thread) {
     unsigned int handle = 0;
     if (texVar.m_type == GM_STRING) {
         const char* path = ((gmStringObject*)a_thread->GetMachine()->GetObject(texVar.m_value.m_ref))->GetString();
-        handle = GetEngineContext().renderer->LoadTexture(path);
+        // String call sites name a game-data asset (FlareBuddy.gm passes
+        // `Platformer/EntityPacks/FlareBuddy/face.png`). Match Video's
+        // texture path handling instead of handing a relative path to the
+        // renderer, whose working directory is the build folder.
+        auto resolved = GetEngineContext().fileHelper->Resolve(path);
+        if (resolved) handle = GetEngineContext().renderer->LoadTexture(*resolved);
     } else {
         // The normal case: a real TEXTURE object -- see texture_bindings.h's
         // header comment for why TEXTURE is its own gm type here. Every
@@ -1043,6 +1065,10 @@ gmFunctionEntry s_colourManagerLib[] = {
 
 } // namespace
 
+int GM_CDECL DrawList_SetInterpolatedColour(gmThread* a_thread) {
+    return gmf_COLOURSCHEME_SetInterpolatedColour(a_thread);
+}
+
 bool ResolveColourRGB(gmThread* a_thread, const gmVariable& a_var, float& a_r, float& a_g, float& a_b) {
     ColourData c;
     if (!ResolveColour(a_thread, a_var, c)) return false;
@@ -1066,3 +1092,5 @@ void RegisterColourBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("COLOURSCHEME_SetAnimationPaletteColour", gmf_COLOURSCHEME_SetAnimationPaletteColour);
     a_machine.RegisterLibraryFunction("COLOURSCHEME_SetGeneratedPaletteColour", gmf_COLOURSCHEME_SetGeneratedPaletteColour);
 }
+
+int GetCurrentColourSchemeID() { return g_currentColourSchemeID; }

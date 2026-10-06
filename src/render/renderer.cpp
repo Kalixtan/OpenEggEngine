@@ -399,9 +399,41 @@ void Renderer::SetTextureGeneratedTint(unsigned int a_handle, float a_fillR, flo
                                         float a_outlineR, float a_outlineG, float a_outlineB) {
     auto it = m_texturesByHandle.find(a_handle);
     if (it == m_texturesByHandle.end()) return;
-    it->second.hasGeneratedTint = true;
-    it->second.fillTintR = a_fillR; it->second.fillTintG = a_fillG; it->second.fillTintB = a_fillB;
-    it->second.outlineTintR = a_outlineR; it->second.outlineTintG = a_outlineG; it->second.outlineTintB = a_outlineB;
+    Texture& tex = it->second;
+    const bool unchanged = tex.hasGeneratedTint &&
+        tex.fillTintR == a_fillR && tex.fillTintG == a_fillG && tex.fillTintB == a_fillB &&
+        tex.outlineTintR == a_outlineR && tex.outlineTintG == a_outlineG && tex.outlineTintB == a_outlineB;
+    tex.hasGeneratedTint = true;
+    tex.fillTintR = a_fillR; tex.fillTintG = a_fillG; tex.fillTintB = a_fillB;
+    tex.outlineTintR = a_outlineR; tex.outlineTintG = a_outlineG; tex.outlineTintB = a_outlineB;
+    if (unchanged || !tex.isChromaKeyMask || tex.paletteTemplateRgba.empty()) return;
+
+    // Red and blue encode the two palette weights; green is the transparent
+    // key. Reconstruct alpha from total mask coverage so anti-aliased edges
+    // remain smooth after the script replaces either palette colour.
+    std::vector<unsigned char> recoloured = tex.paletteTemplateRgba;
+    for (size_t i = 0; i < recoloured.size(); i += 4) {
+        const float fillWeight = recoloured[i + 0] / 255.0f;
+        const float outlineWeight = recoloured[i + 2] / 255.0f;
+        const float sum = fillWeight + outlineWeight;
+        const float coverage = std::min(1.0f, sum);
+        if (coverage <= 0.0f) {
+            recoloured[i + 0] = recoloured[i + 1] = recoloured[i + 2] = recoloured[i + 3] = 0;
+            continue;
+        }
+        const float r = (a_fillR * fillWeight + a_outlineR * outlineWeight) / sum;
+        const float g = (a_fillG * fillWeight + a_outlineG * outlineWeight) / sum;
+        const float b = (a_fillB * fillWeight + a_outlineB * outlineWeight) / sum;
+        recoloured[i + 0] = (unsigned char)std::clamp(r * 255.0f, 0.0f, 255.0f);
+        recoloured[i + 1] = (unsigned char)std::clamp(g * 255.0f, 0.0f, 255.0f);
+        recoloured[i + 2] = (unsigned char)std::clamp(b * 255.0f, 0.0f, 255.0f);
+        recoloured[i + 3] = (unsigned char)std::clamp(recoloured[i + 3] * coverage, 0.0f, 255.0f);
+    }
+    glBindTexture(GL_TEXTURE_2D, tex.id);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tex.potWidth, tex.potHeight,
+                    GL_RGBA, GL_UNSIGNED_BYTE, recoloured.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Renderer::GetTextureDimensions(unsigned int a_handle, int& a_outWidth, int& a_outHeight) const {

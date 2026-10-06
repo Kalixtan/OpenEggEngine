@@ -63,10 +63,13 @@ int GM_CDECL gmf_Shape_endShapeCurrent(gmThread* a_thread);
 //
 // a_shapeType uses the same SHAPETYPE_* numbering as SHAPE()/beginShape().
 // a_xy is a_count consecutive x,y pairs. a_existing, when non-null, is
-// repopulated and re-pushed instead of allocating a new shape (retail's own
-// leading-SHAPE-argument overload of both functions).
+// repopulated instead of allocating a new shape. Flags allow native helpers
+// with a leading-shape overload to preserve that shape's primitive type and
+// mirror whether retail pushes the object back as a return value.
 void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
-                        int a_count, float a_z, gmUserObject* a_existing);
+                        int a_count, float a_z, gmUserObject* a_existing,
+                        bool a_preserveExistingMode = false,
+                        bool a_pushExisting = true);
 
 // Returns a_var as a VMSHAPE user object, or null if it isn't one -- lets
 // videohelper_bindings.cpp detect retail's leading-SHAPE overload without

@@ -5,6 +5,7 @@
 #include "../bindings/entity_bindings.h"
 #include "../bindings/shape_bindings.h"
 #include "../bindings/animation_bindings.h"
+#include "../bindings/colour_bindings.h"
 #include "../core/strict_calls.h"
 #include <box2d/box2d.h>
 #include <GL/glew.h>
@@ -119,10 +120,10 @@ int GM_CDECL gmf_reset(gmThread* a_thread) {
 // using simple flat colours keyed off collision category, since no real
 // per-entity-type sprite/texture rendering exists yet either. Sensors are
 // skipped (nothing in the corpus draws a sensor's own shape visibly).
-// Colour categories match the bit values physics_bindings.cpp/
-// constants_bindings.cpp assigned to PLAYER_COLLISION_CATEGORY (1<<0) and
-// GROUND_COLLISION_CATEGORY (1<<1) -- everything else (checkpoints,
-// drones, decorations, ...) gets a neutral fallback colour.
+// Colour categories match the retail bit values in constants_bindings.cpp:
+// PLAYER_COLLISION_CATEGORY (1<<2) and GROUND_COLLISION_CATEGORY (1<<0).
+// Everything else (checkpoints, drones, decorations, ...) gets a neutral
+// fallback colour.
 //
 // Camera: deliberately NOT overridden here -- the real script-side camera
 // (Video.setCameraPos, wired through in video_bindings.cpp, plus
@@ -224,11 +225,8 @@ void DrawPhysicsBodiesImmediate(const std::vector<int>& a_nativeDrawnUids) {
             } else if (isDynamic) {
                 drawShape(fx, xf, 1.0f, 0.15f, 0.1f, 0.28f, 0.9f);   // red -- dynamic bodies
             } else if (body->GetType() == b2_staticBody) {
-                // Solid/near-opaque on purpose: physics_body_bindings.cpp's
-                // SyncBodyTypeFromMass now converts every zero-mass body
-                // (setMass(0) -- every "immovable" ground piece) to a real
-                // b2_staticBody, so this colour == "actually solid/
-                // immovable", not just "currently not dynamic".
+                // Solid/near-opaque means the body was explicitly made
+                // static. Retail-created zero-density bodies remain dynamic.
                 drawShape(fx, xf, 0.15f, 0.55f, 1.0f, 0.75f, 0.95f); // blue, solid -- static (mass 0 -> truly immovable)
             } else {
                 drawShape(fx, xf, 0.9f, 0.9f, 0.9f, 0.22f, 0.8f);    // white -- kinematic (none exist yet, but distinct in case)
@@ -319,7 +317,28 @@ int GM_CDECL gmf_drawStaticSurface(gmThread* a_thread) {
             cx + halfW, cy + halfH,
             cx - halfW, cy + halfH,
         };
+        // The base colour wash must not participate in depth. It is drawn
+        // first, and its job is "fill the visible area with the current
+        // colour" -- everything else in the frame belongs in front of it,
+        // whatever z that content carries.
+        //
+        // This quad has no z of its own, so it lands at z=0. Once depth
+        // testing was enabled (see ground_renderer.cpp / draw_context.h),
+        // that silently hid every piece of world content BEHIND z=0 --
+        // most visibly all tutorial text, which TutorialMessage.gm draws at
+        // PLAYER_MODE_NOTE_Z + ZINCER*3 = -19.91. The text was being
+        // recorded and drawn correctly the whole time (12307 print calls
+        // per run, at correct world positions and correct z); this quad was
+        // painting over it.
+        //
+        // Disabling both test and write, rather than picking some far z,
+        // avoids inventing a depth value retail does not have: the
+        // drawStaticSurface opcode (0x000801cc) takes no arguments at all.
+        renderer->SetDepthTest(false);
+        renderer->SetDepthWrite(false);
         renderer->DrawPolygon(GL_TRIANGLE_FAN, quad, 4);
+        renderer->SetDepthWrite(true);
+        renderer->SetDepthTest(true);
     });
 }
 
@@ -384,6 +403,7 @@ gmFunctionEntry s_drawListLib[] = {
     {"setOrderLast", DC_gmf_setOrderLast, nullptr},
     {"setDistanceTextureRenderAttributes", DC_gmf_setDistanceTextureRenderAttributes, nullptr},
     {"setColour", gmf_DC_setColour_drawList, nullptr},
+    {"setInterpolatedColour", DrawList_SetInterpolatedColour, nullptr},
     {"setColourRef", gmf_DC_setColourRef, nullptr},
     {"drawTextureByHandle", DC_gmf_drawTextureByHandle, nullptr},
     {"setTextureByHandle", DC_gmf_setTextureByHandle, nullptr},

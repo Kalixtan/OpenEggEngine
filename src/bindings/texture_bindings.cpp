@@ -73,12 +73,23 @@ int GM_CDECL gmf_getResizeFactor(gmThread* a_thread) {
     return GM_OK;
 }
 
+// Video.getSubTexture is a method on the texture handle. Retail returns its
+// stored sub-texture object and increments its reference count. Loose files
+// loaded by this port have no atlas subdivision, so the complete texture is
+// that sub-texture; return another handle to the same GL resource.
+int GM_CDECL gmf_getSubTexture(gmThread* a_thread) {
+    TextureHandleData* t = ThisTexture(a_thread); if (!t) return GM_EXCEPTION;
+    a_thread->Push(MakeTextureHandle(*a_thread->GetMachine(), t->handle));
+    return GM_OK;
+}
+
 gmFunctionEntry s_textureLib[] = {
     {"getDimensions", gmf_getDimensions, nullptr},
     {"getResizeFactor", gmf_getResizeFactor, nullptr},
     {"isValid", gmf_isValid, nullptr},
     {"getTextureExtX", gmf_getTextureExtX, nullptr},
     {"getTextureExtY", gmf_getTextureExtY, nullptr},
+    {"getSubTexture", gmf_getSubTexture, nullptr},
 };
 
 void GM_CDECL TextureGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {

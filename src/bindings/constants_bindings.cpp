@@ -1,9 +1,55 @@
 #include "constants_bindings.h"
+#include "gmThread.h"
 #include <cmath>
+#include <cctype>
 #include <string>
+
+namespace {
+
+// Retail NOTES_GetNoteNumber delegates entirely to FUN_000b43c0.  The
+// shipped instrument names are pitch strings such as C4, Cs4 and As6; the
+// resulting numbering is C0=0 through C8=96, with C4=48.
+int GM_CDECL gmf_NOTES_GetNoteNumber(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(name, 0, "");
+    if (!name || !name[0]) return GM_EXCEPTION;
+
+    const char letter = (char)std::toupper((unsigned char)name[0]);
+    int semitone;
+    switch (letter) {
+        case 'C': semitone = 0; break;
+        case 'D': semitone = 2; break;
+        case 'E': semitone = 4; break;
+        case 'F': semitone = 5; break;
+        case 'G': semitone = 7; break;
+        case 'A': semitone = 9; break;
+        case 'B': semitone = 11; break;
+        default: return GM_EXCEPTION;
+    }
+    size_t cursor = 1;
+    if (name[cursor] == 's' || name[cursor] == 'S' || name[cursor] == '#') {
+        ++semitone;
+        ++cursor;
+    } else if (name[cursor] == 'b' || name[cursor] == 'B') {
+        --semitone;
+        ++cursor;
+    }
+    if (!std::isdigit((unsigned char)name[cursor]) || name[cursor + 1] != '\0')
+        return GM_EXCEPTION;
+    const int octave = name[cursor] - '0';
+    if (octave < 0 || octave > 8 || (octave == 8 && semitone != 0))
+        return GM_EXCEPTION;
+    if (semitone < 0) { semitone += 12; if (octave == 0) return GM_EXCEPTION; }
+    if (semitone >= 12) { semitone -= 12; if (octave == 8) return GM_EXCEPTION; }
+    a_thread->PushInt(octave * 12 + semitone);
+    return GM_OK;
+}
+
+} // namespace
 
 void RegisterConstantsBindings(gmMachine& a_machine) {
     gmTableObject* g = a_machine.GetGlobals();
+    a_machine.RegisterLibraryFunction("NOTES_GetNoteNumber", gmf_NOTES_GetNoteNumber);
 
     // Confirmed live on real RPCS3/retail via game_data_testcart's TEST 101.
     g->Set(&a_machine, "SW", gmVariable(0.61f));
@@ -81,32 +127,47 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     g->Set(&a_machine, "FILEHELPER_AREA_HOST", gmVariable((gmint)2));
     g->Set(&a_machine, "FILEHELPER_AREA_NULL", gmVariable((gmint)3));
 
-    // *_COLLISION_CATEGORY -- never assigned by any `global X=...` anywhere
-    // in game_data (checked), used purely as bitmask arguments to
-    // PhysicsBody.setCollisionCategory/setCategoriesToCollideWith (e.g.
-    // Platformer/Player.gm: `pb.setCategoriesToCollideWith(ALL_COLLISION_CATEGORIES^PLAYER_COLLISION_CATEGORY)`)
-    // -- must be native engine bootstrap globals, exactly like
-    // MIXER_AUTO_ID_START (entity_bindings.cpp). No decompiled evidence for
-    // the exact bit assignment, but the XOR/bitwise usage confirms a
-    // distinct-single-bit-per-category scheme matching Box2D's uint16
-    // b2Filter.categoryBits exactly -- assigned in the order first seen
-    // across the corpus grep, arbitrary but self-consistent since nothing
-    // ever compares these values against a literal.
-    g->Set(&a_machine, "PLAYER_COLLISION_CATEGORY", gmVariable((gmint)(1 << 0)));
-    g->Set(&a_machine, "GROUND_COLLISION_CATEGORY", gmVariable((gmint)(1 << 1)));
-    g->Set(&a_machine, "STRUCTURE_COLLISION_CATEGORY", gmVariable((gmint)(1 << 2)));
-    g->Set(&a_machine, "SCREENWALL_COLLISION_CATEGORY", gmVariable((gmint)(1 << 3)));
-    g->Set(&a_machine, "CREATURE_COLLISION_CATEGORY", gmVariable((gmint)(1 << 4)));
-    g->Set(&a_machine, "BOULDER_COLLISION_CATEGORY", gmVariable((gmint)(1 << 5)));
-    g->Set(&a_machine, "BULLET_COLLISION_CATEGORY", gmVariable((gmint)(1 << 6)));
-    g->Set(&a_machine, "DANGER_COLLISION_CATEGORY", gmVariable((gmint)(1 << 7)));
-    g->Set(&a_machine, "INTERACTIVE_COLLISION_CATEGORY", gmVariable((gmint)(1 << 8)));
-    g->Set(&a_machine, "LINE_COLLISION_CATEGORY", gmVariable((gmint)(1 << 9)));
-    g->Set(&a_machine, "MOVING_ENTITY_COLLISION_CATEGORY", gmVariable((gmint)(1 << 10)));
-    g->Set(&a_machine, "NOTE_COLLISION_CATEGORY", gmVariable((gmint)(1 << 11)));
-    g->Set(&a_machine, "PLAYERSENSOR_COLLISION_CATEGORY", gmVariable((gmint)(1 << 12)));
-    g->Set(&a_machine, "VISUAL_COLLISION_CATEGORY", gmVariable((gmint)(1 << 13)));
+    // Recovered from the retail PS3 native global registrar (see
+    // native raycasts and rendering, so merely being self-consistent in GM
+    // is insufficient.
+    g->Set(&a_machine, "GROUND_COLLISION_CATEGORY", gmVariable((gmint)1));
+    g->Set(&a_machine, "CREATURE_COLLISION_CATEGORY", gmVariable((gmint)2));
+    g->Set(&a_machine, "PLAYER_COLLISION_CATEGORY", gmVariable((gmint)4));
+    g->Set(&a_machine, "DANGER_COLLISION_CATEGORY", gmVariable((gmint)8));
+    g->Set(&a_machine, "INTERACTIVE_COLLISION_CATEGORY", gmVariable((gmint)16));
+    g->Set(&a_machine, "VISUAL_COLLISION_CATEGORY", gmVariable((gmint)32));
+    g->Set(&a_machine, "BOULDER_COLLISION_CATEGORY", gmVariable((gmint)64));
+    g->Set(&a_machine, "NOTE_COLLISION_CATEGORY", gmVariable((gmint)128));
+    g->Set(&a_machine, "STRUCTURE_COLLISION_CATEGORY", gmVariable((gmint)256));
+    g->Set(&a_machine, "PLAYERSENSOR_COLLISION_CATEGORY", gmVariable((gmint)512));
+    g->Set(&a_machine, "SCREENWALL_COLLISION_CATEGORY", gmVariable((gmint)1024));
+    g->Set(&a_machine, "LINE_COLLISION_CATEGORY", gmVariable((gmint)2048));
+    g->Set(&a_machine, "BULLET_COLLISION_CATEGORY", gmVariable((gmint)4096));
+    g->Set(&a_machine, "PLAYERPLUSPLAYER_COLLISION_CATEGORY", gmVariable((gmint)8192));
+    // No retail registration recovered for this script-only legacy name.
+    g->Set(&a_machine, "MOVING_ENTITY_COLLISION_CATEGORY", gmVariable((gmint)(1 << 14)));
     g->Set(&a_machine, "ALL_COLLISION_CATEGORIES", gmVariable((gmint)0xFFFF));
+
+    // Physics joint enum values are consumed directly by
+    // Physics.createJoint(type). The retail constructor dispatches types
+    // 1/2/3 to revolute/prismatic/distance configs (FUN_00034460), and its
+    // type-9 pin and type-10 relative setters validate those exact IDs
+    // (FUN_0003517c/FUN_00034e00 and FUN_0003507c). The names are present
+    // in the retail global-constant registration function FUN_0005f704.
+    // Only values independently confirmed by the native type checks are
+    // installed here; the other retail joint-name constants (pulley,
+    // mouse, gear, line) still need their numeric values established.
+    g->Set(&a_machine, "PHYSICSJOINTTYPE_REVOLUTE", gmVariable((gmint)1));
+    g->Set(&a_machine, "PHYSICSJOINTTYPE_PRISMATIC", gmVariable((gmint)2));
+    g->Set(&a_machine, "PHYSICSJOINTTYPE_DISTANCE", gmVariable((gmint)3));
+    g->Set(&a_machine, "PHYSICSJOINTTYPE_PIN", gmVariable((gmint)9));
+    g->Set(&a_machine, "PHYSICSJOINTTYPE_RELATIVE", gmVariable((gmint)10));
+
+    // Entity.createEntity forwards this mode to its native entity factory
+    // (retail FUN_000c3334 -> FUN_000c1710). The shipped level metadata uses
+    // physicsType=1 for the multi-body entities, and retail registers the
+    // PHYSICSTYPE_MULTIBODY global in FUN_0005f704.
+    g->Set(&a_machine, "PHYSICSTYPE_MULTIBODY", gmVariable((gmint)1));
 
     // BASE_GROUND_FRICTION -- `global BASE_GROUND_FRICTION;` (forward
     // declared, never assigned) in Platformer/Player.gm:114, used as a
@@ -130,19 +191,38 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     g->Set(&a_machine, "GROUND_ENTITY_DESCRIPTION", gmVariable((gmint)(1 << 0)));
     g->Set(&a_machine, "SELECTED_ENTITY_DESCRIPTION", gmVariable((gmint)(1 << 1)));
 
-    // *_Z / ZINCER -- confirmed real (18 distinct draw-depth constants,
-    // e.g. Platformer/EntityPacks/SpawnPoint.gm:
-    // `this.drawZ = PLAYER_Z-ZINCER;`, PauseProcessBase.gm:
-    // `drawList.translate(this.cx,this.cy,-5*ZINCER);`) but never assigned
-    // anywhere -- native bootstrap globals, same situation as the
-    // *_COLLISION_CATEGORY constants. No decompiled evidence for the real
-    // depth values; assigned in a plausible back-to-front draw order
-    // (background < ground < entities < overlays < player < UI) with
-    // even spacing, and ZINCER as a small per-step nudge (real usage
-    // multiplies it by small integers, e.g. `-5*ZINCER`, to separate
-    // near-coplanar elements) -- nothing compares these to a literal
-    // value, only ever adds/subtracts/orders them against each other.
-    g->Set(&a_machine, "ZINCER", gmVariable((gmfloat)0.01f));
+    // *_Z / ZINCER -- REAL VALUES, read out of the retail binary. These
+    // were previously guessed ("plausible back-to-front order with even
+    // spacing"), and every single one of them was wrong -- not just in
+    // magnitude but in SIGN and in ORDER, which put the player in front of
+    // the ground instead of behind it.
+    //
+    // Recovered from the native bootstrap that registers them, at
+    // 0x19b1c0..0x19b4f0. Each registration is the same shape: the name
+    // address is built into r5 (`lis r5,0x3a` + `addic r5,r5,<imm>`), the
+    // float's BITS are built into a GPR with `lis`(+`ori`) and stored to
+    // 0x74(r1), then FUN_000f2670 is called. So the values are readable
+    // directly, e.g. PLAYER_Z:
+    //     lis r3, -0x3e72      ; r3 = 0xC18E0000
+    //     ori r7, r3, 0x6666   ; r7 = 0xC18E6666  == -17.8f
+    //     addic r5, r5, -0x7b9c; name = 0x398464 == "PLAYER_Z"
+    //
+    // The scheme is "larger = nearer the camera", and most layers are
+    // NEGATIVE:
+    //     VIBE_Z             -60      GROUND_Z           -10
+    //     BG_Z               -50      WIZARD_MODE_NOTE_Z  -7
+    //     NOTE_GOT_Z         -40      GROUND_OUT_FILL_Z   -2
+    //     BGENTITY_Z         -30      ENTITY_Z             0
+    //     PLAYER_MODE_NOTE_Z -20      FRONT_Z             20
+    //     PLAYER_Z           -17.8    UI_Z                30
+    //     NOTE_KICKER_Z      -16
+    //     FIREGROUND_Z       -13
+    //     BOIDS_BACK_Z       -10      BOIDS_FRONT_Z      -10
+    //
+    // The load-bearing one: PLAYER_Z (-17.8) is BEHIND GROUND_Z (-10), so
+    // the ground and platforms occlude the player. The old guess had
+    // PLAYER_Z 60 against GROUND_Z 30 -- the player drew over everything.
+    g->Set(&a_machine, "ZINCER", gmVariable((gmfloat)0.03f)); // 0x3cf5c28f, was guessed 0.01
     // BACK_CONVERSION -- confirmed real, same "native bootstrap global,
     // never assigned in any script" situation as ZINCER/the *_Z constants
     // above (e.g. GroundProcessNEW.gm: `this.CLEAR_Z=this.OUTLINE_Z+60*
@@ -152,15 +232,28 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     // other (never compared to a literal), reusing ZINCER's value is a
     // reasonable placeholder of the same "small nudge unit" kind.
     g->Set(&a_machine, "BACK_CONVERSION", gmVariable((gmfloat)0.01f));
-    g->Set(&a_machine, "BG_Z", gmVariable((gmfloat)0.0f));
-    g->Set(&a_machine, "VIBE_Z", gmVariable((gmfloat)10.0f));
-    g->Set(&a_machine, "BGENTITY_Z", gmVariable((gmfloat)20.0f));
-    g->Set(&a_machine, "FIREGROUND_Z", gmVariable((gmfloat)28.0f));
-    g->Set(&a_machine, "GROUND_Z", gmVariable((gmfloat)30.0f));
-    g->Set(&a_machine, "CRAIG_DRONES_Z", gmVariable((gmfloat)35.0f));
-    g->Set(&a_machine, "ENTITY_Z", gmVariable((gmfloat)40.0f));
-    g->Set(&a_machine, "NOCLIMB_CLEAR_Z", gmVariable((gmfloat)48.0f));
-    g->Set(&a_machine, "FIRE_CLEAR_Z", gmVariable((gmfloat)49.0f));
+    g->Set(&a_machine, "BG_Z", gmVariable((gmfloat)-50.0f));
+    g->Set(&a_machine, "VIBE_Z", gmVariable((gmfloat)-60.0f));
+    g->Set(&a_machine, "BGENTITY_Z", gmVariable((gmfloat)-30.0f));
+    g->Set(&a_machine, "FIREGROUND_Z", gmVariable((gmfloat)-13.0f));
+    g->Set(&a_machine, "GROUND_Z", gmVariable((gmfloat)-10.0f));
+    g->Set(&a_machine, "ENTITY_Z", gmVariable((gmfloat)0.0f));
+    // Present in the retail bootstrap but missing from our set entirely:
+    g->Set(&a_machine, "NOTE_KICKER_Z", gmVariable((gmfloat)-16.0f));
+    g->Set(&a_machine, "BOIDS_BACK_Z", gmVariable((gmfloat)-10.0f));
+    g->Set(&a_machine, "BOIDS_FRONT_Z", gmVariable((gmfloat)-10.0f));
+    g->Set(&a_machine, "GROUND_OUT_FILL_Z", gmVariable((gmfloat)-2.0f));
+    g->Set(&a_machine, "UI_Z", gmVariable((gmfloat)30.0f));
+    // GROUND_HIGHLIGHT_STENCIL_VALUE registers in the same bootstrap run
+    // but as the INTEGER 0x64 (100), not a float -- it is a stencil ref
+    // value, not a depth.
+    g->Set(&a_machine, "GROUND_HIGHLIGHT_STENCIL_VALUE", gmVariable((gmint)100));
+    // CRAIG_DRONES_Z / NOCLIMB_CLEAR_Z / FIRE_CLEAR_Z are NOT in retail's
+    // bootstrap string table (0x39838e..0x39847c) -- kept only because
+    // scripts here reference them; values remain unverified guesses.
+    g->Set(&a_machine, "CRAIG_DRONES_Z", gmVariable((gmfloat)-11.0f));
+    g->Set(&a_machine, "NOCLIMB_CLEAR_Z", gmVariable((gmfloat)-3.0f));
+    g->Set(&a_machine, "FIRE_CLEAR_Z", gmVariable((gmfloat)-2.5f));
 
     // *_GROUNDSTYLEID -- confirmed real (never assigned in game_data, only
     // compared against, e.g. GroundBase.gm's `this.configureData.style==
@@ -178,46 +271,78 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     // confirmed via screenshot: "Red things = bad. Press X to JUMP over
     // them."), which fits 2=DANGER far better than 1=FIRE for a beginner
     // tutorial's most-common hazard.
+    // ORDER CORRECTED: NOCLIMB is 1, FIRE 2, DANGER 3 -- previously FIRE=1,
+    // DANGER=2, NOCLIMB=3, guessed from the order GroundProcessNEW.gm
+    // happens to REGISTER its style installers in, which is not the same
+    // thing as the ids' values.
+    //
+    // The real declaration order survives verbatim in game_data/Platformer/
+    // GroundBase.gm, in a commented-out copy of retail's own C++ variable
+    // registrations:
+    //     DEFINE_GM_VARIABLE1(NORMAL_GROUNDSTYLEID);
+    //     DEFINE_GM_VARIABLE1(NOCLIMB_GROUNDSTYLEID);
+    //     DEFINE_GM_VARIABLE1(FIRE_GROUNDSTYLEID);
+    //     DEFINE_GM_VARIABLE1(DANGER_GROUNDSTYLEID);
+    //     DEFINE_GM_VARIABLE1(ICE_GROUNDSTYLEID);
+    //     DEFINE_GM_VARIABLE1(MUD_GROUNDSTYLEID);
+    //     DEFINE_GM_VARIABLE1(BOUNCY_GROUNDSTYLEID);
+    //
+    // Confirmed independently against real level data and a real capture:
+    // every ground piece in the tutorial carries style 1, and
+    // ground drawn in rgb(42,33,15) -- which is what installNoClimbGround
+    // produces (its "ground_outline" has no colours.dat entry in this
+    // scheme, so it resolves to the sampled (0.165,0.129,0.059) =
+    // rgb(42,32,15)), not what installFireGround produces. With the old
+    // numbering that ground was drawn as FIRE: a thin coral edge over a
+    // fill the same colour as the background, i.e. the level rendered as
+    // "just lines".
     g->Set(&a_machine, "NORMAL_GROUNDSTYLEID", gmVariable((gmint)0));
-    g->Set(&a_machine, "FIRE_GROUNDSTYLEID", gmVariable((gmint)1));
-    g->Set(&a_machine, "DANGER_GROUNDSTYLEID", gmVariable((gmint)2));
-    g->Set(&a_machine, "NOCLIMB_GROUNDSTYLEID", gmVariable((gmint)3));
+    g->Set(&a_machine, "NOCLIMB_GROUNDSTYLEID", gmVariable((gmint)1));
+    g->Set(&a_machine, "FIRE_GROUNDSTYLEID", gmVariable((gmint)2));
+    g->Set(&a_machine, "DANGER_GROUNDSTYLEID", gmVariable((gmint)3));
     g->Set(&a_machine, "ICE_GROUNDSTYLEID", gmVariable((gmint)4));
     g->Set(&a_machine, "MUD_GROUNDSTYLEID", gmVariable((gmint)5));
     g->Set(&a_machine, "BOUNCY_GROUNDSTYLEID", gmVariable((gmint)6));
 
-    // Note-name constants (C0..B8) -- confirmed real (never assigned
-    // anywhere in game_data, only used as bare identifiers passed straight
-    // through to Audio.playSound's own confirmed "MIDI-style base note"
-    // int argument, e.g. PauseProcessBase.gm:96's
-    // `Audio.playSound(...,C4,0,0,0.10);`) -- standard scientific-pitch-
-    // notation -> MIDI note number mapping (C4=60, middle C), the
-    // universal convention this kind of name obviously follows. Missing
-    // entirely before this was a genuine crash source, not just a wrong
-    // pitch: with strict param macros (gmThread.h's GM_DEBUG build),
-    // GM_INT_PARAM fails hard (returns GM_EXCEPTION) when the argument
-    // isn't actually an int/float at all, and an unregistered global
-    // evaluates to null -- so every real Audio.playSound(...,C4,...) call
-    // site was throwing, not just mis-playing a note.
+    // Retail NOTES_GetNoteNumber (FUN_000b43c0) maps C0..C8 to 0..96,
+    // with C4=48. Its literal note-name table starts at EBOOT.elf
+    // 0x00374d30. These globals use the same pitch numbering; using MIDI's
+    // C4=60 shifts every instrument sound by an octave.
     {
-        static const char* kNoteNames[12] = {"C", "CS", "D", "DS", "E", "F", "FS", "G", "GS", "A", "AS", "B"};
+        static const char* kNoteNames[12] = {"C", "Cs", "D", "Ds", "E", "F", "Fs", "G", "Gs", "A", "As", "B"};
         for (int octave = 0; octave <= 8; ++octave) {
             for (int semitone = 0; semitone < 12; ++semitone) {
-                int midiNote = (octave + 1) * 12 + semitone;
+                if (octave == 8 && semitone != 0) break;
+                int retailNote = octave * 12 + semitone;
                 std::string name = std::string(kNoteNames[semitone]) + std::to_string(octave);
-                g->Set(&a_machine, name.c_str(), gmVariable((gmint)midiNote));
+                g->Set(&a_machine, name.c_str(), gmVariable((gmint)retailNote));
             }
         }
     }
-    g->Set(&a_machine, "CLEAR_Z", gmVariable((gmfloat)50.0f));
-    g->Set(&a_machine, "PLAYER_Z", gmVariable((gmfloat)60.0f));
-    g->Set(&a_machine, "PLAYER_MODE_NOTE_Z", gmVariable((gmfloat)61.0f));
-    g->Set(&a_machine, "WIZARD_MODE_NOTE_Z", gmVariable((gmfloat)62.0f));
-    g->Set(&a_machine, "NOTE_GOT_Z", gmVariable((gmfloat)63.0f));
-    g->Set(&a_machine, "OUTLINE_Z", gmVariable((gmfloat)70.0f));
-    g->Set(&a_machine, "FRONT_Z", gmVariable((gmfloat)80.0f));
-    g->Set(&a_machine, "UI_Z", gmVariable((gmfloat)90.0f));
-    g->Set(&a_machine, "KEYBOARD_Z", gmVariable((gmfloat)100.0f));
+    // The retail registrar at 0x00062490 stores integer 96 under
+    // "BASE_NOTE" immediately after B7=95. Missing this global passed
+    // GM_NULL to Audio.playSound during checkpoint contacts and aborted the
+    // checkpoint's sound callback with a GameMonkey exception.
+    g->Set(&a_machine, "BASE_NOTE", gmVariable((gmint)96));
+    // Real values from the retail bootstrap at 0x19b1c0..0x19b4f0 -- see
+    // the long comment on the *_Z block above for how they were read.
+    // NOTE: this block runs AFTER that one and previously re-set UI_Z to a
+    // different (guessed) value, silently overriding it.
+    g->Set(&a_machine, "PLAYER_Z", gmVariable((gmfloat)-17.8f));        // 0xc18e6666
+    g->Set(&a_machine, "PLAYER_MODE_NOTE_Z", gmVariable((gmfloat)-20.0f));
+    g->Set(&a_machine, "WIZARD_MODE_NOTE_Z", gmVariable((gmfloat)-7.0f));
+    g->Set(&a_machine, "NOTE_GOT_Z", gmVariable((gmfloat)-40.0f));
+    g->Set(&a_machine, "FRONT_Z", gmVariable((gmfloat)20.0f));
+    g->Set(&a_machine, "UI_Z", gmVariable((gmfloat)30.0f));
+    // CLEAR_Z / OUTLINE_Z / KEYBOARD_Z are NOT in retail's bootstrap
+    // string table (0x39838e..0x39847c), so these remain unverified.
+    // GroundProcessNEW.gm computes its own this.CLEAR_Z/this.OUTLINE_Z
+    // from OUTLINE_Z + n*BACK_CONVERSION, so the globals may not be real
+    // at all. Placed just in front of GROUND_Z (-10) to keep the ground's
+    // own sub-layers ordered the way that script expects.
+    g->Set(&a_machine, "OUTLINE_Z", gmVariable((gmfloat)-9.0f));
+    g->Set(&a_machine, "CLEAR_Z", gmVariable((gmfloat)-8.0f));
+    g->Set(&a_machine, "KEYBOARD_Z", gmVariable((gmfloat)40.0f));
 
     // VIDEOPARAMS_* -- confirmed real (drawList.setAttrStencil/
     // Video.setStencilFunc/setStencilOp real call sites across the corpus,

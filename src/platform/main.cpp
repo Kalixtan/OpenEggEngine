@@ -10,6 +10,8 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <array>
+#include <box2d/box2d.h>
 
 #include "../core/gm_vm.h"
 #include "../core/strict_calls.h"
@@ -215,6 +217,29 @@ int main(int argc, char** argv) {
     }
 
     EngineContext& ctx = GetEngineContext();
+    // Main.gm's built-in command-line level route reads these five
+    // GameSystem getters. Keep the script-facing state identical and expose
+    // it through desktop environment variables for a reproducible level
+    // launch; the retail PS3 command-line spelling is not established.
+    if (const char* level = std::getenv("GE3_AUTO_LOAD_LEVEL")) {
+        if (*level) {
+            ctx.gameSystem.isAutoLoadLevel = true;
+            ctx.gameSystem.autoLoadLevel = level;
+            // The desktop autoload hook targets shipped game_data levels by
+            // default. Area 0 is savedata; callers can request it explicitly
+            // with GE3_AUTO_LOAD_AREA=0 for a user-authored level.
+            ctx.gameSystem.autoLoadArea = 1;
+            if (const char* path = std::getenv("GE3_AUTO_LOAD_PATH")) {
+                if (*path) ctx.gameSystem.autoLoadPath = path;
+            }
+            if (const char* mode = std::getenv("GE3_AUTO_LOAD_MODE")) {
+                ctx.gameSystem.autoLoadMode = mode;
+            }
+            if (const char* area = std::getenv("GE3_AUTO_LOAD_AREA")) {
+                ctx.gameSystem.autoLoadArea = std::atoi(area);
+            }
+        }
+    }
     ctx.renderer = &renderer;
     ctx.fileHelper = &vm.Files();
     ctx.machine = &vm.Machine();
@@ -242,8 +267,10 @@ int main(int argc, char** argv) {
     RegisterVector2DBindings(vm.Machine());
     RegisterTextureBindings(vm.Machine());
     RegisterInputBindings(vm.Machine());
+    InitializeDesktopControllers();
     RegisterPrintInfoBindings(vm.Machine());
     RegisterAudioBindings(vm.Machine());
+    InitializeAudioOutput();
     RegisterMathUtilBindings(vm.Machine());
     RegisterMathBindings(vm.Machine());
     RegisterEnvelopeBindings(vm.Machine());
@@ -325,6 +352,7 @@ int main(int argc, char** argv) {
     if (trace) fprintf(trace, "[TRACE] loading entry script: %s\n", entryScript.c_str()), fflush(trace);
     if (!vm.LoadScript(entryScript)) {
         std::fprintf(stderr, "main: %s failed to load, aborting\n", entryScript.c_str());
+        ShutdownAudioOutput();
         renderer.Shutdown();
         return 1;
     }
@@ -333,6 +361,7 @@ int main(int argc, char** argv) {
     if (trace) fprintf(trace, "[TRACE] starting process: %s\n", processName.c_str()), fflush(trace);
     if (processManager.StartNewProcessList(processName) < 0) {
         std::fprintf(stderr, "main: GameSystem.startNewProcessList(\"%s\") failed, aborting\n", processName.c_str());
+        ShutdownAudioOutput();
         renderer.Shutdown();
         return 1;
     }
@@ -348,7 +377,17 @@ int main(int argc, char** argv) {
     // flips it live instead. Starts from the env var so scripted/CI runs
     // that already rely on it keep working unchanged.
     bool physicsDebugDraw = std::getenv("GE3_PHYSICS_DEBUG_DRAW") != nullptr;
+    const bool profileFrames = std::getenv("GE3_PROFILE_FRAMES") != nullptr;
+    std::array<Uint64, 9> phaseTicks{};
+    int profiledFrames = 0;
     while (running) {
+        Uint64 phaseStart = profileFrames ? SDL_GetPerformanceCounter() : 0;
+        auto recordPhase = [&](size_t phase) {
+            if (!profileFrames) return;
+            Uint64 now = SDL_GetPerformanceCounter();
+            phaseTicks[phase] += now - phaseStart;
+            phaseStart = now;
+        };
         // Scripted input for this frame (no-op unless GE3_HARNESS is set).
         // Dispatched through exactly the same two sinks as real SDL events
         // below, so script sees no difference between a harness key and a
@@ -358,10 +397,22 @@ int main(int argc, char** argv) {
         for (int sc : hKeyDown) {
             processManager.DispatchKeyEvent(sc, true);
             DispatchKeyEventToEntities(sc, true);
+            int aliases[32];
+            int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+            for (int i = 0; i < count; ++i) {
+                processManager.DispatchKeyEvent(aliases[i], true);
+                DispatchKeyEventToEntities(aliases[i], true);
+            }
         }
         for (int sc : hKeyUp) {
             processManager.DispatchKeyReleaseEvent(sc);
             DispatchKeyEventToEntities(sc, false);
+            int aliases[32];
+            int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+            for (int i = 0; i < count; ++i) {
+                processManager.DispatchKeyReleaseEvent(aliases[i]);
+                DispatchKeyEventToEntities(aliases[i], false);
+            }
         }
         for (int code : hMouseDown) {
             processManager.DispatchKeyEvent(code, true);
@@ -401,10 +452,35 @@ int main(int argc, char** argv) {
                 // reached it; jump (and anything else driven through
                 // Player.gm's onKeyPress) was silently dead.
                 DispatchKeyEventToEntities(event.key.keysym.scancode, true);
+                int aliases[32];
+                int count = KeyboardJoystickAliasCodes(event.key.keysym.scancode, aliases, 32);
+                for (int i = 0; i < count; ++i) {
+                    processManager.DispatchKeyEvent(aliases[i], true);
+                    DispatchKeyEventToEntities(aliases[i], true);
+                }
             }
             if (event.type == SDL_KEYUP) {
                 processManager.DispatchKeyReleaseEvent(event.key.keysym.scancode);
                 DispatchKeyEventToEntities(event.key.keysym.scancode, false);
+                int aliases[32];
+                int count = KeyboardJoystickAliasCodes(event.key.keysym.scancode, aliases, 32);
+                for (int i = 0; i < count; ++i) {
+                    processManager.DispatchKeyReleaseEvent(aliases[i]);
+                    DispatchKeyEventToEntities(aliases[i], false);
+                }
+            }
+            if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED)
+                InitializeDesktopControllers();
+            if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERBUTTONUP) {
+                int codes[32];
+                int count = ControllerEventCodes(event.cbutton.which, event.cbutton.button, codes, 32);
+                for (int i = 0; i < count; ++i) {
+                    if (event.type == SDL_CONTROLLERBUTTONDOWN)
+                        processManager.DispatchKeyEvent(codes[i], true);
+                    else
+                        processManager.DispatchKeyReleaseEvent(codes[i]);
+                    DispatchKeyEventToEntities(codes[i], event.type == SDL_CONTROLLERBUTTONDOWN);
+                }
             }
             // Mouse buttons share the same onKeyPress/onKeyType/onKeyRelease
             // dispatch as keyboard keys -- confirmed real (Main.gm's onKeyPress
@@ -448,15 +524,29 @@ int main(int argc, char** argv) {
         // comment. Cheap: only iterates scancodes actually down right now.
         const Uint8* keyState = SDL_GetKeyboardState(nullptr);
         for (int sc = 0; sc < SDL_NUM_SCANCODES; ++sc) {
-            if (keyState[sc]) processManager.DispatchKeyEvent(sc, false);
+            if (keyState[sc]) {
+                processManager.DispatchKeyEvent(sc, false);
+                int aliases[32];
+                int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+                for (int i = 0; i < count; ++i) processManager.DispatchKeyEvent(aliases[i], false);
+            }
         }
         // Keys held by the harness script aren't in SDL's physical keyboard
         // state, so they need their own onKeyType pass -- without this a
         // scripted `keydown Right` would fire once and then look released to
         // anything level-triggered (which is most movement code).
         for (int sc : harness.HeldKeys()) {
-            if (!keyState[sc]) processManager.DispatchKeyEvent(sc, false);
+            if (!keyState[sc]) {
+                processManager.DispatchKeyEvent(sc, false);
+                int aliases[32];
+                int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+                for (int i = 0; i < count; ++i) processManager.DispatchKeyEvent(aliases[i], false);
+            }
         }
+        int heldControllerCodes[64];
+        int heldControllerCount = HeldControllerCodes(heldControllerCodes, 64);
+        for (int i = 0; i < heldControllerCount; ++i)
+            processManager.DispatchKeyEvent(heldControllerCodes[i], false);
 
         Uint32 nowTicks = SDL_GetTicks();
         unsigned int deltaMs = nowTicks - lastTicks;
@@ -479,7 +569,20 @@ int main(int argc, char** argv) {
         static const char* s_fixedStepEnv = std::getenv("GE3_FIXED_TIMESTEP_MS");
         if (s_fixedStepEnv) deltaMs = (unsigned int)std::atoi(s_fixedStepEnv);
 
+        // Hardware voices keep playing between VM ticks in retail. Advance
+        // their desktop handles before this frame's script reads validity or
+        // position, so a newly created voice starts at position zero.
+        AdvanceAudioVoices((float)deltaMs);
+
+        // Finish configuring any entity the level-load path left with
+        // configureData set but configure() never called (see
+        // ConfigureUnconfiguredEntities). Runs before update/draw so an
+        // entity is never simulated or drawn with its configure()-assigned
+        // fields still null. Idempotent: it skips anything already done.
+        ConfigureUnconfiguredEntities();
+
         vm.Tick(deltaMs);
+        ServiceGameMonkeyScriptCleanPass(vm.Machine());
         GetEngineContext().gameSystem.currentTick++; // see game_system_state.h's getCurrentTick comment
         // See save_data_completion.cpp's header comment -- patches a real
         // data gap between recordList.gm (save-seeding) and
@@ -488,18 +591,91 @@ int main(int argc, char** argv) {
         // there's no script-side hook to run it from exactly once instead.
         EnsureCampaignSaveDataComplete();
         UpdateAllSequencers(vm.Machine(), (float)deltaMs);
-        // Retail's per-tick movement integrator (thrust/brake/rotate
-        // accumulators -> velocity). Must precede StepPhysicsWorld so the
-        // velocities it computes are the ones Box2D integrates into
-        // positions this tick.
-        StepPhysicsBodyMovement();
-        StepPhysicsWorld((float)deltaMs / 1000.0f);
-        processManager.UpdateAll((float)deltaMs);
+        // Recovered retail movement update (FUN_00031f20) runs immediately
+        // before the single Box2D world step, using the same frame timestep;
+        // see Physics_Movement_Analysis.md.
+        // GameSystem.setIsShouldUpdateEntities -- confirmed real (decompiled
+        // setter at 0x0007058c, with a matching isShouldUpdateEntities
+        // getter), and this engine had the flag plumbed into state while
+        // never actually honouring it: entities and physics stepped
+        // unconditionally, including while a level was still loading.
+        //
+        // The corpus pins the contract exactly. Platformer/Main.gm ends its
+        // level load with
+        //     GameSystem.setIsShouldUpdateEntities(false);
+        // and its finalize-load path re-enables it immediately AFTER
+        // snapping the camera onto the player:
+        //     this.snapCamera = true;
+        //     GameSystem.setIsShouldUpdateEntities(true);
+        //
+        // So retail freezes the world for the whole load, places the player
+        // at the spawn point, snaps the camera to the player's screen, and
+        // only then resumes simulation.
+        //
+        // Ignoring it was what broke entering a level. The player is created
+        // at the origin and only positioned at the spawn point once loading
+        // finishes, so with the world running it simply fell: measured
+        // y = 0 -> -26 over the loading screen, crossing from screen row 0
+        // into row -1. That screen change retargets Main.gm's camera axis a
+        // full screen (21.96 units) at once, and the lerp it feeds --
+        // `cp += ((dest - cp) / t) * msElapsed * perc` with
+        // getCameraMoveTime() == 1.0 and perc passed literally as 1 -- has a
+        // factor of msElapsed (~17), so it overshot and diverged. Captured
+        // the runaway directly: successive camera x values growing by a
+        // factor of about -16 per step (7.7e29 -> -1.2e31 -> 2.0e32 -> ...)
+        // until they hit inf and then NaN, which is a lerp error term
+        // evolving as (1 - k) with k = 17. NaN camera then poisons
+        // everything downstream, including the in-view cull (every
+        // comparison against NaN is false, so nothing culls).
+        //
+        // Gated here rather than inside the physics/entity code so the
+        // scope matches the flag's name: processes (the loading screen and
+        // menus) keep updating, audio keeps running, only entity simulation
+        // pauses.
+        // A pause process freezes process/entity callbacks in ProcessManager,
+        // so the global physics steps must stop with them. Otherwise bodies
+        // continue moving while the scripts that drive kinematic motion,
+        // joints, and reset state are suspended (visible as background
+        // objects drifting or jittering behind the pause menu).
+        const bool simulateEntities = GetEngineContext().gameSystem.shouldUpdateEntities
+            && !processManager.IsPaused();
+        recordPhase(0); // input and SDL event dispatch
+        if (simulateEntities) {
+            // Script movement runs in milliseconds. StepPhysicsWorld converts
+            // that duration at the stock-Box2D boundary while preserving the
+            // scripts' world-units-per-millisecond velocity contract.
+            const float physicsDtMs = (float)deltaMs;
+            StepPhysicsBodyMovement(physicsDtMs);
+            recordPhase(1); // per-body movement logic
+            StepPhysicsWorld(physicsDtMs);
+        } else recordPhase(1);
+        recordPhase(2); // Box2D step
+        // Retail's entity update dispatchers FUN_0033e4d0 and
+        // FUN_0033e7e0 both read the byte at manager+0xda2 before invoking
+        // entity callbacks. GameSystem.setIsShouldUpdateEntities writes
+        // exactly that byte via FUN_0018a2a8. Process updates continue
+        // separately while entity simulation is paused for level loading.
+        processManager.UpdateAll((float)deltaMs, [&]() {
+            if (GetEngineContext().gameSystem.shouldUpdateEntities) {
+                UpdateEntitiesWithNativeUpdateHook((float)deltaMs);
+            }
+        });
         CallGlobalHookIfPresent(vm.Machine(), "GAME_Update", (int)deltaMs, true);
-        // See UpdateEntitiesWithNativeUpdateHook's header comment
-        // (entity_bindings.cpp) -- entities are a separate registry from
-        // processes and nothing else ever calls their update().
-        UpdateEntitiesWithNativeUpdateHook((float)deltaMs);
+        // Entity postUpdate is a separate callback phase. In particular,
+        // Player.gm delegates it to its active movement state, which commits
+        // its final velocity before Main.gm's process postUpdate updates the
+        // camera. Keep its simulation and pause rules identical to update.
+        if (simulateEntities) {
+            PostUpdateEntitiesWithNativeHook((float)deltaMs);
+        }
+        processManager.PostUpdateAll((float)deltaMs);
+        // Retail's native entity-manager callback commits queued entities and
+        // drains deferred deletions at the end of its update event (FUN_000c3fb0
+        // -> FUN_000c3e70). The portable loop owns that callback boundary, so
+        // perform the same manager flush after process/entity update callbacks
+        // and before any preDraw/draw hooks enumerate committed entities.
+        FlushEntityManagerFrameBoundary();
+        recordPhase(3); // process/entity callbacks
 
         renderer.BeginFrame();
         // Keep the shared DrawContext's colour-mask mirror in step with the
@@ -510,6 +686,7 @@ int main(int argc, char** argv) {
         // writes for everything after it.
         GetDrawContext().colourMask = false;
         processManager.PreDrawAll();
+        recordPhase(4); // clear and process preDraw lists
         // Real ground-piece rendering (engine/src/ported_native/
         // ground_renderer.h) -- retail itself ported this out of GM script
         // into native C++ (Platformer_GroundProcessNEW's real registered
@@ -521,6 +698,11 @@ int main(int argc, char** argv) {
         // behind entities/the player (painter's algorithm, no real depth
         // test active in this 2D renderer).
         DrawGroundsNative();
+        recordPhase(5); // native ground geometry
+        // Retail entities have an independent preDraw callback. Player's
+        // native draw caches this exact method and uses it for its auxiliary
+        // geometry before the player body is rendered.
+        PreDrawEntitiesWithNativeHook();
         // Real, script-authored per-entity draw hooks (EntityPacks/*.gm's
         // `t.draw=function(){...}`, confirmed real -- every entity type,
         // including the player, draws itself this way). MUST run
@@ -551,6 +733,7 @@ int main(int argc, char** argv) {
         // every other entity so the player reads on top, matching how a
         // controllable character is drawn in every real gameplay screenshot.
         DrawPlayerNative();
+        recordPhase(6); // entity and player rendering
         // postDraw() -- confirmed real, reserved lifecycle key (see
         // ProcessManager::PostDrawAll's header comment) -- was never called
         // at all until now, silently dropping any script content drawn
@@ -575,6 +758,7 @@ int main(int argc, char** argv) {
         // screenshot capture below -- otherwise a capture shows the scene
         // stretched across the full window with no bars.
         renderer.DrawLetterboxBars();
+        recordPhase(7); // process postDraw and final overlays
 
         // Debug: GE3_SCREENSHOT_FRAME=<n> dumps that frame (0-based) to
         // /tmp/gameengine3_frame<n>.ppm right before the swap, for visual
@@ -597,6 +781,22 @@ int main(int argc, char** argv) {
         }
         ++s_frameIndex;
         renderer.EndFrame();
+        recordPhase(8); // swap, including any GPU synchronization
+        if (profileFrames && ++profiledFrames == 120) {
+            const double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency() / profiledFrames;
+            static const char* names[] = {"input", "movement", "box2d", "update", "preDraw", "ground", "entities", "postDraw", "swap"};
+            std::fprintf(stderr, "[profile] average ms/frame over %d frames:", profiledFrames);
+            for (size_t i = 0; i < phaseTicks.size(); ++i) {
+                std::fprintf(stderr, " %s=%.2f", names[i], phaseTicks[i] * msPerTick);
+                phaseTicks[i] = 0;
+            }
+            const b2World& world = GetPhysicsWorld();
+            const b2Profile& physics = world.GetProfile();
+            std::fprintf(stderr, " bodies=%d contacts=%d proxies=%d b2collide=%.2f b2solve=%.2f\n",
+                         world.GetBodyCount(), world.GetContactCount(), world.GetProxyCount(),
+                         physics.collide, physics.solve);
+            profiledFrames = 0;
+        }
 
         // 60fps frame limiter -- retail runs at a real, vsync-locked 60fps
         // (confirmed by the winedbg frame-timing capture: ~1689 SwapBuffers
@@ -620,6 +820,7 @@ int main(int argc, char** argv) {
     }
 
     if (trace) fprintf(trace, "[TRACE] shutting down renderer\n"), fflush(trace);
+    ShutdownAudioOutput();
     renderer.Shutdown();
     if (trace) fprintf(trace, "[TRACE] dumping survey\n"), fflush(trace);
     StrictCalls::DumpSurvey();

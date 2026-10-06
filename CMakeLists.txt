@@ -96,6 +96,7 @@ add_executable(gameengine3
   src/bindings/system_bindings.cpp
   src/bindings/physics_bindings.cpp
   src/bindings/physics_body_bindings.cpp
+  src/bindings/physics_joint_bindings.cpp
   src/bindings/physics_global_bindings.cpp
   src/bindings/foe_compat_bindings.cpp
   src/core/physics_world.cpp

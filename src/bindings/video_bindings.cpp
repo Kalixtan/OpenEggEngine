@@ -169,23 +169,31 @@ int GM_CDECL gmf_getScreenHeight(gmThread* a_thread) {
     a_thread->PushFloat((float)GetEngineContext().renderer->GetHeight());
     return GM_OK;
 }
-// getNumCellsX/Y: real retail's screen is divided into a fixed logical
-// cell grid (per the decompiled body, a device field read directly, no
-// computation) -- this engine has no such grid; previously a plausible
-// constant (16x9) stood in.
-GE3_REMOVED(gmf_getNumCellsX, "Video.getNumCellsX")
-GE3_REMOVED(gmf_getNumCellsY, "Video.getNumCellsY")
+// getNumCellsX/Y -- RESTORED (16, 9). Retail's screen is a fixed logical
+// cell grid and the decompiled body reads it straight out of a device field
+// with no computation, so the only question was the field's value. These
+// were trapped as GE3_REMOVED on the grounds that "this engine has no such
+// grid", which left the whole family that depends on them broken: the game
+// process's getScreenWidth/getScreenHeight are `getNumCellsX() * SW * 2 * 2`
+// and getScreenX/getScreenY divide by exactly that.
+//
+// 16 and 9 are confirmed three independent ways:
+//   - game_data/Platformer/Main.gm carries its own commented-out copy of the
+//     assignments retail moved to native: `//this.numCellsX=16;` and
+//     `//this.numCellsY=9;`
+//   - MainMenu5/PreTutorialScreen.gm computes its screen box as
+//     `scrWidth = SW*2*2*16` and `scrHeight = scrWidth*(9.0/16.0)`
+//   - Video.getScreenX's decompiled body (0x0019f478) divides by
+//     `field[0xd4] * 0.61f * 2.0f * 2.0f`, and 16 * 0.61 * 4 = 39.04 is
+//     exactly the screen width every script in the corpus works in
+int GM_CDECL gmf_getNumCellsX(gmThread* a_thread) { a_thread->PushInt(16); return GM_OK; }
+int GM_CDECL gmf_getNumCellsY(gmThread* a_thread) { a_thread->PushInt(9); return GM_OK; }
 int GM_CDECL gmf_getScreenX(gmThread* a_thread) {
     a_thread->PushInt(GetEngineContext().video.currentScreenX);
     return GM_OK;
 }
 int GM_CDECL gmf_getScreenY(gmThread* a_thread) {
     a_thread->PushInt(GetEngineContext().video.currentScreenY);
-    return GM_OK;
-}
-int GM_CDECL gmf_setAsPauseProcess(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(v, 0, 0);
-    GetEngineContext().video.isPauseProcess = (v != 0);
     return GM_OK;
 }
 int GM_CDECL gmf_flushStaticSurface(gmThread* a_thread) {
@@ -679,7 +687,6 @@ gmFunctionEntry s_videoLib[] = {
     {"getScreenX", gmf_getScreenX, nullptr},
     {"getScreenY", gmf_getScreenY, nullptr},
     {"getShader", gmf_getShader, nullptr},
-    {"setAsPauseProcess", gmf_setAsPauseProcess, nullptr},
 
     // Shared drawList vocabulary confirmed also callable on Video directly
     // Video.beginShape, VideoHelper.gm) -- same handlers as the drawList

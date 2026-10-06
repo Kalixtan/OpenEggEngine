@@ -613,6 +613,15 @@ int GM_CDECL gmf_VMSHAPE_getVertex(gmThread* a_thread) {
 }
 
 gmFunctionEntry s_shapeLib[] = {
+    {"reset", [](gmThread* a_thread) -> int {
+        ShapeData* s = ThisShape(a_thread);
+        if (!s) return GM_EXCEPTION;
+        s->verts.clear();
+        s->colors.clear();
+        s->uvs.clear();
+        s->needsClearOnNextPlot = false;
+        return GM_OK;
+    }, nullptr},
     {"plotVertex", gmf_VMSHAPE_plotVertex, nullptr},
     {"endShape", gmf_VMSHAPE_endShape, nullptr},
     {"setAsFilledCircle", gmf_setAsFilledCircle, nullptr},
@@ -639,26 +648,28 @@ void GM_CDECL ShapeGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
 // VIDEOHELPER_DrawFilledRect/DrawFilledPolygon are native code
 // the shape's vertex buffer directly, exactly as this does.
 void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
-                        int a_count, float a_z, gmUserObject* a_existing) {
+                        int a_count, float a_z, gmUserObject* a_existing,
+                        bool a_preserveExistingMode, bool a_pushExisting) {
     ShapeData* data;
     if (a_existing) {
         data = (ShapeData*)a_existing->m_user;
     } else {
         data = new ShapeData();
     }
-    data->glMode = ToGLMode(a_shapeType);
+    if (!a_existing || !a_preserveExistingMode) data->glMode = ToGLMode(a_shapeType);
     data->capacity = a_count;
     data->localZ = a_z;
-    data->verts.assign(a_xy, a_xy + (size_t)a_count * 2);
+    if (a_count > 0) data->verts.assign(a_xy, a_xy + (size_t)a_count * 2);
+    else data->verts.clear();
     // Per-vertex colour/uv stay empty: these shapes carry no gradient and no
     // real UVs, so they draw under the current flat draw colour (the same
     // thing setAsFilledCircle's precomputed ring does).
     data->colors.clear();
     data->uvs.clear();
     data->needsClearOnNextPlot = false;
-    if (a_existing) {
+    if (a_existing && a_pushExisting) {
         a_thread->Push(gmVariable(GM_USER, (gmptr)a_existing));
-    } else {
+    } else if (!a_existing) {
         a_thread->PushNewUser(data, g_shapeType);
     }
 }

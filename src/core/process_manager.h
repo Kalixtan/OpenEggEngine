@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <functional>
 #include "gmThread.h"
 #include "gmMachine.h"
 
@@ -40,9 +41,10 @@ inline void UnrootGmVariable(gmMachine& a_machine, const gmVariable& a_var) {
 // init, destructor, update, postUpdate, preDraw, postDraw, initialDraw,
 // finalDraw, onEntityCollide*, onTouchDown/Up, constructor).
 //
-// Scope for this milestone: constructor / init / update / preDraw /
-// destructor. postDraw/collision hooks are still stubbed in for later --
-// nothing in the real corpus needed them to reach the live render loop.
+// Implemented hooks include constructor/init/update/postUpdate/preDraw/
+// postDraw, keyboard dispatch, and entity contact dispatch in physics_world.
+// initialDraw/finalDraw and process-level touch dispatch still need a retail
+// caller-path audit; process-list transitions also remain approximate (see
 struct Process {
     int id = 0;
     std::string name;
@@ -65,20 +67,28 @@ struct Process {
     // init() has run (successfully or not "assume true")
     // update()/preDraw() only run once this is true.
     bool initialized = false;
-    bool wantsQuit = false;
+    // Retail terminate() queues an operation for the next manager queue
+    // drain. The process remains registered and receives the rest of this
+    // frame's dispatches until that queued entry is consumed.
+    bool terminationQueued = false;
+
+    // The manager registry is populated by queued run/list operations.
+    // Factories still return a usable table synchronously, but an object
+    // created after a manager queue drain cannot receive lifecycle, draw, or
+    // input dispatch until the following drain. This is the local equivalent
+    // of the retail queue-entry boundary recovered in
+    // GameSystem_Process_Flow_Analysis.md.
+    std::uint64_t activationGeneration = 0;
 
     // Backing state for the native process handle (`p`/`this.Process`,
     // see process_handle_bindings.h) -- confirmed real methods
     // setIsStealsInputFocus/setupPreDrawList/setupPostDrawList/
     // getPreDrawList/getPostDrawList read and write these.
     bool stealsInputFocus = false;
-    // Entity.c 0x0009de10, a plain per-object bool flag), real call site
-    // Main.gm:169 `this.setIsUpdatesEntities(true);` in the main process's
-    // own constructor. Bookkeeping only, same as isBeingNice/
-    // isShouldUpdateEntities (game_system_state.h) -- this engine's entity
-    // update pass (UpdateEntitiesWithNativeUpdateHook) isn't scoped
-    // per-process, so nothing reads this back yet.
-    bool updatesEntities = true;
+    // Entity.setIsUpdatesEntities -- native process flag at object byte +9
+    // FUN_0018c558 zeros it; GameSystem.getEntityUpdateProcess's
+    // FUN_00187d24 returns a registered process with this flag set.
+    bool updatesEntities = false;
     // gmVariable's default ctor leaves m_type uninitialized unless
     // GMMACHINE_NULL_VAR_CTOR is defined (it isn't here) -- must nullify
     // explicitly rather than relying on the default member initializer.
@@ -90,43 +100,49 @@ class ProcessManager {
 public:
     explicit ProcessManager(gmMachine& a_machine);
 
-    // Mirrors GameSystem.startNewProcessList(name): looks up the global GM
-    // function `a_name`, calls it with a real native process handle (see
-    // process_handle_bindings.h) per the `Process=p;` convention confirmed
-    // real across the corpus (e.g. Platformer/OneTrailPlayMode.gm), expects
-    // a table back, runs its constructor() (init() is deferred -- see
-    // Process::needsInit). Returns the process id, or -1 on failure
-    // (logged to stderr).
-    int StartNewProcessList(const std::string& a_name);
+    // Mirrors GameSystem.startNewProcessList(name, [cleanupPrevious]):
+    // creates a new GM process instance and, when the retail-default-true
+    // flag is set, requests teardown of prior processes. Retail uses a
+    // ParanoidCleanUpProcess controller for that teardown; local timing is
+    // still an approximation (see GameSystem_Process_Flow_Analysis.md).
+    int StartNewProcessList(const std::string& a_name, bool a_cleanupPrevious = true);
+
+    // Mirrors GameSystem.runProcess(name, [replaceExisting]): always creates
+    // a new process instance; the retail-default-false flag optionally
+    // requests termination of an existing same-name instance first.
+    int RunProcess(const std::string& a_name, bool a_replaceExisting = false);
 
     // GameSystem.isProcessRunning/getProcess/getProcessCount/getProcessByIndex
     bool IsRunning(int a_id) const;
-    int GetCount() const { return (int)m_processes.size(); }
-    // Confirmed real: the decompiled body walks a linked list forward for
-    // a positive index and backward for negative -- modelled here as
-    // Python-style negative indexing (from the end) since we store
-    // processes in a plain vector, not a linked list.
+    // Mirrors Entity.terminate: queue removal for the next manager drain
+    // rather than ending the process in the current dispatch frame.
+    void QueueTerminate(int a_id);
+    // Retail's count is the active registry count. A factory-created process
+    // awaiting its queued run/list operation is not in that registry yet.
+    int GetCount() const;
+    // Walks the active retail registry as a circular list. The sentinel
+    // counts as an indexable null slot, so out-of-range indices wrap;
+    // negative indices walk backward starting from the first item.
     Process* GetByIndex(int a_index);
     // getProcess(id_or_name) accepts either type in the confirmed decompiled
     // body (branches on GM_INT vs. the retail string tag) -- this is the
     // string half.
     Process* GetByName(const std::string& a_name);
+    // Returns the first registered process enabled by
+    // Entity.setIsUpdatesEntities, matching FUN_00187d24's primary search.
+    Process* GetEntityUpdateProcess();
 
-    // Runs, in order, once per frame:
-    //  1. init() on every constructed process still needing it (deferred
-    //     from creation -- see Process::needsInit).
-    //  2. update(msElapsed) on every initialized, non-quitting process that
-    //     defines it (confirmed real signature/key name, real usage
-    //     game_data/Main.gm:1159 `update=function(msElapsed) {...}`) --
-    //     this is what actually drives state machines, timers, and content
-    //     loading; without it real scripts sit permanently in their
-    //     constructor()/init() state (e.g. Main.gm's loading-screen
-    //     `this.stateIndex` never advances past -1, so its preDraw() never
-    //     has a texture to draw).
-    //  3. destructor() + removal for anything that called
-    //     Process.terminate() (process_handle_bindings.cpp) this frame or
-    //     earlier.
-    void UpdateAll(float a_deltaMs);
+    // Runs the retail update event once per frame, after draining the
+    // termination queue. Each registered process receives either init() or
+    // update(msElapsed) during its turn in the manager walk. The entity pass
+    // follows the process selected by setIsUpdatesEntities, or runs after
+    // the walk when no selected process triggers it.
+    void UpdateAll(float a_deltaMs, const std::function<void()>& a_updateEntities);
+
+    // Runs the distinct retail postUpdate event after the entity callbacks
+    // of the update event. This may call constructed processes whose init()
+    // has not yet completed.
+    void PostUpdateAll(float a_deltaMs);
 
     // Calls preDraw() on every initialized process that defines it.
     void PreDrawAll();
@@ -134,13 +150,18 @@ public:
     // Calls postDraw() on every initialized process that defines it --
     void PostDrawAll();
 
+    // EntityManager's retail deletion notifier sends a native event containing
+    // the still-registered entity to the live process list before unlinking
+    // and destruction. Process scripts may expose onEntityDelete(entity).
+    void NotifyEntityDeleted(const gmVariable& a_entity);
+
     // Dispatches a key-code event to whichever process(es) should see it.
     void DispatchKeyEvent(int a_keycode, bool a_isPress);
 
     // onKeyRelease
     void DispatchKeyReleaseEvent(int a_keycode);
 
-    bool AnyWantQuit() const;
+    bool AnyWantQuit() const; // true while queued process termination remains
 
     Process* Get(int a_id);
 
@@ -152,18 +173,28 @@ public:
     // GameSystem) as THE pause process. a_exemptProcessId < 0 means "no
     // exemption" -- freeze every process (WinProcess.gm's bare
     // `GameSystem.setAsPauseProcess(true)`, no process arg, for the
-    // win-screen's total freeze). Draw calls are untouched -- the frozen
-    // game world should still be visible behind the overlay, only its
-    // update()/postUpdate() stop advancing.
-    void SetPauseState(bool a_active, int a_exemptProcessId);
+    // win-screen's total freeze). Retail queues this operation for the next
+    // manager drain. Draw calls keep showing the frozen world.
+    void QueuePauseState(bool a_active, int a_exemptProcessId);
     bool IsPaused() const { return m_paused; }
 
 private:
     gmMachine& m_machine;
     std::vector<Process> m_processes;
     int m_nextId = 1;
+    // Incremented immediately after each retail-style operation-queue drain.
+    // CreateProcess assigns the following generation, so creation before a
+    // drain becomes eligible during that frame and creation during a frame
+    // waits until the next one.
+    std::uint64_t m_dispatchGeneration = 0;
     bool m_paused = false;
     int m_pauseExemptProcessId = -1;
+    struct QueuedOperation {
+        enum class Type { Terminate, Pause } type;
+        int processId;
+        bool active;
+    };
+    std::vector<QueuedOperation> m_queuedOperations;
 
     // Shared bring-up tail: inject process-base methods, run constructor()
     // on the process already reserved under a_id (init() is deferred, see
@@ -179,10 +210,12 @@ private:
     // different method name on the target process table(s).
     void DispatchKeyEventNamed(int a_keycode, const char* a_methodName);
 
-    // Runs init() on every constructed process still needing it. Called at
-    // the start of UpdateAll() -- see Process::needsInit for why init() is
-    // deferred this far rather than run inside FinishBringUp.
-    void RunInitPass();
+    // Runs one process's deferred init() at its turn in the update walk.
+    // See Process::needsInit for why it runs after FinishBringUp.
+    void RunInit(int a_id);
+    void DrainOperationQueue();
+    void ApplyPauseState(bool a_active, int a_exemptProcessId);
+    void DestroyProcess(int a_id);
 
     // If a_processName's global factory function isn't defined yet, tries
     // an on-demand load of the .gm file that conventionally defines it
@@ -195,4 +228,5 @@ private:
     // if a script was found and loaded without compile errors (the
     // caller still needs to re-check the global afterward).
     bool TryAutoLoadScript(const std::string& a_processName);
+    int CreateProcess(const std::string& a_name);
 };

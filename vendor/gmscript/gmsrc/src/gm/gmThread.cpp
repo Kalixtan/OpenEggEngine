@@ -1065,6 +1065,7 @@ gmThread::State gmThread::Sys_Execute(gmVariable * a_return)
         {
           m_lastNullSymbol = symbol;
           m_lastNullSlot = (int)(top - m_stack);
+          m_lastNullReceiver = gmVariable(GM_NULL, 0);
         }
         ++top;
         break;

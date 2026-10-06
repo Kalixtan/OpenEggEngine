@@ -10,18 +10,12 @@
 #include <cstring>
 #include <chrono>
 #include <cmath>
-#include <random>
 #include <vector>
 
 namespace {
 
-std::mt19937& Rng() {
-    static std::mt19937 rng(std::random_device{}());
-    return rng;
-}
 float Random01() {
-    static std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-    return dist(Rng());
+    return GetEngineContext().gameSystem.NextRandom01();
 }
 
 // ---------------------------------------------------------------------
@@ -32,6 +26,14 @@ float Random01() {
 
 int GM_CDECL gmf_getCurrentTick(gmThread* a_thread) {
     a_thread->PushInt((gmint)GetEngineContext().gameSystem.currentTick);
+    return GM_OK;
+}
+// Retail 0x00070ec8 calls FUN_00188130, which returns whether the process
+// manager's pause target at +0x48 is non-null. The target is installed by
+// the queued pauseProcess operation, so pending requests remain invisible.
+int GM_CDECL gmf_isPaused(gmThread* a_thread) {
+    ProcessManager* pm = GetEngineContext().processManager;
+    a_thread->PushInt(pm && pm->IsPaused() ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_isBeingNice(gmThread* a_thread) {
@@ -91,6 +93,50 @@ int GM_CDECL gmf_debug_isStopped(gmThread* a_thread) {
 // Process management -- confirmed real, all backed by ProcessManager.
 // ---------------------------------------------------------------------
 
+gmType g_processListRefType = -1;
+
+struct ProcessListRefData {
+    std::vector<gmVariable> processes;
+    size_t index = 0; // size() is the linked-list sentinel/end position
+};
+
+int GM_CDECL gmf_processListRef_isValid(gmThread* a_thread) {
+    auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
+    a_thread->PushInt(it && it->index < it->processes.size() ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_processListRef_goToNext(gmThread* a_thread) {
+    auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
+    if (it) it->index = (it->index + 1) % (it->processes.size() + 1);
+    return GM_OK;
+}
+int GM_CDECL gmf_processListRef_get(gmThread* a_thread) {
+    auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
+    if (it && it->index < it->processes.size()) a_thread->Push(it->processes[it->index]);
+    else a_thread->PushNull();
+    return GM_OK;
+}
+int GM_CDECL gmf_processListRef_reset(gmThread* a_thread) {
+    auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
+    if (it) it->index = it->processes.size(); // retail reset points at sentinel
+    return GM_OK;
+}
+int GM_CDECL gmf_processListRef_size(gmThread* a_thread) {
+    auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
+    a_thread->PushInt(it ? (gmint)it->processes.size() : 0);
+    return GM_OK;
+}
+void GM_CDECL ProcessListRefGCDestruct(gmMachine*, gmUserObject* a_object) {
+    delete (ProcessListRefData*)a_object->m_user;
+}
+gmFunctionEntry s_processListRefLib[] = {
+    {"get", gmf_processListRef_get, nullptr},
+    {"isValid", gmf_processListRef_isValid, nullptr},
+    {"goToNext", gmf_processListRef_goToNext, nullptr},
+    {"reset", gmf_processListRef_reset, nullptr},
+    {"size", gmf_processListRef_size, nullptr},
+};
+
 // Confirmed real: flushProcesses' decompiled body is literally `return 0;`
 // with no calls at all -- a genuine no-op in retail too, not a decompile
 // gap (compare every other "empty-looking" function here, which all call
@@ -99,138 +145,39 @@ int GM_CDECL gmf_flushProcesses(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: accepts 1 or 2 args (name, [flag]) -- the second bool's
-// purpose isn't recoverable from the decompiled body alone (no observable
-// effect beyond being passed through to the native constructor), so it's
-// read and currently ignored rather than guessed at.
-// Return value CONFIRMED real (re-checked after re-deriving from usage):
-// every real call site (e.g. Platformer/GenericOkDialogProcess.gm:
-// `local proc = GameSystem.runProcess(...); proc.configure(...);`) calls a
-// method directly on the returned value -- it has to be the process's own
-// table, not a bare id, or `.configure(...)` couldn't resolve. Pushing a
-// gmint here (the original implementation) silently broke every caller
-// that configures a process this way, e.g. Platformer/PopupProcess.gm's
-// Safe drop-in replacement for Platformer/Main.gm's own
-// `this.scrAddEntityLessObj.fn=function(a,b){return a.configureData.uid<b.configureData.uid;}`
-// (constructor(), ~line 1015) -- some entity types' configure() chain
-// doesn't end up setting `configureData` at all (confirmed: not every
-// entity type installs the EntityBase.gm mixin that does
-// `this.configureData=configureData;`, e.g. Platformer/EntityPacks/
-// GroundResizeNoRotate.gm only calls Platformer_GroundBase_Install, and
-// this pass hasn't traced every other entity type's own install
-// convention), so the real comparator's direct `.configureData.uid`
-// property chain hard-crashes ("getdot failed") the moment two same-type
-// entities are compared and one has a null configureData -- which then
-// permanently wedges Main.gm's incremental level-load loop (the
-// exception aborts configureEntities() before it can ever advance
-// `progress.startIndex`/mark `.done`, so it retries every frame,
-// forever). Reads both sides defensively (missing configureData/uid ->
-// 0) instead of trying to guarantee every entity type always has one.
-int GM_CDECL gmf_native_scrAddEntityLessObj(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(2);
-    gmMachine& m = *a_thread->GetMachine();
-    auto readUid = [&](int a_param) -> double {
-        gmVariable v = a_thread->Param(a_param);
-        if (v.m_type != GM_TABLE) return 0.0;
-        gmTableObject* t = (gmTableObject*)m.GetObject(v.m_value.m_ref);
-        gmVariable cd = t->Get(&m, "configureData");
-        if (cd.m_type != GM_TABLE) return 0.0;
-        gmVariable uid = ((gmTableObject*)m.GetObject(cd.m_value.m_ref))->Get(&m, "uid");
-        if (uid.m_type == GM_INT) return (double)uid.m_value.m_int;
-        if (uid.m_type == GM_FLOAT) return (double)uid.m_value.m_float;
-        return 0.0;
-    };
-    a_thread->PushInt(readUid(0) < readUid(1) ? 1 : 0);
-    return GM_OK;
-}
-
 int GM_CDECL gmf_startNewProcessList(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
+    if (a_thread->GetNumParams() > 2) { GM_EXCEPTION_MSG("expecting 1 or 2 param(s)"); return GM_EXCEPTION; }
     GM_STRING_PARAM(name, 0, "");
+    bool cleanupPrevious = true;
+    if (a_thread->GetNumParams() == 2) cleanupPrevious = a_thread->Param(1).m_value.m_int != 0;
     ProcessManager* pm = GetEngineContext().processManager;
-    int id = pm ? pm->StartNewProcessList(name) : -1;
+    int id = pm ? pm->StartNewProcessList(name, cleanupPrevious) : -1;
     Process* proc = (id >= 0 && pm) ? pm->Get(id) : nullptr;
-
-    if (proc && std::strcmp(name, "Platformer_Main") == 0) {
-        gmMachine& m = *a_thread->GetMachine();
-        gmTableObject* mainTable = (gmTableObject*)m.GetObject(proc->table.m_value.m_ref);
-        gmVariable lessObj = mainTable->Get(&m, "scrAddEntityLessObj");
-        if (lessObj.m_type == GM_TABLE) {
-            gmTableObject* lessObjTable = (gmTableObject*)m.GetObject(lessObj.m_value.m_ref);
-            lessObjTable->Set(&m, "fn", gmVariable(m.AllocFunctionObject(gmf_native_scrAddEntityLessObj)));
-        }
-    }
-
-    // ENGINE PATCH (2026-08-17): teardown of every OTHER live process used
-    // to be gated behind an optional 2nd bool arg (see retail_symbols.inc's
-    // "GameSystem.startNewProcessList" -- confirmed real, but this specific
-    // 2nd-arg gate was an unconfirmed guess, "No decompiled evidence for
-    // its exact effect"). That guess broke the single most common real call
-    // pattern in the whole corpus: EVERY "Platformer_MenuLauncher" call site
-    // (PauseProcessBase.gm's own Exit button, WinScreenProcessBase.gm,
-    // Main.gm's several menu-return paths) passes a single bare-string arg,
-    // no 2nd arg at all -- confirmed live: exiting a paused level left
-    // Platformer_Main/Platformer_PauseProcess/etc. still alive and, worse,
-    // ProcessManager::UpdateAll's own pause gate (`m_paused && proc.id !=
-    // m_pauseExemptProcessId`) kept skipping every process INCLUDING the
-    // freshly-started Platformer_MenuLauncher itself, since the old
-    // Platformer_PauseProcess (still the pause-exempt id) was never told to
-    // quit -- a permanent black-screen hang with 0% chance of a real
-    // retail player ever hitting it exiting a level normally. The function's
-    // own name ("start a NEW process list") reads as an unconditional
-    // list-replacement, not a conditional one -- so this now always tears
-    // down every other process, matching every real "MenuLauncher"/
-    // "Platformer_Main" call site's actual required behavior. Only real
-    // counter-evidence was an unconfirmed assumption about DevMain.gm/
-    // ConsoleProcess.gm (developer test-picker menus, not real playable
-    // content -- checked directly: every live, non-commented-out call site
-    // in both files already only starts ONE process at a time, so this
-    // changes nothing for them either). Termination alone is enough to also
-    // fix the pause-hang specifically: ProcessManager's own reap pass
-    // (process_manager.cpp, `if (id == m_pauseExemptProcessId)
-    // SetPauseState(false, -1);`) already unpauses automatically the moment
-    // the exempt process is actually reaped.
-    if (proc && pm) {
-        for (int i = 0; i < pm->GetCount(); ++i) {
-            if (Process* other = pm->GetByIndex(i)) {
-                if (other->id != id) other->wantsQuit = true;
-            }
-        }
-    }
 
     if (proc) a_thread->Push(proc->table); else a_thread->PushInt(-1);
     return GM_OK;
 }
 
-// Confirmed real (re-checked against the decompiled body): 1 or 2 args
-// (name, [flag]) -- reads a GM_STRING argument via the exact same
-// stack-offset pattern startNewProcessList uses for its name argument, NOT
-// a table as originally assumed. Real usage confirms this too
-// (game_data/Main.gm: `GameSystem.runProcess("ControllerConfig");`,
-// `GameSystem.runProcess("Platformer_ResizeScreenProcess");` -- always a
-// bare name string). The 2nd bool arg's effect isn't recoverable from the
-// decompiled body alone (same "flag not recoverable" situation as
-// startNewProcessList) -- accepted and ignored.
+// Retail runProcess defaults its replacement flag to false. When true,
+// FUN_00187360 finds and terminates an existing same-name process before
+// constructing a new instance; it never returns that existing instance.
 int GM_CDECL gmf_runProcess(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
+    if (a_thread->GetNumParams() > 2) { GM_EXCEPTION_MSG("expecting 1 or 2 param(s)"); return GM_EXCEPTION; }
     GM_STRING_PARAM(name, 0, "");
+    bool replaceExisting = false;
+    if (a_thread->GetNumParams() == 2) replaceExisting = a_thread->Param(1).m_value.m_int != 0;
     ProcessManager* pm = GetEngineContext().processManager;
-    int id = pm ? pm->StartNewProcessList(name) : -1;
+    int id = pm ? pm->RunProcess(name, replaceExisting) : -1;
     Process* proc = (id >= 0 && pm) ? pm->Get(id) : nullptr;
     if (proc) a_thread->Push(proc->table); else a_thread->PushInt(-1);
     return GM_OK;
 }
 
-// Confirmed real: accepts EITHER an int (process id) or a string (process
-// name) -- same dual-type argument as getProcess (see its comment below),
-// and confirmed by every real call site in the corpus (100% pass a
-// string name, e.g. `GameSystem.isProcessRunning("Platformer_MainMenu5")`
-// -- never an int). The previous int-only implementation silently
-// defaulted to id=-1 for every real (string) call, so this always
-// returned false regardless of whether the named process was actually
-// running -- broke every "don't start this again if it's already
-// running" check in the corpus, causing the caller to keep relaunching
-// the same process every single frame.
+// Retail passes its sole argument to FUN_001876e8 as a process name. That
+// helper searches queued process entries; it does not test init state or a
+// termination-request flag. A match remains running until teardown drains.
 int GM_CDECL gmf_isProcessRunning(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     ProcessManager* pm = GetEngineContext().processManager;
@@ -240,11 +187,9 @@ int GM_CDECL gmf_isProcessRunning(gmThread* a_thread) {
         if (p.m_type == GM_STRING) {
             char buf[256];
             proc = pm->GetByName(p.AsString(a_thread->GetMachine(), buf, sizeof(buf)));
-        } else if (p.m_type == GM_INT) {
-            proc = pm->Get(p.m_value.m_int);
         }
     }
-    a_thread->PushInt((proc && proc->initialized && !proc->wantsQuit) ? 1 : 0);
+    a_thread->PushInt(proc ? 1 : 0);
     return GM_OK;
 }
 
@@ -270,39 +215,35 @@ int GM_CDECL gmf_getProcess(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 0-arg getter for "the" gameplay process -- every real
-// call site (EntityBase.gm:1703's `t.gameProcess=GameSystem.getEntityUpdateProcess();`,
-// Player.gm:19, etc) stores the result and later reads gameplay-session
-// fields off it (`.inMenuMode`, `.mode`, `.refreshScripts()`) that only
-// exist on Platformer/Main.gm's own returned table (confirmed:
-// `this.inMenuMode=menuMode;` in Platformer/Main.gm's constructor) -- and
-// every real start site for that process
-// (ConsoleProcess.gm/DebugMenu.gm/DevMain.gm/TouchEditProcessNGP.gm) names
-// it literally "Platformer_Main". Returns null (as before) if that process
-// isn't running yet, e.g. still on the title screen.
+// Confirmed native selection: FUN_00187d24, called by the retail wrapper,
+// first walks the registered process objects and returns the first with
+// byte +9 set. If that search fails, it also examines queued runProcess and
+// startNewProcessList entries. Entity.setIsUpdatesEntities writes that byte,
+// and FUN_0018c558 initializes it to zero. This desktop lookup covers the
+// primary live-process search; the separate native transition queues are
+// still not represented here.
 int GM_CDECL gmf_getEntityUpdateProcess(gmThread* a_thread) {
     ProcessManager* pm = GetEngineContext().processManager;
-    Process* proc = pm ? pm->GetByName("Platformer_Main") : nullptr;
+    Process* proc = pm ? pm->GetEntityUpdateProcess() : nullptr;
     if (proc) a_thread->Push(proc->table); else a_thread->PushNull();
     return GM_OK;
 }
 
-// Confirmed real: returns some kind of list/container of all processes.
-// The decompiled body allocates what looks like a ref-container object
-// (matches the confirmed ENTITYLISTREFCONTAINER/INTLISTREFCONTAINER
-// plain sequential-integer-keyed GM table of process ids instead, which
-// `foreach`/tableCount() work on the same way a real array would.
+// Retail copies the current process registry into a native linked-list
+// snapshot and returns PROCESSLISTREFCONTAINER (get/isValid/goToNext/reset/
+// size). Snapshot tables remain rooted by ProcessManager during the normal
+// same-frame iteration lifecycle.
 int GM_CDECL gmf_getAllProcesses(gmThread* a_thread) {
+    auto* it = new ProcessListRefData();
     ProcessManager* pm = GetEngineContext().processManager;
-    gmTableObject* table = a_thread->GetMachine()->AllocTableObject();
     if (pm) {
         int n = pm->GetCount();
         for (int i = 0; i < n; ++i) {
             Process* p = pm->GetByIndex(i);
-            if (p) table->Set(a_thread->GetMachine(), i, gmVariable(GM_INT, p->id));
+            if (p) it->processes.push_back(p->table);
         }
     }
-    a_thread->PushTable(table);
+    a_thread->PushNewUser(it, g_processListRefType);
     return GM_OK;
 }
 
@@ -314,7 +255,10 @@ int GM_CDECL gmf_getProcessCount(gmThread* a_thread) {
 
 int GM_CDECL gmf_getProcessByIndex(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(index, 0, 0);
+    // Retail reads the raw 32-bit argument value as the list index without
+    // checking the GM type tag; preserve that behavior for malformed or
+    // non-integer callers as well as ordinary integer indexes.
+    const gmint index = a_thread->Param(0).m_value.m_int;
     ProcessManager* pm = GetEngineContext().processManager;
     Process* p = pm ? pm->GetByIndex(index) : nullptr;
     if (p) a_thread->Push(p->table);
@@ -382,9 +326,8 @@ int GM_CDECL gmf_resetPlayTimer(gmThread* a_thread) {
 }
 
 // ---------------------------------------------------------------------
-// Random -- confirmed real arities from the decompiled arg-count
-// dispatch (each branch confirmed by reading which gmThread argument
-// slots get dereferenced). A real std::mt19937, not rand().
+// Random -- backed by the shared retail MT19937 stream (seed 1; see
+// GameSystemState::NextRandom01 and EBOOT.elf's manager constructor).
 // ---------------------------------------------------------------------
 
 // Confirmed real: TWO args (min, max) -- not one. An earlier version of
@@ -395,10 +338,7 @@ int GM_CDECL gmf_getRandomInteger(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(lo, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(hi, 1, 0.0f);
-    int a = (int)lo, b = (int)hi;
-    if (a > b) std::swap(a, b);
-    std::uniform_int_distribution<int> dist(a, b);
-    a_thread->PushInt(dist(Rng()));
+    a_thread->PushInt(GetEngineContext().gameSystem.NextRandomInteger((int)lo, (int)hi));
     return GM_OK;
 }
 
@@ -644,6 +584,7 @@ int GM_CDECL gmf_GameSystem_trace(gmThread* a_thread) {
 
 gmFunctionEntry s_gameSystemLib[] = {
     {"getCurrentTick", gmf_getCurrentTick, nullptr},
+    {"isPaused", gmf_isPaused, nullptr},
     {"isBeingNice", gmf_isBeingNice, nullptr},
     {"setIsBeingNice", gmf_setIsBeingNice, nullptr},
     {"isShouldUpdateEntities", gmf_isShouldUpdateEntities, nullptr},
@@ -775,6 +716,10 @@ int GM_CDECL gmf_Watermelon_Clear_Prepared_Screenshot(gmThread* a_thread) {
 } // namespace
 
 void RegisterGameSystemBindings(gmMachine& a_machine) {
+    g_processListRefType = a_machine.CreateUserType("PROCESSLISTREFCONTAINER");
+    a_machine.RegisterTypeLibrary(g_processListRefType, s_processListRefLib,
+                                  sizeof(s_processListRefLib) / sizeof(s_processListRefLib[0]));
+    a_machine.RegisterUserCallbacks(g_processListRefType, nullptr, ProcessListRefGCDestruct, nullptr);
     a_machine.RegisterLibrary(s_gameSystemLib, sizeof(s_gameSystemLib) / sizeof(s_gameSystemLib[0]), "GameSystem");
     a_machine.RegisterLibraryFunction("DumpObject", gmf_DumpObject);
     a_machine.RegisterLibraryFunction("ClearTable", gmf_ClearTable);

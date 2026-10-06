@@ -8,6 +8,9 @@
 #include "../render/draw_list.h"
 #include "audio_bindings.h"
 #include "foe_compat_bindings.h"
+#include "vector2d_bindings.h"
+#include <algorithm>
+#include <cmath>
 
 namespace {
 
@@ -68,6 +71,15 @@ int GM_CDECL gmf_setIsUpdatesEntities(gmThread* a_thread) {
     return GM_OK;
 }
 
+// A few authored entity packs query their owning gameplay process while
+// configuring (`this.gameProcess.isBeingEdited()`). In a normal play level
+// there is no active editor operation, so retail returns false. This is
+// distinct from an entity handle's per-entity editing flag.
+int GM_CDECL gmf_process_isBeingEdited(gmThread* a_thread) {
+    a_thread->PushInt(0);
+    return GM_OK;
+}
+
 // classes/EntityRegistration.c 0x001d0520), real call site Main.gm:4424
 // `this.groundProcess.drawGrounds(drawList);` on the GroundProcessNEW
 // process handle. A genuine no-op here: ground-piece rendering is already
@@ -81,6 +93,16 @@ int GM_CDECL gmf_process_drawGrounds(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;
 }
+// Main.gm invokes onMusicTrigger on every process without testing whether
+// the process authored a callback. Retail's base process supplies the empty
+// callback for ControllerConfig, menus, and the native ground process.
+// Script callbacks already present on a returned process table take priority.
+int GM_CDECL gmf_process_onMusicTriggerDefault(gmThread*) { return GM_OK; }
+
+// Retail EBOOT also exports refreshFunctionCache on Process. This port's
+// ProcessManager resolves callback fields when dispatching each event, so a
+// changed method is visible immediately without a separate pointer cache.
+int GM_CDECL gmf_process_refreshFunctionCache(gmThread*) { return GM_OK; }
 
 // EntityRegistration.setFireThickness/setIsRefreshDrawListOnChange/
 // 0x001d07cc/0x001d06b4/0x001d0700), all called on the GroundProcessNEW
@@ -144,7 +166,7 @@ int GM_CDECL gmf_terminate(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
     if (!proc) return GM_EXCEPTION;
-    proc->wantsQuit = true;
+    GetEngineContext().processManager->QueueTerminate(proc->id);
     return GM_OK;
 }
 
@@ -181,9 +203,15 @@ int GM_CDECL gmf_setupPostDrawList(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
     if (!proc) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(w, 0, 0);
-    GM_INT_PARAM(h, 1, 0);
+    // 0-arg tolerant, matching retail: the decompiled body accepts 0..2
+    // setupPreDrawList above, which was already fixed for the same reason.
+    // A hard GM_CHECK_NUM_PARAMS(2) here throws a blank exception on any
+    // real 0- or 1-arg call and aborts the whole calling chain -- the same
+    // failure mode that broke ScaleOfTheWorld's constructor via
+    // setupDrawList(). This mismatch stayed invisible until check_arity.py
+    // learned the Set(...AllocFunctionObject(...)) registration form.
+    int w = (int)a_thread->ParamInt(0, 0);
+    int h = (int)a_thread->ParamInt(1, 0);
     PushNewDrawList(a_thread, w, h);
     UnrootGmVariable(*a_thread->GetMachine(), proc->postDrawList); // no-op if s_null; see process_manager.h
     proc->postDrawList = *(a_thread->GetTop() - 1);
@@ -259,7 +287,26 @@ int GM_CDECL gmf_setTranspose(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    self->Set(a_thread->GetMachine(), "transposeValue", a_thread->Param(0));
+    // MusicTheory.setTranspose (0x001a4d9c) converts a float argument to
+    // int before storing the native transpose word at +0xae0.
+    const gmVariable value = a_thread->Param(0);
+    const gmint transpose = value.m_type == GM_FLOAT
+        ? (gmint)value.m_value.m_float : value.m_value.m_int;
+    self->Set(a_thread->GetMachine(), "transposeValue", gmVariable(transpose));
+    return GM_OK;
+}
+// MusicTheory.getTranspose (0x001a4e10) returns that word as GM_INT.
+// ScaleOfTheWorld.gm keeps the same value in transposeValue and does not
+// define its own getter, so supply the native method to both process tables.
+int GM_CDECL gmf_getTranspose(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    const gmVariable value = self->Get(a_thread->GetMachine(), "transposeValue");
+    const gmint transpose = value.m_type == GM_FLOAT
+        ? (gmint)value.m_value.m_float :
+          value.m_type == GM_INT ? value.m_value.m_int : 0;
+    a_thread->PushInt(transpose);
     return GM_OK;
 }
 // getScaleIndex() -- native fallback, same guarded shape as setScaleIndex
@@ -278,6 +325,69 @@ int GM_CDECL gmf_getScaleIndex(gmThread* a_thread) {
     if (!self) { a_thread->PushInt(0); return GM_OK; }
     gmVariable v = self->Get(a_thread->GetMachine(), "currentScaleIndex");
     a_thread->Push((v.m_type == GM_INT || v.m_type == GM_FLOAT) ? v : gmVariable((gmint)0));
+    return GM_OK;
+}
+
+// MusicTheory.getNoteWithPositionAndOffset (retail 0x001a51fc) accepts a
+// vector and optional integer offset. The native helpers at 0x001a3358 and
+// 0x001a3454 use a 21.96-unit vertical cycle, 2.44 units per pitch step,
+// current scale's note list, mode, and transpose, then clamp to MIDI 0..95.
+// Both float constants were read from EBOOT.elf at 0x001a3348/0x001a3350.
+// The C++-marked reference in ScaleOfTheWorld.gm confirms the note-list
+// indexing and offset-minus-one rule. Scale data itself is the unchanged
+// script's scaleList, which its constructor fills before gameplay calls.
+int GM_CDECL gmf_getNoteWithPositionAndOffset(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
+    gmMachine& machine = *a_thread->GetMachine();
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    float x, y;
+    if (!GetVector2D(machine, a_thread->Param(0), x, y)) return GM_EXCEPTION;
+    const int offset = a_thread->GetNumParams() == 2 ? a_thread->ParamInt(1, 0) : 0;
+
+    gmVariable scalesVar = self->Get(&machine, "scaleList");
+    if (scalesVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    gmTableObject* scales = (gmTableObject*)machine.GetObject(scalesVar.m_value.m_ref);
+    auto readInt = [&](gmTableObject* table, const char* key) {
+        gmVariable v = table->Get(&machine, key);
+        return v.m_type == GM_FLOAT ? (int)v.m_value.m_float
+            : v.m_type == GM_INT ? (int)v.m_value.m_int : 0;
+    };
+    const int scaleIndex = readInt(self, "currentScaleIndex");
+    gmVariable scaleVar = scales->Get(scaleIndex);
+    if (scaleVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    gmTableObject* scale = (gmTableObject*)machine.GetObject(scaleVar.m_value.m_ref);
+    gmVariable notesVar = scale->Get(&machine, "noteList");
+    if (notesVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    gmTableObject* notes = (gmTableObject*)machine.GetObject(notesVar.m_value.m_ref);
+    int noteCount = 0;
+    while (noteCount < 128 && notes->Get(noteCount).m_type != GM_NULL) ++noteCount;
+    if (noteCount == 0 || noteCount == 128) return GM_EXCEPTION;
+
+    constexpr float kCycle = 21.96000099182129f;
+    constexpr float kStep = 2.440000057220459f;
+    float phase = std::fmod(y, kCycle);
+    if (phase < 0.0f) phase += kCycle;
+    int absoluteIndex = (int)(phase / kStep) + offset - 1;
+    if (absoluteIndex < 0) absoluteIndex = 0;
+    const int octaveQuotient = absoluteIndex / noteCount;
+    const int baseIndex = absoluteIndex % noteCount;
+    const int mode = readInt(self, "modeIndex");
+    int index, octaveShift;
+    if (mode >= 0) {
+        index = (baseIndex + mode % noteCount) % noteCount;
+        octaveShift = 2 * (octaveQuotient + mode / noteCount);
+    } else {
+        const int positiveMode = -mode;
+        index = (baseIndex + noteCount - positiveMode % noteCount) % noteCount;
+        octaveShift = -(2 * (octaveQuotient + positiveMode / noteCount) + 12);
+    }
+    gmVariable noteVar = notes->Get(index);
+    if (noteVar.m_type != GM_INT && noteVar.m_type != GM_FLOAT) return GM_EXCEPTION;
+    const int baseNote = noteVar.m_type == GM_INT ? noteVar.m_value.m_int : (int)noteVar.m_value.m_float;
+    const int transpose = readInt(self, "transposeValue");
+    const int note = std::max(0, std::min(95, baseNote + transpose + octaveShift));
+    a_thread->PushInt(note);
     return GM_OK;
 }
 
@@ -455,8 +565,9 @@ int GM_CDECL gmf_setGlobalVolume(gmThread* a_thread) {
     return GM_OK;
 }
 
-// setAsPauseProcess, 0x0019f850), the actual native mechanism every real
-// pause/menu/popup overlay in the corpus uses to freeze gameplay
+// setAsPauseProcess -- confirmed process method at 0x0019f850 (misclassified
+// wrapper at 0x00070e48. The native queue operation is the mechanism that
+// pause/menu/popup overlays in the corpus use to freeze gameplay
 // (PauseProcessBase.gm, PopupProcessBase.gm, ResizeScreenProcess.gm,
 // DebugMenu*.gm, TrophyWinProcess.gm, WinProcess.gm, ...). Three call shapes
 // found across the corpus, all handled here:
@@ -470,7 +581,7 @@ int GM_CDECL gmf_setGlobalVolume(gmThread* a_thread) {
 //      WinProcess.gm's constructor), so falling back to whichever process
 //      currently holds input focus recovers the same target without this
 //      engine needing to track "the calling process" generically.
-// See ProcessManager::SetPauseState for what "exempt" actually does: every
+// See ProcessManager::QueuePauseState for what "exempt" actually does: every
 // OTHER process's update()/postUpdate() stops running (draw is untouched --
 // the frozen world stays visible behind the overlay).
 int GM_CDECL gmf_setAsPauseProcess(gmThread* a_thread) {
@@ -498,7 +609,7 @@ int GM_CDECL gmf_setAsPauseProcess(gmThread* a_thread) {
         }
     }
 
-    pm.SetPauseState(active != 0, exemptId);
+    pm.QueuePauseState(active != 0, exemptId);
     return GM_OK;
 }
 
@@ -506,6 +617,12 @@ int GM_CDECL gmf_setAsPauseProcess(gmThread* a_thread) {
 
 void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int a_processId) {
     a_table->Set(&a_machine, "__id", gmVariable((gmint)a_processId));
+    a_table->Set(&a_machine, "refreshFunctionCache",
+        gmVariable(a_machine.AllocFunctionObject(gmf_process_refreshFunctionCache)));
+    if (a_table->Get(&a_machine, "onMusicTrigger").m_type != GM_FUNCTION) {
+        a_table->Set(&a_machine, "onMusicTrigger",
+            gmVariable(a_machine.AllocFunctionObject(gmf_process_onMusicTriggerDefault)));
+    }
     a_table->Set(&a_machine, "setIsStealsInputFocus", gmVariable(a_machine.AllocFunctionObject(gmf_setIsStealsInputFocus)));
     a_table->Set(&a_machine, "terminate", gmVariable(a_machine.AllocFunctionObject(gmf_terminate)));
     a_table->Set(&a_machine, "callMethod", gmVariable(a_machine.AllocFunctionObject(gmf_process_callMethod)));
@@ -529,8 +646,15 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     if (a_table->Get(&a_machine, "getScaleIndex").m_type != GM_FUNCTION) {
         a_table->Set(&a_machine, "getScaleIndex", gmVariable(a_machine.AllocFunctionObject(gmf_getScaleIndex)));
     }
+    if (a_table->Get(&a_machine, "getNoteWithPositionAndOffset").m_type != GM_FUNCTION) {
+        a_table->Set(&a_machine, "getNoteWithPositionAndOffset",
+                     gmVariable(a_machine.AllocFunctionObject(gmf_getNoteWithPositionAndOffset)));
+    }
     if (a_table->Get(&a_machine, "setTranspose").m_type != GM_FUNCTION) {
         a_table->Set(&a_machine, "setTranspose", gmVariable(a_machine.AllocFunctionObject(gmf_setTranspose)));
+    }
+    if (a_table->Get(&a_machine, "getTranspose").m_type != GM_FUNCTION) {
+        a_table->Set(&a_machine, "getTranspose", gmVariable(a_machine.AllocFunctionObject(gmf_getTranspose)));
     }
     a_table->Set(&a_machine, "isInited", gmVariable(a_machine.AllocFunctionObject(gmf_isInited)));
     a_table->Set(&a_machine, "setupPreDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_setupPreDrawList)));
@@ -554,6 +678,7 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     a_table->Set(&a_machine, "getCurrentScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_getCurrentScreenY)));
     a_table->Set(&a_machine, "setGlobalVolume", gmVariable(a_machine.AllocFunctionObject(gmf_setGlobalVolume)));
     a_table->Set(&a_machine, "setAsPauseProcess", gmVariable(a_machine.AllocFunctionObject(gmf_setAsPauseProcess)));
+    a_table->Set(&a_machine, "isBeingEdited", gmVariable(a_machine.AllocFunctionObject(gmf_process_isBeingEdited)));
 
     // FoE compatibility methods (alarm/LFO management) -- injected from foe_compat_bindings
     a_table->Set(&a_machine, "getUniqueAlarmID", gmVariable(a_machine.AllocFunctionObject(gmf_getUniqueAlarmID)));
@@ -581,6 +706,6 @@ gmVariable CreateProcessHandle(gmMachine& a_machine, int a_processId) {
     // returned behavior table, which is script-authored and must stay
     // unmarked -- see strict_calls.h's MarkNative), so a missing method here
     // is unambiguously an engine gap.
-    StrictCalls::MarkNative(a_machine, table);
+    StrictCalls::MarkScriptExtensibleNative(a_machine, table);
     return gmVariable(table);
 }

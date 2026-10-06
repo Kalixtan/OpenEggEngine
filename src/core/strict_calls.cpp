@@ -46,6 +46,16 @@ void MarkNative(gmMachine& a_machine, const gmVariable& a_tableVar) {
     MarkNative(a_machine, (gmTableObject*)a_machine.GetObject(a_tableVar.m_value.m_ref));
 }
 
+void MarkScriptExtensibleNative(gmMachine& a_machine, gmTableObject* a_table) {
+    if (a_table) a_table->Set(&a_machine, kNativeMarkerKey, gmVariable(2));
+}
+
+void MarkScriptExtensibleNative(gmMachine& a_machine, const gmVariable& a_tableVar) {
+    if (a_tableVar.m_type != GM_TABLE) return;
+    MarkScriptExtensibleNative(a_machine,
+        (gmTableObject*)a_machine.GetObject(a_tableVar.m_value.m_ref));
+}
+
 } // namespace StrictCalls
 
 namespace {
@@ -56,29 +66,28 @@ bool IsNativeTable(gmMachine* a_machine, const gmVariable& a_var) {
     return table && table->Get(a_machine, kNativeMarkerKey).m_type == GM_INT;
 }
 
+bool IsScriptExtensibleNativeTable(gmMachine* a_machine, const gmVariable& a_var) {
+    if (!a_machine || a_var.m_type != GM_TABLE) return false;
+    gmTableObject* table = (gmTableObject*)a_machine->GetObject(a_var.m_value.m_ref);
+    gmVariable marker = table ? table->Get(a_machine, kNativeMarkerKey) : gmVariable::s_null;
+    return marker.m_type == GM_INT && marker.m_value.m_int == 2;
+}
+
 // ---------------------------------------------------------------------------
 // Retail reference lookup
 // ---------------------------------------------------------------------------
 
-// Tries the fully-qualified name first ("Video.getDimensions"), then the bare
-// method name ("getDimensions"). The qualified form matters: getDimensions,
-// isValid, getPos and friends exist on several unrelated classes at different
-// addresses, and pointing at the wrong one is worse than pointing at nothing.
+// A receiver-qualified name must match exactly: the same bare method name
+// can belong to an unrelated native class. Only unattributed bare calls use
+// the fallback index lookup, where the result is necessarily less certain.
 const RetailSymbol* FindRetailSymbol(const std::string& a_name) {
     for (const RetailSymbol& sym : kRetailSymbols) {
         if (a_name == sym.name) return &sym;
     }
-    // Bare-name fallback. BUG FIX: this used to only run when a_name itself
-    // contained a dot (i.e. was already qualified, "Video.getDimensions").
-    // OnNullCall's unbound path never has that -- it only ever recovers the
-    // bare member name from the failed BC_GETDOT/BC_GETTHIS lookup (it does
-    // not know what table the call was made through), so a real symbol like
-    // "Video.setAsPauseProcess" was unreachable from a report of the bare
-    // "setAsPauseProcess" call, even though the index had it. Now always
-    // computes the bare form (a_name itself if it has no dot) and matches it
-    // against every symbol's own bare name.
-    size_t dot = a_name.find('.');
-    std::string bare = (dot != std::string::npos) ? a_name.substr(dot + 1) : a_name;
+    if (a_name.find('.') != std::string::npos) return nullptr;
+    // BC_GETGLOBAL and mixed native/script tables only give us the bare
+    // member name. Match its symbol suffix when no receiver class is known.
+    const std::string& bare = a_name;
     for (const RetailSymbol& sym : kRetailSymbols) {
         const char* symDot = std::strchr(sym.name, '.');
         if (symDot ? (bare == symDot + 1) : (bare == sym.name)) return &sym;
@@ -211,57 +220,35 @@ void PrintReport(gmThread* a_thread, const std::string& a_name, bool a_unbound,
 bool IsConfirmedNoOp(const std::string& a_name) {
     static const char* const kNoOps[] = {
         "update",
-        // EntityRegistration.c:130 -- forwards only its first bool arg into
-        // one opaque call (FUN_001ceb88), body not further decompiled, but
-        // the very next function in the same file is
-        // setIsRefreshDrawListOnChange -- strongly suggesting this is a
-        // "mark my cached drawList dirty on this beat" hint for retail's
-        // real deferred-command-buffer optimization, not a visual effect.
-        // This engine already rebuilds every drawList from scratch every
-        // frame (no persistent cache to invalidate), so the hint has
-        // nothing to act on here regardless -- less certain than
-        // EntityBase.update's literal empty body, but the architecture gap
-        // it would bridge doesn't exist in this engine to begin with.
-        "onMusicTrigger",
         "traceTick",
-        // classes/Input.c 0x0007442c, a genuine native vtable-slot call),
-        // and IS bound as a library function (Input.enableBackPanel is a
-        // real no-op registered in input_bindings.cpp). This specific
-        // report is a DIFFERENT call shape: Main.gm:10575's
-        // `this.TouchEditProcess.enableBackPanel()` on the PS3 edit-
-        // process's own returned table, which never defines this method at
-        // all (confirmed by reading TouchEditProcessBase.gm and
-        // TouchEditProcessPS3.gm in full -- TouchEditProcessPS3.gm defines
-        // enableShaking as a real delegate to Input.enableShaking() right
-        // next to where enableBackPanel would be, but never defines
-        // enableBackPanel itself). PS3 hardware has no rear touch panel
-        // (unlike NGP/Vita, whose TouchEditProcessNGP.gm DOES define this
-        // delegate) -- this call resolving to nothing is confirmed correct
-        // real PS3 behavior, not an unimplemented gap.
-        "enableBackPanel",
-        // generic native vtable-slot forwarder, `(*vtable[0xf])();` in C++
-        // terms) -- but that's a NATIVE C++ object's draw() dispatch, and
-        // this specific report's receiver (EntityMenuTopBase.gm:898's
-        // `this.widgets[i].draw(drawList)` loop, hitting
-        // EntityMenuTopPS3.gm's `addInputHandler()`-built inputHandler) is
-        // a PLAIN script `table()` literal with no native backing and no
-        // vtable of any kind -- confirmed by reading its full definition:
-        // it only ever assigns `.update`, never `.draw`, an intentional
-        // input-only overlay widget. The Misc.c body above is retail_
-        // symbols.inc's closest bare-name match (this survey mechanism
-        // isn't receiver-aware, see FindRetailSymbol's own header comment),
-        // not evidence this exact call site needs it. Real retail's own
-        // widgets[i] loop would hit the identical "no draw() on this
-        // table" miss for the identical reason. Narrower risk than it
-        // looks: entity/process draw hooks dispatch through a DIFFERENT
-        // path (DrawEntitiesWithNativeDrawHook/ProcessManager's
-        // BeginTableFunction calls, both of which check `Get("draw").
-        // m_type==GM_FUNCTION` before ever calling) that never reaches
-        // OnNullCall at all, so this exemption can only affect bespoke
-        // script-table widgets like this one, not entities or processes.
-        "draw",
     };
     for (const char* n : kNoOps) if (a_name == n) return true;
+    return false;
+}
+
+// EntityBase.gm calls EntityManager.setEntityUID(uid, null) in its
+// destructor, but the retail EBOOT has no registered `setEntityUID` name
+// (unlike getEntityFromUID/createEntityAsPlayer immediately beside it).
+// This is therefore a retail null-call, not an omitted native binding.
+bool IsKnownRetailNullCall(gmThread* a_thread, const std::string& a_name) {
+    auto receiverIsLibrary = [a_thread](const char* a_library) {
+        gmMachine* machine = a_thread->GetMachine();
+        gmVariable library = machine->GetGlobals()->Get(machine, a_library);
+        const gmVariable& receiver = a_thread->GetLastNullReceiver();
+        return library.m_type == GM_TABLE && receiver.m_type == GM_TABLE &&
+               library.m_value.m_ref == receiver.m_value.m_ref;
+    };
+    if (a_name == "setEntityUID") return receiverIsLibrary("EntityManager");
+
+    // Retail's complete 68-entry AUDIO method table (EBOOT.elf 0x421418-
+    // 0x421744) contains neither of these names. SwayingTree.gm calls
+    // Audio.stopSound, while GoombaCritterGuitar.gm calls Audio.
+    // playSoundWithMixer. The latter is registered on EntityBase instead
+    // (EBOOT.elf method table entry 0x425d8c). Both are retail null calls
+    // on Audio, not missing Audio bindings. Scope these exceptions to that
+    // receiver so a real method gap on another object remains visible.
+    if (a_name == "stopSound" || a_name == "playSoundWithMixer")
+        return receiverIsLibrary("Audio");
     return false;
 }
 
@@ -283,6 +270,7 @@ void OnNullCall(gmThread* a_thread, const char* a_symbol) {
     // that is real retail behavior (GMSCRIPT_PATCHES.md #4) and must stay
     // silent, or every '?'-guarded optional hook in the corpus trips the trap.
     if (!a_symbol) return;
+    if (IsKnownRetailNullCall(a_thread, a_symbol)) return;
 
     // Primary signal: was the failed lookup performed ON an object this
     // engine created (a RegisterLibrary global, an entity/process table, a
@@ -292,36 +280,39 @@ void OnNullCall(gmThread* a_thread, const char* a_symbol) {
     // retail_symbols.inc. This is what catches a genuinely-missing native
     // the first time the game reaches it, instead of only ones already known
     // about.
-    bool receiverIsNative = IsNativeTable(a_thread->GetMachine(), a_thread->GetLastNullReceiver());
+    const gmVariable& receiver = a_thread->GetLastNullReceiver();
+    bool receiverIsNative = IsNativeTable(a_thread->GetMachine(), receiver);
+    bool receiverIsScriptExtensibleNative =
+        IsScriptExtensibleNativeTable(a_thread->GetMachine(), receiver);
+    // GM_USER and every type above it are registered by native code. Their
+    // method lookup uses the type library rather than a marked table, so a
+    // missing method must be reported even if the retail symbol index has
+    // never seen its name. Otherwise precisely the newly discovered gaps
+    // this trap is intended to expose pass through silently.
+    bool receiverIsNativeUser = receiver.m_type >= GM_USER;
 
-    // Fallback signal, for calls with no attributable native receiver (bare
-    // globals, or a lookup on a plain script table): fall back to the retail
-    // symbol index. See the long-form rationale below -- this is still needed
-    // for BC_GETGLOBAL, whose "receiver" is the shared globals table that
-    // mixes real engine globals with script-defined ones, so table identity
-    // alone can't tell them apart there.
-    // (and the one GMSCRIPT_PATCHES.md #4 documents by name): a script-side
-    // dynamic-dispatch CONVENTION, not a missing engine API. State.gm's own
-    // changeState() is patch #4's literal source example --
-    // `sd.onStateSteal(s,this.parent)`, called unconditionally on `sd`, a
-    // plain `table(...)` literal that most states never define this key on.
-    // `sd`/`Video`/`GameSystem` are indistinguishable by GM_TABLE type tag
-    // alone (RegisterLibrary's tables are plain gmTableObjects too), so the
-    // signal used here is the retail symbol index instead (retail_symbols.inc,
-    // ~1300 names extracted from the real EBOOT.elf): if the failed lookup
-    // isn't a name retail's own binary ever exposed as a native function,
-    // it's overwhelmingly more likely a script-authored callback hook than
-    // an engine gap, and reporting it would misdirect the next porting step
-    // at a script convention instead of a real missing binding. This does
-    // mean a genuinely-missing native whose name isn't in the index yet
-    // (like VMSHAPE.setAsFilledCircle was, before it got implemented --
-    // corpus-confirmed real but never decompiled/clustered) goes quiet here
-    // too; GE3_STRICT=survey plus a corpus grep for the symbol is the way to
-    // catch those, same as setAsFilledCircle was found.
-    if (!receiverIsNative && !FindRetailSymbol(a_symbol)) return;
+    // A plain script table may use the same method name as an unrelated
+    // native class. CampaignScreenBase's widgets, for example, call an
+    // optional onMusicTrigger callback even though EntityRegistration also
+    // exports a native onMusicTrigger. The receiver decides which it is.
+    if (receiver.m_type == GM_TABLE && !receiverIsNative) return;
+
+    // A handle's script callbacks share this table with native methods.
+    // The receiver marker alone cannot distinguish an absent callback from
+    // a missing native binding, so require an indexed retail name here.
+    if (receiverIsScriptExtensibleNative && !FindRetailSymbol(a_symbol)) return;
+
+    // Bare globals fall back to the retail symbol index because BC_GETGLOBAL
+    // has no receiver and its lookup uses the mixed script/native globals
+    // table. Native tables and user objects have their own receiver signal.
+    if (!receiverIsNative && !receiverIsNativeUser && !FindRetailSymbol(a_symbol)) return;
     if (IsConfirmedNoOp(a_symbol)) return;
 
     std::string name = a_symbol;
+    if (receiverIsNativeUser) {
+        const char* typeName = a_thread->GetMachine()->GetTypeName(receiver.m_type);
+        if (typeName && *typeName) name = std::string(typeName) + "." + a_symbol;
+    }
     std::string file;
     int line = 0;
     bool haveSite = CallSite(a_thread, file, line);

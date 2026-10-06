@@ -17,6 +17,8 @@ void RegisterAnimationBindings(gmMachine& a_machine);
 // Animation with zero frames rather than failing, same "honest empty
 // stand-in" leniency as every other asset-load gap in this engine).
 void PushNewAnimation(gmThread* a_thread, const std::string& a_resolvedPath);
+// Releases an entity-owned animation's decoded frames and GPU textures.
+void UnloadAnimation(gmMachine& a_machine, const gmVariable& a_animVar);
 
 // COLOURSCHEME_SetAnimationPaletteColour(anim, cn1, cn2) (colour_bindings.cpp)
 // needs to reach into the Animation object from a different compilation

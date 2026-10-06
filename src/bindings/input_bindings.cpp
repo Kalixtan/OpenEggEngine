@@ -7,17 +7,53 @@
 #include <SDL2/SDL.h>
 #include <string>
 #include <cctype>
+#include <vector>
 
-// Real SDL keyboard-driven implementation -- per explicit direction, PC
-// desktop keyboard only for now; no joystick/gamepad hardware support
-// (isControllerPresent stays honestly false). Every JOYSTICK0_*/KEYBOARD_*
-// constant below is assigned an SDL_Scancode value directly, so
-// isKeyPressed(JOYSTICK0_ACCEPT) and isKeyPressed(KEYBOARD_ENTER) are
-// literally the same check -- real scripts test both intercheangeably
-// (e.g. menu confirm/cancel), and this lets a keyboard stand in for
-// "the controller" everywhere a real corpus script expects one, without
-// needing two separate code paths.
+// SDL-backed desktop input. Keyboard scancodes and controller events use
+// separate integer ranges so a physical face button cannot accidentally
+// trigger a KEYBOARD_* action with the same desktop fallback key.
 namespace {
+
+constexpr int kNumberedButtonBase = 1024;
+constexpr int kAliasBase = 2048;
+struct ControllerAlias {
+    const char* name;
+    SDL_GameControllerButton button;
+    SDL_Scancode fallback;
+};
+const ControllerAlias kAliases[] = {
+    {"JOYSTICK0_CROSS", SDL_CONTROLLER_BUTTON_A, SDL_SCANCODE_Z},
+    {"JOYSTICK0_CIRCLE", SDL_CONTROLLER_BUTTON_B, SDL_SCANCODE_V},
+    {"JOYSTICK0_SQUARE", SDL_CONTROLLER_BUTTON_X, SDL_SCANCODE_X},
+    {"JOYSTICK0_TRIANGLE", SDL_CONTROLLER_BUTTON_Y, SDL_SCANCODE_C},
+    {"JOYSTICK0_ACCEPT", SDL_CONTROLLER_BUTTON_A, SDL_SCANCODE_RETURN},
+    {"JOYSTICK0_CANCEL", SDL_CONTROLLER_BUTTON_B, SDL_SCANCODE_ESCAPE},
+    {"JOYSTICK0_START", SDL_CONTROLLER_BUTTON_START, SDL_SCANCODE_P},
+    {"JOYSTICK0_SELECT", SDL_CONTROLLER_BUTTON_BACK, SDL_SCANCODE_TAB},
+    {"JOYSTICK0_UP", SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_SCANCODE_UP},
+    {"JOYSTICK0_DOWN", SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_SCANCODE_DOWN},
+    {"JOYSTICK0_LEFT", SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_SCANCODE_LEFT},
+    {"JOYSTICK0_RIGHT", SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_SCANCODE_RIGHT},
+    {"JOYSTICK0_L1", SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_SCANCODE_Q},
+    {"JOYSTICK0_R1", SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, SDL_SCANCODE_E},
+    {"JOYSTICK0_L3", SDL_CONTROLLER_BUTTON_LEFTSTICK, SDL_SCANCODE_N},
+    {"JOYSTICK0_R3", SDL_CONTROLLER_BUTTON_RIGHTSTICK, SDL_SCANCODE_M},
+    {"JOYSTICK0_LS_UP", SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_SCANCODE_W},
+    {"JOYSTICK0_LS_DOWN", SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_SCANCODE_S},
+    {"JOYSTICK0_LS_LEFT", SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_SCANCODE_A},
+    {"JOYSTICK0_LS_RIGHT", SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_SCANCODE_D},
+};
+constexpr SDL_GameControllerButton kNumberedButtons[] = {
+    SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B,
+    SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_Y,
+    SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
+    SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_START,
+    SDL_CONTROLLER_BUTTON_LEFTSTICK, SDL_CONTROLLER_BUTTON_RIGHTSTICK,
+    SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+    SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT
+};
+constexpr int kNumberedButtonCount = sizeof(kNumberedButtons) / sizeof(kNumberedButtons[0]);
+constexpr int kAliasCount = sizeof(kAliases) / sizeof(kAliases[0]);
 
 int GM_CDECL gmf_falseBool(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_zeroFloat(gmThread* a_thread) { a_thread->PushFloat(0.0f); return GM_OK; }
@@ -28,14 +64,154 @@ int GM_CDECL gmf_noop(gmThread* a_thread) { return GM_OK; }
 // Virtual key state -- see SetVirtualKeyDown's header comment. File-scope
 // (not in the anonymous namespace) so the setters below can reach it.
 bool g_virtualKeys[SDL_NUM_SCANCODES] = {false};
+bool g_inputEnabled = true;
+bool g_disabledUntilAllKeysUp = false;
+bool g_doingRealtimeUpdate = false;
+float g_typeRate = 0.0f;
+float g_typeDelay = 0.0f;
+float g_joystickDeadzone = 0.0f;
+float g_joystickAsButtonThreshold = 0.0f;
+std::vector<SDL_GameController*> g_controllers;
+int g_controllerDeviceCount = -1;
+bool g_controllerSubsystemInitialized = false;
 
-bool KeyDown(int a_scancode) {
-    if (a_scancode <= SDL_SCANCODE_UNKNOWN || a_scancode >= SDL_NUM_SCANCODES) return false;
-    if (g_virtualKeys[a_scancode]) return true;
-    return SDL_GetKeyboardState(nullptr)[a_scancode] != 0;
+bool RefreshControllers() {
+    if (!g_controllerSubsystemInitialized) {
+        if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0) return false;
+        SDL_GameControllerEventState(SDL_ENABLE);
+        g_controllerSubsystemInitialized = true;
+    }
+
+    const int deviceCount = SDL_NumJoysticks();
+    if (deviceCount < 0) return false;
+    if (deviceCount != g_controllerDeviceCount) {
+        for (SDL_GameController* controller : g_controllers) {
+            if (controller) SDL_GameControllerClose(controller);
+        }
+        g_controllers.assign(deviceCount, nullptr);
+        g_controllerDeviceCount = deviceCount;
+    }
+
+    for (int i = 0; i < deviceCount; ++i) {
+        SDL_GameController*& controller = g_controllers[i];
+        if (controller && !SDL_GameControllerGetAttached(controller)) {
+            SDL_GameControllerClose(controller);
+            controller = nullptr;
+        }
+        if (!controller && SDL_IsGameController(i)) {
+            controller = SDL_GameControllerOpen(i);
+        }
+    }
+    return true;
 }
 
-// Confirmed real: 1 int param (a KEYBOARD_*/JOYSTICK0_* scancode), returns
+SDL_GameController* ControllerAt(int a_joystickIndex) {
+    if (a_joystickIndex < 0 || !RefreshControllers() ||
+        a_joystickIndex >= (int)g_controllers.size()) return nullptr;
+    return g_controllers[a_joystickIndex];
+}
+
+// Confirmed from Input.c: the getter/setter read and write the INPUT
+// object's byte at +0xf3e (FUN_00188278/FUN_0018c21c). Keep that state on
+// the engine's singleton Input library object.
+int GM_CDECL gmf_isInputEnabled(gmThread* a_thread) {
+    a_thread->PushInt(g_inputEnabled ? 1 : 0);
+    return GM_OK;
+}
+
+// Retail adds the 0x3f000000 float constant (0.5f) then converts to int;
+// on PPC this conversion truncates toward zero. Preserve that behavior.
+int GM_CDECL gmf_float2Int(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    // Retail reads the raw value word as a float without checking the GM
+    // tag, so use the stack union directly instead of numeric coercion.
+    const gmfloat value = a_thread->GetBase()[0].m_value.m_float;
+    a_thread->PushInt((gmint)(value + 0.5f));
+    return GM_OK;
+}
+int GM_CDECL gmf_setIsInputEnabled(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(enabled, 0, 0);
+    g_inputEnabled = enabled != 0;
+    return GM_OK;
+}
+
+int GM_CDECL gmf_setTypeRate(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(rate, 0, 0.0f);
+    g_typeRate = rate;
+    return GM_OK;
+}
+int GM_CDECL gmf_getTypeRate(gmThread* a_thread) {
+    a_thread->PushFloat(g_typeRate);
+    return GM_OK;
+}
+int GM_CDECL gmf_setTypeDelay(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(delay, 0, 0.0f);
+    g_typeDelay = delay;
+    return GM_OK;
+}
+int GM_CDECL gmf_getTypeDelay(gmThread* a_thread) {
+    a_thread->PushFloat(g_typeDelay);
+    return GM_OK;
+}
+int GM_CDECL gmf_setJoystickDeadzone(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(value, 0, 0.0f);
+    g_joystickDeadzone = value;
+    return GM_OK;
+}
+int GM_CDECL gmf_getJoystickDeadzone(gmThread* a_thread) {
+    a_thread->PushFloat(g_joystickDeadzone);
+    return GM_OK;
+}
+int GM_CDECL gmf_setJoystickAsButtonThreshold(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(value, 0, 0.0f);
+    g_joystickAsButtonThreshold = value;
+    return GM_OK;
+}
+int GM_CDECL gmf_getJoystickAsButtonThreshold(gmThread* a_thread) {
+    a_thread->PushFloat(g_joystickAsButtonThreshold);
+    return GM_OK;
+}
+int GM_CDECL gmf_disableUntilAllKeysUp(gmThread*) {
+    g_disabledUntilAllKeysUp = true;
+    return GM_OK;
+}
+int GM_CDECL gmf_isDisabledUntilAllKeysUp(gmThread* a_thread) {
+    a_thread->PushInt(g_disabledUntilAllKeysUp ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_setIsDoingRealtimeUpdate(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(enabled, 0, 0);
+    g_doingRealtimeUpdate = enabled != 0;
+    return GM_OK;
+}
+int GM_CDECL gmf_isDoingRealtimeUpdate(gmThread* a_thread) {
+    a_thread->PushInt(g_doingRealtimeUpdate ? 1 : 0);
+    return GM_OK;
+}
+
+bool KeyDown(int code) {
+    if (code >= kNumberedButtonBase && code < kNumberedButtonBase + kNumberedButtonCount) {
+        SDL_GameController* controller = ControllerAt(0);
+        return controller && SDL_GameControllerGetButton(controller, kNumberedButtons[code - kNumberedButtonBase]);
+    }
+    if (code >= kAliasBase && code < kAliasBase + kAliasCount) {
+        const ControllerAlias& alias = kAliases[code - kAliasBase];
+        SDL_GameController* controller = ControllerAt(0);
+        if (controller && SDL_GameControllerGetButton(controller, alias.button)) return true;
+        code = alias.fallback;
+    }
+    if (code <= SDL_SCANCODE_UNKNOWN || code >= SDL_NUM_SCANCODES) return false;
+    if (g_virtualKeys[code]) return true;
+    return SDL_GetKeyboardState(nullptr)[code] != 0;
+}
+
+// Confirmed real: 1 int param (a KEYBOARD_*/JOYSTICK0_* code), returns
 int GM_CDECL gmf_isKeyPressed(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(code, 0, 0);
@@ -57,19 +233,26 @@ int GM_CDECL gmf_isAltPressed(gmThread* a_thread) {
 }
 
 // Confirmed real: 2 int params (joystick index, axis index), returns
-// header comment) -- axes 0/1 (left stick, the analog pair every real
-// script actually reads for movement/menu drift, e.g.
-// Platformer/ResizeScreenProcess.gm) are driven by WASD + arrow keys
-// together; axes 2/3 (right stick, rarer -- camera/secondary in the few
-// real call sites that use them) by IJKL. Only joystick index 0 (the
-// single local player) responds -- matches this being a single-player,
-// non-networked-input game.
+// as the left stick and 2/3 as the right stick. SDL's standardized
+// GameController layout supplies these axes for compatible attached pads;
+// keyboard emulation remains available when no compatible pad is attached.
 int GM_CDECL gmf_getJoystickAxis(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(joyIndex, 0, 0);
     GM_INT_PARAM(axis, 1, 0);
     float value = 0.0f;
-    if (joyIndex == 0) {
+    if (SDL_GameController* controller = ControllerAt(joyIndex)) {
+        if (axis >= 0 && axis < 4) {
+            static const SDL_GameControllerAxis kAxes[4] = {
+                SDL_CONTROLLER_AXIS_LEFTX, SDL_CONTROLLER_AXIS_LEFTY,
+                SDL_CONTROLLER_AXIS_RIGHTX, SDL_CONTROLLER_AXIS_RIGHTY
+            };
+            value = (float)SDL_GameControllerGetAxis(controller, kAxes[axis]) / 32767.0f;
+            // The scripts treat positive Y as up; SDL reports up as negative.
+            if (axis == 1 || axis == 3) value = -value;
+            if (value < -1.0f) value = -1.0f;
+        }
+    } else if (joyIndex == 0) {
         if (axis == 0) {
             if (KeyDown(SDL_SCANCODE_D) || KeyDown(SDL_SCANCODE_RIGHT)) value += 1.0f;
             if (KeyDown(SDL_SCANCODE_A) || KeyDown(SDL_SCANCODE_LEFT)) value -= 1.0f;
@@ -88,12 +271,17 @@ int GM_CDECL gmf_getJoystickAxis(gmThread* a_thread) {
     return GM_OK;
 }
 
-// True: no physical joystick/gamepad hardware, but the keyboard is
-// standing in for one everywhere above (JOYSTICK0_* all resolve to real
-// key checks) -- reporting false here would make real scripts fall back
-// to a "no controller connected" UI state instead of actually using that
-// mapping.
-int GM_CDECL gmf_isControllerPresent(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
+int GM_CDECL gmf_isControllerPresent(gmThread* a_thread) {
+    // Platformer_PlayMenu treats a false result as a controller-disconnect
+    // event and starts the pause process every update. Desktop has a fully
+    // supported keyboard input path (including stick emulation), so it is a
+    // usable local gameplay device even when SDL has no game controller.
+    // Reporting that availability here avoids applying the handheld/console
+    // disconnect policy to a native PC session.
+    a_thread->PushInt(1);
+    return GM_OK;
+
+}
 
 // getMousePosX/Y -- confirmed NORMALIZED [0,1], not raw pixels: real usage
 // (PekkoAndJon/Main.gm:15/19) is
@@ -198,6 +386,21 @@ int GM_CDECL gmf_zeroVec2(gmThread* a_thread) {
 }
 
 gmFunctionEntry s_inputLib[] = {
+    {"isInputEnabled", gmf_isInputEnabled, nullptr},
+    {"setIsInputEnabled", gmf_setIsInputEnabled, nullptr},
+    {"float2Int", gmf_float2Int, nullptr},
+    {"setTypeRate", gmf_setTypeRate, nullptr},
+    {"getTypeRate", gmf_getTypeRate, nullptr},
+    {"setTypeDelay", gmf_setTypeDelay, nullptr},
+    {"getTypeDelay", gmf_getTypeDelay, nullptr},
+    {"setJoystickDeadzone", gmf_setJoystickDeadzone, nullptr},
+    {"getJoystickDeadzone", gmf_getJoystickDeadzone, nullptr},
+    {"setJoystickAsButtonThreshold", gmf_setJoystickAsButtonThreshold, nullptr},
+    {"getJoystickAsButtonThreshold", gmf_getJoystickAsButtonThreshold, nullptr},
+    {"disableUntilAllKeysUp", gmf_disableUntilAllKeysUp, nullptr},
+    {"isDisabledUntilAllKeysUp", gmf_isDisabledUntilAllKeysUp, nullptr},
+    {"setIsDoingRealtimeUpdate", gmf_setIsDoingRealtimeUpdate, nullptr},
+    {"isDoingRealtimeUpdate", gmf_isDoingRealtimeUpdate, nullptr},
     {"isKeyPressed", gmf_isKeyPressed, nullptr},
     {"isShiftPressed", gmf_isShiftPressed, nullptr},
     {"isControlPressed", gmf_isControlPressed, nullptr},
@@ -229,6 +432,44 @@ gmFunctionEntry s_inputLib[] = {
 
 } // namespace
 
+void InitializeDesktopControllers() { RefreshControllers(); }
+
+int ControllerEventCodes(SDL_JoystickID instance, Uint8 button, int* codes, int capacity) {
+    SDL_GameController* controller = ControllerAt(0);
+    if (!controller || SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller)) != instance) return 0;
+    int count = 0;
+    for (int i = 0; i < kNumberedButtonCount; ++i) {
+        if (kNumberedButtons[i] == button && count < capacity) codes[count++] = kNumberedButtonBase + i;
+    }
+    for (int i = 0; i < kAliasCount; ++i) {
+        if (kAliases[i].button == button && count < capacity) codes[count++] = kAliasBase + i;
+    }
+    return count;
+}
+
+int KeyboardJoystickAliasCodes(SDL_Scancode scancode, int* codes, int capacity) {
+    int count = 0;
+    for (int i = 0; i < kAliasCount; ++i) {
+        if (kAliases[i].fallback == scancode && count < capacity) codes[count++] = kAliasBase + i;
+    }
+    return count;
+}
+
+int HeldControllerCodes(int* codes, int capacity) {
+    SDL_GameController* controller = ControllerAt(0);
+    if (!controller) return 0;
+    int count = 0;
+    for (int i = 0; i < kNumberedButtonCount; ++i) {
+        if (SDL_GameControllerGetButton(controller, kNumberedButtons[i]) && count < capacity)
+            codes[count++] = kNumberedButtonBase + i;
+    }
+    for (int i = 0; i < kAliasCount; ++i) {
+        if (SDL_GameControllerGetButton(controller, kAliases[i].button) && count < capacity)
+            codes[count++] = kAliasBase + i;
+    }
+    return count;
+}
+
 void RegisterInputBindings(gmMachine& a_machine) {
     a_machine.RegisterLibrary(s_inputLib, sizeof(s_inputLib) / sizeof(s_inputLib[0]), "Input");
 
@@ -236,81 +477,24 @@ void RegisterInputBindings(gmMachine& a_machine) {
     // call site (`local cha=KEYCODE_GetAscii(kc);`).
     a_machine.RegisterLibraryFunction("KEYCODE_GetAscii", gmf_KEYCODE_GetAscii);
 
-    // Not decompiled-confirmed exact integer values -- real scripts only
-    // ever compare these symbolically, never against a literal number
-    // (checked by corpus grep), so any internally-consistent assignment is
-    // externally equivalent. Values are SDL_Scancode so isKeyPressed can
-    // use one lookup for both KEYBOARD_* and JOYSTICK0_* -- see header
-    // comment.
+    // Retail's exact integer values are not yet recovered. Keep keyboard
+    // and controller codes in distinct ranges so their actions stay distinct.
     gmTableObject* g = a_machine.GetGlobals();
+    // Numbered buttons follow ControllerConfig.gm's active Xbox mapping:
+    // A/B/X/Y, LB/RB, Back/Start, stick clicks, then the D-pad.
+    for (int i = 0; i < kNumberedButtonCount; ++i)
+        g->Set(&a_machine, ("JOYSTICK0_BUTTON" + std::to_string(i)).c_str(), gmVariable((gmint)(kNumberedButtonBase + i)));
+    for (int i = 0; i < kAliasCount; ++i)
+        g->Set(&a_machine, kAliases[i].name, gmVariable((gmint)(kAliasBase + i)));
 
-    // JOYSTICK0_* (button-style; the analog stick pair is axis-based, see
-    // getJoystickAxis above, not one of these) mapped to keyboard
-    // equivalents for a controller-less desktop build.
-    // ENGINE PATCH (2026-08-17): the 4 face buttons now also live on a
-    // single ZXCV row (Z=Cross, X=Square, C=Triangle, V=Circle) for direct
-    // keyboard access, on top of (not instead of) the existing Return/
-    // Escape bindings below -- JOYSTICK0_ACCEPT/CANCEL are kept on Return/
-    // Escape unchanged so every menu flow already relying on Enter/Esc
-    // (this whole session's own testing included) keeps working exactly
-    // as before. JOYSTICK0_CROSS/CIRCLE themselves move to Z/V since real
-    // scripts do check them directly in gameplay (not just via the
-    // ACCEPT/CANCEL aliases), same reasoning SQUARE/TRIANGLE's existing
-    // X/C mapping already established.
-    g->Set(&a_machine, "JOYSTICK0_CROSS", gmVariable((gmint)SDL_SCANCODE_Z));
-    g->Set(&a_machine, "JOYSTICK0_CIRCLE", gmVariable((gmint)SDL_SCANCODE_V));
-    g->Set(&a_machine, "JOYSTICK0_SQUARE", gmVariable((gmint)SDL_SCANCODE_X));
-    g->Set(&a_machine, "JOYSTICK0_TRIANGLE", gmVariable((gmint)SDL_SCANCODE_C));
-    
-    g->Set(&a_machine, "JOYSTICK0_ACCEPT", gmVariable((gmint)SDL_SCANCODE_RETURN));
-    g->Set(&a_machine, "JOYSTICK0_CANCEL", gmVariable((gmint)SDL_SCANCODE_ESCAPE));
-    // ENGINE PATCH (2026-08-16): JOYSTICK0_START used to alias the same
-    // SDL_SCANCODE_RETURN as JOYSTICK0_CROSS/ACCEPT above. Since Cross is
-    // the real jump button (ControllerConfig.gm's "jump" action /
-    // Player.gm:1667's keyProc.isKey("jump",kc)) and PlayMenu.gm:10 opens
-    // the pause menu on JOYSTICK0_START, every single jump press was ALSO
-    // opening pause -- which then calls setIsStealsInputFocus(true)
-    // (PauseProcessBase.gm), locking out all further movement/jump input.
-    // This was very likely the actual cause behind "can't jump" reports,
-    // separate from the postDraw/popup.draw() null-getdot bug pause was
-    // also hitting. P matches ControllerConfig.gm's own unused
-    // actionTable["pause"]={KEYBOARD_P} entry, so it's the dev-intended key.
-    g->Set(&a_machine, "JOYSTICK0_START", gmVariable((gmint)SDL_SCANCODE_P));
-    g->Set(&a_machine, "JOYSTICK0_SELECT", gmVariable((gmint)SDL_SCANCODE_TAB));
-    g->Set(&a_machine, "JOYSTICK0_UP", gmVariable((gmint)SDL_SCANCODE_UP));
-    g->Set(&a_machine, "JOYSTICK0_DOWN", gmVariable((gmint)SDL_SCANCODE_DOWN));
-    g->Set(&a_machine, "JOYSTICK0_LEFT", gmVariable((gmint)SDL_SCANCODE_LEFT));
-    g->Set(&a_machine, "JOYSTICK0_RIGHT", gmVariable((gmint)SDL_SCANCODE_RIGHT));
-    g->Set(&a_machine, "JOYSTICK0_L1", gmVariable((gmint)SDL_SCANCODE_Q));
-    g->Set(&a_machine, "JOYSTICK0_R1", gmVariable((gmint)SDL_SCANCODE_E));
+    // Remaining aliases still use keyboard fallbacks until trigger and
+    // right-stick digital thresholds are implemented.
     g->Set(&a_machine, "JOYSTICK0_L2", gmVariable((gmint)SDL_SCANCODE_1));
     g->Set(&a_machine, "JOYSTICK0_R2", gmVariable((gmint)SDL_SCANCODE_3));
-    // L3/R3 (stick-click buttons) -- previously entirely unmapped/missing.
-    // L3 moved off Z (2026-08-17): Z is now JOYSTICK0_CROSS, part of the
-    // new ZXCV face-button row above.
-    g->Set(&a_machine, "JOYSTICK0_L3", gmVariable((gmint)SDL_SCANCODE_N));
-    g->Set(&a_machine, "JOYSTICK0_R3", gmVariable((gmint)SDL_SCANCODE_M));
-    g->Set(&a_machine, "JOYSTICK0_LS_UP", gmVariable((gmint)SDL_SCANCODE_W));
-    g->Set(&a_machine, "JOYSTICK0_LS_DOWN", gmVariable((gmint)SDL_SCANCODE_S));
-    g->Set(&a_machine, "JOYSTICK0_LS_LEFT", gmVariable((gmint)SDL_SCANCODE_A));
-    g->Set(&a_machine, "JOYSTICK0_LS_RIGHT", gmVariable((gmint)SDL_SCANCODE_D));
     g->Set(&a_machine, "JOYSTICK0_RS_UP", gmVariable((gmint)SDL_SCANCODE_I));
     g->Set(&a_machine, "JOYSTICK0_RS_DOWN", gmVariable((gmint)SDL_SCANCODE_K));
-    // RS_LEFT/RS_RIGHT (digital right-stick buttons) -- previously missing;
-    // reuse J/L to match the existing right-stick axis 2 mapping above.
     g->Set(&a_machine, "JOYSTICK0_RS_LEFT", gmVariable((gmint)SDL_SCANCODE_J));
     g->Set(&a_machine, "JOYSTICK0_RS_RIGHT", gmVariable((gmint)SDL_SCANCODE_L));
-    // Generic numbered face/shoulder buttons -- not real physical PS3
-    // buttons; a fallback indexing scheme used only by the (non-retail)
-    // ControllerConfig.gm dev tool, whose real actions above already have
-    // working KEYBOARD_* equivalents in its own actionTable (OR'd together
-    // with these), so leaving them unmapped costs nothing. SDL_SCANCODE_
-    // UNKNOWN (0) so isKeyPressed on these always reads false rather than
-    // aliasing an unrelated key.
-    for (int i = 0; i <= 13; ++i) {
-        g->Set(&a_machine, ("JOYSTICK0_BUTTON" + std::to_string(i)).c_str(), gmVariable((gmint)SDL_SCANCODE_UNKNOWN));
-    }
-    
 
     g->Set(&a_machine, "MOUSE_LEFTBUTTON", gmVariable((gmint)0));
     g->Set(&a_machine, "MOUSE_RIGHTBUTTON", gmVariable((gmint)1));
@@ -383,4 +567,3 @@ void SetVirtualKeyDown(int a_scancode, bool a_down) {
 void ClearVirtualKeys() {
     for (int i = 0; i < SDL_NUM_SCANCODES; ++i) g_virtualKeys[i] = false;
 }
-

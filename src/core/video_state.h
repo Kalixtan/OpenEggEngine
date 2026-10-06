@@ -22,6 +22,5 @@ struct VideoState {
     float textShadowSize = 0.0f;
     bool shouldDrawEntities = true;
     int currentScreenX = 0, currentScreenY = 0;
-    bool isPauseProcess = false;
     bool needsFlushStaticSurface = false;
 };

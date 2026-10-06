@@ -2,12 +2,15 @@
 #include "gamemonkeyscript_bindings.h"
 #include "gmTableObject.h"
 #include "gmStringObject.h"
+#include "gmIncGC.h"
 #include "../core/engine_context.h"
 #include "../core/save_data.h"
+#include "../core/strict_calls.h"
 #include "tinyxml2.h"
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
+#include <algorithm>
 #include <zlib.h>
 #include <cctype>
 #include <cstdint>
@@ -19,6 +22,10 @@
 #include <vector>
 
 namespace {
+
+// Retail GameMonkeyScript.clean stores a pending per-frame GC pass count;
+// FUN_0018ab1c services one pass and decrements it in the engine update.
+int g_cleanPassesRemaining = 0;
 
 // Level files (Platformer/levels/*.xml.z, *.json.z) are real zlib streams
 // (confirmed: every ".z" file in the corpus starts with byte 0x78, zlib's
@@ -219,9 +226,22 @@ int GM_CDECL gmf_GameMonkeyScript_loadScript(gmThread* a_thread) {
 int GM_CDECL gmf_GameMonkeyScript_loadTableFromXMLFile(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
+    if (a_thread->GetNumParams() > 3) return GM_EXCEPTION;
+
+    int area = 1; // FILEHELPER_AREA_GAMEDATA
+    if (a_thread->GetNumParams() >= 2) {
+        GM_INT_PARAM(requestedArea, 1, 1);
+        area = requestedArea;
+    }
+    if (area != 0 && area != 1)
+        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromXMLFile(area)");
+    if (a_thread->GetNumParams() == 3 && a_thread->Param(2).m_value.m_int != 0)
+        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromXMLFile(parseFlag)");
 
     std::string text;
-    if (!GetEngineContext().fileHelper->ReadTextFile(path, text)) {
+    const bool found = area == 0 ? SaveData::ReadFile(path, text)
+                                 : GetEngineContext().fileHelper->ReadTextFile(path, text);
+    if (!found) {
         std::fprintf(stderr, "GameMonkeyScript.loadTableFromXMLFile: '%s' not found\n", path);
         a_thread->PushNull();
         return GM_OK;
@@ -250,16 +270,46 @@ int GM_CDECL gmf_GameMonkeyScript_loadTableFromXMLFile(gmThread* a_thread) {
     return GM_OK;
 }
 
+// Retail 0x0006e184 accepts (path, [area], [parseFlag]), reads the file,
+// decompresses it, then calls the same XML-to-GM table converter family as
+// loadTableFromXMLFile. The shipped level corpus calls the two-argument
+// GAMEDATA form; all its .xml.z files are zlib streams and the shared XML
+// loader above already inflates them before parsing. Savedata area 0 uses
+// the same per-title save root as the other FILEHELPER_AREA_SAVEDATA calls.
+// The third flag's effect and host/null areas need separate evidence.
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedXMLFile(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    if (a_thread->GetNumParams() > 3) return GM_EXCEPTION;
+    if (a_thread->GetNumParams() >= 2 && a_thread->Param(1).m_type != GM_INT)
+        return GM_EXCEPTION;
+    if (a_thread->GetNumParams() >= 2 && a_thread->Param(1).m_value.m_int != 0 &&
+        a_thread->Param(1).m_value.m_int != 1) {
+        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromCompressedXMLFile(area)");
+    }
+    if (a_thread->GetNumParams() == 3 && a_thread->Param(2).m_value.m_int != 0) {
+        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromCompressedXMLFile(parseFlag)");
+    }
+    return gmf_GameMonkeyScript_loadTableFromXMLFile(a_thread);
+}
+
 // Confirmed real: 1 or 2 args (path, [area]) -- area follows the same
-// FILEHELPER_AREA_* convention as Video.getTexture/loadTexture (only
-// GAMEDATA matters for now).
+// FILEHELPER_AREA_* convention as the XML loader above.
 int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonFile(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
-    if (a_thread->GetNumParams() >= 2) { GM_INT_PARAM(area, 1, 0); (void)area; }
+    if (a_thread->GetNumParams() > 2) return GM_EXCEPTION;
+    int area = 1;
+    if (a_thread->GetNumParams() == 2) {
+        GM_INT_PARAM(requestedArea, 1, 1);
+        area = requestedArea;
+    }
+    if (area != 0 && area != 1)
+        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromJsonFile(area)");
 
     std::string text;
-    if (!GetEngineContext().fileHelper->ReadTextFile(path, text)) {
+    const bool found = area == 0 ? SaveData::ReadFile(path, text)
+                                 : GetEngineContext().fileHelper->ReadTextFile(path, text);
+    if (!found) {
         std::fprintf(stderr, "GameMonkeyScript.loadTableFromJsonFile: '%s' not found\n", path);
         a_thread->PushNull();
         return GM_OK;
@@ -471,15 +521,33 @@ int GM_CDECL gmf_GameMonkeyScript_setIsCheckingInfiniteLoop(gmThread* a_thread) 
     return GM_OK;
 }
 
-// GameMonkeyScript.c 0x0006f5c4: sets an internal incremental-GC pass-count
-// DAT). Real call site (Main.gm:7592's `GameMonkeyScript.clean(-1);`, right
-// after finishing a level load) requests a full/aggressive garbage-collect
-// pass. This engine's GC (gmMachine's own mark-sweep, driven by vm.Tick())
-// already runs every frame unconditionally rather than incrementally by
-// requested pass-count, so there's no separate "run N passes now" knob to
-// wire -- genuine no-op.
+// GameMonkeyScript.clean([n]) -- retail sets a request count (default 4,
+// clamped to at least 1); FUN_0018ab1c consumes one request per frame.
+// Retail's collector manager performs an update with its force flag set.
+// The local VM exposes a full-collection operation rather than that manager,
+// so service each request with its corresponding forced collection.
 int GM_CDECL gmf_GameMonkeyScript_clean(gmThread* a_thread) {
-    (void)a_thread;
+    const int argc = a_thread->GetNumParams();
+    if (argc == 0) {
+        g_cleanPassesRemaining = 4;
+    } else if (argc == 1) {
+        // Retail reads the raw 32-bit argument value, without GM type
+        // conversion, then clamps nonpositive counts to one.
+        g_cleanPassesRemaining = std::max(a_thread->Param(0).m_value.m_int, 1);
+    }
+    return GM_OK;
+}
+
+int GM_CDECL gmf_GameMonkeyScript_isCollectingGarbage(gmThread* a_thread) {
+    a_thread->PushInt(g_cleanPassesRemaining > 0 ? 1 : 0);
+    return GM_OK;
+}
+
+// Retail 0x0006f77c pushes the collector's m_numAllocated field at +0x60.
+// The bundled GameMonkey collector already tracks that field under
+// GM_GC_STATS; keep the existing counter enabled in Release builds too.
+int GM_CDECL gmf_GameMonkeyScript_getNumObjectsInGC(gmThread* a_thread) {
+    a_thread->PushInt(a_thread->GetMachine()->GetGC()->GetNumAllocated());
     return GM_OK;
 }
 
@@ -487,7 +555,10 @@ gmFunctionEntry s_gameMonkeyScriptLib[] = {
     {"loadScript", gmf_GameMonkeyScript_loadScript, nullptr},
     {"setIsCheckingInfiniteLoop", gmf_GameMonkeyScript_setIsCheckingInfiniteLoop, nullptr},
     {"clean", gmf_GameMonkeyScript_clean, nullptr},
+    {"isCollectingGarbage", gmf_GameMonkeyScript_isCollectingGarbage, nullptr},
+    {"getNumObjectsInGC", gmf_GameMonkeyScript_getNumObjectsInGC, nullptr},
     {"loadTableFromXMLFile", gmf_GameMonkeyScript_loadTableFromXMLFile, nullptr},
+    {"loadTableFromCompressedXMLFile", gmf_GameMonkeyScript_loadTableFromCompressedXMLFile, nullptr},
     {"loadTableFromJsonFile", gmf_GameMonkeyScript_loadTableFromJsonFile, nullptr},
     // GameMonkeyScript.c 0x0006e9c0), same 1-or-2-arg (path,[area]) shape.
     // Genuinely the same native entry point as loadTableFromJsonFile above
@@ -502,6 +573,14 @@ gmFunctionEntry s_gameMonkeyScriptLib[] = {
 };
 
 } // namespace
+
+void ServiceGameMonkeyScriptCleanPass(gmMachine& a_machine) {
+    if (g_cleanPassesRemaining <= 0) return;
+    // Approximation only: retail advances a separately managed, budgeted
+    // cleanup cycle here; the local VM exposes only a forced full collection.
+    a_machine.CollectGarbage(true);
+    --g_cleanPassesRemaining;
+}
 
 // Exposed for Debug.GameMonkey2JSON/JSON2GameMonkey (confirmed real bare
 // around the private implementations above rather than moving them out of

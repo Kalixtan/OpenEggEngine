@@ -15,6 +15,10 @@
 // argument type.
 void RegisterColourBindings(gmMachine& a_machine);
 
+// Native drawList method: same named-colour interpolation as the global
+// COLOURSCHEME helper, recorded on the receiver's command list.
+int GM_CDECL DrawList_SetInterpolatedColour(gmThread* a_thread);
+
 // Resolves a_var (a colour name string, a ColourManager colour ID int, or
 // an existing COLOUR object) to plain floats. Shared with
 // draw_context.cpp's setColour, which is confirmed real to accept a
@@ -32,3 +36,6 @@ bool ResolveColourRGB(gmThread* a_thread, const gmVariable& a_var, float& a_r, f
 // that just wants e.g. "player_fill"'s RGB, such as the native player body
 // renderer (entity_bindings.cpp's DrawPlayerNative).
 bool GetNamedColourRGB(const std::string& a_name, float& a_r, float& a_g, float& a_b);
+
+// Active colour-scheme ID (COLOURSCHEME_SetColourScheme); diagnostics.
+int GetCurrentColourSchemeID();

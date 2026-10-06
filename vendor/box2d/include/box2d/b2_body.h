@@ -32,6 +32,7 @@ class b2Joint;
 class b2Contact;
 class b2Controller;
 class b2World;
+class b2RelativeJoint;
 struct b2FixtureDef;
 struct b2JointEdge;
 struct b2ContactEdge;
@@ -404,6 +405,7 @@ private:
 	friend class b2PrismaticJoint;
 	friend class b2PulleyJoint;
 	friend class b2RevoluteJoint;
+	friend class b2RelativeJoint;
 	friend class b2RopeJoint;
 	friend class b2WeldJoint;
 	friend class b2WheelJoint;

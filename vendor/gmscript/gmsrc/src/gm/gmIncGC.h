@@ -18,11 +18,7 @@
 #define GM_GC_TURN_OFF_ABLE 1                     // Let GC turn off after completion, can be turned back on when memory low
 #define GM_GC_KEEP_PERSISTANT_SEPARATE 1          // Keep persistant object in separate list for efficiency
 #define DEPTH_FIRST 1                             // Depth first or bredth first tracing
-#ifdef GM_DEBUG_BUILD
-  #define GM_GC_STATS 1                           // Some stats
-#else //GM_DEBUG_BUILD
-  #define GM_GC_STATS 0
-#endif //GM_DEBUG_BUILD
+#define GM_GC_STATS 1                             // Retail exposes the allocated-object count to script
 
 #define GM_GC_DEBUG 0                             // GC Debugging paranoid check code.  Only set to 1 when debugging the GC routines.
 
@@ -209,6 +205,9 @@ public:
 
   /// \brief Check if reference is valid for VM
   gmObject* CheckReference(gmptr a_ref);
+
+  /// \brief Number of allocated objects, including those pending destruction.
+  inline int GetNumAllocated() const { return m_numAllocated; }
   
   /// \brief Get instruction at point for VM Debugger.
   const void * GetInstructionAtBreakPoint(gmuint32 a_sourceId, int a_line);
@@ -334,6 +333,9 @@ public:
 
   /// \brief Get the virtual machine for language
   inline gmMachine* GetVM()                       {return m_gmMachine;}
+
+  /// \brief Count exposed by GameMonkeyScript.getNumObjectsInGC.
+  inline int GetNumAllocated() const              {return m_colorSet.GetNumAllocated();}
 
   /// \brief Check if reference is valid for VM
   gmObject* CheckReference(gmptr a_ref)           {return m_colorSet.CheckReference(a_ref);}

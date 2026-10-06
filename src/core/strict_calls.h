@@ -68,6 +68,12 @@ void MarkNative(gmMachine& a_machine, gmTableObject* a_table);
 // Convenience overload for a gmVariable known to hold a GM_TABLE.
 void MarkNative(gmMachine& a_machine, const gmVariable& a_tableVar);
 
+// Entity and process handles are native-owned tables that scripts extend
+// with callbacks. An unknown missing member on one of these may be an
+// optional script callback; only indexed retail native calls are reported.
+void MarkScriptExtensibleNative(gmMachine& a_machine, gmTableObject* a_table);
+void MarkScriptExtensibleNative(gmMachine& a_machine, const gmVariable& a_tableVar);
+
 // Body of a binding whose fabricated implementation was removed.
 // a_name is the script-visible name, qualified where it lives on a library or
 // type table ("Video.setTexture", "drawList.plotVertex", "SAVEDATA_getSystemFreeSpaceQuota").

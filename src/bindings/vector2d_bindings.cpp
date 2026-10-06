@@ -1,6 +1,7 @@
 #include "gmThread.h"
 #include "vector2d_bindings.h"
 #include "gmStringObject.h"
+#include "../core/process_manager.h"
 #include <cmath>
 #include <random>
 
@@ -11,13 +12,27 @@ namespace {
 struct Vector2DData {
     float x = 0.0f;
     float y = 0.0f;
+    gmMachine* machine = nullptr;
+    gmVariable owner = gmVariable::s_null;
+    bool ownsOwnerRoot = false;
+    void* refContext = nullptr;
+    Vector2DRefRead refRead = nullptr;
+    Vector2DRefWrite refWrite = nullptr;
 };
 
+void Refresh(Vector2DData* v) {
+    if (v && v->refRead) v->refRead(v->refContext, v->x, v->y);
+}
+
 Vector2DData* ThisVec2(gmThread* a_thread) {
-    return (Vector2DData*)a_thread->ThisUserCheckType(g_vector2DType);
+    Vector2DData* v = (Vector2DData*)a_thread->ThisUserCheckType(g_vector2DType);
+    Refresh(v);
+    return v;
 }
 Vector2DData* AsVec2(gmMachine& a_machine, const gmVariable& a_var) {
-    return (Vector2DData*)((gmUserObject*)a_machine.GetObject(a_var.m_value.m_ref))->m_user;
+    Vector2DData* v = (Vector2DData*)((gmUserObject*)a_machine.GetObject(a_var.m_value.m_ref))->m_user;
+    Refresh(v);
+    return v;
 }
 
 float Length(const Vector2DData& v) { return std::sqrt(v.x * v.x + v.y * v.y); }
@@ -197,8 +212,10 @@ void GM_CDECL OpSetDot(gmThread* a_thread, gmVariable* a_operands) {
     const char* s = member->GetString();
     float newVal = (a_operands[1].m_type == GM_FLOAT) ? a_operands[1].m_value.m_float
                  : (a_operands[1].m_type == GM_INT) ? (float)a_operands[1].m_value.m_int : 0.0f;
-    if (member->GetLength() == 1 && s[0] == 'x') v->x = newVal;
-    else if (member->GetLength() == 1 && s[0] == 'y') v->y = newVal;
+    bool changed = false;
+    if (member->GetLength() == 1 && s[0] == 'x') { v->x = newVal; changed = true; }
+    else if (member->GetLength() == 1 && s[0] == 'y') { v->y = newVal; changed = true; }
+    if (changed && v->refWrite) v->refWrite(v->refContext, v->x, v->y);
 }
 bool GetOperandAsVec(gmMachine& a_machine, const gmVariable& a_var, Vector2DData& a_out) {
     if (a_var.m_type == g_vector2DType) { a_out = *AsVec2(a_machine, a_var); return true; }
@@ -290,8 +307,10 @@ gmFunctionEntry s_vector2DLib[] = {
 };
 
 void GM_CDECL Vector2DGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
+    Vector2DData* v = (Vector2DData*)a_object->m_user;
+    if (v->machine && v->ownsOwnerRoot) UnrootGmVariable(*v->machine, v->owner);
     (void)a_machine;
-    delete (Vector2DData*)a_object->m_user;
+    delete v;
 }
 void GM_CDECL Vector2DAsString(gmUserObject* a_object, char* a_buffer, int a_bufferLen) {
     Vector2DData* v = (Vector2DData*)a_object->m_user;
@@ -306,9 +325,27 @@ gmVariable MakeVector2D(gmMachine& a_machine, float a_x, float a_y) {
     return gmVariable(obj);
 }
 
+gmVariable MakeVector2DRef(gmMachine& a_machine, const gmVariable& a_owner,
+                           void* a_context, Vector2DRefRead a_read,
+                           Vector2DRefWrite a_write) {
+    Vector2DData* data = new Vector2DData();
+    data->machine = &a_machine;
+    data->owner = a_owner;
+    data->ownsOwnerRoot = a_owner.IsReference() &&
+        !a_machine.IsCPPOwnedGMObject(a_machine.GetObject(a_owner.m_value.m_ref));
+    data->refContext = a_context;
+    data->refRead = a_read;
+    data->refWrite = a_write;
+    if (data->ownsOwnerRoot) RootGmVariable(a_machine, data->owner);
+    Refresh(data);
+    gmUserObject* obj = a_machine.AllocUserObject(data, g_vector2DType);
+    return gmVariable(obj);
+}
+
 bool GetVector2D(gmMachine& a_machine, const gmVariable& a_var, float& a_outX, float& a_outY) {
     if (a_var.m_type != g_vector2DType) return false;
     Vector2DData* v = (Vector2DData*)((gmUserObject*)a_machine.GetObject(a_var.m_value.m_ref))->m_user;
+    Refresh(v);
     a_outX = v->x; a_outY = v->y;
     return true;
 }

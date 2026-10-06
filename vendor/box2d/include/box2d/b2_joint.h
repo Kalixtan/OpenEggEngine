@@ -45,7 +45,8 @@ enum b2JointType
     e_weldJoint,
 	e_frictionJoint,
 	e_ropeJoint,
-	e_motorJoint
+	e_motorJoint,
+	e_relativeJoint
 };
 
 struct B2_API b2Jacobian

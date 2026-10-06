@@ -1,10 +1,22 @@
 #include "gmThread.h"
 #include "audio_bindings.h"
 #include "gmTableObject.h"
+#include "../core/engine_context.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
 #include <cstdio>
+#include <array>
+#include <cstring>
+#include <fstream>
+#include <limits>
+#include <cmath>
+#include <algorithm>
+#include <cstdlib>
+#include <memory>
+#include <optional>
+#include <vector>
+#include <SDL2/SDL.h>
 
 // ---------------------------------------------------------------------
 // citations on each binding below) plus two direct Ghidra cross-references
@@ -12,13 +24,20 @@
 // (playSound @ 0x001c5d6c, setVoiceVolume @ 0x001c5f50, getVoiceVolume
 // @ 0x001c5fe0 -- found via the same gmFunctionEntry-table technique used
 //
-// No real audio backend (see audio_bindings.h) -- every voice handle
-// playSound returns is real and unique, and every setter below writes into
-// that voice's actual tracked state (read back correctly by the matching
-// getter), it's just never fed to an actual mixer/output device.
+// SDL's queued audio device now plays decoded WAV samples from active voice
+// handles. Retail effects, gate shaping, priority, and exact mixer routing
+// remain to be ported; the script-facing voice registry stays authoritative.
 // ---------------------------------------------------------------------
 
 namespace {
+
+constexpr int kOutputRate = 44100;
+struct DecodedSound {
+    std::vector<float> stereo;
+};
+SDL_AudioDeviceID g_audioDevice = 0;
+double g_fractionalOutputFrames = 0.0;
+std::unordered_map<std::string, std::weak_ptr<DecodedSound>> g_decodedSounds;
 
 struct VoiceState {
     std::string soundFile;
@@ -26,15 +45,18 @@ struct VoiceState {
     float pan = 0.0f;
     float pitchBend = 0.0f;
     float speed = 1.0f;
-    int positionMs = 0;
+    double positionMs = 0.0;
     bool paused = false;
     bool looping = false;
     int loopCount = 0;
+    std::shared_ptr<DecodedSound> sample;
+    bool sampleLoadAttempted = false;
 };
 
 struct AudioState {
     std::unordered_map<int, VoiceState> voices;
     std::unordered_set<std::string> loadedSounds;
+    std::unordered_map<std::string, int> soundLengthMs;
     int nextVoiceId = 1;
     float masterVolume = 1.0f;
     float musicVolume = 1.0f;
@@ -48,6 +70,175 @@ AudioState& State() {
 VoiceState* FindVoice(int a_id) {
     auto it = State().voices.find(a_id);
     return it == State().voices.end() ? nullptr : &it->second;
+}
+
+uint32_t ReadU32LE(const unsigned char* a_bytes) {
+    return (uint32_t)a_bytes[0] | ((uint32_t)a_bytes[1] << 8) |
+           ((uint32_t)a_bytes[2] << 16) | ((uint32_t)a_bytes[3] << 24);
+}
+uint32_t ReadU32BE(const unsigned char* a_bytes) {
+    return ((uint32_t)a_bytes[0] << 24) | ((uint32_t)a_bytes[1] << 16) |
+           ((uint32_t)a_bytes[2] << 8) | (uint32_t)a_bytes[3];
+}
+
+// Duration is script-visible even before desktop audio output exists:
+// EntityBasePS3 uses getSoundLength to compute note gate times, and the
+// campaign record player seeks relative to getVoiceLength. Read only the
+// container headers, keeping memory bounded for long level recordings.
+int ReadSoundLengthMs(const std::string& a_path) {
+    FileHelper* files = GetEngineContext().fileHelper;
+    if (!files) return 0;
+    auto resolved = files->Resolve(a_path);
+    if (!resolved) return 0;
+    std::ifstream stream(*resolved, std::ios::binary);
+    if (!stream) return 0;
+    std::array<unsigned char, 12> header{};
+    if (!stream.read((char*)header.data(), header.size())) return 0;
+
+    if (std::memcmp(header.data(), "VAGp", 4) == 0) {
+        // Standard Sony VAG header: big-endian encoded byte count at +12,
+        // sample rate at +16. Each 16-byte ADPCM block holds 28 samples.
+        std::array<unsigned char, 8> fields{};
+        if (!stream.read((char*)fields.data(), fields.size())) return 0;
+        uint32_t bytes = ReadU32BE(fields.data());
+        uint32_t rate = ReadU32BE(fields.data() + 4);
+        if (!rate) return 0;
+        uint64_t ms = ((uint64_t)bytes / 16) * 28 * 1000 / rate;
+        return ms <= (uint64_t)std::numeric_limits<int>::max() ? (int)ms : 0;
+    }
+
+    if (std::memcmp(header.data(), "RIFF", 4) != 0 ||
+        std::memcmp(header.data() + 8, "WAVE", 4) != 0) return 0;
+    uint32_t byteRate = 0, dataBytes = 0;
+    for (int i = 0; i < 128 && stream; ++i) {
+        std::array<unsigned char, 8> chunk{};
+        if (!stream.read((char*)chunk.data(), chunk.size())) break;
+        uint32_t size = ReadU32LE(chunk.data() + 4);
+        if (std::memcmp(chunk.data(), "fmt ", 4) == 0 && size >= 16) {
+            std::array<unsigned char, 16> fmt{};
+            if (!stream.read((char*)fmt.data(), fmt.size())) break;
+            byteRate = ReadU32LE(fmt.data() + 8);
+            stream.seekg((std::streamoff)size - 16, std::ios::cur);
+        } else {
+            if (std::memcmp(chunk.data(), "data", 4) == 0) dataBytes = size;
+            stream.seekg((std::streamoff)size, std::ios::cur);
+        }
+        if (size & 1) stream.seekg(1, std::ios::cur);
+        if (byteRate && dataBytes) break;
+    }
+    if (!byteRate) return 0;
+    uint64_t ms = (uint64_t)dataBytes * 1000 / byteRate;
+    return ms <= (uint64_t)std::numeric_limits<int>::max() ? (int)ms : 0;
+}
+
+int SoundLengthMs(const std::string& a_path) {
+    auto& cache = State().soundLengthMs;
+    auto it = cache.find(a_path);
+    if (it != cache.end()) return it->second;
+    return cache.emplace(a_path, ReadSoundLengthMs(a_path)).first->second;
+}
+
+std::shared_ptr<DecodedSound> DecodeSound(const std::string& a_path) {
+    auto cached = g_decodedSounds.find(a_path);
+    if (cached != g_decodedSounds.end()) {
+        if (auto sample = cached->second.lock()) return sample;
+    }
+    FileHelper* files = GetEngineContext().fileHelper;
+    if (!files) return {};
+    std::optional<std::string> resolved;
+    if (a_path.size() > 4 &&
+        a_path.compare(a_path.size() - 4, 4, ".vag") == 0) {
+        // Most shipped Sony VAG assets also have a RIFF sibling. SDL can
+        // decode that sibling without carrying a second ADPCM decoder.
+        std::string wavePath = a_path.substr(0, a_path.size() - 4) + ".wav";
+        resolved = files->Resolve(wavePath);
+    }
+    if (!resolved) resolved = files->Resolve(a_path);
+    if (!resolved) return {};
+    SDL_AudioSpec source{};
+    Uint8* bytes = nullptr;
+    Uint32 byteCount = 0;
+    if (!SDL_LoadWAV(resolved->c_str(), &source, &bytes, &byteCount)) return {};
+    SDL_AudioCVT cvt{};
+    if (SDL_BuildAudioCVT(&cvt, source.format, source.channels, source.freq,
+                          AUDIO_F32SYS, 2, kOutputRate) < 0) {
+        SDL_FreeWAV(bytes);
+        return {};
+    }
+    if (byteCount > (size_t)std::numeric_limits<int>::max() / (size_t)cvt.len_mult) {
+        SDL_FreeWAV(bytes);
+        return {};
+    }
+    cvt.len = (int)byteCount;
+    cvt.buf = (Uint8*)SDL_malloc((size_t)cvt.len * cvt.len_mult);
+    if (!cvt.buf) { SDL_FreeWAV(bytes); return {}; }
+    std::memcpy(cvt.buf, bytes, byteCount);
+    SDL_FreeWAV(bytes);
+    if (SDL_ConvertAudio(&cvt) != 0) { SDL_free(cvt.buf); return {}; }
+    auto sample = std::make_shared<DecodedSound>();
+    const float* floats = (const float*)cvt.buf;
+    sample->stereo.assign(floats, floats + cvt.len_cvt / sizeof(float));
+    SDL_free(cvt.buf);
+    g_decodedSounds[a_path] = sample;
+    return sample;
+}
+
+void QueueMixedVoices(float a_deltaMs) {
+    if (!g_audioDevice) return;
+    const double wanted = a_deltaMs * kOutputRate / 1000.0 + g_fractionalOutputFrames;
+    int frameCount = (int)std::min(8192.0, std::floor(wanted));
+    g_fractionalOutputFrames = wanted - std::floor(wanted);
+    if (frameCount <= 0) return;
+    std::vector<float> mix((size_t)frameCount * 2, 0.0f);
+    const float master = State().masterVolume;
+    for (auto& entry : State().voices) {
+        VoiceState& voice = entry.second;
+        if (voice.paused || voice.speed == 0.0f || !std::isfinite(voice.speed)) continue;
+        if (!voice.sampleLoadAttempted) {
+            voice.sample = DecodeSound(voice.soundFile);
+            voice.sampleLoadAttempted = true;
+        }
+        if (!voice.sample || voice.sample->stereo.size() < 2) continue;
+        const size_t soundFrames = voice.sample->stereo.size() / 2;
+        const float pan = std::clamp(voice.pan, -1.0f, 1.0f);
+        const float gain = std::max(0.0f, voice.volume * master);
+        const float leftGain = gain * (pan > 0.0f ? 1.0f - pan : 1.0f);
+        const float rightGain = gain * (pan < 0.0f ? 1.0f + pan : 1.0f);
+        for (int frame = 0; frame < frameCount; ++frame) {
+            const double positionMs = voice.positionMs +
+                (double)frame * 1000.0 / kOutputRate * voice.speed;
+            double sourceFrame = positionMs * kOutputRate / 1000.0;
+            if (voice.looping || voice.loopCount > 1) {
+                sourceFrame = std::fmod(sourceFrame, (double)soundFrames);
+                if (sourceFrame < 0.0) sourceFrame += soundFrames;
+            }
+            if (sourceFrame < 0.0 || sourceFrame >= soundFrames) continue;
+            const size_t i = (size_t)sourceFrame;
+            const size_t next = i + 1 < soundFrames ? i + 1 : i;
+            const float blend = (float)(sourceFrame - i);
+            mix[(size_t)frame * 2] +=
+                (voice.sample->stereo[i * 2] * (1.0f - blend) +
+                 voice.sample->stereo[next * 2] * blend) * leftGain;
+            mix[(size_t)frame * 2 + 1] +=
+                (voice.sample->stereo[i * 2 + 1] * (1.0f - blend) +
+                 voice.sample->stereo[next * 2 + 1] * blend) * rightGain;
+        }
+    }
+    for (float& sample : mix) sample = std::clamp(sample, -1.0f, 1.0f);
+    const Uint32 maxQueuedBytes = (Uint32)(kOutputRate * 2 * sizeof(float) / 4);
+    if (SDL_GetQueuedAudioSize(g_audioDevice) > maxQueuedBytes)
+        SDL_ClearQueuedAudio(g_audioDevice);
+    SDL_QueueAudio(g_audioDevice, mix.data(), (Uint32)(mix.size() * sizeof(float)));
+}
+
+int CreateVoiceState(const std::string& a_path, float a_pan, float a_volume) {
+    const int id = State().nextVoiceId++;
+    VoiceState voice;
+    voice.soundFile = a_path;
+    voice.volume = a_volume;
+    voice.pan = a_pan;
+    State().voices[id] = std::move(voice);
+    return id;
 }
 
 // --- loading ---------------------------------------------------------
@@ -115,13 +306,7 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
     float pan = a_thread->ParamFloatOrInt(3, 0.0f);
     float vol = a_thread->ParamFloatOrInt(4, 1.0f);
 
-    int id = State().nextVoiceId++;
-    VoiceState v;
-    v.soundFile = path;
-    v.volume = vol;
-    v.pan = pan;
-    State().voices[id] = v;
-    a_thread->PushInt(id);
+    a_thread->PushInt(CreateVoiceState(path, pan, vol));
     return GM_OK;
 }
 // Audio.playSoundSlicker/spawnSoundSlicker/playStream -- confirmed real
@@ -274,7 +459,23 @@ int GM_CDECL gmf_getVoicePosition(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(voice, 0, 0);
     VoiceState* v = FindVoice(voice);
-    a_thread->PushInt(v ? v->positionMs : 0);
+    double position = v ? v->positionMs : 0.0;
+    if (position > std::numeric_limits<int>::max()) position = std::numeric_limits<int>::max();
+    if (position < std::numeric_limits<int>::min()) position = std::numeric_limits<int>::min();
+    a_thread->PushInt((int)position);
+    return GM_OK;
+}
+int GM_CDECL gmf_getVoiceLength(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(voice, 0, 0);
+    VoiceState* v = FindVoice(voice);
+    a_thread->PushInt(v ? SoundLengthMs(v->soundFile) : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_getSoundLength(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(path, 0, "");
+    a_thread->PushInt(SoundLengthMs(path));
     return GM_OK;
 }
 // Audio.getFrequencyMultiplier() -- no real audio decode/mixer to read an
@@ -537,13 +738,9 @@ gmFunctionEntry s_audioLib[] = {
     {"getVoiceSpeed", gmf_getVoiceSpeed, nullptr},
     {"setVoicePosition", gmf_setVoicePosition, nullptr},
     {"getVoicePosition", gmf_getVoicePosition, nullptr},
-    // Audio.getVoiceLength(voice)/getSoundLength(path) -- confirmed real
-    // names (0x0008681c/0x000868d4), both pushing type tag 1 (INT, not
-    // float -- this engine's previous mapping to gmf_zeroFloat was wrong
-    // about the type). No real audio decode to measure an actual duration
-    // from -- 0 is an honest "unknown", not a fabricated number.
-    {"getVoiceLength", gmf_zeroInt, nullptr},
-    {"getSoundLength", gmf_zeroInt, nullptr},
+    // Retail wrappers 0x0008681c/0x000868d4 return integer milliseconds.
+    {"getVoiceLength", gmf_getVoiceLength, nullptr},
+    {"getSoundLength", gmf_getSoundLength, nullptr},
     {"setVoiceLoop", gmf_setVoiceLoop, nullptr},
     {"setVoiceLoopCount", gmf_setVoiceLoopCount, nullptr},
     {"getAllVoices", gmf_getAllVoices, nullptr},
@@ -604,6 +801,70 @@ gmFunctionEntry s_audioLib[] = {
 };
 
 } // namespace
+
+int CreateVoiceNative(const std::string& a_path, float a_pan, float a_volume) {
+    return CreateVoiceState(a_path, a_pan, a_volume);
+}
+
+void AdvanceAudioVoices(float a_deltaMs) {
+    if (!(a_deltaMs > 0.0f) || !std::isfinite(a_deltaMs)) return;
+    QueueMixedVoices(a_deltaMs);
+    auto& voices = State().voices;
+    for (auto it = voices.begin(); it != voices.end();) {
+        VoiceState& voice = it->second;
+        if (voice.paused || !std::isfinite(voice.speed) || voice.speed == 0.0f) {
+            ++it;
+            continue;
+        }
+        voice.positionMs += (double)a_deltaMs * voice.speed;
+        const int length = SoundLengthMs(voice.soundFile);
+        // A missing or unsupported asset has no known end marker. Keep its
+        // handle available for explicit stop, while still advancing its
+        // script-visible cursor.
+        if (length <= 0) { ++it; continue; }
+        if (voice.positionMs >= 0.0 && voice.positionMs < length) {
+            ++it;
+            continue;
+        }
+        if (voice.looping || voice.loopCount > 1) {
+            if (voice.loopCount > 1) --voice.loopCount;
+            voice.positionMs = std::fmod(voice.positionMs, (double)length);
+            if (voice.positionMs < 0.0) voice.positionMs += length;
+            ++it;
+        } else {
+            it = voices.erase(it);
+        }
+    }
+}
+
+void InitializeAudioOutput() {
+    if (std::getenv("GE3_HEADLESS") && !std::getenv("GE3_AUDIO_OUTPUT")) return;
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+        std::fprintf(stderr, "Audio output unavailable: %s\n", SDL_GetError());
+        return;
+    }
+    SDL_AudioSpec wanted{};
+    wanted.freq = kOutputRate;
+    wanted.format = AUDIO_F32SYS;
+    wanted.channels = 2;
+    wanted.samples = 1024;
+    g_audioDevice = SDL_OpenAudioDevice(nullptr, 0, &wanted, nullptr, 0);
+    if (!g_audioDevice) {
+        std::fprintf(stderr, "Audio output unavailable: %s\n", SDL_GetError());
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        return;
+    }
+    SDL_PauseAudioDevice(g_audioDevice, 0);
+}
+
+void ShutdownAudioOutput() {
+    if (g_audioDevice) {
+        SDL_CloseAudioDevice(g_audioDevice);
+        g_audioDevice = 0;
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    }
+    g_decodedSounds.clear();
+}
 
 void SetMasterVolumeNative(float a_vol) { State().masterVolume = a_vol; }
 float GetMasterVolumeNative() { return State().masterVolume; }

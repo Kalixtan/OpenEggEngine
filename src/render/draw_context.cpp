@@ -557,6 +557,19 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
             DrawContext& ctx2 = GetDrawContext();
             const DrawContext::Mat& top = ctx2.Top();
             float z = top.z + localZ;
+            // GE3_TEXT_DIAG=1 -- report every glyph draw with the world
+            // position it actually lands at. Diagnostic for "no text on
+            // screen": distinguishes "print never runs" from "print runs
+            // but draws off-camera" (e.g. an entity left at the world
+            // origin), which look identical on a screenshot.
+            if (getenv("GE3_TEXT_DIAG")) {
+                float wx, wy;
+                DC_TransformPoint(top, x, y, wx, wy);
+                Renderer* r = GetEngineContext().renderer;
+                std::fprintf(stderr, "[text] '%s' world(%.2f,%.2f) z=%.2f scale=%.3f cam(%.2f,%.2f)\n",
+                             lines.empty() ? "" : lines[0].c_str(), wx, wy, z, scale,
+                             r ? r->GetCameraX() : 0.0f, r ? r->GetCameraY() : 0.0f);
+            }
             float lineY = y;
             for (const std::string& line : lines) {
                 font->DrawText(*renderer, line, x, lineY, scale, align, ctx2.fontEdge, ctx2.fontWidth,
@@ -669,6 +682,19 @@ int PrintArrayImpl(gmThread* a_thread) {
             DrawContext& ctx2 = GetDrawContext();
             const DrawContext::Mat& top = ctx2.Top();
             float z = top.z + localZ;
+            // GE3_TEXT_DIAG=1 -- report every glyph draw with the world
+            // position it actually lands at. Diagnostic for "no text on
+            // screen": distinguishes "print never runs" from "print runs
+            // but draws off-camera" (e.g. an entity left at the world
+            // origin), which look identical on a screenshot.
+            if (getenv("GE3_TEXT_DIAG")) {
+                float wx, wy;
+                DC_TransformPoint(top, x, y, wx, wy);
+                Renderer* r = GetEngineContext().renderer;
+                std::fprintf(stderr, "[text] '%s' world(%.2f,%.2f) z=%.2f scale=%.3f cam(%.2f,%.2f)\n",
+                             lines.empty() ? "" : lines[0].c_str(), wx, wy, z, scale,
+                             r ? r->GetCameraX() : 0.0f, r ? r->GetCameraY() : 0.0f);
+            }
             float lineY = y;
             for (const std::string& line : lines) {
                 font->DrawText(*renderer, line, x, lineY, scale, align, ctx2.fontEdge, ctx2.fontWidth,
@@ -860,7 +886,25 @@ int GM_CDECL gmf_DC_translate(gmThread* a_thread) {
     if (p0.m_type == g_vector2DType) {
         GetVector2D(*a_thread->GetMachine(), p0, x, y);
         if (a_thread->GetNumParams() >= 2) z = a_thread->ParamFloatOrInt(1, 0.0f);
+        // GE3_TEXT_DIAG=1 -- RECORD-time translate values. Compare against
+        // the [text] lines' replay-time world positions: if a translate is
+        // recorded as (0,0) the body really was at the origin when draw()
+        // ran, which means draw() ran before configure() positioned it and
+        // the cached draw list has been replaying that stale transform
+        // ever since. If it records real values but [text] still reports
+        // world(0,0), the transform is being lost between record and
+        // replay instead.
+        if (getenv("GE3_TEXT_DIAG")) {
+            std::fprintf(stderr, "[xlate-rec] (%.2f,%.2f) z=%.2f\n", x, y, z);
+        }
     } else if (p0.m_type == GM_NULL) {
+        // GE3_TEXT_DIAG=1 -- a null vector reaching translate keeps z but
+        // zeroes x/y, which is exactly the "(0,0) with correct z" signature
+        // seen on every tutorial text draw. Almost always means the caller
+        // did `translate(this.mainpb.getPos(), z)` with a NULL mainpb.
+        if (getenv("GE3_TEXT_DIAG")) {
+            std::fprintf(stderr, "[xlate-null] null vector, z kept\n");
+        }
         // ENGINE PATCH: null-tolerant vector-form translate(null, [z]) --
         // confirmed real, live crash FlareBuddyCannon.gm:141: `this.
         // drawList.translate(this.animOffset);` where `this.animOffset` is
@@ -886,6 +930,14 @@ int GM_CDECL gmf_DC_translate(gmThread* a_thread) {
         DrawContext::Mat t;
         t.e = x; t.f = y; t.z = z;
         ctx.Top() = DC_Multiply(ctx.Top(), t);
+        // GE3_TEXT_DIAG=1 -- REPLAY-time translate. This is the one that
+        // can be compared against the [text] lines (also replay-time); the
+        // [xlate-rec] line above fires at RECORD time and interleaves
+        // differently, so the two must not be read against each other.
+        if (getenv("GE3_TEXT_DIAG")) {
+            std::fprintf(stderr, "[xlate-run] (%.2f,%.2f) z=%.2f -> top(%.2f,%.2f)\n",
+                         x, y, z, ctx.Top().e, ctx.Top().f);
+        }
     });
 }
 
@@ -961,11 +1013,25 @@ int GM_CDECL gmf_DC_rotate(gmThread* a_thread) {
 // argument contract both share: 1 arg = uniform scale (x=y=arg0), 2+ args
 // = non-uniform (x=arg0, y=arg1). Applied here the same way translate/
 // rotateZ are -- composed into this engine's existing affine matrix stack.
+// Lenient argument reads, for exactly the reason gmf_DC_translate documents
+// at length: GM_FLOAT_OR_INT_PARAM expands to the vendored gmscript's STRICT
+// variant, which throws a blank-message GM_EXCEPTION the moment a parameter
+// exists but isn't numeric -- and a GM exception aborts the ENTIRE calling
+// draw() function, not just the offending statement.
+//
+// Confirmed live, not hypothetical: `this.drawList.scale(this.dirSign, 1)`
+// in EntityPacks/GoombaCritterGuitar.gm:495 and EntityPacks/BlockCannon.gm:311
+// runs every frame with `dirSign` still null on entities whose facing hasn't
+// been resolved yet, and it threw roughly 1900 times over a single tutorial
+// run -- silently discarding every other draw call those entities make. A
+// null scale is a no-op scale (1,1), matching the null-tolerant handling
+// translate and rotateZ already apply to the same class of not-yet-assigned
+// entity field.
 int GM_CDECL gmf_DC_scale(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(sx, 0, 1.0f);
+    float sx = a_thread->ParamFloatOrInt(0, 1.0f);
     float sy = sx;
-    if (a_thread->GetNumParams() >= 2) { GM_FLOAT_OR_INT_PARAM(sy2, 1, 1.0f); sy = sy2; }
+    if (a_thread->GetNumParams() >= 2) sy = a_thread->ParamFloatOrInt(1, 1.0f);
     return DC_RecordOrRun(a_thread, [sx, sy] {
         DrawContext& ctx = GetDrawContext();
         DrawContext::Mat s;

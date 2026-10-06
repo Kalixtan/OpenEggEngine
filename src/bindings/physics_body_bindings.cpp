@@ -1,5 +1,6 @@
 #include "gmThread.h"
 #include "physics_body_bindings.h"
+#include "physics_joint_bindings.h"
 #include <algorithm>
 #include "physics_bindings.h"
 #include "vector2d_bindings.h"
@@ -14,27 +15,26 @@ namespace {
 
 gmType g_physicsBodyType = -1;
 gmType g_physicsDataType = -1;
+gmType g_physicsShapeType = -1;
 gmType g_entityIterType = -1; // stub iterator for getCollidingEntities()
 
-// ENGINE PATCH (2026-08-16): empirically-calibrated velocity scale between
-// script-space units and Box2D's real-time integration. Player.gm's own
-// real velocity/acceleration constants (walkSpeed, maxHangSpeed, etc.),
-// taken literally, imply ~45 minutes to cross one confirmed screen-width --
-// Box2D itself is confirmed byte-identical to upstream v2.4.1, and the
-// msElapsed value passed into script update() calls (main.cpp) is confirmed
-// genuine milliseconds, so neither explains the discrepancy. Retail's real
-// native setVel/setPos/setSpeed/setDir could not be located in the binary
-// a scale factor we're missing, so this is a stopgap, not a confirmed fix.
-//
-// Applied ONLY at the setVel/setSpeed (script->sim) and getVel/getSpeed
-// (sim->script) boundaries, so every script-visible value (comparisons
-// against maxHangSpeed etc.) is unaffected -- only the body's actual
-// real-time motion through the (unscaled) Box2D/ground coordinate space
-// speeds up by this factor. Positions, shape geometry, and ground bodies
-// are untouched, so collision alignment is unaffected. TUNABLE.
-// (kScriptVelocityToSimScale itself now declared in physics_body_bindings.h
-// so player_renderer.cpp -- which reads body->GetLinearVelocity() directly
-// for its own speed-dependent visuals -- can divide it back out too.)
+// Game scripts express velocity and angular velocity per millisecond. Stock
+// Box2D expresses both per second, so keep the unit conversion at this
+// boundary and leave all script-visible values in their original units.
+constexpr float kPhysicsSecondsPerMillisecond = 0.001f;
+constexpr float kPhysicsMillisecondsPerSecond = 1000.0f;
+inline b2Vec2 ScriptVelocity(const b2Vec2& a_velocity) {
+    return kPhysicsSecondsPerMillisecond * a_velocity;
+}
+inline b2Vec2 Box2DVelocity(const b2Vec2& a_velocity) {
+    return kPhysicsMillisecondsPerSecond * a_velocity;
+}
+inline float ScriptAngularVelocity(float a_velocity) {
+    return a_velocity * kPhysicsSecondsPerMillisecond;
+}
+inline float Box2DAngularVelocity(float a_velocity) {
+    return a_velocity * kPhysicsMillisecondsPerSecond;
+}
 
 // setPos/setVel/setDir all take EITHER (x,y) as two numbers OR a single
 // vector2D (confirmed real: Platformer/Main.gm:1563's
@@ -73,35 +73,20 @@ struct PhysicsBodyData {
     // data already holds the owning PhysicsDataObj*, so this can't reuse
     // that slot -- see g_bodiesByObjectId instead).
     int objectId = 0;
-    // setThrustAcc/setBrakeAcc all decompile to a bare
-    // `*(float*)(nativeObj+OFS) = arg` store with no other side effects,
-    // and setVelocityDecayRate/setRotationDecayRate decompile to a call
-    // into a shared helper (FUN_00032b94/FUN_00032b3c) that computes
-    // `clamp(exp(-arg * K), lo, hi)` before storing -- i.e. retail
-    // pre-converts a "decay rate" into a per-tick multiplicative velocity-
-    // retention factor at set time, not at consume time. No decompiled
-    // evidence exists for setMaxRotateSpeed/setRotateAcc specifically, but
-    // every other same-class "Acc"/"Max*" setter (setThrustAcc,
-    // setMaxSpeed) is a bare store, so these follow the same pattern by
-    // strong structural analogy. None of these are consumed by our own
-    // physics step yet (see StepPhysicsWorld, physics_world.cpp) --
-    // scripts set them and otherwise leave the sim to Box2D, so storing
-    // them (without a confirmed effect on the sim) is the honest
-    // stand-in, same as before, just now backed by real setter evidence
-    // instead of a guess.
-    float maxSpeed = 1e9f;
-    // These two hold the PRE-CONVERTED per-tick retention factor (what
-    // ComputeDecayFactor returns), not the raw script-supplied rate --
-    // matching retail, which converts at set time. Default 1.0 = "retain
-    // everything", i.e. no decay until a script actually calls
-    // setVelocityDecayRate/setRotationDecayRate. (Was 0.0f, which as a
-    // retention factor means "zero out velocity every tick" -- harmless
-    // while nothing consumed these fields, but actively wrong now that
-    // StepPhysicsBodyMovement does.)
+    // the acceleration setters store their values directly. The two decay
+    // setters store exp(-rate*16.666666), clamped to [0,1], at native
+    // offsets +0x24/+0x28. Their consumers are recovered in
+    // Constructor defaults confirmed from FUN_00031948, cross-checked
+    // against the retail get/set wrappers: maxSpeed +0x34 = 9,999,999.
+    float maxSpeed = 9999999.0f;
+    // Values after the retail exp(-rate * 16.666666), clamped to [0,1]
+    // transform.
     float velocityDecayRate = 1.0f;
-    float maxRotateSpeed = 1e9f;
+    // maxRotateSpeed +0x44 = 9,999,999 in the retail constructor.
+    float maxRotateSpeed = 9999999.0f;
     float rotationDecayRate = 1.0f;
-    float rotateAcc = 1e9f;
+    // rotateAcc +0x64 = 999 in the retail constructor.
+    float rotateAcc = 999.0f;
     // Ghidra-confirmed real (this session, full PHYSICSDATA method table
     // sweep, FoE PC binary, 0x00514a30-0x00514c58, 47 entries): every one
     // of these is a bare vtable dispatch with the exact same "getdot ->
@@ -111,94 +96,63 @@ struct PhysicsBodyData {
     // by the current PekkoAndJon corpus (grepped, 0 call sites for all of
     // these), but implemented for real 1:1 API completeness rather than
     // left as silent no-ops, per explicit direction.
-    float thrustAcc = 1e9f;
-    float brakeAcc = 1e9f;
-    // setMaxVelocityDecayRate/setMaxRotationDecayRate (vtable +0xa4/+0xa8,
-    // fields +0x74/+0x78). Their role IS now confirmed (see
-    // StepPhysicsBodyMovement): retail's integrator uses them as
-    // `speed -= (1 - thisFactor) * excessOverMax`, i.e. they control how
-    // much of the OVER-maxSpeed excess is shed per tick. Default 0.0 =
-    // shed all of it = a hard clamp to maxSpeed, which is what gives the
-    // retail-sharp "instantly at top speed, never above it" feel and is
-    // what a zero-initialised float field yields in retail for the
-    // (common) case where no script ever calls these setters.
+    // Direct getter/setter wrappers map thrustAcc to +0x68 (999) and
+    // brakeAcc to +0x3c (999) in the retail constructor.
+    float thrustAcc = 999.0f;
+    float brakeAcc = 999.0f;
+    // Retail per-frame excess-speed retention factors used by
+    // FUN_00031f20/FUN_00031d50.
     float maxVelocityDecayRate = 0.0f;
     float maxRotationDecayRate = 0.0f;
-    // Retail's real per-tick movement accumulators + once-per-tick guard
-    // flags (fields +0x40/+0x41 thrust/reverse flags, +0x44 thrust accum,
-    // +0x48 brake flag, +0x4c brake accum, +0x50/+0x51 rotate flags,
-    // +0x54 rotate accum). thrust()/brake()/rotateLeft() etc. only ADD to
-    // these (guarded so repeated calls in one tick count once); the actual
-    // velocity change happens in the per-tick integrator, which then clears
-    // all of them (retail FUN_004159c0).
+    // Retail movement accumulators and per-frame guard flags. The portable
+    // representation follows the native offsets and reset order documented
     float thrustAccum = 0.0f;
-    float brakeAccum = 0.0f;
     float rotAccum = 0.0f;
-    // Retail's persistent angular velocity (field +0x9c): the rotate
-    // integrator carries it across ticks and integrates it into the facing
-    // angle, rather than rotateLeft/Right snapping the facing directly.
-    float rotVel = 0.0f;
+    // Retail keeps a separate rotate velocity on the shape while its
+    // underlying body has rotation response disabled.
+    float fixedRotationVel = 0.0f;
     bool thrustFlag = false;
     bool reverseFlag = false;
     bool brakeFlag = false;
     bool rotLeftFlag = false;
     bool rotRightFlag = false;
-    // ENGINE PATCH (2026-08-17): persistent facing direction, separate from
-    // live velocity. getDir()/setDir() used to be purely velocity-derived
-    // (getDir() normalizes GetLinearVelocity(), setDir() re-applies the
-    // current speed along a new heading) -- fine for a moving body, but a
-    // STATIONARY one (0 velocity) can never durably store a direction that
-    // way: setDir(x,y) on a zero-speed body computes speed*dir = zero
-    // velocity, so the call is a complete no-op, and getDir() always fell
-    // back to a hardcoded (1,0). Confirmed real, load-bearing case:
-    // EntityPacks/SpawnPoint.gm:186's `pb.setDir(vector2D(this.
-    // configureData.editRotateValue));` -- the player-spawn marker's own
-    // placed rotation, set once at configure time on a body that never
-    // moves -- which is exactly why the spawn marker's drawList.rotateZ(pb.
-    // getDir()) (SpawnPoint.gm:270) never visibly rotated. Stored
-    // separately here and consulted by getDir() only when the body's
-    // current velocity is too small to derive a heading from, so moving
-    // bodies (Player.gm et al) keep their existing velocity-based behaviour
-    // unchanged.
+    // State written by the retail rotateTo/stopRotatingTo wrappers and
+    // consumed by FUN_00031f20.
+    bool rotateToActive = false;
+    float rotateToX = 0.0f;
+    float rotateToY = 0.0f;
+    int rotateToSign = 0;
+    // Retail's setDir/getDir use body angle when rotation is enabled, and
+    // this local normalized vector when fixed rotation is enabled.
     float dirX = 1.0f, dirY = 0.0f;
 };
 
-PhysicsBodyData* ThisBody(gmThread* a_thread) {
+// The raw wrapper can outlive its Box2D body: scripts retain body variables
+// while an entity tears down and rebuilds its PhysicsData.  Native entry
+// points must use ThisBody(), which refuses such detached wrappers; the one
+// lifecycle query that deliberately accepts them (isSleeping) uses Raw.
+PhysicsBodyData* ThisBodyRaw(gmThread* a_thread) {
     return (PhysicsBodyData*)a_thread->ThisUserCheckType(g_physicsBodyType);
 }
+PhysicsBodyData* ThisBody(gmThread* a_thread) {
+    PhysicsBodyData* body = ThisBodyRaw(a_thread);
+    return body && body->body ? body : nullptr;
+}
+b2Fixture* FixtureAtShapeIndex(b2Body* a_body, int a_index);
 
-// Box2D's own debug renderer (vendor/box2d/src/dynamics/b2_world.cpp,
-// DebugDraw()) draws a b2_dynamicBody with zero computed mass in RED with
-// the comment "Bad body" -- Box2D's authors consider this an unsupported
-// configuration, not a documented "immovable dynamic body" trick. Real
-// scripts create every ground piece as a dynamic body with density 0
-// (`sd.setMass(0)`, e.g. GroundResizeNoRotate.gm) with no script-facing
-// way to ask for a real static body at all (see MakePhysicsBody's own
-// header comment -- confirmed no such API exists). The zero-mass-dynamic
-// body still "works" for simple resting contact (invMass=0 means impulses
-// can't move it), but Box2D's continuous-collision eligibility
-// (b2World::SolveTOI, `collideA = bA->IsBullet() || typeA != b2_dynamicBody`)
-// and its sleep/wake island logic both treat "dynamic" specially in ways
-// "static" is exempt from -- observed in practice as the player partially
-// sinking into/clipping through these shapes instead of resting cleanly on
-// top, exactly what "Bad body" is warning about. Fix: whenever a body's
-// fixtures make its computed mass hit zero, actually convert it to a real
-// b2_staticBody (and back to dynamic if density later becomes nonzero
-// again, e.g. a script that starts an object at mass 0 then activates it
-// later) -- same physical intent the script already expresses
-// (setMass(0) == "should not move"), just backed by the Box2D body type
-// that's actually built and tested for that, instead of an edge case its
-// own debug tooling flags as broken.
+b2Vec2 BodyFacingDirection(const PhysicsBodyData& a_body) {
+    if (a_body.body->IsFixedRotation()) return b2Vec2(a_body.dirX, a_body.dirY);
+    const float angle = a_body.body->GetAngle();
+    return b2Vec2(std::cos(angle), std::sin(angle));
+}
+
+// Retail createBody creates dynamic bodies and has no body-type setter.
+// Ground fixtures use zero density, which gives Box2D a dynamic body with
+// zero inverse mass/inertia. Keep that body type: converting it to static
+// changes the body model exposed by the native physics API and makes runtime
+// density changes take a different Box2D path.
 void SyncBodyTypeFromMass(b2Body* a_body) {
-    if (!a_body || a_body->GetType() == b2_kinematicBody) return; // never auto-managed
-    a_body->ResetMassData();
-    bool hasFixtures = a_body->GetFixtureList() != nullptr;
-    bool shouldBeStatic = hasFixtures && a_body->GetMass() <= 0.0f;
-    b2BodyType wantType = shouldBeStatic ? b2_staticBody : b2_dynamicBody;
-    if (a_body->GetType() != wantType) {
-        a_body->SetType(wantType);
-        a_body->ResetMassData();
-    }
+    if (a_body && a_body->GetType() == b2_dynamicBody) a_body->ResetMassData();
 }
 
 std::vector<gmVariable> g_bodiesByObjectId; // index 0 reserved/invalid
@@ -206,6 +160,7 @@ std::vector<gmVariable> g_bodiesByObjectId; // index 0 reserved/invalid
 // tick. Parallel to g_bodiesByObjectId (which only holds the script-visible
 // gmVariable handles) because the integrator needs the raw struct.
 std::vector<PhysicsBodyData*> g_allPhysicsBodies;
+std::vector<b2Body*> g_deferredBodyDestructions;
 
 // type is ALWAYS b2_dynamicBody -- confirmed by Ghidra disassembly of the
 // real createBody (0x00092428) and its callees this session: the only
@@ -214,13 +169,8 @@ std::vector<PhysicsBodyData*> g_allPhysicsBodies;
 // not body type (see below) -- and there is no other script API anywhere
 // in the corpus that creates or queries a body type at all (grepped for
 // setBodyType/isStatic/isDynamic/kinematic -- nothing). Retail's own
-// "immovable ground" comes entirely from setMass(0) on a dynamic body
-// (zero fixture density -> Box2D computes zero mass AND zero rotational
-// inertia for a dynamic body, see b2Body::ResetMassData in the vendored
-// 2.4.1 source -- this makes it exactly as immovable as a real static
-// body, no b2_staticBody needed), same as this engine already does. So
-// this was NOT a bug -- flagged in an earlier pass as a suspicious
-// architecture choice, now confirmed retail-faithful by decompile.
+// "immovable ground" comes from zero fixture density on a dynamic body,
+// exactly as represented by the retail scripts and Box2D's mass data.
 gmVariable MakePhysicsBody(gmMachine& a_machine, float a_x = 0.0f, float a_y = 0.0f,
                             bool a_fixedRotation = false, bool a_awake = true) {
     PhysicsBodyData* data = new PhysicsBodyData();
@@ -244,8 +194,12 @@ gmVariable MakePhysicsBody(gmMachine& a_machine, float a_x = 0.0f, float a_y = 0
 int GM_CDECL gmf_PHYSICSBODY_GetBodyByID(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(id, 0, 0);
-    if (id > 0 && id < (int)g_bodiesByObjectId.size()) a_thread->Push(g_bodiesByObjectId[id]);
-    else a_thread->PushNull();
+    if (id > 0 && id < (int)g_bodiesByObjectId.size() &&
+        g_bodiesByObjectId[(size_t)id].m_type != GM_NULL) {
+        a_thread->Push(g_bodiesByObjectId[(size_t)id]);
+    } else {
+        a_thread->PushNull();
+    }
     return GM_OK;
 }
 
@@ -270,9 +224,93 @@ b2Fixture* GetFixtureByGlobalId(int a_id) {
     return g_shapesByGlobalId[a_id];
 }
 
+// Store the stable ID rather than a Box2D pointer: scripts can retain a
+// shape after its body is removed by a checkpoint or state change.
+struct PhysicsShapeHandle { int id; };
+b2Fixture* ThisShape(gmThread* a_thread) {
+    auto* handle = (PhysicsShapeHandle*)a_thread->ThisUserCheckType(g_physicsShapeType);
+    return handle ? GetFixtureByGlobalId(handle->id) : nullptr;
+}
+int GM_CDECL gmf_shape_isSensor(gmThread* a_thread) {
+    b2Fixture* fixture = ThisShape(a_thread);
+    a_thread->PushInt(fixture && fixture->IsSensor() ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_shape_setIsSensor(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(value, 0, 0);
+    b2Fixture* fixture = ThisShape(a_thread);
+    if (fixture) fixture->SetSensor(value != 0);
+    return GM_OK;
+}
+gmFunctionEntry s_physicsShapeLib[] = {
+    {"isSensor", gmf_shape_isSensor, nullptr},
+    {"getIsSensor", gmf_shape_isSensor, nullptr},
+    {"setIsSensor", gmf_shape_setIsSensor, nullptr},
+};
+
+// Fixture ids are global handles exposed to script.  Box2D owns fixtures and
+// frees them with their body, so clear the corresponding handle before either
+// an individual fixture or its parent body is destroyed.  Leaving the pointer
+// in this table lets a later shape-id lookup dereference freed Box2D storage.
+void UnregisterShapeGlobalId(b2Fixture* a_fixture) {
+    if (!a_fixture) return;
+    const int id = (int)a_fixture->GetUserData().pointer;
+    if (id > 0 && id < (int)g_shapesByGlobalId.size() &&
+        g_shapesByGlobalId[(size_t)id] == a_fixture) {
+        g_shapesByGlobalId[(size_t)id] = nullptr;
+    }
+}
+
+void UnregisterBodyShapeGlobalIds(b2Body* a_body) {
+    if (!a_body) return;
+    for (b2Fixture* fixture = a_body->GetFixtureList(); fixture;
+         fixture = fixture->GetNext()) {
+        UnregisterShapeGlobalId(fixture);
+    }
+}
+
+// Removal from PhysicsData is observable immediately: scripts can retain a
+// PhysicsBody reference after its owner has rebuilt its shapes.  Detach the
+// Box2D object now, rather than waiting for GM collection, and mark the
+// wrapper invalid so retained references cannot reach freed Box2D memory.
+void InvalidatePhysicsBody(PhysicsBodyData* a_body) {
+    if (!a_body || !a_body->body) return;
+    b2Body* body = a_body->body;
+    UnregisterBodyShapeGlobalIds(body);
+    // A checkpoint can remove a vehicle from onEntityCollide, i.e. while
+    // b2World::Step is still dispatching callbacks. Box2D forbids body or
+    // joint destruction while locked. Detach the script-visible wrapper now
+    // and defer the Box2D operation until the step has finished.
+    body->GetUserData().pointer = 0;
+    a_body->body = nullptr;
+    g_allPhysicsBodies.erase(
+        std::remove(g_allPhysicsBodies.begin(), g_allPhysicsBodies.end(), a_body),
+        g_allPhysicsBodies.end());
+    if (a_body->objectId > 0 && a_body->objectId < (int)g_bodiesByObjectId.size())
+        g_bodiesByObjectId[(size_t)a_body->objectId] = gmVariable::s_null;
+    if (GetPhysicsWorld().IsLocked()) {
+        if (std::find(g_deferredBodyDestructions.begin(),
+                      g_deferredBodyDestructions.end(), body) ==
+            g_deferredBodyDestructions.end()) {
+            g_deferredBodyDestructions.push_back(body);
+        }
+    } else {
+        RemovePhysicsJointsForBody(body);
+        GetPhysicsWorld().DestroyBody(body);
+    }
+}
+
 int GM_CDECL gmf_pb_getPos(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Vec2 p = b->body->GetPosition();
+    // GE3_TEXT_DIAG=1 -- only report reads that come back at the origin.
+    // Paired with [setpos], this identifies bodies that were positioned
+    // once and then read back as (0,0), i.e. destroyed and recreated
+    // without configure() re-running.
+    if (getenv("GE3_TEXT_DIAG") && p.x == 0.0f && p.y == 0.0f) {
+        std::fprintf(stderr, "[getpos0] body=%p\n", (void*)b->body);
+    }
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), p.x, p.y));
     return GM_OK;
 }
@@ -281,19 +319,25 @@ int GM_CDECL gmf_pb_setPos(gmThread* a_thread) {
     float x, y;
     if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
     b->body->SetTransform(b2Vec2(x, y), b->body->GetAngle());
+    // GE3_TEXT_DIAG=1 -- body lifecycle trace. Pair with [mkbody] below: a
+    // body that is positioned here and later reads back (0,0) has been
+    // destroyed and recreated without configure() re-running.
+    if (getenv("GE3_TEXT_DIAG")) {
+        std::fprintf(stderr, "[setpos] body=%p (%.2f,%.2f)\n", (void*)b->body, x, y);
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getVel(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    b2Vec2 v = b->body->GetLinearVelocity();
-    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), v.x / kScriptVelocityToSimScale, v.y / kScriptVelocityToSimScale));
+    b2Vec2 v = ScriptVelocity(b->body->GetLinearVelocity());
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), v.x, v.y));
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setVel(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     float x, y;
     if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
-    b->body->SetLinearVelocity(b2Vec2(x * kScriptVelocityToSimScale, y * kScriptVelocityToSimScale));
+    b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(x, y)));
     return GM_OK;
 }
 // getVelRef -- confirmed real (Player.gm's DECISION_STATEID dead-fall
@@ -301,21 +345,21 @@ int GM_CDECL gmf_pb_setVel(gmThread* a_thread) {
 // with no separate setVel() call afterward in that one call site), entirely
 // unregistered before this -- same hard "getdot failed" class of bug as
 // applyForce above, aborting the whole calling function every time it was
-// hit. TODO/known gap: this returns a plain by-value vector2D copy (same
-// type every other vector2D-returning method uses, so it stays compatible
-// with every method/param-check elsewhere in the corpus) rather than a
-// true live reference, so mutating the result here does NOT write back to
-// the body the way retail's single known real use site implies -- that one
-// site's `vel->y-=...` mutation is currently a no-op on the actual
-// simulation. Filed as a follow-up (needs a real "live" vector2D variant,
-// or resolving this call site's field offset from more of the binary) --
-// registering it at all at least stops it from throwing and aborting
-// DECISION_STATEID's entire update() on death, which every other branch of
-// that function depends on running.
+// The vector2D proxy routes component reads/writes to Box2D while retaining
+// the normal vector2D type expected by the rest of the VM.
 int GM_CDECL gmf_pb_getVelRef(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    b2Vec2 v = b->body->GetLinearVelocity();
-    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), v.x / kScriptVelocityToSimScale, v.y / kScriptVelocityToSimScale));
+    a_thread->Push(MakeVector2DRef(*a_thread->GetMachine(), b->selfVar, b,
+                                   [](void* ctx, float& x, float& y) {
+                                       auto* body = static_cast<PhysicsBodyData*>(ctx);
+                                       b2Vec2 v = ScriptVelocity(body->body->GetLinearVelocity());
+                                       x = v.x;
+                                       y = v.y;
+                                   },
+                                   [](void* ctx, float x, float y) {
+                                       auto* body = static_cast<PhysicsBodyData*>(ctx);
+                                       body->body->SetLinearVelocity(Box2DVelocity(b2Vec2(x, y)));
+                                   }));
     return GM_OK;
 }
 // applyForce(force, offset) -- confirmed real (Player.gm's CHEAT/fly-mode
@@ -335,100 +379,63 @@ int GM_CDECL gmf_pb_applyForce(gmThread* a_thread) {
     if (!GetVector2D(m, a_thread->Param(0), fx, fy)) return GM_EXCEPTION;
     if (!GetVector2D(m, a_thread->Param(1), ox, oy)) { ox = 0.0f; oy = 0.0f; }
     b2Vec2 worldPoint = b->body->GetPosition() + b2Vec2(ox, oy);
-    b->body->ApplyForce(b2Vec2(fx, fy), worldPoint, true);
+    b->body->ApplyForce((kPhysicsMillisecondsPerSecond * kPhysicsMillisecondsPerSecond) *
+                        b2Vec2(fx, fy),
+                        worldPoint, true);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getSpeed(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    a_thread->PushFloat(b->body->GetLinearVelocity().Length() / kScriptVelocityToSimScale);
+    a_thread->PushFloat(ScriptVelocity(b->body->GetLinearVelocity()).Length());
     return GM_OK;
 }
-// setSpeed -- confirmed real: sets magnitude only, preserving current
-// direction (or defaulting to +x if the body has no velocity yet, matching
-// getDir's own real fallback).
+// Retail setSpeed preserves current velocity direction, falling back to
+// the body's facing when velocity is zero.
 int GM_CDECL gmf_pb_setSpeed(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(speed, 0, 0.0f);
-    float simSpeed = speed * kScriptVelocityToSimScale;
-    b2Vec2 v = b->body->GetLinearVelocity();
+    float simSpeed = speed;
+    b2Vec2 v = ScriptVelocity(b->body->GetLinearVelocity());
     float len = v.Length();
-    if (len > 0.0001f) {
+    if (v.x == 0.0f && v.y == 0.0f) {
+        v = simSpeed * BodyFacingDirection(*b);
+    } else if (len >= 1.1920928955078125e-7f) {
         v *= (simSpeed / len);
     } else {
-        v = b2Vec2(simSpeed, 0.0f); // no direction yet -- pick +x, matches getDir's fallback
+        // Retail's normalizer leaves nonzero sub-epsilon vectors unnormalized.
+        v *= simSpeed;
     }
-    b->body->SetLinearVelocity(v);
+    b->body->SetLinearVelocity(Box2DVelocity(v));
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getDir(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    b2Vec2 v = b->body->GetLinearVelocity();
-    float len = v.Length();
-    float x, y;
-    // See PhysicsBodyData::dirX/dirY's header comment -- a stationary body
-    // (len ~0) has no velocity to derive a heading from, so fall back to
-    // the persistent direction setDir() actually stored instead of a
-    // hardcoded (1,0).
-    if (len > 0.0001f) { x = v.x / len; y = v.y / len; }
-    else { x = b->dirX; y = b->dirY; }
-    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), x, y));
+    b2Vec2 dir = BodyFacingDirection(*b);
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), dir.x, dir.y));
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setDir(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     float x, y;
     if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
-    float speed = b->body->GetLinearVelocity().Length();
     b2Vec2 dir(x, y);
     float dlen = dir.Length();
-    if (dlen > 0.0001f) dir *= (1.0f / dlen);
-    b->dirX = dir.x; b->dirY = dir.y;
-    b->body->SetLinearVelocity(speed * dir);
+    if (dlen > 0.0f) dir *= (1.0f / dlen);
+    else dir.SetZero();
+    if (b->body->IsFixedRotation()) {
+        b->dirX = dir.x;
+        b->dirY = dir.y;
+    } else {
+        // Retail also marks native bytes +0x5c and associated object +0x40
+        // in this branch. Their consumers are not mapped yet (see
+        // Physics_Movement_Analysis.md), so don't guess at Box2D state.
+        b->body->SetTransform(b->body->GetPosition(), std::atan2(dir.y, dir.x));
+    }
     return GM_OK;
 }
-// thrust() -- confirmed real (Ghidra: retail FUN_00435a50 @ 0x00435a50, a
-// bare no-arg vtable dispatch, +0x40). Real callers: Player.gm:88 and
-// Thing.gm:333, BOTH in the exact same `setDir(x,y); thrust();` pattern,
-// called every frame a movement key/moveType is active -- i.e. this is the
-// whole "move at max speed in current facing direction" mechanic (Player.gm
-// itself sets maxSpeed once at construction, Thing.gm's ground-spawned
-// entities via setMaxSpeed at Thing.gm:110/175). Retail's internal
-// thrustAcc-based acceleration curve isn't recoverable past the opaque
-// vtable call, so this snaps directly to maxSpeed in the persisted facing
-// direction (b->dirX/dirY, already tracked by setDir) rather than guess an
-// accel-integration curve -- reuses the already-verified maxSpeed field
-// (setMaxSpeed) and kScriptVelocityToSimScale boundary, same scale applied
-// at every other script->sim velocity write in this file.
-// setVelocityDecayRate/setRotationDecayRate -- the SET-time transform is
-// solidly confirmed this session (live winedbg traced PhysicsShape's real
-// vtable via thrust's wrapper at 0x00435a50 -> vtable+0x40 -> resolved live
-// to 0x00415600; full vtable dumped via Ghidra from base 0x004ed7c8): every
-// setXDecayRate setter (e.g. setMaxVelocityDecayRate @ 0x00415960,
-// field+0x74) calls a shared helper at 0x004513d0, `clamp(exp(-rate*dt),
-// 0, 1)`, with dt read live from static data at 0x00522734: 16.666666 (a
-// fixed per-tick constant, 1000/60).
-// The CONSUMING side is now confirmed too, which is what makes the
-// millisecond reading safe to apply. The velocity integrator itself
-// (vtable+0xd0 @ 0x00415c30) is dense esp-relative asm, but its ROTATION
-// twin -- FUN_00415b70, called from that same integrator -- decompiles
-// completely cleanly, and the two are structurally identical (same fields,
-// one axis vs two):
-//     retained = current * decayFactor;          // field +0x70
-//     excess   = max(retained - maxRotSpeed, 0); // field +0x64
-//     result   = dt*rotAccum + (retained - (1 - maxRotDecay)*excess);
-//     clamp(result, +-maxRotSpeed);
-// i.e. the factor multiplies the WHOLE quantity every tick (a drag/retain
-// term), the accumulator supplies the per-tick input, and the max*DecayRate
-// field controls how much over-max excess is shed. With retail's real
-// dt=16.666666 and a script literal like Player.gm's
-// setVelocityDecayRate(1), the retain factor is ~5.8e-8 -- i.e. velocity is
-// essentially zeroed each tick and rebuilt from the accumulator, which is
-// precisely the sharp "instant start, instant stop" arcade feel retail has
-// and this engine was missing.
-// (Moved earlier in the file this session so gmf_pb_brake, right below, can
-// use it too -- was previously defined only just before its own original
-// setter call sites, further down.)
+// Retail setter helpers store exp(-float(rate*16.666666)), clamped to
+// [0,1]; the per-frame consumers are FUN_00031f20/FUN_00031d50.
 constexpr float kDecayRateTickMs = 16.666666f;
 float ComputeDecayFactor(float a_rate) {
     float f = std::exp(-a_rate * kDecayRateTickMs);
@@ -436,36 +443,15 @@ float ComputeDecayFactor(float a_rate) {
     if (f > 1.0f) f = 1.0f;
     return f;
 }
-// ENGINE PATCH (movement-speed session): now the real retail
-// implementation, decompiled from the actual vtable target rather than
-// approximated. Retail's thrust (0x00415600, vtable+0x40) is:
-//     if (!thrustFlag) { thrustFlag = true; thrustAccum += thrustAcc; }
-// It does NOT touch velocity at all -- it only arms an accumulator that the
-// per-tick integrator (StepPhysicsBodyMovement) consumes and then clears.
-// The flag makes repeated calls within one tick count exactly once.
-// This replaces the old "snap velocity straight to maxSpeed" stand-in,
-// which had two visible consequences: nothing ever removed that velocity
-// again (no integrator existed), so a body kept gliding at full speed after
-// the key was released, and speed could never build or vary the way retail's
-// accumulate-then-clamp model produces.
+// Retail FUN_00031f20 consumes this accumulator once per update. The guard
+// ensures repeated thrust calls during one script frame accumulate once.
 int GM_CDECL gmf_pb_thrust(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     if (!b->thrustFlag) { b->thrustFlag = true; b->thrustAccum += b->thrustAcc; }
     return GM_OK;
 }
-// reverseThrust/brake/rotateLeft/rotateRight -- like thrust above, these
-// are now the REAL retail implementations, decompiled from their concrete
-// vtable targets (resolved once thrust's live-traced vtable base 0x004ed7c8
-// made the whole table dumpable). All four follow the identical
-// "guard flag, then accumulate" shape, and all four touch only accumulator
-// state -- never velocity directly:
-//   reverseThrust (0x00415620, +0x44): !reverseFlag -> thrustAccum -= thrustAcc
-//   brake         (0x00415640, +0x48): !brakeFlag   -> brakeAccum  += brakeAcc
-//   rotateLeft    (0x00415510, +0x20): !rotLeftFlag -> rotAccum    += rotateAcc
-//   rotateRight   (0x00415530, +0x24): !rotRightFlag-> rotAccum    -= rotateAcc
-// Note rotateLeft/rotateRight share one accumulator with opposing signs, so
-// holding both cancels out exactly -- previously these were implemented as
-// direct trig rotations of the stored facing with an invented step size.
+// Retail wrappers dispatch through the PhysicsShape method table. Their
+// descriptor targets are audited in Physics_Movement_Analysis.md.
 int GM_CDECL gmf_pb_reverseThrust(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     if (!b->reverseFlag) { b->reverseFlag = true; b->thrustAccum -= b->thrustAcc; }
@@ -473,7 +459,9 @@ int GM_CDECL gmf_pb_reverseThrust(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pb_brake(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    if (!b->brakeFlag) { b->brakeFlag = true; b->brakeAccum += b->brakeAcc; }
+    // Retail's brake wrapper sets native byte +0x5d; FUN_00031f20 consumes
+    // brakeAcc while this flag is set.
+    b->brakeFlag = true;
     return GM_OK;
 }
 int GM_CDECL gmf_pb_rotateLeft(gmThread* a_thread) {
@@ -486,9 +474,77 @@ int GM_CDECL gmf_pb_rotateRight(gmThread* a_thread) {
     if (!b->rotRightFlag) { b->rotRightFlag = true; b->rotAccum -= b->rotateAcc; }
     return GM_OK;
 }
+int GM_CDECL gmf_pb_rotate(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    // Retail's rotate(angle) helper only runs if neither directional rotate
+    // flag is set, sets both flags, clamps to +/- rotateAcc, then stores the
+    // result in the shared rotation accumulator.
+    if (!b->rotLeftFlag && !b->rotRightFlag) {
+        b->rotLeftFlag = true;
+        b->rotRightFlag = true;
+        if (v < -b->rotateAcc) v = -b->rotateAcc;
+        if (v > b->rotateAcc) v = b->rotateAcc;
+        b->rotAccum = v;
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_rotateTo(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    float x, y;
+    if (!GetVector2D(*a_thread->GetMachine(), a_thread->Param(0), x, y)) return GM_EXCEPTION;
+    b->rotateToActive = true;
+    b->rotateToX = x;
+    b->rotateToY = y;
+    b->rotateToSign = (int)a_thread->ParamFloatOrInt(1, 0.0f);
+    return GM_OK;
+}
+// Retail PhysicsShape.computeAngularVel reads two numeric arguments and calls
+// FUN_00031d50, but the native GM wrapper discards that helper's scalar result
+// and pushes no value. Keep the API's observable behavior: consume the args,
+// mutate no body state, and return no GM value.
+int GM_CDECL gmf_pb_computeAngularVel(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    (void)a_thread->ParamFloatOrInt(0, 0.0f);
+    (void)a_thread->ParamFloatOrInt(1, 0.0f);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_stopRotatingTo(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    b->rotateToActive = false;
+    return GM_OK;
+}
 int GM_CDECL gmf_pb_getRadius(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     a_thread->PushFloat(b->radius);
+    return GM_OK;
+}
+// Shape-level query/setter pair used by EntityBase's socket attachment and
+// sleeping setup. The retail code treats shape indices as linked-list
+// positions; FixtureAtShapeIndex mirrors that ordering.
+int GM_CDECL gmf_pb_getShapeRadius(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    float radius = 0.0f;
+    if (fixture) {
+        const b2Shape* shape = fixture->GetShape();
+        if (shape->GetType() == b2Shape::e_circle)
+            radius = static_cast<const b2CircleShape*>(shape)->m_radius;
+        else
+            radius = shape->m_radius;
+    }
+    a_thread->PushFloat(radius);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_setAllowSleeping(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(allowed, 0, 0);
+    b->body->SetSleepingAllowed(allowed != 0);
     return GM_OK;
 }
 // setAsCircle(radius) -- confirmed real (Ghidra: retail FUN_0043be80 @
@@ -513,11 +569,11 @@ int GM_CDECL gmf_pb_setAsCircle(gmThread* a_thread) {
     // Thing.gm's per-frame blast-radius growth calls this repeatedly on a
     // body whose category was already set once at construction.
     b2Filter filter;
-    filter.categoryBits = 0; // matches ShapeDefCollection::AddFixture's "no category set" default
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
         if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
     }
@@ -578,6 +634,8 @@ int GM_CDECL gmf_pb_appendShapes(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_CHECK_USER_PARAM(ShapeDefCollection*, g_physicsShapeDefType, sd, 0);
+    // Retail EBOOT 0x32340 returns body->shapeCount - 1 after appending,
+    // including when the collection contains several shapes.
     for (auto& def : sd->fixtureDefs) {
         b2Fixture* fx = b->body->CreateFixture(&def);
         RegisterShapeGlobalId(fx);
@@ -586,6 +644,9 @@ int GM_CDECL gmf_pb_appendShapes(gmThread* a_thread) {
         }
     }
     SyncBodyTypeFromMass(b->body);
+    int lastIndex = -1;
+    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) ++lastIndex;
+    a_thread->PushInt(lastIndex);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setCollisionCategory(gmThread* a_thread) {
@@ -664,15 +725,25 @@ int GM_CDECL gmf_pb_getCollisionGroup(gmThread* a_thread) {
 // 0x0008fafc) and confirmed-live: `this.mainpb.isSleeping()`
 // (SpiralLightBulb.gm:1005,1013; SpiralStaircaseLightBulb.gm:183) and
 // `PHYSICSBODY_GetBodyByID(this.endBody).isSleeping()` (Chain2.gm:402,509,
-// 786). Retail's own internal "is asleep" bit (flags bit 2) is cleared by
-// setAngularVel/applyForce/wakeUp whenever a nonzero velocity/force is
-// applied (see PhysicsShape.c:1242-1268,1904-1930 and PhysicsBody.c:
-// 309-329) -- i.e. its semantic is exactly Box2D's own awake flag, so no
-// need to replicate the bit trick, just proxy Box2D's real (and already
-// auto-managed) IsAwake().
+// 786). Retail's sleep bit (flags bit 2) is set while asleep and cleared on
+// wake, the inverse of Box2D's awake bit. Return the inverse of Box2D's
+// IsAwake().
 int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
-    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    PhysicsBodyData* b = ThisBodyRaw(a_thread); if (!b) return GM_EXCEPTION;
+    // A body removed by PhysicsData.removeBody can still be held by an
+    // entity's draw or behaviour state for the rest of the current frame.
+    // Retail treats that detached body as inactive; crucially, never follow
+    // its former Box2D pointer after removal.
+    if (!b->body) { a_thread->PushInt(1); return GM_OK; }
     a_thread->PushInt(b->body->IsAwake() ? 0 : 1);
+    return GM_OK;
+}
+// PhysicsShape.putToSleep is the single-body counterpart of
+// PhysicsData.putToSleep. Retail clears velocity/forces and marks the
+// underlying body asleep; Box2D's SetAwake(false) performs that transition.
+int GM_CDECL gmf_pb_putToSleep(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    b->body->SetAwake(false);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setIsSensor(gmThread* a_thread) {
@@ -726,19 +797,10 @@ int GM_CDECL gmf_pb_setRestitution(gmThread* a_thread) {
 // setShapeDensity(shapeIndex, density) -- confirmed real 2-arg signature
 // (every real call site in the corpus, e.g. Player.gm's
 // `mypb.setShapeDensity(0,parent.baseDensity)`, passes a LOCAL shape index
-// first and the actual density second). This was reading density from
-// param 0 -- the shape INDEX, always literally 0 in every real call site
-// -- and applying it to every fixture, so every single
-// `setShapeDensity(0, someRealDensity)` call silently zeroed the body's
-// density instead of setting it to someRealDensity. This directly broke
-// the PLAYER's own body: Player.gm's BIRTH_STATEID/DECISION_STATEID
-// init() (and several other states) call
-// `parent.mainpb.setShapeDensity(0,parent.baseDensity)` on every state
-// entry, so the player's density was being forced to 0 every time --
-// combined with SyncBodyTypeFromMass (this session, above), that made the
-// player's own body a real b2_staticBody, which silently no-ops
-// SetLinearVelocity entirely -- the actual root cause of "the player
-// barely moves," not a units/gravity issue. Applies to just the one
+// first and the actual density second). Apply density to just that
+// fixture and recalculate the still-dynamic body's mass. Player.gm changes
+// body density at state transitions, so preserving dynamic body type lets
+// positive densities restore motion. Applies to just the one
 // fixture at that local index, matching the real per-shape-index API
 // shape (falls back to "all fixtures" if no such index exists, so a
 // caller passing an out-of-range index still gets a sane no-crash result
@@ -748,12 +810,9 @@ int GM_CDECL gmf_pb_setShapeDensity(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_FLOAT_OR_INT_PARAM(d, 1, 1.0f);
-    int idx = 0;
-    bool applied = false;
-    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext(), ++idx) {
-        if (idx == shapeIndex) { fx->SetDensity(d); applied = true; break; }
-    }
-    if (!applied) {
+    b2Fixture* selected = FixtureAtShapeIndex(b->body, shapeIndex);
+    if (selected) selected->SetDensity(d);
+    else {
         for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetDensity(d);
     }
     SyncBodyTypeFromMass(b->body);
@@ -775,10 +834,8 @@ int GM_CDECL gmf_pb_setIsShapeSensor(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_INT_PARAM(isSensor, 1, 0);
-    int idx = 0;
-    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext(), ++idx) {
-        if (idx == shapeIndex) { fx->SetSensor(isSensor != 0 || !b->isCollidable); break; }
-    }
+    b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
+    if (fx) fx->SetSensor(isSensor != 0 || !b->isCollidable);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setShapeCategoriesToCollideWith(gmThread* a_thread) {
@@ -786,14 +843,11 @@ int GM_CDECL gmf_pb_setShapeCategoriesToCollideWith(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_INT_PARAM(mask, 1, -1);
-    int idx = 0;
-    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext(), ++idx) {
-        if (idx == shapeIndex) {
-            b2Filter filter = fx->GetFilterData();
-            filter.maskBits = (uint16)mask;
-            fx->SetFilterData(filter);
-            break;
-        }
+    b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
+    if (fx) {
+        b2Filter filter = fx->GetFilterData();
+        filter.maskBits = (uint16)mask;
+        fx->SetFilterData(filter);
     }
     return GM_OK;
 }
@@ -801,10 +855,8 @@ int GM_CDECL gmf_pb_getShapeCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(shapeIndex, 0, 0);
-    int idx = 0;
-    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext(), ++idx) {
-        if (idx == shapeIndex) { a_thread->PushInt((int)fx->GetFilterData().maskBits); return GM_OK; }
-    }
+    b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
+    if (fx) { a_thread->PushInt((int)fx->GetFilterData().maskBits); return GM_OK; }
     a_thread->PushInt(-1);
     return GM_OK;
 }
@@ -818,6 +870,31 @@ int GM_CDECL gmf_pb_isBullet(gmThread* a_thread) {
     a_thread->PushInt(b->body->IsBullet() ? 1 : 0);
     return GM_OK;
 }
+int GM_CDECL gmf_pb_setIsBullet(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(v, 0, 0);
+    b->body->SetBullet(v != 0);
+    return GM_OK;
+}
+// These names are present in the retail PhysicsShape table. Unlike
+// getRotateVel/setRotateVel, they access the underlying body's +0x50 angular
+// velocity directly, even when rotation response is disabled.
+int GM_CDECL gmf_pb_getAngularVel(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    a_thread->PushFloat(ScriptAngularVelocity(b->body->GetAngularVelocity()));
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_setAngularVel(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
+    // Retail's bit 0x2 means sleeping (inverse of Box2D's awake bit): a
+    // nonzero write clears it and resets sleep time. Box2D's public setter
+    // performs the corresponding SetAwake(true) transition.
+    b->body->SetAngularVelocity(Box2DAngularVelocity(v));
+    return GM_OK;
+}
 // 1934-1959, 0x000922dc, reads body fields +0x24/+0x28 directly, i.e. a
 // bare field read with no formula) -- Box2D's own GetWorldCenter() is the
 // direct real equivalent (the body's centroid in world space, matching
@@ -828,21 +905,37 @@ int GM_CDECL gmf_pb_getCenterOfMass(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), c.x, c.y));
     return GM_OK;
 }
-// setMass(density) -- confirmed real, single-arg (e.g. `this.mainpb.
-// setMass(999);`, `pd.setMass(this.baseDensity);`), a DIFFERENT real
-// signature from setShapeDensity's 2-arg (shapeIndex, density) above --
-// they used to incorrectly share one implementation, which broke once
-// setShapeDensity was fixed to actually require 2 args. Same density
-// mapping as PHYSICSSHAPECOLLECTIONDEF.setMass (physics_bindings.cpp) --
-// Box2D has no direct per-body mass setter that also updates fixtures --
-// applied to every fixture on the body, matching every real call site's
-// "set the whole body's mass" intent (none of them target one shape).
+// Retail PhysicsBody.setMass (EBOOT 0x91fe4 -> 0x33c60) passes a mass
+// record to Box2D's SetMassData equivalent at 0x156720. The record keeps
+// the current local center and uses mass + center.x^2 + center.y^2 as its
+// origin inertia. Fixture density is unchanged.
+void SetRetailBodyMass(b2Body* a_body, float a_mass) {
+    if (!a_body || a_body->GetMass() == a_mass) return;
+    if (a_mass <= 0.0f) {
+        // Box2D 2.4 SetMassData clamps a dynamic body's requested zero mass
+        // to one. Retail's Box2D keeps it at zero. ResetMassData preserves
+        // zero mass; restore fixture densities afterward because the retail
+        // body override does not change them.
+        std::vector<std::pair<b2Fixture*, float>> densities;
+        for (b2Fixture* fixture = a_body->GetFixtureList(); fixture; fixture = fixture->GetNext()) {
+            densities.emplace_back(fixture, fixture->GetDensity());
+            fixture->SetDensity(0.0f);
+        }
+        a_body->ResetMassData();
+        for (const auto& [fixture, density] : densities) fixture->SetDensity(density);
+        return;
+    }
+    b2MassData data;
+    a_body->GetMassData(&data);
+    data.mass = a_mass;
+    data.I = a_mass + b2Dot(data.center, data.center);
+    a_body->SetMassData(&data);
+}
 int GM_CDECL gmf_pb_setMass(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(d, 0, 1.0f);
-    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetDensity(d);
-    SyncBodyTypeFromMass(b->body);
+    GM_FLOAT_OR_INT_PARAM(mass, 0, 1.0f);
+    SetRetailBodyMass(b->body, mass);
     return GM_OK;
 }
 // getMass -- Ghidra-confirmed real (PHYSICSDATA table sweep, this
@@ -856,6 +949,110 @@ int GM_CDECL gmf_pb_getMass(gmThread* a_thread) {
     a_thread->PushFloat(b->body->GetMass());
     return GM_OK;
 }
+// Retail appendShapes returns shapeCount-1 (EBOOT 0x32340), and its index
+// lookup walks the body's shape list from the head (0x32470). Box2D 2.4
+// prepends fixtures, so walk its list backwards to preserve creation order.
+b2Fixture* FixtureAtShapeIndex(b2Body* a_body, int a_index) {
+    if (!a_body || a_index < 0) return nullptr;
+    int count = 0;
+    for (b2Fixture* fx = a_body->GetFixtureList(); fx; fx = fx->GetNext()) ++count;
+    if (a_index >= count) return nullptr;
+    a_index = count - 1 - a_index;
+    b2Fixture* fixture = a_body ? a_body->GetFixtureList() : nullptr;
+    while (fixture && a_index > 0) {
+        fixture = fixture->GetNext();
+        --a_index;
+    }
+    return fixture;
+}
+int GM_CDECL gmf_pb_getNumShapes(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread);
+    if (!b) return GM_EXCEPTION;
+    int count = 0;
+    for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) ++count;
+    a_thread->PushInt(count);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_isShapeSensor(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread);
+    if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    a_thread->PushInt(fixture && fixture->IsSensor() ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_isPointWithin(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread);
+    if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    float x, y;
+    if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
+    bool inside = false;
+    for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
+        if (f->TestPoint(b2Vec2(x, y))) { inside = true; break; }
+    }
+    a_thread->PushInt(inside ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getShapeType(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    if (!fixture) { a_thread->PushInt(-1); return GM_OK; }
+    const b2Shape::Type type = fixture->GetShape()->GetType();
+    // Retail's polygon proxy type is 1 (the getNumShapeVerts helper checks
+    // that exact value before dispatching to the vertex-count method).
+    // Circle is the other explicitly named retail type, zero. Edge and chain
+    // are grouped as the remaining non-polygon type for this API.
+    const int retailType = type == b2Shape::e_circle ? 0
+                         : type == b2Shape::e_polygon ? 1 : 2;
+    a_thread->PushInt(retailType);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getNumShapeVerts(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    int count = 0;
+    if (fixture && fixture->GetShape()->GetType() == b2Shape::e_polygon) {
+        count = static_cast<const b2PolygonShape*>(fixture->GetShape())->m_count;
+    }
+    a_thread->PushInt(count);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getShapeVert(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    GM_INT_PARAM(vertexIndex, 1, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, shapeIndex);
+    b2Vec2 vertex(0.0f, 0.0f);
+    if (fixture && fixture->GetShape()->GetType() == b2Shape::e_polygon) {
+        const b2PolygonShape* polygon = static_cast<const b2PolygonShape*>(fixture->GetShape());
+        if (vertexIndex >= 0 && vertexIndex < polygon->m_count) vertex = polygon->m_vertices[vertexIndex];
+    }
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), vertex.x, vertex.y));
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getShapeWorldVert(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    GM_INT_PARAM(vertexIndex, 1, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, shapeIndex);
+    b2Vec2 vertex(0.0f, 0.0f);
+    if (fixture && fixture->GetShape()->GetType() == b2Shape::e_polygon) {
+        const b2PolygonShape* polygon = static_cast<const b2PolygonShape*>(fixture->GetShape());
+        if (vertexIndex >= 0 && vertexIndex < polygon->m_count) {
+            vertex = b->body->GetWorldPoint(polygon->m_vertices[vertexIndex]);
+        }
+    }
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), vertex.x, vertex.y));
+    return GM_OK;
+}
 int GM_CDECL gmf_pb_getShapeObjectID(gmThread* a_thread) {
     // 0x0008dccc): resolves the LOCAL per-body shape index (the argument)
     // to a GLOBALLY unique id stored on the native shape struct -- NOT an
@@ -867,11 +1064,22 @@ int GM_CDECL gmf_pb_getShapeObjectID(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(localIndex, 0, 0);
-    int idx = 0;
-    for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext(), ++idx) {
-        if (idx == localIndex) { a_thread->PushInt((int)f->GetUserData().pointer); return GM_OK; }
-    }
+    b2Fixture* f = FixtureAtShapeIndex(b->body, localIndex);
+    if (f) { a_thread->PushInt((int)f->GetUserData().pointer); return GM_OK; }
     a_thread->PushInt(0);
+    return GM_OK;
+}
+// isContainsShape(globalShapeId) is used by GoombaCritterGuitar3's collision
+// callback to distinguish contact with the player's main body. CollisionInfo
+// and getShapeObjectID already expose the same global fixture IDs, so resolve
+// through that registry and compare Box2D body ownership. Missing or removed
+// shapes cannot belong to this body.
+int GM_CDECL gmf_pb_isContainsShape(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(shapeId, 0, 0);
+    b2Fixture* fixture = GetFixtureByGlobalId(shapeId);
+    a_thread->PushInt(fixture && fixture->GetBody() == b->body ? 1 : 0);
     return GM_OK;
 }
 // getShapeWorldCenterPos(localIndex) -- confirmed real, live call site
@@ -887,53 +1095,41 @@ int GM_CDECL gmf_pb_getShapeWorldCenterPos(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(localIndex, 0, 0);
-    int idx = 0;
-    for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext(), ++idx) {
-        if (idx == localIndex) {
-            b2AABB aabb = f->GetAABB(0);
-            b2Vec2 c = 0.5f * (aabb.lowerBound + aabb.upperBound);
-            a_thread->Push(MakeVector2D(*a_thread->GetMachine(), c.x, c.y));
-            return GM_OK;
-        }
+    b2Fixture* f = FixtureAtShapeIndex(b->body, localIndex);
+    if (f) {
+        b2AABB aabb = f->GetAABB(0);
+        b2Vec2 c = 0.5f * (aabb.lowerBound + aabb.upperBound);
+        a_thread->Push(MakeVector2D(*a_thread->GetMachine(), c.x, c.y));
+        return GM_OK;
     }
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), 0.0f, 0.0f));
     return GM_OK;
 }
-// disableRestitutionThisFrame() -- confirmed real (Ghidra decompile,
-// action (real semantics: b2Contact::SetRestitution(0) on the LIVE contact
-// currently being resolved, auto-reset by Box2D's own contact-restitution
-// recompute on the NEXT step -- not a persistent fixture property change).
-// Live call site Player.gm:4488, `this.mainpb.disableRestitutionThisFrame();
-// sci.disableContact(i); ...setVel(v.x,v.y*(1-MATH_ABS(dn.y)));` -- landing-
-// impact handling that suppresses a physical bounce. This engine has no
-// live PreSolve contact-listener hook (its collision-info objects are
-// built AFTER the fact via b2Body::GetContactList(), see BuildCollisionInfo
-// in this file), so there's no real b2Contact to call SetRestitution on
-// here -- was entirely unbound, a HALTING crash (this engine's default
-// GE3_STRICT=halt mode) reached the moment the player first landed on
-// anything, in EVERY level. Safe no-op: the very next line in the same
-// real call site manually zeroes the vertical velocity component anyway
-// (`v.y*(1-MATH_ABS(dn.y))`), which is the dominant, already-correct part
-// of "don't bounce on landing" -- this call alone being a no-op only
-// leaves a secondary Box2D-restitution-formula edge case unaddressed.
+// disableRestitutionThisFrame() -- REAL, now implemented. Retail body
+// FUN_00034084, which decompiles to:
+//     contact = body->contactList;            // *(this+0x14)+0x6c
+//     while (contact) {
+//         *(u8*)(contact + 0x45) = 1;         // per-contact flag byte
+//         contact = *(int*)(contact + 0x20);  // next in list
+//     }
+// i.e. mark EVERY contact on this body, let the solver honour it this
+// step. Not a PreSolve-only action on one live contact, as this file
+// previously assumed.
+//
+// Live call site Player.gm:4488-4489 (landing-impact handling):
+//     this.mainpb.disableRestitutionThisFrame();
+//     sci.disableContact(i);
+//     ...setVel(v.x, v.y*(1-MATH_ABS(dn.y)));
+// This was stubbed as a "safe no-op" on the reasoning that the setVel on
+// the next line does the real work. That reasoning was wrong: zeroing the
+// velocity component does not stop Box2D's solver applying a restitution
+// impulse for the same contact in the same step, so landings kept a bounce
+// retail does not have.
 int GM_CDECL gmf_pb_disableRestitutionThisFrame(gmThread* a_thread) {
-    (void)a_thread;
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    DisableRestitutionThisFrameForBody(b->body);
     return GM_OK;
 }
-// disableContact(shapeIndex) -- same real-but-unbacked situation as
-// disableRestitutionThisFrame directly above (confirmed real Box2D
-// PreSolve action, b2Contact::SetEnabled(false) on the live contact this
-// engine has no listener hook to expose) -- same live call site
-// (Player.gm:4489, `sci.disableContact(i);`, the very next statement after
-// disableRestitutionThisFrame). Was entirely unbound on ShapeCollisionInfo
-// objects -- would have been the NEXT halting crash immediately after
-// fixing disableRestitutionThisFrame above. Safe no-op, same reasoning.
-int GM_CDECL gmf_sci_disableContact(gmThread* a_thread) {
-    (void)a_thread;
-    return GM_OK;
-}
-// setMaxSpeed/setMaxRotateSpeed/setRotateAcc -- confirmed (setMaxSpeed) or
-// strongly-analogous (see PhysicsBodyData's comment) bare field stores.
 int GM_CDECL gmf_pb_setMaxSpeed(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -970,13 +1166,8 @@ int GM_CDECL gmf_pb_getRotateAcc(gmThread* a_thread) {
     a_thread->PushFloat(b->rotateAcc);
     return GM_OK;
 }
-// setBrakeAcc/getBrakeAcc/setThrustAcc/getThrustAcc -- Ghidra-confirmed
-// real (PHYSICSDATA table sweep, this session), bare field get/set exactly
-// like setMaxSpeed/setRotateAcc above. brakeAcc now backs gmf_pb_brake's
-// own decay-per-call formula; thrustAcc is stored for completeness (this
-// engine's thrust() snaps directly to maxSpeed, see thrust's own header
-// comment -- no accel-integration curve to apply thrustAcc to). 0 real
-// call sites in the current corpus for either.
+// These wrappers access native fields directly; FUN_00031f20 consumes both
+// acceleration values during movement updates.
 int GM_CDECL gmf_pb_setBrakeAcc(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1033,11 +1224,12 @@ int GM_CDECL gmf_pb_setAsRect(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(width, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(height, 1, 0.0f);
     float hx = std::max(width * 0.5f, 0.001f), hy = std::max(height * 0.5f, 0.001f);
-    b2Filter filter; filter.categoryBits = 0;
+    b2Filter filter;
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
         if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
     }
@@ -1068,11 +1260,10 @@ int GM_CDECL gmf_pb_setRotationDecayRate(gmThread* a_thread) {
     b->rotationDecayRate = ComputeDecayFactor(v);
     return GM_OK;
 }
-// setDoesRotationResponse -- no decompiled evidence located this session
-// (string not found by the retail-symbol indexer, no gmFunctionEntry xref
-// resolved either under -noanalysis). Best-effort semantic mapping onto
-// the one Box2D primitive that matches the name: whether the body
-// responds to rotational forces at all.
+// setDoesRotationResponse's retail setter has not yet been located. Retail's
+// getter reads a custom native flag (bit 0x10); mapping it to Box2D fixed
+// rotation is a compatibility approximation until the setter and tick use
+// of that flag are recovered.
 int GM_CDECL gmf_pb_setDoesRotationResponse(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1080,32 +1271,31 @@ int GM_CDECL gmf_pb_setDoesRotationResponse(gmThread* a_thread) {
     b->body->SetFixedRotation(v == 0);
     return GM_OK;
 }
-// doesRotationResponse() getter -- same evidence situation as the setter
-// (no decompiled body), but confirmed real by usage (Player.gm's hang-time
-// code branches on it every frame: `if(pb.doesRotationResponse()){...}`,
-// and calling it on a real PhysicsBody userobject with no such method
-// registered is a hard "getdot failed" GM error here, not a silent
-// null-call -- this was crashing that whole code path). Mirrors the
-// setter's mapping exactly.
+// Retail getter returns one when custom native flag bit 0x10 is clear. The
+// constructor initializes this flag clear, so the retail default is enabled.
+// Box2D fixed rotation currently stands in for this custom flag; see the
+// setter note above for the remaining fidelity gap.
 int GM_CDECL gmf_pb_doesRotationResponse(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     a_thread->PushInt(b->body->IsFixedRotation() ? 0 : 1);
     return GM_OK;
 }
-// getRotateVel/setRotateVel -- confirmed real (Player.gm:
-// `pb.getRotateVel()`, used both as a magnitude and sign-tested with
-// `>= 0`) -- Box2D's own angular velocity is exactly this, no fabricated
-// state needed.
+// Retail reads/writes body angular velocity when rotation response is
+// enabled, and a shape-local +0x40 value when disabled. Mirror the split so
+// setting rotate velocity on a fixed-rotation body doesn't discard it.
 int GM_CDECL gmf_pb_getRotateVel(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    a_thread->PushFloat(b->body->GetAngularVelocity());
+    a_thread->PushFloat(b->body->IsFixedRotation()
+                            ? b->fixedRotationVel
+                            : ScriptAngularVelocity(b->body->GetAngularVelocity()));
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setRotateVel(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
-    b->body->SetAngularVelocity(v);
+    if (b->body->IsFixedRotation()) b->fixedRotationVel = v;
+    else b->body->SetAngularVelocity(Box2DAngularVelocity(v));
     return GM_OK;
 }
 // getObjectID() -- confirmed real (Player.gm: `local newAnchorID=
@@ -1235,6 +1425,7 @@ void GM_CDECL EntityIterGCDestruct(gmMachine*, gmUserObject* a_object) {
 
 gmFunctionEntry s_physicsBodyLib[] = {
     {"getPos", gmf_pb_getPos, nullptr},
+    {"getPosVec", gmf_pb_getPos, nullptr},
     {"setPos", gmf_pb_setPos, nullptr},
     {"getVel", gmf_pb_getVel, nullptr},
     {"setVel", gmf_pb_setVel, nullptr},
@@ -1247,7 +1438,13 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"brake", gmf_pb_brake, nullptr},
     {"rotateLeft", gmf_pb_rotateLeft, nullptr},
     {"rotateRight", gmf_pb_rotateRight, nullptr},
+    {"rotate", gmf_pb_rotate, nullptr},
+    {"rotateTo", gmf_pb_rotateTo, nullptr},
+    {"computeAngularVel", gmf_pb_computeAngularVel, nullptr},
+    {"stopRotatingTo", gmf_pb_stopRotatingTo, nullptr},
     {"getRadius", gmf_pb_getRadius, nullptr},
+    {"getShapeRadius", gmf_pb_getShapeRadius, nullptr},
+    {"setAllowSleeping", gmf_pb_setAllowSleeping, nullptr},
     {"setAsCircle", gmf_pb_setAsCircle, nullptr},
     {"setAsRect", gmf_pb_setAsRect, nullptr},
     {"isCircle", gmf_pb_isCircle, nullptr},
@@ -1262,8 +1459,12 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"setCollisionGroup", gmf_pb_setCollisionGroup, nullptr},
     {"getCollisionGroup", gmf_pb_getCollisionGroup, nullptr},
     {"isSleeping", gmf_pb_isSleeping, nullptr},
+    {"putToSleep", gmf_pb_putToSleep, nullptr},
     {"setIsSensor", gmf_pb_setIsSensor, nullptr},
     {"isSensor", gmf_pb_isSensor, nullptr},
+    {"setIsBullet", gmf_pb_setIsBullet, nullptr},
+    {"getAngularVel", gmf_pb_getAngularVel, nullptr},
+    {"setAngularVel", gmf_pb_setAngularVel, nullptr},
     {"setIsCollidable", gmf_pb_setIsCollidable, nullptr},
     {"isCollidable", gmf_pb_isCollidable, nullptr},
     {"setFriction", gmf_pb_setFriction, nullptr},
@@ -1276,7 +1477,15 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"getCenterOfMass", gmf_pb_getCenterOfMass, nullptr},
     {"setMass", gmf_pb_setMass, nullptr},
     {"getMass", gmf_pb_getMass, nullptr},
+    {"getShapeType", gmf_pb_getShapeType, nullptr},
+    {"getNumShapes", gmf_pb_getNumShapes, nullptr},
+    {"isShapeSensor", gmf_pb_isShapeSensor, nullptr},
+    {"isPointWithin", gmf_pb_isPointWithin, nullptr},
+    {"getNumShapeVerts", gmf_pb_getNumShapeVerts, nullptr},
+    {"getShapeVert", gmf_pb_getShapeVert, nullptr},
+    {"getShapeWorldVert", gmf_pb_getShapeWorldVert, nullptr},
     {"getShapeObjectID", gmf_pb_getShapeObjectID, nullptr},
+    {"isContainsShape", gmf_pb_isContainsShape, nullptr},
     {"getShapeWorldCenterPos", gmf_pb_getShapeWorldCenterPos, nullptr},
     {"setMaxSpeed", gmf_pb_setMaxSpeed, nullptr},
     {"getMaxSpeed", gmf_pb_getMaxSpeed, nullptr},
@@ -1325,7 +1534,15 @@ void GM_CDECL PhysicsBodyGCDestruct(gmMachine* a_machine, gmUserObject* a_object
     g_allPhysicsBodies.erase(
         std::remove(g_allPhysicsBodies.begin(), g_allPhysicsBodies.end(), b),
         g_allPhysicsBodies.end());
-    if (b->body) GetPhysicsWorld().DestroyBody(b->body);
+    // Object IDs are long-lived script references (Chain2 stores them for
+    // each link and resolves them later through PHYSICSBODY_GetBodyByID).
+    // Once this wrapper is destroyed, leaving its GM user object in the
+    // registry turns that lookup into a use-after-free: the next
+    // `...GetBodyByID(id).isSleeping()` reaches a freed PhysicsBodyData and
+    // crashes. A removed body has no valid object to return.
+    if (b->objectId > 0 && b->objectId < (int)g_bodiesByObjectId.size())
+        g_bodiesByObjectId[(size_t)b->objectId] = gmVariable::s_null;
+    InvalidatePhysicsBody(b);
     delete b;
 }
 
@@ -1333,6 +1550,15 @@ void GM_CDECL PhysicsBodyGCDestruct(gmMachine* a_machine, gmUserObject* a_object
 
 struct PhysicsDataObj {
     std::vector<gmVariable> bodies; // each a PhysicsBody user object
+    int type = 0; // selected by EntityManager.createEntity's physics-type argument
+    // Retail setVisibilityAABBScale stores these at PhysicsData offsets
+    // +0x18/+0x1c before asking its spatial index to rebuild cached bounds.
+    // The local entity query path does not yet have that retail index/update.
+    float visibilityAabbScaleX = 1.0f;
+    float visibilityAabbScaleY = 1.0f;
+    // rotateTo's retail multi-body wrapper sets its native update flag at
+    // PhysicsData offset +0x40. The corresponding consumer/reset is unknown.
+    bool rotateToDirty = false;
     // The entity table this PhysicsData belongs to, if any -- see
     // MakePhysicsData/getCollidingEntities.
     gmVariable ownerEntity = gmVariable::s_null;
@@ -1340,6 +1566,50 @@ struct PhysicsDataObj {
 
 PhysicsDataObj* ThisData(gmThread* a_thread) {
     return (PhysicsDataObj*)a_thread->ThisUserCheckType(g_physicsDataType);
+}
+
+// Entity hit tests must include every body and every fixture. TestPoint uses
+// each body's transform and the actual Box2D shape geometry.
+int GM_CDECL gmf_pd_isPointWithin(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread);
+    if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    float x, y;
+    if (!GetVector2D(*a_thread->GetMachine(), a_thread->Param(0), x, y)) return GM_EXCEPTION;
+    bool inside = false;
+    for (const gmVariable& bodyVar : d->bodies) {
+        if (bodyVar.m_type != g_physicsBodyType) continue;
+        gmObject* obj = a_thread->GetMachine()->GetObject(bodyVar.m_value.m_ref);
+        PhysicsBodyData* b = obj ? (PhysicsBodyData*)((gmUserObject*)obj)->m_user : nullptr;
+        if (!b || !b->body) continue;
+        for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
+            if (f->TestPoint(b2Vec2(x, y))) { inside = true; break; }
+        }
+        if (inside) break;
+    }
+    a_thread->PushInt(inside ? 1 : 0);
+    return GM_OK;
+}
+
+// Retail PhysicsData.getType() exposes the type selected by
+// EntityManager.createEntity(typeName, physicsType).
+int GM_CDECL gmf_pd_getType(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread);
+    if (!d) return GM_EXCEPTION;
+    a_thread->PushInt(d->type);
+    return GM_OK;
+}
+
+// Retail Physics.setVisibilityAABBScale(float x, float y): converts each
+// float-or-int argument to float, stores the pair, then refreshes the native
+// visibility-AABB index. The scale storage is represented here; the index
+// refresh remains unavailable until the retail spatial-index path is ported.
+int GM_CDECL gmf_pd_setVisibilityAABBScale(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread);
+    if (!d) return GM_EXCEPTION;
+    d->visibilityAabbScaleX = a_thread->ParamFloatOrInt(0, 0.0f);
+    d->visibilityAabbScaleY = a_thread->ParamFloatOrInt(1, 0.0f);
+    return GM_OK;
 }
 
 PhysicsBodyData* GetBodyData(gmMachine& a_machine, const gmVariable& a_var) {
@@ -1464,20 +1734,37 @@ int GM_CDECL gmf_pd_getBody(gmThread* a_thread) {
 // 0x0009291c): 0-or-1-arg, index<0 or omitted means "remove all". Real
 // call site (EntityBase.gm:691, entity re-load path: `this.PhysicsData.
 // removeBody(-1);`) tears down every body this entity owns before
-// rebuilding them fresh. Erasing from d->bodies (after UnrootGmVariable)
-// makes each PhysicsBody user object collectible; its own GC destructor
-// (PhysicsBodyGCDestruct above) already calls GetPhysicsWorld().
-// DestroyBody() on collection, so the actual Box2D teardown reuses that
-// exact same path rather than duplicating it here.
+// rebuilding them fresh. Chain2.gm also passes a PhysicsBody object ID here
+// while shortening its linked chain, so resolve an owned object ID before
+// accepting the legacy positional form. Erasing from d->bodies (after
+// UnrootGmVariable).  Destruction cannot wait for collection: scripts keep
+// body references in entity state while checkpoints rebuild vehicle bodies,
+// and those references can be read before the next collection pass.
 int GM_CDECL gmf_pd_removeBody(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    int index = -1;
-    if (a_thread->GetNumParams() >= 1) index = a_thread->ParamInt(0, -1);
+    int bodyIdOrIndex = -1;
+    if (a_thread->GetNumParams() >= 1) bodyIdOrIndex = a_thread->ParamInt(0, -1);
     gmMachine& m = *a_thread->GetMachine();
-    if (index < 0) {
-        for (gmVariable& bv : d->bodies) UnrootGmVariable(m, bv);
+    if (bodyIdOrIndex < 0) {
+        for (gmVariable& bv : d->bodies) {
+            InvalidatePhysicsBody(GetBodyData(m, bv));
+            UnrootGmVariable(m, bv);
+        }
         d->bodies.clear();
-    } else if (index < (int)d->bodies.size()) {
+    } else {
+        int index = -1;
+        for (size_t i = 0; i < d->bodies.size(); ++i) {
+            PhysicsBodyData* body = GetBodyData(m, d->bodies[i]);
+            if (body && body->objectId == bodyIdOrIndex) {
+                index = (int)i;
+                break;
+            }
+        }
+        if (index < 0 && bodyIdOrIndex < (int)d->bodies.size()) {
+            index = bodyIdOrIndex;
+        }
+        if (index < 0) return GM_OK;
+        InvalidatePhysicsBody(GetBodyData(m, d->bodies[(size_t)index]));
         UnrootGmVariable(m, d->bodies[(size_t)index]);
         d->bodies.erase(d->bodies.begin() + index);
     }
@@ -1524,17 +1811,20 @@ int GM_CDECL gmf_pd_getCollidingEntities(gmThread* a_thread) {
 // body, and returns an iterator over it (matching the real
 // ENTITYLISTREFCONTAINER-shaped idiom, e.g. EntityBase.gm:1308's `for(it=
 // this.PhysicsData.getJointsOnMe();it.isValid();it.goToNext()){ local
-// j=it.get(); Physics.deleteJoint(j); }`). This engine has no Box2D joint
-// system at all (no createJoint/deleteJoint modeled anywhere in this
-// codebase, and grepping the corpus turns up no OTHER real joint-creation
-// call site either) -- so the only physically-correct answer is "zero
-// joints exist", matching an always-empty iterator (same EntityIterData
-// type getCollidingEntities uses above) rather than null (which would
-// hard-crash the very next `it.isValid()` call with "getdot failed").
+// j=it.get(); Physics.deleteJoint(j); }`). A joint registry supplies the
+// returned stable handles while Box2D owns and solves constraints.
 int GM_CDECL gmf_pd_getJointsOnMe(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
-    gmUserObject* iterObj = m.AllocUserObject(new EntityIterData{}, g_entityIterType);
-    a_thread->Push(gmVariable(iterObj));
+    PhysicsDataObj* data = ThisData(a_thread);
+    std::vector<b2Body*> bodies;
+    if (data) {
+        bodies.reserve(data->bodies.size());
+        for (const gmVariable& bodyVar : data->bodies) {
+            PhysicsBodyData* body = GetBodyData(m, bodyVar);
+            if (body && body->body) bodies.push_back(body->body);
+        }
+    }
+    a_thread->Push(MakePhysicsJointIterator(m, bodies));
     return GM_OK;
 }
 
@@ -1548,13 +1838,8 @@ int GM_CDECL gmf_pd_getJointsOnMe(gmThread* a_thread) {
 // "shape ID" matches PhysicsBody.getShapeObjectID's existing confirmed
 // contract (a fixture's creation-order index within its OWN body's
 // fixture list) -- computed here by walking GetFixtureList(). The
-// getCollidingShapeIDList() argument (real retail: a reusable
-// IntListRefContainer, `this.tmpIntIterator=INTLISTREFCONTAINER()`) is
-// accepted but not required to be a real object -- IntListRefContainer
-// itself is otherwise never used standalone in the corpus, so a fresh
-// iterator is returned each call instead of populating a passed-in one;
-// functionally identical for every real call site, all of which just
-// immediately iterate isValid()/goToNext()/get().
+// getCollidingShapeIDList() accepts the reusable IntListRefContainer
+// created by INTLISTREFCONTAINER() and repopulates it with shape IDs.
 gmType g_collisionInfoType = -1;
 gmType g_shapeCollisionInfoType = -1;
 gmType g_intIterType = -1;
@@ -1572,25 +1857,39 @@ struct ShapeContactEntry {
     std::vector<int> myShapeIds;
     std::vector<b2Vec2> normals; // world-space, pointing from the other shape toward mine ("itToMe")
     std::vector<ContactPoints> points;
+    // The live b2Contact each record came from, so disableContact(i) can
+    // actually reach it. Retail's Physics.disableContact (0x000982f4)
+    // scans its own vector for the record whose index matches and ORs a
+    // flag into that contact; this is the same lookup.
+    std::vector<b2Contact*> contacts;
 };
 struct CollisionInfoData {
     std::vector<b2Body*> collidingMyBodies;
     std::vector<ShapeContactEntry> contacts;
     // isAllSensors() backing -- see gmf_ci_isAllSensors's own header comment.
-    // Vacuously true (matches "no contact disqualified this" default) until
-    // BuildCollisionInfo finds a touching fixture pair where NEITHER side is
-    // a sensor.
+    // Retail FUN_0002e08c walks CollisionInfo's keys (the OTHER shape IDs)
+    // and calls FUN_00036eec, which reads that shape's sensor byte. This is
+    // true only when every contacted OTHER shape is a sensor. In particular,
+    // a note's sensor touching the player's solid body must return false.
     bool allSensors = true;
 };
 struct ShapeCollisionInfoData {
     std::vector<int> myShapeIds;
     std::vector<b2Vec2> normals;
     std::vector<ContactPoints> points;
+    std::vector<b2Contact*> contacts; // parallel to myShapeIds, for disableContact
 };
 struct IntIterData {
     std::vector<int> values;
     size_t index = 0;
 };
+
+int GM_CDECL gmf_INTLISTREFCONTAINER(gmThread* a_thread) {
+    gmMachine& m = *a_thread->GetMachine();
+    gmUserObject* obj = m.AllocUserObject(new IntIterData(), g_intIterType);
+    a_thread->Push(gmVariable(obj));
+    return GM_OK;
+}
 
 CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_myData, const gmVariable& a_otherEntityVar) {
     CollisionInfoData* info = new CollisionInfoData();
@@ -1618,7 +1917,7 @@ CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_my
             bool aIsMine = (fA->GetBody() == myBody->body);
             b2Fixture* myFixture = aIsMine ? fA : fB;
             b2Fixture* otherFixture = aIsMine ? fB : fA;
-            if (!myFixture->IsSensor() && !otherFixture->IsSensor()) info->allSensors = false;
+            if (!otherFixture->IsSensor()) info->allSensors = false;
 
             b2WorldManifold wm;
             contact->GetWorldManifold(&wm); // normal points from A to B
@@ -1640,12 +1939,19 @@ CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_my
 
             ShapeContactEntry* entry = nullptr;
             for (auto& e : info->contacts) if (e.otherShapeId == otherShapeId) { entry = &e; break; }
-            if (!entry) { info->contacts.push_back(ShapeContactEntry{otherShapeId, {}, {}, {}}); entry = &info->contacts.back(); }
+            if (!entry) { info->contacts.push_back(ShapeContactEntry{otherShapeId, {}, {}, {}, {}}); entry = &info->contacts.back(); }
             entry->myShapeIds.push_back(myShapeId);
             entry->normals.push_back(itToMe);
             entry->points.push_back(cp);
+            entry->contacts.push_back(contact);
         }
     }
+    // Retail stores per-other-shape entries in an ordered map. Preserve its
+    // key iteration order for getCollidingShapeIDList()/getFirstShape... .
+    std::sort(info->contacts.begin(), info->contacts.end(),
+              [](const ShapeContactEntry& a, const ShapeContactEntry& b) {
+                  return a.otherShapeId < b.otherShapeId;
+              });
     return info;
 }
 
@@ -1654,8 +1960,58 @@ int GM_CDECL gmf_pd_getCollisionInfo(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     gmMachine& m = *a_thread->GetMachine();
     CollisionInfoData* info = BuildCollisionInfo(m, d, a_thread->Param(0));
+    // Retail Physics.getCollisionInfo first looks the other PhysicsData up
+    // in its active collision map and pushes null on a miss
+    // empty CollisionInfo is truthy to GM, so returning one here made every
+    // `if (?data.getCollisionInfo(other))` path claim a collision after the
+    // bodies had separated.
+    if (info->contacts.empty()) {
+        delete info;
+        a_thread->PushNull();
+        return GM_OK;
+    }
     gmUserObject* obj = m.AllocUserObject(info, g_collisionInfoType);
     a_thread->Push(gmVariable(obj));
+    return GM_OK;
+}
+int GM_CDECL gmf_pd_isColliding(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    const int argc = a_thread->GetNumParams();
+    if (argc > 1) return GM_EXCEPTION;
+    // Retail's no-arg path checks whether its collision collection is
+    // nonempty; its one-arg path looks the other PhysicsData up in that
+    // collection (FUN_002f6348). The local equivalent scans touching Box2D
+    // contacts and compares the stored owner entity. Contact/map update
+    // timing still needs a retail tick trace.
+    const gmVariable target = argc == 1 ? a_thread->Param(0) : gmVariable::s_null;
+    PhysicsDataObj* targetData = nullptr;
+    if (target.m_type == g_physicsDataType) {
+        gmObject* targetObject = a_thread->GetMachine()->GetObject(target.m_value.m_ref);
+        if (targetObject) targetData = (PhysicsDataObj*)((gmUserObject*)targetObject)->m_user;
+    }
+    bool colliding = false;
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* body = GetBodyData(*a_thread->GetMachine(), bodyVar);
+        if (!body || !body->body) continue;
+        for (b2ContactEdge* edge = body->body->GetContactList(); edge; edge = edge->next) {
+            if (!edge->contact || !edge->contact->IsTouching()) continue;
+            if (argc == 0) { colliding = true; break; }
+            const uintptr_t userData = edge->other->GetUserData().pointer;
+            PhysicsDataObj* other = reinterpret_cast<PhysicsDataObj*>(userData);
+            if (!other) continue;
+            if (target.m_type == GM_TABLE && other->ownerEntity.m_type == GM_TABLE &&
+                target.m_value.m_ref == other->ownerEntity.m_value.m_ref) {
+                colliding = true;
+                break;
+            }
+            if (targetData && other == targetData) {
+                colliding = true;
+                break;
+            }
+        }
+        if (colliding) break;
+    }
+    a_thread->PushInt(colliding ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_ci_isBodyColliding(gmThread* a_thread) {
@@ -1668,13 +2024,73 @@ int GM_CDECL gmf_ci_isBodyColliding(gmThread* a_thread) {
     a_thread->PushInt(found ? 1 : 0);
     return GM_OK;
 }
+// CollisionInfo.isBodyCollidingWithShape(body, globalShapeId): check the
+// contact records captured for this entity pair, preserving the distinction
+// between a platform's solid and sensor fixtures. Retail dispatches to
+// FUN_0002df38 (EBOOT 0x97920) with precisely these two arguments.
+int GM_CDECL gmf_ci_isBodyCollidingWithShape(gmThread* a_thread) {
+    auto* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    PhysicsBodyData* body = GetBodyData(*a_thread->GetMachine(), a_thread->Param(0));
+    GM_INT_PARAM(shapeId, 1, 0);
+    bool found = false;
+    if (body && body->body) {
+        for (const ShapeContactEntry& entry : info->contacts) {
+            if (std::find(entry.myShapeIds.begin(), entry.myShapeIds.end(), shapeId) == entry.myShapeIds.end())
+                continue;
+            for (b2ContactEdge* edge = body->body->GetContactList(); edge; edge = edge->next) {
+                b2Contact* contact = edge->contact;
+                if (!contact || !contact->IsTouching()) continue;
+                b2Fixture* other = contact->GetFixtureA()->GetBody() == body->body
+                    ? contact->GetFixtureB() : contact->GetFixtureA();
+                if ((int)other->GetUserData().pointer == shapeId) { found = true; break; }
+            }
+            if (found) break;
+        }
+    }
+    a_thread->PushInt(found ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_ci_isShapeColliding(gmThread* a_thread) {
+    auto* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(shapeId, 0, 0);
+    bool found = false;
+    for (const ShapeContactEntry& entry : info->contacts) {
+        if (std::find(entry.myShapeIds.begin(), entry.myShapeIds.end(), shapeId) != entry.myShapeIds.end()) {
+            found = true;
+            break;
+        }
+    }
+    a_thread->PushInt(found ? 1 : 0);
+    return GM_OK;
+}
 int GM_CDECL gmf_ci_getCollidingShapeIDList(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
-    IntIterData* it = new IntIterData();
+    gmMachine& m = *a_thread->GetMachine();
+    IntIterData* it = nullptr;
+    gmVariable result;
+    if (a_thread->GetNumParams() == 0) {
+        it = new IntIterData();
+        gmUserObject* obj = m.AllocUserObject(it, g_intIterType);
+        result = gmVariable(obj);
+    } else {
+        // Retail reuses the provided IntListRefContainer, clearing and
+        // repopulating it with ordered collision-map keys.
+        result = a_thread->Param(0);
+        if (result.m_type != g_intIterType) return GM_EXCEPTION;
+        gmObject* obj = m.GetObject(result.m_value.m_ref);
+        if (!obj) return GM_EXCEPTION;
+        it = (IntIterData*)((gmUserObject*)obj)->m_user;
+        if (!it) return GM_EXCEPTION;
+        it->values.clear();
+        it->index = 0;
+    }
     for (auto& e : info->contacts) it->values.push_back(e.otherShapeId);
-    gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(it, g_intIterType);
-    a_thread->Push(gmVariable(obj));
+    a_thread->Push(result);
     return GM_OK;
 }
 int GM_CDECL gmf_ci_getShapeCollisionInfo(gmThread* a_thread) {
@@ -1684,7 +2100,7 @@ int GM_CDECL gmf_ci_getShapeCollisionInfo(gmThread* a_thread) {
     GM_INT_PARAM(sid, 0, -1);
     for (auto& e : info->contacts) {
         if (e.otherShapeId == sid) {
-            ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.myShapeIds, e.normals, e.points};
+            ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.myShapeIds, e.normals, e.points, e.contacts};
             gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(sci, g_shapeCollisionInfoType);
             a_thread->Push(gmVariable(obj));
             return GM_OK;
@@ -1711,9 +2127,29 @@ int GM_CDECL gmf_ci_getFirstShapeCollisionInfo(gmThread* a_thread) {
     if (!info) return GM_EXCEPTION;
     if (info->contacts.empty()) { a_thread->PushNull(); return GM_OK; }
     ShapeContactEntry& e = info->contacts.front();
-    ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.myShapeIds, e.normals, e.points};
+    ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.myShapeIds, e.normals, e.points, e.contacts};
     gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(sci, g_shapeCollisionInfoType);
     a_thread->Push(gmVariable(obj));
+    return GM_OK;
+}
+// disableContact(shapeIndex) -- REAL, now implemented. Retail body
+// vector of 16-byte records and, for the record whose index field equals
+// the argument, ORs a flag bit into that contact:
+//     for each record: if (record[3] == index) *(u32*)(record[0]+4) |= 1;
+// Same shape as the lookup here: find the recorded contact at this index
+// and mark it for the current step.
+//
+// The argument indexes this ShapeCollisionInfo's own parallel arrays --
+// the same `i` that getContactNormal(i)/getContactPos(i, n) take (see
+// Player.gm:4489, where `i` comes from the loop over this sci's shapes).
+int GM_CDECL gmf_sci_disableContact(gmThread* a_thread) {
+    ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
+    if (!sci) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    if (index >= 0 && index < (int)sci->contacts.size()) {
+        DisableContactThisFrame(sci->contacts[(size_t)index]);
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_sci_getNumOfMyShapesColliding(gmThread* a_thread) {
@@ -1805,6 +2241,8 @@ int GM_CDECL gmf_ci_isAllSensors(gmThread* a_thread) {
 }
 gmFunctionEntry s_collisionInfoLib[] = {
     {"isBodyColliding", gmf_ci_isBodyColliding, nullptr},
+    {"isBodyCollidingWithShape", gmf_ci_isBodyCollidingWithShape, nullptr},
+    {"isShapeColliding", gmf_ci_isShapeColliding, nullptr},
     {"getCollidingShapeIDList", gmf_ci_getCollidingShapeIDList, nullptr},
     {"getShapeCollisionInfo", gmf_ci_getShapeCollisionInfo, nullptr},
     {"getFirstShapeCollisionInfo", gmf_ci_getFirstShapeCollisionInfo, nullptr},
@@ -1833,6 +2271,26 @@ int GM_CDECL gmf_pd_getPos(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(m, p.x, p.y));
     return GM_OK;
 }
+// The retail method name is used by Player.gm's obstruction/raycast helpers.
+// Those call sites only read .x/.y; this maps them to the same current
+// position value as getPos(). Whether retail permits writing through the
+// returned value is still unverified, so this is not claimed as reference
+// semantics.
+int GM_CDECL gmf_pd_getPosRef(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    PhysicsBodyData* b = MainBody(a_thread, d);
+    if (!b) return gmf_pd_getPos(a_thread);
+    a_thread->Push(MakeVector2DRef(*a_thread->GetMachine(), b->selfVar, b,
+                                   [](void* ctx, float& x, float& y) {
+                                       b2Vec2 p = static_cast<PhysicsBodyData*>(ctx)->body->GetPosition();
+                                       x = p.x; y = p.y;
+                                   },
+                                   [](void* ctx, float x, float y) {
+                                       auto* body = static_cast<PhysicsBodyData*>(ctx)->body;
+                                       body->SetTransform(b2Vec2(x, y), body->GetAngle());
+                                   }));
+    return GM_OK;
+}
 int GM_CDECL gmf_pd_setPos(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     float x, y;
@@ -1846,8 +2304,8 @@ int GM_CDECL gmf_pd_getVel(gmThread* a_thread) {
     PhysicsBodyData* b = MainBody(a_thread, d);
     gmMachine& m = *a_thread->GetMachine();
     if (!b) { a_thread->Push(MakeVector2D(m, 0.0f, 0.0f)); return GM_OK; }
-    b2Vec2 v = b->body->GetLinearVelocity();
-    a_thread->Push(MakeVector2D(m, v.x / kScriptVelocityToSimScale, v.y / kScriptVelocityToSimScale));
+    b2Vec2 v = ScriptVelocity(b->body->GetLinearVelocity());
+    a_thread->Push(MakeVector2D(m, v.x, v.y));
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setVel(gmThread* a_thread) {
@@ -1855,26 +2313,32 @@ int GM_CDECL gmf_pd_setVel(gmThread* a_thread) {
     float x, y;
     if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) b->body->SetLinearVelocity(b2Vec2(x * kScriptVelocityToSimScale, y * kScriptVelocityToSimScale));
+    if (b) b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(x, y)));
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getSpeed(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushFloat(b ? (b->body->GetLinearVelocity().Length() / kScriptVelocityToSimScale) : 0.0f);
+    a_thread->PushFloat(b ? ScriptVelocity(b->body->GetLinearVelocity()).Length() : 0.0f);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setSpeed(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(speed, 0, 0.0f);
-    float simSpeed = speed * kScriptVelocityToSimScale;
+    float simSpeed = speed;
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (b) {
-        b2Vec2 v = b->body->GetLinearVelocity();
+        b2Vec2 v = ScriptVelocity(b->body->GetLinearVelocity());
         float len = v.Length();
-        v = (len > 0.0001f) ? (simSpeed / len) * v : b2Vec2(simSpeed, 0.0f);
-        b->body->SetLinearVelocity(v);
+        if (v.x == 0.0f && v.y == 0.0f) {
+            v = simSpeed * BodyFacingDirection(*b);
+        } else if (len >= 1.1920928955078125e-7f) {
+            v *= (simSpeed / len);
+        } else {
+            v *= simSpeed;
+        }
+        b->body->SetLinearVelocity(Box2DVelocity(v));
     }
     return GM_OK;
 }
@@ -1883,9 +2347,7 @@ int GM_CDECL gmf_pd_getDir(gmThread* a_thread) {
     PhysicsBodyData* b = MainBody(a_thread, d);
     gmMachine& m = *a_thread->GetMachine();
     if (!b) { a_thread->Push(MakeVector2D(m, 1.0f, 0.0f)); return GM_OK; }
-    b2Vec2 v = b->body->GetLinearVelocity();
-    float len = v.Length();
-    v = (len > 0.0001f) ? (1.0f / len) * v : b2Vec2(1.0f, 0.0f);
+    b2Vec2 v = BodyFacingDirection(*b);
     a_thread->Push(MakeVector2D(m, v.x, v.y));
     return GM_OK;
 }
@@ -1895,21 +2357,16 @@ int GM_CDECL gmf_pd_setDir(gmThread* a_thread) {
     if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (b) {
-        float speed = b->body->GetLinearVelocity().Length();
         b2Vec2 dir(x, y);
         float dlen = dir.Length();
-        if (dlen > 0.0001f) dir *= (1.0f / dlen);
-        // Must also update dirX/dirY (mirrors gmf_pb_setDir exactly) --
-        // gmf_pd_thrust/gmf_pb_thrust read THESE fields, not the body's
-        // current velocity direction. Without this, Player.gm's real
-        // movement sequence (`this.PhysicsData.setDir(x,y);
-        // this.PhysicsData.thrust();`) always thrust toward (0,0) --
-        // confirmed the actual cause of "player/enemy movement doesn't
-        // work at all": setDir moved the body's existing (zero, at rest)
-        // velocity to face the new direction at its current (zero) speed,
-        // then thrust() read the never-updated dirX/dirY=(0,0) instead.
-        b->dirX = dir.x; b->dirY = dir.y;
-        b->body->SetLinearVelocity(speed * dir);
+        if (dlen > 0.0f) dir *= (1.0f / dlen);
+        else dir.SetZero();
+        if (b->body->IsFixedRotation()) {
+            b->dirX = dir.x;
+            b->dirY = dir.y;
+        } else {
+            b->body->SetTransform(b->body->GetPosition(), std::atan2(dir.y, dir.x));
+        }
     }
     return GM_OK;
 }
@@ -1934,11 +2391,12 @@ int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
     float r = std::max(radius, 0.001f);
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (!b) return GM_OK;
-    b2Filter filter; filter.categoryBits = 0;
+    b2Filter filter;
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
         if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
     }
@@ -2049,7 +2507,7 @@ int GM_CDECL gmf_pd_reverseThrust(gmThread* a_thread) {
 int GM_CDECL gmf_pd_brake(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b && !b->brakeFlag) { b->brakeFlag = true; b->brakeAccum += b->brakeAcc; }
+    if (b) b->brakeFlag = true;
     return GM_OK;
 }
 int GM_CDECL gmf_pd_rotateLeft(gmThread* a_thread) {
@@ -2064,6 +2522,28 @@ int GM_CDECL gmf_pd_rotateRight(gmThread* a_thread) {
     if (b && !b->rotRightFlag) { b->rotRightFlag = true; b->rotAccum -= b->rotateAcc; }
     return GM_OK;
 }
+int GM_CDECL gmf_pd_rotateTo(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    float x, y;
+    if (!GetVector2D(*a_thread->GetMachine(), a_thread->Param(0), x, y)) return GM_EXCEPTION;
+    gmMachine& m = *a_thread->GetMachine();
+    PhysicsBodyData* b = d->bodies.empty() ? nullptr : GetBodyData(m, d->bodies[0]);
+    if (b) {
+        b->rotateToActive = true;
+        b->rotateToX = x;
+        b->rotateToY = y;
+        b->rotateToSign = (int)a_thread->ParamFloatOrInt(1, 0.0f);
+    }
+    d->rotateToDirty = true;
+    return GM_OK;
+}
+int GM_CDECL gmf_pd_stopRotatingTo(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    PhysicsBodyData* b = MainBody(a_thread, d);
+    if (b) b->rotateToActive = false;
+    return GM_OK;
+}
 int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -2072,11 +2552,12 @@ int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (!b) return GM_OK;
     float hx = std::max(width * 0.5f, 0.001f), hy = std::max(height * 0.5f, 0.001f);
-    b2Filter filter; filter.categoryBits = 0;
+    b2Filter filter;
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
         if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
     }
@@ -2167,6 +2648,29 @@ int GM_CDECL gmf_pd_isSleeping(gmThread* a_thread) {
     a_thread->PushInt((b && !b->body->IsAwake()) ? 1 : 0);
     return GM_OK;
 }
+// Retail PhysicsData.putToSleep walks all owned bodies, zeros linear/angular
+// velocity, forces/torque, and sleep time, then marks the body asleep. Box2D's
+// SetAwake(false) performs those same state transitions.
+int GM_CDECL gmf_pd_putToSleep(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    gmMachine& m = *a_thread->GetMachine();
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(m, bodyVar);
+        if (b && b->body) b->body->SetAwake(false);
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_pd_setAllowSleeping(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(allowed, 0, 0);
+    gmMachine& m = *a_thread->GetMachine();
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(m, bodyVar);
+        if (b && b->body) b->body->SetSleepingAllowed(allowed != 0);
+    }
+    return GM_OK;
+}
 // 0x00094e78): walks every body pointer this PhysicsData owns and clears
 // its "asleep" bit -- i.e. wakes every body this entity has, not just the
 // main one (distinct from the isSleeping()/getPos() etc "just body 0"
@@ -2205,6 +2709,9 @@ int GM_CDECL gmf_pd_appendShapes(gmThread* a_thread) {
         }
     }
     SyncBodyTypeFromMass(b->body);
+    int lastIndex = -1;
+    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) ++lastIndex;
+    a_thread->PushInt(lastIndex);
     return GM_OK;
 }
 // 88-114, 0x00092810: `FUN_0002ef8c(world, index, 1)`, returns either null
@@ -2227,6 +2734,7 @@ int GM_CDECL gmf_pd_replaceBody(gmThread* a_thread) {
     PhysicsBodyData* old = GetBodyData(m, d->bodies[(size_t)index]);
     float x = 0.0f, y = 0.0f;
     if (old && old->body) { b2Vec2 p = old->body->GetPosition(); x = p.x; y = p.y; }
+    InvalidatePhysicsBody(old);
     UnrootGmVariable(m, d->bodies[(size_t)index]);
     gmVariable fresh = MakePhysicsBody(m, x, y, false, true);
     PhysicsBodyData* bd = GetBodyData(m, fresh);
@@ -2368,19 +2876,13 @@ int GM_CDECL gmf_pd_setRestitution(gmThread* a_thread) {
     if (b) for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetRestitution(r);
     return GM_OK;
 }
-// setMass(density) -- confirmed real (Player.gm: `pd.setMass(this.
-// baseDensity);`), delegating to body 0 same as every other PhysicsData
-// pass-through here -- was entirely unregistered on PhysicsData (only
-// existed on PhysicsBody), a hard "getdot failed" GM error every time hit.
+// PhysicsData forwards setMass to its primary body.
 int GM_CDECL gmf_pd_setMass(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(mass, 0, 1.0f);
     PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) {
-        for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetDensity(mass);
-        SyncBodyTypeFromMass(b->body);
-    }
+    if (b) SetRetailBodyMass(b->body, mass);
     return GM_OK;
 }
 // Shared by getAABB/getMinPos/getMaxPos -- same fixture-union AABB
@@ -2450,8 +2952,34 @@ int GM_CDECL gmf_pd_getMaxPos(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(m, aabb.upperBound.x, aabb.upperBound.y));
     return GM_OK;
 }
+int GM_CDECL gmf_pd_getShapeRadius(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(bodyIndex, 0, 0);
+    GM_INT_PARAM(shapeIndex, 1, 0);
+    gmMachine& m = *a_thread->GetMachine();
+    float radius = 0.0f;
+    if (bodyIndex >= 0 && bodyIndex < (int)d->bodies.size()) {
+        PhysicsBodyData* b = GetBodyData(m, d->bodies[(size_t)bodyIndex]);
+        b2Fixture* fixture = b ? FixtureAtShapeIndex(b->body, shapeIndex) : nullptr;
+        if (fixture) radius = fixture->GetShape()->m_radius;
+    }
+    a_thread->PushFloat(radius);
+    return GM_OK;
+}
 
 } // namespace
+
+void FlushDeferredPhysicsBodyDestructions() {
+    // StepPhysicsWorld invokes this only after b2World::Step has released
+    // its lock. Keep the guard for shutdown and direct callers.
+    if (GetPhysicsWorld().IsLocked()) return;
+    for (b2Body* body : g_deferredBodyDestructions) {
+        RemovePhysicsJointsForBody(body);
+        GetPhysicsWorld().DestroyBody(body);
+    }
+    g_deferredBodyDestructions.clear();
+}
 
 // For entity_bindings.cpp's generic entity-handle getMainBody() -- Player.gm
 // itself (line 5153-5155) defines getMainBody() as `return this.mainpb;
@@ -2467,6 +2995,24 @@ gmVariable GetPhysicsDataMainBodyVar(gmMachine& a_machine, const gmVariable& a_p
     PhysicsDataObj* d = (PhysicsDataObj*)((gmUserObject*)obj)->m_user;
     if (d->bodies.empty()) return gmVariable::s_null;
     return d->bodies[0];
+}
+
+bool PhysicsDataHasBodies(gmMachine& a_machine, const gmVariable& a_physicsDataVar) {
+    if (a_physicsDataVar.m_type != g_physicsDataType) return false;
+    gmObject* obj = a_machine.GetObject(a_physicsDataVar.m_value.m_ref);
+    if (!obj) return false;
+    PhysicsDataObj* d = (PhysicsDataObj*)((gmUserObject*)obj)->m_user;
+    return d && !d->bodies.empty();
+}
+
+bool GetPhysicsDataPos(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
+                       float& a_x, float& a_y) {
+    PhysicsBodyData* body = GetBodyData(a_machine, GetPhysicsDataMainBodyVar(a_machine, a_physicsDataVar));
+    if (!body || !body->body) return false;
+    const b2Vec2 pos = body->body->GetPosition();
+    a_x = pos.x;
+    a_y = pos.y;
+    return true;
 }
 
 bool GetPhysicsDataAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
@@ -2499,17 +3045,18 @@ bool GetPhysicsDataAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar
 b2Fixture* FindFixtureByGlobalId(int a_id) {
     return GetFixtureByGlobalId(a_id);
 }
-// The gmVariable (PhysicsBody handle) that wraps a_body, if any -- searches
-// the owning PhysicsData's body list for the matching b2Body* (bodies
-// don't store their own PhysicsBodyData* directly; only their owning
-// PhysicsDataObj*, via SetUserData in gmf_pd_createBody).
+gmVariable MakePhysicsShapeByGlobalId(gmMachine& a_machine, int a_id) {
+    if (!GetFixtureByGlobalId(a_id)) return gmVariable::s_null;
+    return gmVariable(a_machine.AllocUserObject(new PhysicsShapeHandle{a_id}, g_physicsShapeType));
+}
+// Resolve the original script-visible handle from the live body registry.
+// The owner's bodies list is not reliable for every body creation path;
+// collision callbacks can refer to a body while that list is empty.
 gmVariable FindPhysicsBodyVarForB2Body(gmMachine& a_machine, b2Body* a_body) {
-    PhysicsDataObj* owner = (PhysicsDataObj*)(uintptr_t)a_body->GetUserData().pointer;
-    if (!owner) return gmVariable::s_null;
-    for (gmVariable& v : owner->bodies) {
-        PhysicsBodyData* bd = GetBodyData(a_machine, v);
-        if (bd && bd->body == a_body) return v;
-    }
+    (void)a_machine;
+    if (!a_body) return gmVariable::s_null;
+    for (PhysicsBodyData* bd : g_allPhysicsBodies)
+        if (bd && bd->body == a_body) return bd->selfVar;
     return gmVariable::s_null;
 }
 // The entity table that owns a_body's PhysicsData, if any.
@@ -2551,111 +3098,119 @@ void SetPhysicsDataOwnerEntity(gmMachine& a_machine, const gmVariable& a_physics
     RootGmVariable(a_machine, d->ownerEntity);
 }
 
-gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity) {
+gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity, int a_type) {
     PhysicsDataObj* data = new PhysicsDataObj();
+    data->type = a_type;
     data->ownerEntity = a_ownerEntity;
     RootGmVariable(a_machine, data->ownerEntity);
     gmUserObject* obj = a_machine.AllocUserObject(data, g_physicsDataType);
     return gmVariable(obj);
 }
 
-// ENGINE PATCH (movement-speed session): retail's per-tick movement
-// integrator, the single biggest missing piece of this engine's physics.
-// Retail runs this on every PhysicsShape every tick (vtable+0xd0 @
-// 0x00415c30, with the rotation half factored out into FUN_00415b70);
-// this engine had NO equivalent at all. Every movement field scripts set
-// -- velocityDecayRate, maxSpeed, thrustAcc, brakeAcc, maxVelocityDecayRate
-// -- was stored and then never read by anything, and thrust() faked the
-// whole mechanic by snapping velocity straight to maxSpeed. That is why
-// velocity was never removed once applied (a body kept gliding after the
-// key was released) and why no amount of retuning the decay constant
-// changed anything: nothing consumed it.
-//
-// The model, straight from the decompile (see ComputeDecayFactor's header
-// comment for the clean rotation-twin listing this is derived from):
-//     vel   *= velocityDecayFactor              // whole-velocity drag
-//     vel   += thrustAccum * dir * dt           // this tick's thrust input
-//     speed  = |vel|
-//     excess = max(speed - maxSpeed, 0)
-//     speed -= (1 - maxVelocityDecayFactor)*excess + dt*brakeAccum
-//     vel    = normalize(vel) * max(speed, 0)
-// then every accumulator and guard flag is cleared for the next tick
-// (retail FUN_004159c0).
-//
-// dt is retail's own fixed per-tick constant (16.666666 ms, read from
-// 0x00522734), not wall-clock delta -- this engine's 60fps limiter already
-// matches that cadence, and using the fixed value keeps the sim
-// deterministic the way retail's is.
-void StepPhysicsBodyMovement() {
-    const float dt = kDecayRateTickMs;
+// FUN_00031d50 is the retail angular-velocity integrator used by
+// FUN_00031f20. Preserve its single-precision fused operations and order.
+float RetailStepAngularVelocity(const PhysicsBodyData& a_body, float a_velocity,
+                                float a_dt) {
+    const float decayed = a_velocity * a_body.rotationDecayRate;
+    const float excess = std::max(decayed - a_body.maxRotateSpeed, 0.0f);
+    const float excessFactor = 1.0f - a_body.maxRotationDecayRate;
+    float result = std::fma(-excess, excessFactor, decayed);
+    result = std::fma(a_body.rotAccum, a_dt, result);
+    if (std::fabs(result) > a_body.maxRotateSpeed)
+        result = std::copysign(a_body.maxRotateSpeed, result);
+    return result;
+}
+
+float RetailDirectionAngle(float a_x, float a_y) {
+    return std::atan2(a_y, a_x);
+}
+
+// Retail FUN_00031f20, called for each PhysicsShape by FUN_0002e860.
+// The native manager passes the same timestep to this method and to the
+// world step; no separate 16.666 ms movement tick is applied here. Values
+// remain in script millisecond units; the stock-Box2D conversion is confined
+// to the body/world adapter boundary.
+void StepPhysicsBodyMovement(float a_dt) {
     for (PhysicsBodyData* b : g_allPhysicsBodies) {
         if (!b || !b->body) continue;
-        // A body with neither maxSpeed nor thrustAcc ever set has no
-        // movement configuration at all -- leave it entirely to Box2D
-        // rather than invent motion for it.
-        const bool hasMaxSpeed = (b->maxSpeed < 1e9f);
-        float thrustAcc = b->thrustAcc;
-        if (thrustAcc >= 1e9f) {
-            // thrustAcc unset: retail's constructor default isn't
-            // recoverable, but with the excess fully shed each tick (the
-            // maxVelocityDecayRate=0 default) any sufficiently large value
-            // produces the same observable result -- reaching maxSpeed in
-            // one tick. Use exactly that rather than a 1e9 sentinel, which
-            // would work but push absurd intermediate magnitudes through
-            // the solver.
-            thrustAcc = hasMaxSpeed ? (b->maxSpeed / dt) : 0.0f;
-        }
-        float brakeAcc = (b->brakeAccum != 0.0f && b->brakeAcc >= 1e9f)
-                             ? (hasMaxSpeed ? (b->maxSpeed / dt) : 0.0f)
-                             : b->brakeAccum;
 
-        // --- linear ---
-        b2Vec2 vel = b->body->GetLinearVelocity();
-        vel *= b->velocityDecayRate;
-        if (b->thrustAccum != 0.0f) {
-            float acc = (b->thrustAcc >= 1e9f)
-                            ? ((b->thrustAccum > 0.0f) ? thrustAcc : -thrustAcc)
-                            : b->thrustAccum;
-            float step = acc * kScriptVelocityToSimScale * dt;
-            vel += b2Vec2(b->dirX * step, b->dirY * step);
+        const bool rotationResponse = !b->body->IsFixedRotation();
+        if (rotationResponse) {
+            const float angle = b->body->GetAngle();
+            b->dirX = std::cos(angle);
+            b->dirY = std::sin(angle);
         }
-        float speed = vel.Length();
-        if (speed > 0.0001f) {
-            float simMax = hasMaxSpeed ? (b->maxSpeed * kScriptVelocityToSimScale) : speed;
-            float excess = speed - simMax;
-            if (excess < 0.0f) excess = 0.0f;
-            speed -= (1.0f - b->maxVelocityDecayRate) * excess;
-            speed -= dt * brakeAcc * kScriptVelocityToSimScale;
-            if (speed < 0.0f) speed = 0.0f;
-            b2Vec2 dir = vel;
-            dir *= (1.0f / vel.Length());
-            vel = speed * dir;
+
+        // Retain PPC fmadds' single-rounding behavior for the velocity
+        // integration: velocity*decay + facing*thrust*dt.
+        const b2Vec2 oldVelocity = ScriptVelocity(b->body->GetLinearVelocity());
+        const float thrustX = (b->dirX * b->thrustAccum) * a_dt;
+        const float thrustY = (b->dirY * b->thrustAccum) * a_dt;
+        float velocityX = std::fma(oldVelocity.x, b->velocityDecayRate, thrustX);
+        float velocityY = std::fma(oldVelocity.y, b->velocityDecayRate, thrustY);
+
+        const float speed = std::sqrt(std::fma(velocityX, velocityX,
+                                                velocityY * velocityY));
+        const float excess = std::max(speed - b->maxSpeed, 0.0f);
+        const float excessFactor = 1.0f - b->maxVelocityDecayRate;
+        float adjustedSpeed = std::fma(-excess, excessFactor, speed);
+        if (b->brakeFlag)
+            adjustedSpeed = std::fma(-b->brakeAcc, a_dt, adjustedSpeed);
+        adjustedSpeed = std::max(adjustedSpeed, 0.0f);
+        if (speed == 0.0f) {
+            velocityX = 0.0f;
+            velocityY = 0.0f;
         } else {
-            vel.SetZero();
+            velocityX = (velocityX / speed) * adjustedSpeed;
+            velocityY = (velocityY / speed) * adjustedSpeed;
         }
-        b->body->SetLinearVelocity(vel);
+        b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(velocityX, velocityY)));
 
-        // --- angular (facing direction) ---
-        if (b->rotAccum != 0.0f || b->rotVel != 0.0f) {
-            float rotAcc = b->rotAccum;
-            if (b->rotateAcc >= 1e9f && rotAcc != 0.0f) {
-                rotAcc = (rotAcc > 0.0f) ? 1.0f : -1.0f;
-            }
-            b->rotVel *= b->rotationDecayRate;
-            b->rotVel += dt * rotAcc;
-            if (b->maxRotateSpeed < 1e9f) {
-                float mag = std::fabs(b->rotVel);
-                float excess = mag - b->maxRotateSpeed;
-                if (excess > 0.0f) {
-                    mag -= (1.0f - b->maxRotationDecayRate) * excess;
-                    b->rotVel = (b->rotVel < 0.0f) ? -mag : mag;
+        if (b->rotateToActive) {
+            const float currentAngle = RetailDirectionAngle(b->dirX, b->dirY);
+            const float targetAngle = RetailDirectionAngle(b->rotateToX,
+                                                            b->rotateToY);
+            const float rawDifference = std::fabs(targetAngle - currentAngle);
+            const float angleDifference = std::min(rawDifference,
+                                                    6.28318548203f - rawDifference);
+            const float sign = static_cast<float>(b->rotateToSign);
+            const float signedDt = sign * a_dt;
+            const float rotationInput = b->rotateAcc * signedDt;
+            const float turnThreshold = rotationInput;
+            if (angleDifference <= turnThreshold || angleDifference <= 0.005f) {
+                if (rotationResponse) {
+                    b->body->SetAngularVelocity(0.0f);
+                    b2Vec2 direction(b->rotateToX, b->rotateToY);
+                    if (direction.LengthSquared() > 0.0f) direction.Normalize();
+                    b->body->SetTransform(b->body->GetPosition(),
+                                          RetailDirectionAngle(direction.x,
+                                                               direction.y));
+                } else {
+                    b->fixedRotationVel = 0.0f;
+                    b->dirX = b->rotateToX;
+                    b->dirY = b->rotateToY;
+                }
+                b->rotateToActive = false;
+            } else {
+                if (rotationResponse) {
+                    b->body->SetAngularVelocity(Box2DAngularVelocity(
+                        ScriptAngularVelocity(b->body->GetAngularVelocity()) + rotationInput));
+                } else {
+                    b->fixedRotationVel += rotationInput;
                 }
             }
-            if (b->rotVel != 0.0f) {
-                float ang = std::atan2(b->dirY, b->dirX) + b->rotVel * dt;
-                b->dirX = std::cos(ang);
-                b->dirY = std::sin(ang);
-            }
+        }
+
+        if (rotationResponse) {
+            b->body->SetAngularVelocity(Box2DAngularVelocity(RetailStepAngularVelocity(
+                *b, ScriptAngularVelocity(b->body->GetAngularVelocity()), a_dt)));
+        } else {
+            b->fixedRotationVel = RetailStepAngularVelocity(
+                *b, b->fixedRotationVel, a_dt);
+            const float angle = RetailDirectionAngle(b->dirX, b->dirY) +
+                                b->fixedRotationVel * a_dt;
+            b->dirX = std::cos(angle);
+            b->dirY = std::sin(angle);
         }
 
         // GE3_MOVE_DEBUG=1: dump the real per-tick movement state for any
@@ -2663,18 +3218,19 @@ void StepPhysicsBodyMovement() {
         // checked against real numbers instead of inferred. Zero cost when
         // unset, same pattern as GE3_UV_DEBUG in shape_bindings.cpp.
         static const char* s_moveDebug = std::getenv("GE3_MOVE_DEBUG");
-        if (s_moveDebug && (b->thrustAccum != 0.0f || vel.LengthSquared() > 0.0f)) {
+        if (s_moveDebug && (b->thrustAccum != 0.0f ||
+                            ScriptVelocity(b->body->GetLinearVelocity()).LengthSquared() > 0.0f)) {
             b2Vec2 p = b->body->GetPosition();
+            const b2Vec2 vel = ScriptVelocity(b->body->GetLinearVelocity());
             std::fprintf(stderr,
                 "[move] id=%d pos=(%.1f,%.1f) vel=(%.1f,%.1f) |v|=%.1f "
-                "dir=(%.2f,%.2f) accum=%.4g maxSpeed=%.4g decay=%.4g scale=%.1f\n",
+                "dir=(%.2f,%.2f) accum=%.4g maxSpeed=%.4g decay=%.4g\n",
                 b->objectId, p.x, p.y, vel.x, vel.y, vel.Length(),
                 b->dirX, b->dirY, b->thrustAccum, b->maxSpeed,
-                b->velocityDecayRate, kScriptVelocityToSimScale);
+                b->velocityDecayRate);
         }
 
         b->thrustAccum = 0.0f;
-        b->brakeAccum = 0.0f;
         b->rotAccum = 0.0f;
         b->thrustFlag = false;
         b->reverseFlag = false;
@@ -2686,6 +3242,12 @@ void StepPhysicsBodyMovement() {
 
 void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("PHYSICSBODY_GetBodyByID", gmf_PHYSICSBODY_GetBodyByID);
+
+    g_physicsShapeType = a_machine.CreateUserType("PhysicsShape");
+    a_machine.RegisterTypeLibrary(g_physicsShapeType, s_physicsShapeLib,
+                                  sizeof(s_physicsShapeLib) / sizeof(s_physicsShapeLib[0]));
+    a_machine.RegisterUserCallbacks(g_physicsShapeType, nullptr,
+        [](gmMachine*, gmUserObject* object) { delete (PhysicsShapeHandle*)object->m_user; }, nullptr);
 
     g_physicsBodyType = a_machine.CreateUserType("PhysicsBody");
     a_machine.RegisterTypeLibrary(g_physicsBodyType, s_physicsBodyLib,
@@ -2710,12 +3272,15 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         [](gmMachine*, gmUserObject* a_object) { delete (ShapeCollisionInfoData*)a_object->m_user; }, nullptr);
 
     g_intIterType = a_machine.CreateUserType("IntListRefContainer");
+    a_machine.RegisterLibraryFunction("INTLISTREFCONTAINER", gmf_INTLISTREFCONTAINER);
     a_machine.RegisterTypeLibrary(g_intIterType, s_intIterLib,
                                    sizeof(s_intIterLib) / sizeof(s_intIterLib[0]));
     a_machine.RegisterUserCallbacks(g_intIterType, nullptr,
         [](gmMachine*, gmUserObject* a_object) { delete (IntIterData*)a_object->m_user; }, nullptr);
 
     gmFunctionEntry physicsDataLib[] = {
+        {"getType", gmf_pd_getType, nullptr},
+        {"setVisibilityAABBScale", gmf_pd_setVisibilityAABBScale, nullptr},
         {"createBody", gmf_pd_createBody, nullptr},
         {"getBody", gmf_pd_getBody, nullptr},
         {"getNumBodies", gmf_pd_getNumBodies, nullptr},
@@ -2723,11 +3288,15 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         {"replaceBody", gmf_pd_replaceBody, nullptr},
         {"appendShapes", gmf_pd_appendShapes, nullptr},
         {"wakeUp", gmf_pd_wakeUp, nullptr},
+        {"putToSleep", gmf_pd_putToSleep, nullptr},
+        {"setAllowSleeping", gmf_pd_setAllowSleeping, nullptr},
         {"isSleeping", gmf_pd_isSleeping, nullptr},
         {"getCollidingEntities", gmf_pd_getCollidingEntities, nullptr},
         {"getJointsOnMe", gmf_pd_getJointsOnMe, nullptr},
         {"getCollisionInfo", gmf_pd_getCollisionInfo, nullptr},
+        {"isColliding", gmf_pd_isColliding, nullptr},
         {"getPos", gmf_pd_getPos, nullptr},
+        {"getPosRef", gmf_pd_getPosRef, nullptr},
         {"setPos", gmf_pd_setPos, nullptr},
         {"getVel", gmf_pd_getVel, nullptr},
         {"setVel", gmf_pd_setVel, nullptr},
@@ -2750,6 +3319,8 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         {"brake", gmf_pd_brake, nullptr},
         {"rotateLeft", gmf_pd_rotateLeft, nullptr},
         {"rotateRight", gmf_pd_rotateRight, nullptr},
+        {"rotateTo", gmf_pd_rotateTo, nullptr},
+        {"stopRotatingTo", gmf_pd_stopRotatingTo, nullptr},
         {"doesRotationResponse", gmf_pd_doesRotationResponse, nullptr},
         {"setDoesRotationResponse", gmf_pd_setDoesRotationResponse, nullptr},
         {"setVelocityDecayRate", gmf_pd_setVelocityDecayRate, nullptr},
@@ -2779,6 +3350,8 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         {"getAABB", gmf_pd_getAABB, nullptr},
         {"getMinPos", gmf_pd_getMinPos, nullptr},
         {"getMaxPos", gmf_pd_getMaxPos, nullptr},
+        {"getShapeRadius", gmf_pd_getShapeRadius, nullptr},
+        {"isPointWithin", gmf_pd_isPointWithin, nullptr},
     };
     g_physicsDataType = a_machine.CreateUserType("PhysicsData");
     a_machine.RegisterTypeLibrary(g_physicsDataType, physicsDataLib,
@@ -2796,7 +3369,22 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
                 // exactly what crashed gmf_pb_getEntity (SIGSEGV, confirmed
                 // via gdb) before this fix.
                 PhysicsBodyData* bd = GetBodyData(*a_m, bv);
-                if (bd && bd->body) bd->body->GetUserData().pointer = 0;
+                // ...but only if that body is still LIVE. On machine
+                // teardown (gmMachine::~gmMachine -> ResetAndFreeMemory ->
+                // gmGCColorSet::DestructAll) the collector destructs objects
+                // in arbitrary order, so the PhysicsBody this PhysicsData
+                // points at may already have been freed -- and then `bd` is
+                // freed memory and `bd->body` a dangling b2Body*, which
+                // segfaulted on exit (confirmed via gdb: SIGSEGV in this
+                // lambda, called from gmUserObject::Destruct).
+                //
+                // Membership in g_allPhysicsBodies is the liveness test:
+                // PhysicsBodyGCDestruct erases from it before freeing, so a
+                // pointer still in the list is still alive.
+                const bool bodyStillLive =
+                    bd && std::find(g_allPhysicsBodies.begin(),
+                                    g_allPhysicsBodies.end(), bd) != g_allPhysicsBodies.end();
+                if (bodyStillLive && bd->body) bd->body->GetUserData().pointer = 0;
                 UnrootGmVariable(*a_m, bv);
             }
             delete d;

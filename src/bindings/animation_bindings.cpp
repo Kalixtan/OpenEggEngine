@@ -5,6 +5,7 @@
 #include "../render/draw_list.h"
 #include "../core/engine_context.h"
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <vector>
 
@@ -30,8 +31,11 @@ struct AnimationData {
     float playStartMs = 0.0f;
     bool playing = false;
     bool looping = false;
+    bool hideAfterOneShot = false;
+    bool hidden = false; // retail Animation field at +0x4e
     bool reversed = false;
     int pausedFrame = 0;
+    float pausedPositionMs = 0.0f;
 
     bool haveTint = false;
     float outR = 1, outG = 1, outB = 1;
@@ -51,6 +55,15 @@ struct AnimationData {
 
 AnimationData* ThisAnim(gmThread* a_thread) {
     return (AnimationData*)a_thread->ThisUserCheckType(g_animType);
+}
+
+float ComputePlayPosition(const AnimationData* a) {
+    if (!a->playing) return a->pausedPositionMs;
+    float elapsed = std::max(0.0f,
+        GetEngineContext().gameSystem.GetMsAlive() - a->playStartMs);
+    if (a->playTimeMs <= 0.0f) return 0.0f;
+    return a->looping ? std::fmod(elapsed, a->playTimeMs)
+                      : std::min(elapsed, a->playTimeMs);
 }
 
 int NumFrames(const AnimationData* a) { return (int)a->asset.frames.size(); }
@@ -142,6 +155,7 @@ int GM_CDECL gmf_anim_pause(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
     a->pausedFrame = ComputeFrameIndex(a);
+    a->pausedPositionMs = ComputePlayPosition(a);
     a->playing = false;
     return GM_OK;
 }
@@ -150,8 +164,10 @@ int GM_CDECL gmf_anim_play(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
     a->looping = true;
+    a->hideAfterOneShot = false;
     a->playing = true;
     a->playStartMs = GetEngineContext().gameSystem.GetMsAlive();
+    a->pausedPositionMs = 0.0f;
     return GM_OK;
 }
 
@@ -164,9 +180,28 @@ int GM_CDECL gmf_anim_playOnce(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
     a->looping = false;
+    a->hideAfterOneShot = false;
     a->reversed = false;
     a->playing = true;
     a->playStartMs = GetEngineContext().gameSystem.GetMsAlive();
+    a->pausedPositionMs = 0.0f;
+    return GM_OK;
+}
+
+// Animation.playOnceHide (0x000a109c) ignores the supplied argument and
+// calls FUN_000b6370: select one-shot-hide mode, clear playback position,
+// and start the animation. Unlike playOnce, its final frame is not drawn
+// after completion. SauceBase pulses use this form on contact.
+int GM_CDECL gmf_anim_playOnceHide(gmThread* a_thread) {
+    AnimationData* a = ThisAnim(a_thread);
+    if (!a) return GM_EXCEPTION;
+    a->looping = false;
+    a->hideAfterOneShot = true;
+    a->reversed = false;
+    a->playing = true;
+    a->pausedFrame = 0;
+    a->playStartMs = GetEngineContext().gameSystem.GetMsAlive();
+    a->pausedPositionMs = 0.0f;
     return GM_OK;
 }
 
@@ -176,6 +211,8 @@ int GM_CDECL gmf_anim_setCurrentFrame(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(frame, 0, 0);
     a->pausedFrame = frame;
+    a->pausedPositionMs = NumFrames(a) > 0
+        ? (float)frame * a->playTimeMs / (float)NumFrames(a) : 0.0f;
     a->playing = false;
     return GM_OK;
 }
@@ -189,6 +226,20 @@ int GM_CDECL gmf_anim_setIsReversed(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_anim_setPaletteBank(gmThread* a_thread) { return GM_OK; } // no multi-bank palette system modelled
+int GM_CDECL gmf_anim_isHidden(gmThread* a_thread) {
+    AnimationData* a = ThisAnim(a_thread);
+    if (!a) return GM_EXCEPTION;
+    a_thread->PushInt(a->hidden ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_anim_setIsHidden(gmThread* a_thread) {
+    AnimationData* a = ThisAnim(a_thread);
+    if (!a) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(hidden, 0, 0);
+    a->hidden = hidden != 0;
+    return GM_OK;
+}
 
 // 0x000a118c): takes either a float or int argument (both converted to the
 // same double "position" value) and repositions playback, distinct from
@@ -209,6 +260,7 @@ int GM_CDECL gmf_anim_setPlayPosition(gmThread* a_thread) {
     if (a->playing) {
         a->playStartMs = GetEngineContext().gameSystem.GetMsAlive() - posMs;
     } else {
+        a->pausedPositionMs = posMs;
         int n = NumFrames(a);
         if (n > 0) {
             float perFrame = a->playTimeMs / (float)n;
@@ -219,12 +271,30 @@ int GM_CDECL gmf_anim_setPlayPosition(gmThread* a_thread) {
     return GM_OK;
 }
 
+// Animation.getPlayPosition (EBOOT 0x000a1250) returns the current playback
+// position as a GM float, in the same millisecond units as setPlayPosition.
+int GM_CDECL gmf_anim_getPlayPosition(gmThread* a_thread) {
+    AnimationData* a = ThisAnim(a_thread);
+    if (!a) return GM_EXCEPTION;
+    a_thread->PushFloat(ComputePlayPosition(a));
+    return GM_OK;
+}
+
 int GM_CDECL gmf_anim_setPlayTime(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(ms, 0, 500.0f);
     if (ms > 0.0f) a->playTimeMs = ms;
+    return GM_OK;
+}
+// Animation.getPlayTime (EBOOT 0x000a16b8) returns the current playback
+// duration as a GM float. This is the same value set by setPlayTime above;
+// VicVolcanoSpit reads it after changing the pulse duration on a music beat.
+int GM_CDECL gmf_anim_getPlayTime(gmThread* a_thread) {
+    AnimationData* a = ThisAnim(a_thread);
+    if (!a) return GM_EXCEPTION;
+    a_thread->PushFloat(a->playTimeMs);
     return GM_OK;
 }
 
@@ -245,13 +315,15 @@ int GM_CDECL gmf_anim_getNumFrames(gmThread* a_thread) {
 int GM_CDECL gmf_anim_getSourcePixelWidth(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
-    a_thread->PushInt(NumFrames(a) > 0 ? a->asset.frames[0].width : 0);
+    // Retail Animation.getSourcePixelWidth (0x000a1f60) pushes GM_FLOAT.
+    a_thread->PushFloat(NumFrames(a) > 0 ? (float)a->asset.frames[0].width : 0.0f);
     return GM_OK;
 }
 int GM_CDECL gmf_anim_getSourcePixelHeight(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
-    a_thread->PushInt(NumFrames(a) > 0 ? a->asset.frames[0].height : 0);
+    // Retail Animation.getSourcePixelHeight (0x000a203c) also pushes GM_FLOAT.
+    a_thread->PushFloat(NumFrames(a) > 0 ? (float)a->asset.frames[0].height : 0.0f);
     return GM_OK;
 }
 int GM_CDECL gmf_anim_getTextureExt(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
@@ -299,11 +371,15 @@ gmFunctionEntry s_animLib[] = {
     {"pause", gmf_anim_pause, nullptr},
     {"play", gmf_anim_play, nullptr},
     {"playOnce", gmf_anim_playOnce, nullptr},
+    {"playOnceHide", gmf_anim_playOnceHide, nullptr},
     {"setCurrentFrame", gmf_anim_setCurrentFrame, nullptr},
     {"setIsReversed", gmf_anim_setIsReversed, nullptr},
+    {"setIsHidden", gmf_anim_setIsHidden, nullptr},
     {"setPaletteBank", gmf_anim_setPaletteBank, nullptr},
     {"setPlayTime", gmf_anim_setPlayTime, nullptr},
+    {"getPlayTime", gmf_anim_getPlayTime, nullptr},
     {"setPlayPosition", gmf_anim_setPlayPosition, nullptr},
+    {"getPlayPosition", gmf_anim_getPlayPosition, nullptr},
     {"setShape", gmf_anim_setShape, nullptr},
     {"getCurrentFrame", gmf_anim_getCurrentFrame, nullptr},
     {"getNumFrames", gmf_anim_getNumFrames, nullptr},
@@ -314,6 +390,7 @@ gmFunctionEntry s_animLib[] = {
     {"isPaused", gmf_anim_isPaused, nullptr},
     {"isPlaying", gmf_anim_isPlaying, nullptr},
     {"isReversed", gmf_anim_isReversed, nullptr},
+    {"isHidden", gmf_anim_isHidden, nullptr},
 };
 
 void GM_CDECL AnimGCDestruct(gmMachine*, gmUserObject* a_object) {
@@ -338,6 +415,17 @@ void PushNewAnimation(gmThread* a_thread, const std::string& a_resolvedPath) {
         }
     }
     a_thread->PushNewUser(data, g_animType);
+}
+
+void UnloadAnimation(gmMachine& a_machine, const gmVariable& a_animVar) {
+    if (a_animVar.m_type != g_animType) return;
+    gmObject* obj = a_machine.GetObject(a_animVar.m_value.m_ref);
+    if (!obj) return;
+    auto* anim = (AnimationData*)((gmUserObject*)obj)->m_user;
+    if (!anim) return;
+    FreeTextures(anim);
+    anim->asset.frames.clear();
+    anim->playing = false;
 }
 
 bool SetAnimationPaletteColour(gmMachine& a_machine, const gmVariable& a_animVar,
@@ -387,6 +475,7 @@ int GM_CDECL DC_gmf_drawAnimation(gmThread* a_thread) {
     // whatever it was when a cached sub-list was last rebuilt would be
     // wrong the moment that rebuild isn't happening every single frame.
     return DC_RecordOrRun(a_thread, [a] {
+        if (a->hideAfterOneShot && ComputeIsDone(a)) return;
         if (!a->texValid) return;
         int idx = ComputeFrameIndex(a);
         if (idx < 0 || idx >= (int)a->frameTex.size()) return;
@@ -434,7 +523,7 @@ void DrawAnimationWithTransform(gmMachine& a_machine, const gmVariable& a_animVa
     gmObject* obj = a_machine.GetObject(a_animVar.m_value.m_ref);
     if (!obj) return;
     AnimationData* a = (AnimationData*)((gmUserObject*)obj)->m_user;
-    if (!a || !a->texValid) return;
+    if (!a || !a->texValid || (a->hideAfterOneShot && ComputeIsDone(a))) return;
     int idx = ComputeFrameIndex(a);
     if (idx < 0 || idx >= (int)a->frameTex.size()) return;
     unsigned int handle = a->frameTex[idx];

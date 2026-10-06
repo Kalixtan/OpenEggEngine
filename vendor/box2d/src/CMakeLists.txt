@@ -46,6 +46,7 @@ set(BOX2D_SOURCE_FILES
 	dynamics/b2_polygon_contact.cpp
 	dynamics/b2_polygon_contact.h
 	dynamics/b2_prismatic_joint.cpp
+	dynamics/b2_relative_joint.cpp
 	dynamics/b2_pulley_joint.cpp
 	dynamics/b2_revolute_joint.cpp
 	dynamics/b2_weld_joint.cpp
@@ -80,6 +81,7 @@ set(BOX2D_HEADER_FILES
 	../include/box2d/b2_mouse_joint.h
 	../include/box2d/b2_polygon_shape.h
 	../include/box2d/b2_prismatic_joint.h
+	../include/box2d/b2_relative_joint.h
 	../include/box2d/b2_pulley_joint.h
 	../include/box2d/b2_revolute_joint.h
 	../include/box2d/b2_rope.h

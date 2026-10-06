@@ -10,6 +10,10 @@
 // this file only adds the engine-specific loadScript.
 void RegisterGameMonkeyScriptBindings(gmMachine& a_machine);
 
+// Services one pending GameMonkeyScript.clean() pass at the native frame
+// update point. Retail consumes one requested pass per frame.
+void ServiceGameMonkeyScriptCleanPass(gmMachine& a_machine);
+
 // Exposed for Debug.GameMonkey2JSON/JSON2GameMonkey (system_bindings.cpp) --
 // see GitHub issue #7. Shares the same JSON<->gmVariable mapping
 // saveTableToJsonSaveRequest/loadTableFromJsonSaveRequest already use

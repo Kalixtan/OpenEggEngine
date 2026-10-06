@@ -134,6 +134,9 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
     const int potW = NextPowerOfTwo(w);
     const int potH = NextPowerOfTwo(h);
     std::vector<unsigned char> padded((size_t)potW * potH * 4, 0);
+    const unsigned char keyR8 = (unsigned char)(keyR * 255.0f + 0.5f);
+    const unsigned char keyG8 = (unsigned char)(keyG * 255.0f + 0.5f);
+    const unsigned char keyB8 = (unsigned char)(keyB * 255.0f + 0.5f);
     for (int y = 0; y < h; ++y) {
         unsigned char* dstRow = &padded[(size_t)y * potW * 4];
         const unsigned char* srcRow = data + (size_t)y * w * channels;
@@ -146,6 +149,17 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
                 case 3: d[0] = s[0]; d[1] = s[1]; d[2] = s[2]; d[3] = 255;  break;
                 default: d[0] = s[0]; d[1] = s[1]; d[2] = s[2]; d[3] = s[3]; break;
             }
+        }
+    }
+    // Preserve the decoded template before applying the key. Its mixed edge
+    // entries contain coverage information needed by generated recolouring.
+    std::vector<unsigned char> paletteTemplate;
+    if (isChromaKeyMask) {
+        paletteTemplate = padded;
+        for (size_t i = 0; i < (size_t)potW * potH; ++i) {
+            unsigned char* p = &padded[i * 4];
+            if (p[0] == keyR8 && p[1] == keyG8 && p[2] == keyB8)
+                p[0] = p[1] = p[2] = p[3] = 0;
         }
     }
 
@@ -194,6 +208,7 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
     a_out.secondaryR = secondaryR; a_out.secondaryG = secondaryG; a_out.secondaryB = secondaryB;
     a_out.hasOutlineMask = hasOutlineMask;
     a_out.outlineMaskR = outlineMaskR; a_out.outlineMaskG = outlineMaskG; a_out.outlineMaskB = outlineMaskB;
+    a_out.paletteTemplateRgba = std::move(paletteTemplate);
     return true;
 }
 

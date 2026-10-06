@@ -1,3 +1,7 @@
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <set>
 #include "player_renderer.h"
 #include "../core/engine_context.h"
 #include "../bindings/entity_bindings.h"
@@ -47,9 +51,49 @@ namespace {
 // with no stick input, a narrow real case).
 b2Vec2 g_lastEyeDir(1.0f, 0.0f);
 
+// The native player draw never picks a colour literally -- it selects a
+// NAME, and the active scheme decides what that name looks like. Decoded
+// from FUN_001a1660's three colour-set sites (0x1a1c30, 0x1a22c8,
+// 0x1a2660), each a call to 0x1d11e8(name, drawListHandle); see
+//
+// This is why the aura looked absent from the retail capture and was
+// wrongly disabled here for a while: it is NOT drawn in player_out, it is
+// drawn in ground_fill, and in the tutorial's scheme 150
+// (game_data/Platformer/colours.dat) ground_fill is 255,255,255 -- pure
+// white. Searching the capture for player_out pixels therefore found none
+// and the aura was written off as "retail does not draw this". It does.
+//
+//     s150_ground_fill          255,255,255   <-- the white halo AND the eye
+//     s150_player_fill          215,195,160   <-- the cream body
+//     s150_player_out            76, 59, 52   <-- 0 px in the capture
+//     s150_ground_noClimb_fill   50, 40, 19
+//     s150_danger_fill          220, 88, 82
+static const char* AuraColourName(gmMachine& a_machine, gmTableObject* a_player) {
+    gmVariable deadVar = a_player->Get(&a_machine, "dead");
+    if (deadVar.m_type == GM_INT && deadVar.m_value.m_int != 0) return "danger_fill";
+    gmVariable stickyVar = a_player->Get(&a_machine, "stickyOn");
+    const bool sticky = (stickyVar.m_type == GM_INT && stickyVar.m_value.m_int == 1);
+    return sticky ? "ground_fill" : "ground_noClimb_fill";
+}
+
 void SetColourByName(Renderer& a_r, const char* a_name) {
+    // GetNamedColourRGB's return value is NOT optional: on a miss it leaves
+    // r/g/b untouched, so ignoring it fed UNINITIALISED stack floats
+    // straight into SetColour. That is a real, observed failure, not a
+    // theoretical one -- an unresolved "ground_fill" rendered the tutorial's
+    // ground pure white (measured rgb(255,255,255) across 21% of the frame),
+    // which is simply whatever happened to be on the stack.
+    //
+    // On a miss, leave the current draw colour alone (the caller's previous
+    // SetColour stands) and say so once per name, so a missing scheme entry
+    // surfaces as a diagnosable message instead of a random colour.
     float r, g, b;
-    GetNamedColourRGB(a_name, r, g, b);
+    if (!GetNamedColourRGB(a_name, r, g, b)) {
+        static std::set<std::string> reported;
+        if (reported.insert(a_name).second)
+            std::fprintf(stderr, "[colour] unresolved name '%s' -- keeping previous draw colour\n", a_name);
+        return;
+    }
     a_r.SetColour(r, g, b, 1.0f);
 }
 
@@ -75,6 +119,12 @@ void DrawPlayerNative() {
     Renderer* renderer = ctx.renderer;
     gmMachine* machine = ctx.machine;
     if (!renderer || !machine) return;
+
+    // Colour writes ON for this native pass -- same reasoning as
+    // DrawGroundsNative (see its comment): script draw lists mask colour to
+    // lay down stencil and do not reliably balance it back, and a native
+    // pass must not inherit that.
+    renderer->SetColourMask(false);
 
     gmVariable playerVar = FindPlayerEntity(*machine);
     if (playerVar.m_type != GM_TABLE) return; // no player yet (menu, between levels)
@@ -113,6 +163,36 @@ void DrawPlayerNative() {
     b2Body* body = GetB2BodyFromVar(*machine, mainpbVar);
     if (!body) return;
 
+    // GE3_TRACE_PLAYER=1 reports the live gameplay state at draw time. This
+    // keeps speed/state diagnosis tied to the script-driven player entity,
+    // not to an inferred body id from the global movement log.
+    if (std::getenv("GE3_TRACE_PLAYER")) {
+        static int traceFrame = 0;
+        ++traceFrame;
+        if (traceFrame <= 80 || traceFrame % 120 == 0) {
+            const b2Vec2 p = body->GetPosition();
+            const b2Vec2 v = 0.001f * body->GetLinearVelocity();
+            gmVariable stateVar = player->Get(machine, "state");
+            int state = -1;
+            if (stateVar.m_type == GM_TABLE) {
+                gmTableObject* stateTable = (gmTableObject*)machine->GetObject(stateVar.m_value.m_ref);
+                gmVariable id = stateTable->Get(machine, "id");
+                if (id.m_type == GM_INT) state = id.m_value.m_int;
+            }
+            float dirX = 0.0f, dirY = 0.0f;
+            GetVector2D(*machine, player->Get(machine, "logicalDir"), dirX, dirY);
+            b2Fixture* fixture = body->GetFixtureList();
+            std::fprintf(stderr,
+                "[player] frame=%d state=%d type=%d pos=(%.4f,%.4f) "
+                "vel=(%.6f,%.6f) dir=(%.2f,%.2f) input=%.2f sticky=%d "
+                "mass=%.6f density=%.6f\n",
+                traceFrame, state, (int)body->GetType(), p.x, p.y, v.x, v.y,
+                dirX, dirY, GetFloatField(*machine, player, "dirPerc", 0.0f),
+                (int)GetFloatField(*machine, player, "stickyOn", 0.0f),
+                body->GetMass(), fixture ? fixture->GetDensity() : 0.0f);
+        }
+    }
+
     // radius -- confirmed real: `local s=(SW*2-8*BACK_CONVERSION);
     // this.radius=s/2-8*BACK_CONVERSION;` (Player.gm ~line 45-47), i.e.
     // SW - 12*BACK_CONVERSION. Read the live field first (this.radius
@@ -124,7 +204,10 @@ void DrawPlayerNative() {
     float maxSpeedX = GetFloatField(*machine, player, "maxSpeedX", kSW / 51.0f);
     float squintPerc = GetFloatField(*machine, player, "squintPerc", 0.0f);
     float stickGraphicPerc = GetFloatField(*machine, player, "stickGraphicPerc", 0.0f);
-    float drawz = GetFloatField(*machine, player, "drawz", 60.0f); // PLAYER_Z, constants_bindings.cpp
+    float drawz = GetFloatField(*machine, player, "drawz", -17.8f); // PLAYER_Z, real value from the
+                                                                // retail bootstrap (0xc18e6666).
+                                                                // Was 60.0 -- a guess that put the
+                                                                // player in FRONT of GROUND_Z.
 
     // lastJumpNormal -- confirmed real: `!?this.lastJumpNormal` is the
     // reference's own null-check (set to null on spawn/state-reset,
@@ -144,16 +227,8 @@ void DrawPlayerNative() {
     }
 
     b2Vec2 pos = body->GetPosition();
-    // ENGINE PATCH (2026-08-16): GetLinearVelocity() is raw sim-space (see
-    // kScriptVelocityToSimScale's header comment, physics_body_bindings.h)
-    // -- ~1000x larger than the script-space maxSpeedX this gets compared
-    // against below. Left unscaled, speed/maxSpeedX was permanently >>1
-    // (clamped to 1.0) even standing still, so the aura's speed-based
-    // stretch ("trail") rendered at full intensity at all times, and the
-    // idx speed-tier lean was permanently maxed out too -- looking like
-    // holding Square (run) never visibly changed anything, since the
-    // graphic was already stuck at its fastest-tier appearance regardless.
-    b2Vec2 vel = (1.0f / kScriptVelocityToSimScale) * body->GetLinearVelocity();
+    // Script-visible velocities are world units per millisecond.
+    b2Vec2 vel = 0.001f * body->GetLinearVelocity();
     float speed = vel.Length();
 
     // dir/idx -- confirmed real: `local s=this.mainpb.getSpeed(); ...
@@ -172,7 +247,18 @@ void DrawPlayerNative() {
     else if (speed >= maxSpeedX * 0.39f) idx = 1;
 
     renderer->SetUseCameraView(true);
-    renderer->SetDepthTest(false);
+    // ZINCER, the real retail value (0x3cf5c28f). Used to separate this
+    // draw's sub-layers in depth. Once the depth test is on, coplanar
+    // passes are NOT harmless: GL_LESS discards a later fragment at the
+    // SAME z, so drawing aura/body/eye all at `drawz` made the body and
+    // eye vanish entirely behind the aura. Retail spaces its sub-layers
+    // by n*ZINCER for exactly this reason.
+    constexpr float kZincer = 0.03f;
+    // Depth test ON -- see the matching comment in ground_renderer.cpp.
+    // With this off, PLAYER_Z (-17.8) vs GROUND_Z (-10) could not order
+    // anything and the player drew over the platforms regardless of the
+    // depth constants.
+    renderer->SetDepthTest(true);
 
     // Lean offset applied to the aura only (reference pushMatrix/
     // translate/.../popMatrix scope) -- `dir*(-r*0.16*idx)`.
@@ -180,6 +266,48 @@ void DrawPlayerNative() {
     b2Vec2 auraCenter = pos + leanOfs;
 
     // ---- aura (outline) ----------------------------------------------
+    // RE-ENABLED. Retail DOES draw this; the reasoning that disabled it was
+    // wrong, and the note below is kept as a record of the mistake.
+    //
+    // The old argument was: the retail capture contains zero pixels of
+    // player_out (75,59,52), therefore no aura. The flaw is that the aura
+    // is not drawn in player_out. The native draw's first pass sets
+    // "ground_fill", and in the tutorial's scheme 150 ground_fill is
+    // 255,255,255 -- so the aura is WHITE, and the capture has 644 white
+    // pixels sitting exactly around the player. Cropping the capture shows
+    // it plainly: a white 8-lobe halo around a cream body with a small
+    // white eye. See AuraColourName() above and section 7 of the
+    // ground-truth doc.
+    //
+    // Geometry note: these formulas are PlayerOLD.gm's testDraw(), which is
+    // an approximation of the native shape -- retail builds a 64-segment
+    // circle and deforms it per-frame in the block at 0x1a1cc8..0x1a2bc0
+    // that is still being decoded. The halo is definitely present and
+    // definitely white; its exact silhouette is not yet 1-1.
+    //
+    // Historical note, left because the pixel counts are still useful:
+    // The formulas below are a faithful port of Platformer/PlayerOLD.gm's
+    // testDraw(), and it draws the aura unconditionally -- but PlayerOLD.gm
+    // is, as its name says, the OLD player. Retail's shipped player
+    // rendering is native (see this file's header), and the real capture
+    // says the native version has no aura: sampling the player region of
+    //
+    //     (210,190,153) 1537px   player_fill, the body
+    //     (255,255,255)  627px   the white inner highlight
+    //     ( 42, 33, 15)  230px   ground behind it
+    //
+    // and NOT ONE pixel of player_out (75,59,52). That capture is named
+    // "moving" and the aura is speed-driven, so this is not a case of
+    // catching it in a state where the aura happens to be suppressed.
+    //
+    // Drawing it inverted the player: an 8-lobe player_out blob at 1.6x
+    // radius under a comparatively tiny fill (measured 1822px dark against
+    // 767px cream), where retail shows a cream body and no dark halo at all.
+    // Kept, not deleted, because the geometry is a real reference port and
+    // is what the aura would need if a state that genuinely uses it turns up.
+    // -- and it did: the "no dark halo" observation was right, but the
+    // conclusion "therefore no halo" was wrong. The halo is white.
+    //
     // Confirmed real formulas, Platformer/PlayerOLD.gm testDraw(): an
     // 8-lobe wobbly ring (qq=6 verts/lobe boundary, n=8 lobes) built as
     // alternating outer/inner arcs so the aura reads as a soft flower/
@@ -264,11 +392,20 @@ void DrawPlayerNative() {
         }
         if (haveFirst) verts.push_back(first);
 
-        SetColourByName(*renderer, "player_out");
+        // Colour: the native draw's first pass (submit @0x1a2288, colour set
+        // @0x1a1c30) selects between three NAMES, and none of them is
+        // player_out:
+        //     dead            -> "danger_fill"
+        //     stickyOn == 1   -> "ground_fill"
+        //     otherwise       -> "ground_noClimb_fill"
+        SetColourByName(*renderer, AuraColourName(*machine, player));
         std::vector<b2Vec2> world;
         world.reserve(verts.size());
         for (const b2Vec2& v : verts) world.push_back(auraCenter + v);
-        DrawFilledFan(*renderer, world, drawz);
+        // One ZINCER behind the body -- the retail capture shows the
+        // cream body drawn over the white halo, so the halo is the
+        // farther of the two.
+        DrawFilledFan(*renderer, world, drawz - kZincer);
     }
 
     // ---- body (fill) ---------------------------------------------------
@@ -278,7 +415,11 @@ void DrawPlayerNative() {
     // table above; reduces to a plain circle (rx==ry==radius, c==1) when
     // it's 0 (not currently squinting/blinking).
     {
-        constexpr int kShapeQ = 16;
+        // 64, not 16: the native draw caches the body circle's segment
+        // count in this+0x1ec and builds it with 0x40 segments
+        // (0x1a1998 `li r4, 0x40` / `stw r4, 0x1ec(r25)`), against 0x3d=61
+        // for the eye. 16 was a guess and visibly polygonal at this radius.
+        constexpr int kShapeQ = 64;
         float rx = radius;
         float ry = radius * (1.0f - squintPerc * 0.3f);
         float c = 1.0f - 0.6f * squintPerc;
@@ -302,7 +443,6 @@ void DrawPlayerNative() {
     // reference itself leaves commented out) and rotated with
     // lastEyeDirDrawn, drawn one ZINCER above the body.
     {
-        constexpr float kZincer = 0.01f; // constants_bindings.cpp
         float eyeR = radius * (11.0f / 60.0f);
         float eyePosR = radius / 2.0f;
         b2Vec2 eyeCenter = pos + eyePosR * g_lastEyeDir;
@@ -313,7 +453,14 @@ void DrawPlayerNative() {
             float a = (float)i / (float)kEyeSegs * 2.0f * (float)M_PI;
             verts.push_back(eyeCenter + eyeR * b2Vec2(std::cos(a), std::sin(a)));
         }
-        SetColourByName(*renderer, "player_out");
+        // The eye is the LAST of the four native submits (@0x1a2b30), and
+        // that submit sets no colour of its own -- it inherits the one set
+        // at 0x1a2660, which is the same ground_fill/ground_noClimb_fill/
+        // danger_fill selection the aura uses. In scheme 150 ground_fill is
+        // white, which matches the small white dot visible inside the body
+        // Previously drew player_out (76,59,52) -- a colour the native draw
+        // never references and which has zero pixels in that capture.
+        SetColourByName(*renderer, AuraColourName(*machine, player));
         DrawFilledFan(*renderer, verts, drawz + kZincer);
     }
 }

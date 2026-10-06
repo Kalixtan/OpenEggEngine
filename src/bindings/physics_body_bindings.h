@@ -4,41 +4,6 @@
 class b2Fixture;
 class b2Body;
 
-// Shared with player_renderer.cpp: raw b2Body::GetLinearVelocity() is in
-// scaled sim-space (see kScriptVelocityToSimScale's own definition/header
-// comment in physics_body_bindings.cpp), NOT script-space -- any code that
-// reads a body's velocity directly (bypassing getVel()/getSpeed(), which
-// already divide this back out for script callers) must divide by this
-// too, or speed comparisons against script-space constants (maxSpeedX etc.)
-// come out ~1000x too large.
-//
-// ENGINE PATCH (player-movement-speed session): the whole
-// world-half-height-ratio term is GONE, and this constant is now exactly
-// 1000.0f -- the real, 1:1-derived value rather than an empirical fudge.
-//
-// Derivation (all confirmed): retail stores position and velocity in the
-// SAME world units (no pixel<->meter conversion exists anywhere in the
-// corpus -- see this header's PhysicsBody comment) and integrates on a
-// fixed per-tick dt of 16.666666 MILLISECONDS, read live from the retail
-// .exe's static data at 0x00522734 (winedbg, this session; it's the dt
-// every PhysicsShape decay setter at 0x004513d0 consumes). So a script
-// velocity literal is in units-per-MILLISECOND. Box2D's b2World::Step
-// takes dt in SECONDS. The conversion between the two is therefore exactly
-// 1000, a pure unit conversion with no free parameter -- nothing to
-// calibrate, nothing to eyeball.
-//
-// Sanity check against real content: Player.gm's `setMaxSpeed(0.972)`
-// becomes 972 units/sec on an 8000-unit-tall GameBoard, i.e. crossing it
-// in ~8 seconds -- a sensible traversal time for this game, and it lands
-// safely under the (now rescaled) b2_maxTranslation cap, see
-// b2_settings.h's own b2_lengthUnitsPerMeter note.
-//
-// The old form multiplied this by (worldHalfHeight/10.98), a Sound
-// Shapes-era correction that made the effective scale ~150000-364000x --
-// which, combined with Box2D's per-step translation clamp, is why script
-// maxSpeed values had no observable relationship to actual on-screen speed.
-constexpr float kScriptVelocityToSimScale = 1000.0f; // ms -> s; retail dt = 16.666666ms (0x00522734)
-
 // PhysicsBody ("pb" in real scripts, e.g. Platformer/Player.gm:
 // `local pb=this.PhysicsData.getBody(this.PhysicsData.createBody());`) and
 // PhysicsData (the per-entity container of bodies, e.g.
@@ -55,10 +20,8 @@ constexpr float kScriptVelocityToSimScale = 1000.0f; // ms -> s; retail dt = 16.
 // real lib" approach as PHYSICSSHAPECOLLECTIONDEF (physics_bindings.h/
 // .cpp), which supplies the b2FixtureDef list `appendShapes` consumes.
 //
-// Position/velocity are stored 1:1 in Box2D's own units (no evidence of a
-// pixel<->meter conversion constant anywhere in the corpus -- scripts pass
-// their own BACK_CONVERSION-scaled values straight through) and gravity is
-// zero (see core/physics_world.h) since scripts drive movement explicitly.
+// Position, geometry, and velocity pass through without a unit conversion.
+// Gravity is zero (see core/physics_world.h) since scripts drive movement.
 //
 // getCollisionInfo is an honest stub (no per-contact info -- point/normal/
 // impulse -- tracked). getCollidingEntities is real: each b2Body created
@@ -69,18 +32,22 @@ constexpr float kScriptVelocityToSimScale = 1000.0f; // ms -> s; retail dt = 16.
 // other side's owning PhysicsDataObj -> its ownerEntity table.
 void RegisterPhysicsBodyBindings(gmMachine& a_machine);
 
-// Retail's per-tick movement integrator -- see this function's own header
-// comment in physics_body_bindings.cpp. Must run once per tick, BEFORE
-// StepPhysicsWorld, so the velocities it computes are what Box2D then
-// integrates into positions.
-void StepPhysicsBodyMovement();
+// Replays the verified retail PhysicsShape movement update immediately
+// before the physics world step. a_dtSeconds is passed unchanged to both
+// operations, as in the retail physics manager.
+void StepPhysicsBodyMovement(float a_dt);
+
+// Completes removals requested from Box2D contact callbacks after the world
+// releases its step lock. Called by StepPhysicsWorld.
+void FlushDeferredPhysicsBodyDestructions();
 
 // For entity_bindings.cpp: creates a fresh, empty PhysicsData (no bodies
 // yet) for a newly-created entity handle. a_ownerEntity is the entity
 // table this PhysicsData belongs to (for getCollidingEntities to resolve
 // contacts back to entity identities) -- pass gmVariable::s_null if none
 // (e.g. ground/scenery PhysicsData not owned by a script entity table).
-gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity = gmVariable::s_null);
+gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity = gmVariable::s_null,
+                           int a_type = 0);
 
 // For entity_bindings.cpp's getMinCX/getMaxCX/getMinCY/getMaxCY: reads a
 // PhysicsData handle's main body AABB (same computation as
@@ -95,6 +62,15 @@ bool GetPhysicsDataAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar
 // gmVariable::s_null if a_physicsDataVar isn't a real PhysicsData or has no
 // bodies yet.
 gmVariable GetPhysicsDataMainBodyVar(gmMachine& a_machine, const gmVariable& a_physicsDataVar);
+
+// Used by the entity scheduler to distinguish a disabled entity awaiting
+// normal screen registration from one whose screen-change cleanup has
+// already removed every body.
+bool PhysicsDataHasBodies(gmMachine& a_machine, const gmVariable& a_physicsDataVar);
+
+// Returns the main Box2D body's origin, as PhysicsData.getPos() does.
+bool GetPhysicsDataPos(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
+                       float& a_x, float& a_y);
 
 // For entity_bindings.cpp's CreateEntityFromFactory: real factories build
 // their returned entity table via `PhysicsData=_entity.getPhysicsData()`
@@ -120,6 +96,7 @@ void SetPhysicsDataOwnerEntity(gmMachine& a_machine, const gmVariable& a_physics
 // physics_body_bindings.cpp) and lookups from a raw Box2D body back to the
 // script-visible handles built on top of it.
 b2Fixture* FindFixtureByGlobalId(int a_id);
+gmVariable MakePhysicsShapeByGlobalId(gmMachine& a_machine, int a_id);
 gmVariable FindPhysicsBodyVarForB2Body(gmMachine& a_machine, b2Body* a_body);
 gmVariable FindOwnerEntityForB2Body(b2Body* a_body);
 bool IsPhysicsBodyVar(const gmVariable& a_var);

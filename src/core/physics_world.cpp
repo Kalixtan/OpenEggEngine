@@ -1,10 +1,15 @@
+#include <cstdio>
+#include <cstdlib>
 #include "physics_world.h"
 #include "engine_context.h"
 #include "../bindings/physics_body_bindings.h"
+#include "../bindings/vector2d_bindings.h"
 #include "gmMachine.h"
 #include "gmTableObject.h"
+#include "gmStringObject.h"
 #include "gmCall.h"
 #include <box2d/box2d.h>
+#include <set>
 
 namespace {
 b2World* g_world = nullptr;
@@ -24,19 +29,119 @@ b2World* g_world = nullptr;
 // semantics for both); PreSolve does not fire for sensors (real Box2D
 // behavior) but is still wired up for onEntityCollidePreSolve, whose one
 // real use (Player.gm's `this.preCollisionVel=this.mainpb.getVel()`) only
-// matters for genuine solid contacts anyway. No EndContact dispatch -- no
-// "onEntityUntouch"-style hook was found anywhere in the corpus to call.
+// matters for genuine solid contacts anyway. EndContact dispatches
+// onEntitySeparate, used by checkpoints and the
+// EntityBase player-touch flag.
+// One-step marks for disableRestitutionThisFrame / disableContact. Mirrors
+// retail's per-contact flag bytes (see physics_world.h); cleared after each
+// world step so a mark lasts exactly one step, as the retail name says.
+static std::set<b2Body*> g_restitutionDisabledBodies;
+static std::set<b2Contact*> g_disabledContacts;
+
+struct DeferredContactEvent {
+    gmVariable self;
+    gmVariable other;
+    b2Vec2 normalForSelf;
+    const char* method;
+    bool twoArgs;
+};
+static std::vector<DeferredContactEvent> g_deferredContactEvents;
+
+void DispatchContactEvent(gmMachine* a_machine, const DeferredContactEvent& a_event) {
+    if (!a_machine) return;
+    if (a_event.self.m_type != GM_TABLE || a_event.other.m_type != GM_TABLE) return;
+    gmTableObject* table = (gmTableObject*)a_machine->GetObject(a_event.self.m_value.m_ref);
+    if (!table || table->Get(a_machine, a_event.method).m_type != GM_FUNCTION) return;
+    gmCall call;
+    gmObject* selfObject = a_machine->GetObject(a_event.self.m_value.m_ref);
+    gmObject* otherObject = a_machine->GetObject(a_event.other.m_value.m_ref);
+    // Contact events are queued while Box2D is stepping, then dispatched
+    // after it unlocks. An earlier callback in the same batch can delete an
+    // entity and its table can be collected before a later queued event is
+    // reached. Never pass a stale GM reference as the callback argument.
+    if (!selfObject || !otherObject) return;
+    const bool rootSelf = selfObject &&
+        !a_machine->IsCPPOwnedGMObject(selfObject);
+    const bool rootOther = otherObject && otherObject != selfObject &&
+        !a_machine->IsCPPOwnedGMObject(otherObject);
+    if (rootSelf) a_machine->AddCPPOwnedGMObject(selfObject);
+    if (rootOther) a_machine->AddCPPOwnedGMObject(otherObject);
+    if (call.BeginTableFunction(a_machine, a_event.method, table, a_event.self)) {
+        call.AddParam(a_event.other);
+        if (a_event.twoArgs) {
+            call.AddParam(MakeVector2D(*a_machine, a_event.normalForSelf.x,
+                                       a_event.normalForSelf.y));
+        }
+        call.End();
+    }
+    // Only release roots this dispatch added. EntityRegistry or PhysicsData
+    // may already own these objects; the generic root helper is set based,
+    // not reference counted, so unconditional Unroot would erase their
+    // long-lived registry root and create delayed GC crashes.
+    if (rootSelf && a_machine->IsCPPOwnedGMObject(selfObject))
+        a_machine->RemoveCPPOwnedGMObject(selfObject);
+    if (rootOther && a_machine->IsCPPOwnedGMObject(otherObject))
+        a_machine->RemoveCPPOwnedGMObject(otherObject);
+}
+
+void QueueContactEvent(gmMachine* a_machine, const gmVariable& a_self,
+                       const gmVariable& a_other, const b2Vec2& a_normal,
+                       const char* a_method, bool a_twoArgs) {
+    if (!a_machine || a_self.m_type != GM_TABLE || a_other.m_type != GM_TABLE) return;
+    g_deferredContactEvents.push_back(
+        {a_self, a_other, a_normal, a_method, a_twoArgs});
+}
+
 class ScriptContactListener : public b2ContactListener {
 public:
     void BeginContact(b2Contact* a_contact) override {
-        Dispatch(a_contact, "onEntityCollide", true);
-        Dispatch(a_contact, "onEntityTouch", false);
+        QueueDispatch(a_contact, "onEntityCollide", true);
+        QueueDispatch(a_contact, "onEntityTouch", false);
+    }
+    void EndContact(b2Contact* a_contact) override {
+        QueueDispatch(a_contact, "onEntitySeparate", false);
     }
     void PreSolve(b2Contact* a_contact, const b2Manifold*) override {
         Dispatch(a_contact, "onEntityCollidePreSolve", false);
+        // Apply this step's disableRestitutionThisFrame/disableContact
+        // marks. PreSolve is the only place Box2D honours either: its
+        // SetEnabled(false) is documented as lasting for the current step
+        // only, and restitution set here is used by the solver for this
+        // step's impulse. See physics_world.h for the retail bodies.
+        if (!g_restitutionDisabledBodies.empty()) {
+            b2Body* a = a_contact->GetFixtureA()->GetBody();
+            b2Body* b = a_contact->GetFixtureB()->GetBody();
+            if (g_restitutionDisabledBodies.count(a) || g_restitutionDisabledBodies.count(b)) {
+                a_contact->SetRestitution(0.0f);
+            }
+        }
+        if (g_disabledContacts.count(a_contact)) {
+            a_contact->SetEnabled(false);
+        }
     }
 
 private:
+    void QueueDispatch(b2Contact* a_contact, const char* a_method, bool a_twoArgs) {
+        gmMachine* m = GetEngineContext().machine;
+        if (!m) return;
+        b2Body* bodyA = a_contact->GetFixtureA()->GetBody();
+        b2Body* bodyB = a_contact->GetFixtureB()->GetBody();
+        gmVariable ownerA = FindOwnerEntityForB2Body(bodyA);
+        gmVariable ownerB = FindOwnerEntityForB2Body(bodyB);
+
+        // Box2D's world-manifold normal points from fixture A to fixture B.
+        // The script-facing callback names its second argument `itToMe`, so
+        // each recipient receives the direction from the other collider to
+        // itself. This is the same orientation exposed by
+        // PhysicsData.getCollisionInfo(...).getContactNormal(...).
+        b2WorldManifold manifold;
+        a_contact->GetWorldManifold(&manifold);
+        QueueContactEvent(m, ownerA, ownerB,
+                          b2Vec2(-manifold.normal.x, -manifold.normal.y),
+                          a_method, a_twoArgs);
+        QueueContactEvent(m, ownerB, ownerA, manifold.normal, a_method, a_twoArgs);
+    }
+
     void Dispatch(b2Contact* a_contact, const char* a_method, bool a_twoArgs) {
         gmMachine* m = GetEngineContext().machine;
         if (!m) return;
@@ -44,29 +149,26 @@ private:
         b2Body* bodyB = a_contact->GetFixtureB()->GetBody();
         gmVariable ownerA = FindOwnerEntityForB2Body(bodyA);
         gmVariable ownerB = FindOwnerEntityForB2Body(bodyB);
-        CallIfDefined(m, ownerA, a_method, ownerB, a_twoArgs);
-        CallIfDefined(m, ownerB, a_method, ownerA, a_twoArgs);
+        b2WorldManifold manifold;
+        a_contact->GetWorldManifold(&manifold);
+        DispatchNow(m, ownerA, ownerB,
+                    b2Vec2(-manifold.normal.x, -manifold.normal.y),
+                    a_method, a_twoArgs);
+        DispatchNow(m, ownerB, ownerA, manifold.normal, a_method, a_twoArgs);
     }
 
-    void CallIfDefined(gmMachine* m, const gmVariable& a_self, const char* a_method,
-                        const gmVariable& a_other, bool a_twoArgs) {
-        if (a_self.m_type != GM_TABLE || a_other.m_type != GM_TABLE) return;
-        gmTableObject* table = (gmTableObject*)m->GetObject(a_self.m_value.m_ref);
-        bool hasMethod = table && table->Get(m, a_method).m_type == GM_FUNCTION;
-        if (!hasMethod) return;
+    void DispatchNow(gmMachine* m, const gmVariable& self, const gmVariable& other,
+                     const b2Vec2& normal, const char* method, bool twoArgs) {
+        if (!m || self.m_type != GM_TABLE || other.m_type != GM_TABLE) return;
+        gmTableObject* table = (gmTableObject*)m->GetObject(self.m_value.m_ref);
+        if (!table || table->Get(m, method).m_type != GM_FUNCTION) return;
         gmCall call;
-        if (call.BeginTableFunction(m, a_method, table, a_self)) {
-            call.AddParam(a_other);
-            // Real 2-arg signature (top-level onEntityCollide=function(who,
-            // itToMe)) expects a second identifying-body-ish argument --
-            // no faithful reconstruction of "itToMe" attempted here (every
-            // real call site that reads it only checks isAllSensors() on a
-            // freshly-fetched PhysicsData.getCollisionInfo(who), not on this
-            // param directly), so null rather than guessing at a shape.
-            if (a_twoArgs) call.AddParamNull();
-            call.End();
-        }
+        if (!call.BeginTableFunction(m, method, table, self)) return;
+        call.AddParam(other);
+        if (twoArgs) call.AddParam(MakeVector2D(*m, normal.x, normal.y));
+        call.End();
     }
+
 };
 
 ScriptContactListener g_contactListener;
@@ -86,39 +188,32 @@ b2World& GetPhysicsWorld() {
     return *g_world;
 }
 
-// ENGINE PATCH: fixed-timestep accumulator. Was feeding Box2D the raw,
-// variable real-frame delta (SDL_GetTicks difference) straight into
-// Step() every frame -- Box2D's own manual is explicit that this is
-// wrong ("Don't use a variable time step... it leads to a non-
-// deterministic simulation" -- b2World::Step's header comment in
-// box2d.h says the same). Variable dt destabilizes exactly the cases
-// that were reported as "twitchier than retail on a few objects":
-// resting/ramp contact resolution and joint constraints are the parts
-// of the solver most sensitive to per-step dt jitter, while free-flight
-// motion (unaffected by contacts) looks fine either way -- matching the
-// "only some objects" symptom precisely. Not a Box2D bug -- this was
-// this engine's own misuse of the API. Real PS3 output is 60Hz-locked
-// (no confirmed physics-specific tick-rate constant exists in the
-// corpus -- BASE_MS_PER_STEP is a music-beat subdivision, not a physics
-// tick), so step in fixed 1/60s increments and carry the remainder,
-// capping steps-per-frame so a debugger pause/hitch can't spiral.
-constexpr float kFixedStep = 1.0f / 60.0f;
-constexpr int kMaxStepsPerFrame = 5;
-static float g_accumulator = 0.0f;
-
-void StepPhysicsWorld(float a_dtSeconds) {
-    if (a_dtSeconds <= 0.0f) return;
-    // Clamp to avoid a huge catch-up burst after a debugger pause/hitch.
-    if (a_dtSeconds > 0.25f) a_dtSeconds = 0.25f;
-    g_accumulator += a_dtSeconds;
-    int steps = 0;
-    while (g_accumulator >= kFixedStep && steps < kMaxStepsPerFrame) {
-        GetPhysicsWorld().Step(kFixedStep, 8, 3);
-        g_accumulator -= kFixedStep;
-        ++steps;
+void StepPhysicsWorld(float a_dt) {
+    // Scripts use milliseconds and world-units per millisecond. Stock
+    // Box2D uses seconds and world-units per second; its solver assumes
+    // that time base for contact bias, friction, and position correction.
+    // The bindings convert script velocities at that boundary, so only the
+    // step duration changes here.
+    GetPhysicsWorld().Step(a_dt * 0.001f, 2, 2);
+    // Begin/touch/separate handlers may reposition bodies, rebuild fixtures,
+    // or remove entities. Dispatch once Box2D unlocks, retaining the event
+    // order observed during its contact traversal. PreSolve remains inline
+    // above because its return-state/contact flags affect this very step.
+    std::vector<DeferredContactEvent> events;
+    events.swap(g_deferredContactEvents);
+    gmMachine* machine = GetEngineContext().machine;
+    for (const DeferredContactEvent& event : events) {
+        DispatchContactEvent(machine, event);
     }
-    // Steps-per-frame cap reached (sustained hitch) -- drop the rest
-    // rather than let the accumulator grow unbounded and burst-catch-up
-    // later.
-    if (steps >= kMaxStepsPerFrame) g_accumulator = 0.0f;
+    g_restitutionDisabledBodies.clear();
+    g_disabledContacts.clear();
+    FlushDeferredPhysicsBodyDestructions();
+}
+
+void DisableRestitutionThisFrameForBody(b2Body* a_body) {
+    if (a_body) g_restitutionDisabledBodies.insert(a_body);
+}
+
+void DisableContactThisFrame(b2Contact* a_contact) {
+    if (a_contact) g_disabledContacts.insert(a_contact);
 }

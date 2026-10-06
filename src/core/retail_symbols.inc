@@ -3,6 +3,7 @@
 // the strict-call trap can tell you exactly what to open in Ghidra when it
 // stops on a function that hasn't been reimplemented 1-1 yet.
 //
+// 2 entries added from EBOOT registration tables,
 // 0 address-only entries from docs/function_offsets.csv.
 
 // clang-format off
@@ -539,6 +540,7 @@ static const RetailSymbol kRetailSymbols[] = {
     {"GameSystem.isAutoLoadLevel", "reveng/classes/GameSystem.c", "0x00071e0c"},
     {"GameSystem.isBeingNice", "reveng/classes/GameSystem.c", "0x000703b4"},
     {"GameSystem.isLoading", "reveng/classes/GameSystem.c", "0x000706dc"},
+    {"GameSystem.isPaused", "reveng/classes/GameSystem_Process_Flow_Analysis.md", "0x00070ec8"},
     {"GameSystem.isProcessRunning", "reveng/classes/GameSystem.c", "0x00070960"},
     {"GameSystem.isShouldUpdateEntities", "reveng/classes/GameSystem.c", "0x000704d8"},
     {"GameSystem.quit", "reveng/classes/GameSystem.c", "0x00070df8"},
@@ -546,6 +548,7 @@ static const RetailSymbol kRetailSymbols[] = {
     {"GameSystem.resetSimulationTimer", "reveng/classes/GameSystem.c", "0x00070f7c"},
     {"GameSystem.runProcess", "reveng/classes/GameSystem.c", "0x00070878"},
     {"GameSystem.setALevelLoaded", "reveng/classes/GameSystem.c", "0x000705fc"},
+    {"GameSystem.setAsPauseProcess", "reveng/classes/GameSystem_Process_Flow_Analysis.md", "0x00070e48"},
     {"GameSystem.setIsBeingNice", "reveng/classes/GameSystem.c", "0x00070468"},
     {"GameSystem.setIsLoading", "reveng/classes/GameSystem.c", "0x0007066c"},
     {"GameSystem.setIsShouldUpdateEntities", "reveng/classes/GameSystem.c", "0x0007058c"},
@@ -886,6 +889,7 @@ static const RetailSymbol kRetailSymbols[] = {
     {"PhysicsShape.setThrustAcc", "reveng/classes/PhysicsShape.c", "0x00090c58"},
     {"PhysicsShape.setVelocityDecayRate", "reveng/classes/PhysicsShape.c", "0x0009124c"},
     {"PrintInfo.PRINTINFO", "reveng/classes/PrintInfo.c", "0x00069818"},
+    {"Process.setAsPauseProcess", "reveng/classes/Video.c", "0x0019f850"},
     {"Profiler.PROFILER_WidgetCmd", "reveng/classes/Profiler.c", "0x000ab798"},
     {"Profiler.PROFILE_MARKER_POP", "reveng/classes/Profiler.c", "0x001b249c"},
     {"Profiler.PROFILE_MARKER_PUSH_PROCESS", "reveng/classes/Profiler.c", "0x001b2494"},
@@ -1170,7 +1174,6 @@ static const RetailSymbol kRetailSymbols[] = {
     {"Video.removeFromDrawMap", "reveng/classes/Video.c", "0x0007a2c8"},
     {"Video.resetViewport", "reveng/classes/Video.c", "0x0007903c"},
     {"Video.restartVideo", "reveng/classes/Video.c", "0x000786ec"},
-    {"Video.setAsPauseProcess", "reveng/classes/Video.c", "0x0019f850"},
     {"Video.setAspectRatio", "reveng/classes/Video.c", "0x00075274"},
     {"Video.setCameraPos", "reveng/classes/Video.c", "0x000757ac"},
     {"Video.setCameraRotation", "reveng/classes/Video.c", "0x000758a4"},

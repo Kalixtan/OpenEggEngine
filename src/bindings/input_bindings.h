@@ -1,15 +1,12 @@
 #pragma once
 #include "gmMachine.h"
+#include <SDL2/SDL.h>
 
-// Minimal INPUT bindings. Confirmed real native type (Ghidra, EBOOT.elf's
-// methods) -- registered here as a plain GM library table instead
-// (RegisterLibrary, same simplification already used for ColourManager),
-// not a true native type; no real SDL input polling wired up yet, every
-// function returns a safe default (false/0/null) so scripts that read
-// input state don't crash. Added because real game_data/Main.gm's
-// splash-skip logic reads `Input.isKeyPressed(JOYSTICK0_CROSS)` with no
-// '?' guard -- an undefined `Input` global would otherwise hard-crash the
-// instant that code path is reached.
+// Partial SDL-backed INPUT API. Keyboard, mouse, and compatible
+// SDL_GameController axes/buttons are live, with virtual-key support for
+// headless execution; touch and IME remain incomplete.
+// Retail registers INPUT as a 49-method native type; this port exposes a
+// library table while its native method coverage is being reconstructed.
 void RegisterInputBindings(gmMachine& a_machine);
 
 // Virtual (script-injected) key state, used by the headless harness
@@ -21,3 +18,8 @@ void RegisterInputBindings(gmMachine& a_machine);
 void SetVirtualKeyDown(int a_scancode, bool a_down);
 void ClearVirtualKeys();
 
+// Desktop adapter codes for physical controller and keyboard events.
+void InitializeDesktopControllers();
+int ControllerEventCodes(SDL_JoystickID instance, Uint8 button, int* codes, int capacity);
+int KeyboardJoystickAliasCodes(SDL_Scancode scancode, int* codes, int capacity);
+int HeldControllerCodes(int* codes, int capacity);

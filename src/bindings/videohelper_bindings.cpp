@@ -16,6 +16,7 @@ namespace {
 constexpr int kShapeTypeQuads = 0;
 constexpr int kShapeTypeTriangleFan = 2;
 constexpr int kShapeTypeTriangleStrip = 3;
+constexpr int kShapeTypeLineLoop = 6;
 
 // VIDEOHELPER_DrawFilledRect(x1, y1, x2, y2 [, z])          -> shape
 // VIDEOHELPER_DrawFilledRect(shape, x1, y1, x2, y2 [, z])   -> that shape
@@ -47,6 +48,38 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledRect(gmThread* a_thread) {
 
     const float xy[8] = { x1, y1,  x2, y1,  x2, y2,  x1, y2 };
     PushShapeFromVerts(a_thread, kShapeTypeQuads, xy, 4, z, existing);
+    return GM_OK;
+}
+
+// Retail 0x001b4d64 dispatches on a leading VMSHAPE: six numeric
+// arguments allocate and return a shape; seven update the supplied shape
+// without pushing a return value. VideoHelper.gm's reference implementation
+// gives the quad winding and half-thickness normal used by the native helper.
+int GM_CDECL gmf_VIDEOHELPER_DrawThickLine2D(gmThread* a_thread) {
+    gmMachine& machine = *a_thread->GetMachine();
+    gmUserObject* existing = GM_NUM_PARAMS > 0
+        ? AsShapeObject(machine, a_thread->Param(0)) : nullptr;
+    const int base = existing ? 1 : 0;
+    if (GM_NUM_PARAMS != base + 6) return GM_EXCEPTION;
+
+    const float x1 = a_thread->ParamFloatOrInt(base + 0, 0.0f);
+    const float y1 = a_thread->ParamFloatOrInt(base + 1, 0.0f);
+    const float x2 = a_thread->ParamFloatOrInt(base + 2, 0.0f);
+    const float y2 = a_thread->ParamFloatOrInt(base + 3, 0.0f);
+    const float z = a_thread->ParamFloatOrInt(base + 4, 0.0f);
+    const float thickness = a_thread->ParamFloatOrInt(base + 5, 0.0f);
+    const float dx = x2 - x1;
+    const float dy = y2 - y1;
+    const float length = std::sqrt(dx * dx + dy * dy);
+    const float nx = length > 0.0f ? -dy / length * thickness * 0.5f : 0.0f;
+    const float ny = length > 0.0f ? dx / length * thickness * 0.5f : 0.0f;
+    const float xy[8] = {
+        x1 - nx, y1 - ny, x1 + nx, y1 + ny,
+        x2 + nx, y2 + ny, x2 - nx, y2 - ny,
+    };
+    PushShapeFromVerts(a_thread, kShapeTypeQuads, xy, 4, z, existing,
+                       /*preserve existing primitive*/ existing != nullptr,
+                       /*retail pushes only newly created shapes*/ existing == nullptr);
     return GM_OK;
 }
 
@@ -202,6 +235,63 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledCircle(gmThread* a_thread) {
     return GM_OK;
 }
 
+// VIDEOHELPER_DrawCircle(x, y, z, r [, quality]) or
+// VIDEOHELPER_DrawCircle(shape, x, y, z, r [, quality]). The native body is
+// at EBOOT.elf 0x001b3ad4. Disassembly confirms exact arities (4/5 and 5/6),
+// default quality 0x3d (61), start angle 0, and a float 2*pi/quality angle
+// increment. The allocate-new path emits quality points and explicitly adds
+// the first point again to close the outline. Its shape is a line loop; the
+// duplicate closing point is retained to match retail's stored geometry.
+// The leading-shape path instead updates that shape in place with exactly
+// quality points and preserves its original primitive type. Retail returns
+// a shape only for the allocate-new overload; the reuse overload does not
+// push a return value.
+int GM_CDECL gmf_VIDEOHELPER_DrawCircle(gmThread* a_thread) {
+    gmMachine& machine = *a_thread->GetMachine();
+    gmUserObject* existing = (GM_NUM_PARAMS > 0)
+        ? AsShapeObject(machine, a_thread->Param(0)) : nullptr;
+    const int base = existing ? 1 : 0;
+    const int count = a_thread->GetNumParams();
+    if ((!existing && count != 4 && count != 5) ||
+        (existing && count != 5 && count != 6)) return GM_EXCEPTION;
+
+    auto readRetailReal = [&](int index) -> double {
+        const gmVariable value = a_thread->Param(index);
+        return value.m_type == GM_FLOAT
+            ? (double)value.m_value.m_float
+            : (double)value.m_value.m_int;
+    };
+    const double x = readRetailReal(base + 0);
+    const double y = readRetailReal(base + 1);
+    const double z = readRetailReal(base + 2);
+    const double radius = readRetailReal(base + 3);
+    const int qualityIndex = base + 4;
+    const int quality = count == qualityIndex + 1
+        ? a_thread->Param(qualityIndex).m_value.m_int
+        : 61;
+
+    std::vector<float> xy;
+    const int pointCount = existing ? quality : quality + 1;
+    if (pointCount > 0) xy.reserve((size_t)pointCount * 2);
+    const float angleStep = 6.28318548203f / (float)quality;
+    float angle = 0.0f;
+    for (int i = 0; i < quality; ++i) {
+        xy.push_back((float)(x + std::cos((double)angle) * radius));
+        xy.push_back((float)(y + std::sin((double)angle) * radius));
+        angle = (float)((double)angle + (double)angleStep);
+    }
+    if (!existing) {
+        xy.push_back((float)(x + radius));
+        xy.push_back((float)y);
+    }
+
+    PushShapeFromVerts(a_thread, kShapeTypeLineLoop, xy.data(),
+                       (int)(xy.size() / 2), (float)z, existing,
+                       /*preserve existing primitive*/ existing != nullptr,
+                       /*retail pushes only newly created shapes*/ existing == nullptr);
+    return GM_OK;
+}
+
 // VIDEOHELPER_DrawFilledDonut(x, y, z, rx, ry, tx, ty [, q])        -> shape
 // VIDEOHELPER_DrawFilledDonut(shape, x, y, z, rx, ry, tx, ty [, q]) -> shape
 //
@@ -269,8 +359,10 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledDonut(gmThread* a_thread) {
 
 void RegisterVideoHelperBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawFilledRect", gmf_VIDEOHELPER_DrawFilledRect);
+    a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawThickLine2D", gmf_VIDEOHELPER_DrawThickLine2D);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawFilledPolygon", gmf_VIDEOHELPER_DrawFilledPolygon);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawFilledRectCentered", gmf_VIDEOHELPER_DrawFilledRectCentered);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawFilledCircle", gmf_VIDEOHELPER_DrawFilledCircle);
+    a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawCircle", gmf_VIDEOHELPER_DrawCircle);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawFilledDonut", gmf_VIDEOHELPER_DrawFilledDonut);
 }

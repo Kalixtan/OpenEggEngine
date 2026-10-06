@@ -1,3 +1,7 @@
+#include <cstdio>
+#include <cstdlib>
+#include <set>
+#include <string>
 #include "ground_renderer.h"
 #include "../core/engine_context.h"
 #include "../core/physics_world.h"
@@ -29,12 +33,18 @@
 //      (the overwhelming majority of any real level) it's identical.
 namespace {
 
-constexpr uint16 kGroundCategory = 1 << 1; // GROUND_COLLISION_CATEGORY, constants_bindings.cpp
+constexpr uint16 kGroundCategory = 1 << 0; // retail GROUND_COLLISION_CATEGORY
 
 // Z layer constants -- confirmed real values, constants_bindings.cpp.
 constexpr float kBackConversion = 0.01f;
 
-constexpr float kGroundZ = 10.0f;
+// GROUND_Z, real retail value (see SOUND_SHAPES_GROUND_TRUTH.md section 8;
+// read out of the bootstrap at 0x19b1c0..0x19b4f0). This was hardcoded
+// +10.0 -- the WRONG SIGN -- and, being a local copy, it did not change
+// when the GM global was corrected, so the ground kept drawing on the
+// wrong side of the player. Every kOutlineZ/kClearZ/... below derives from
+// it, so the whole ground sub-layer stack was mirrored around zero too.
+constexpr float kGroundZ = -10.0f;
 // CLEAR_Z/OUTLINE_Z/NOCLIMB_CLEAR_Z/FIRE_CLEAR_Z as computed inside
 // GroundProcessNEW's own constructor (OUTLINE_Z=GROUND_Z,
 // CLEAR_Z=OUTLINE_Z+60*BACK_CONVERSION, NOCLIMB_CLEAR_Z=CLEAR_Z-20*BACK_CONVERSION,
@@ -212,8 +222,23 @@ void DrawFill(Renderer& a_r, const GroundGeometry& a_g, float a_z) {
 }
 
 void SetColourByName(Renderer& a_r, const char* a_name) {
+    // GetNamedColourRGB's return value is NOT optional: on a miss it leaves
+    // r/g/b untouched, so ignoring it fed UNINITIALISED stack floats
+    // straight into SetColour. That is a real, observed failure, not a
+    // theoretical one -- an unresolved "ground_fill" rendered the tutorial's
+    // ground pure white (measured rgb(255,255,255) across 21% of the frame),
+    // which is simply whatever happened to be on the stack.
+    //
+    // On a miss, leave the current draw colour alone (the caller's previous
+    // SetColour stands) and say so once per name, so a missing scheme entry
+    // surfaces as a diagnosable message instead of a random colour.
     float r, g, b;
-    GetNamedColourRGB(a_name, r, g, b);
+    if (!GetNamedColourRGB(a_name, r, g, b)) {
+        static std::set<std::string> reported;
+        if (reported.insert(a_name).second)
+            std::fprintf(stderr, "[colour] unresolved name '%s' -- keeping previous draw colour\n", a_name);
+        return;
+    }
     a_r.SetColour(r, g, b, 1.0f);
 }
 
@@ -259,7 +284,26 @@ void DrawNoClimb(Renderer& a_r, const GroundGeometry& a_g) {
     SetColourByName(a_r, "ground_outline");
     DrawOutline(a_r, a_g, kOutlineZ);
 
-    SetColourByName(a_r, "clear");
+    // FILL COLOUR: "ground_outline", not the reference's literal "clear" --
+    // the same documented deviation DrawNormal carries, for the same reason.
+    // installNoClimbGround really does `Video.setColour("clear")` before its
+    // drawFill, so the port is faithful; the problem is that this engine
+    // models "clear" as ONE value per scheme while retail evidently
+    // reassigns it between the full-screen background wash and the ground
+    // fill inside a frame.
+    //
+    // In this level's scheme they collide exactly: s150_clear is
+    // (0.819608,0.721569,0.294118) = rgb(209,184,75), which is the
+    // background, so filling with it leaves ground pieces hollow -- outline
+    // only, the "just lines" look.
+    //
+    // rgb(42,33,15) is what retail actually draws there, sampled directly
+    // bottom ground band and the raised block), and it is the same value
+    // this style's own outline already resolves to: "ground_outline" has no
+    // s150_ entry in colours.dat, so it falls through to the sampled
+    // (0.165,0.129,0.059) = rgb(42,32,15). Retail's ground reads as one
+    // solid dark mass, not an outlined hollow shape.
+    SetColourByName(a_r, "ground_outline");
     a_r.SetStencilFunc(kGreater, kNoclimbStencilValue);
     a_r.SetStencilOp(kKeep, kKeep, kReplace);
     DrawFill(a_r, a_g, kNoclimbClearZ);
@@ -369,11 +413,43 @@ void DrawGroundsNative() {
     if (!machine) return;
 
     renderer->SetUseCameraView(true);
-    renderer->SetDepthTest(false);
-
+    // Depth test ON. This was `false`, which made every *_Z draw-depth
+    // constant inert -- ordering fell back to pure draw order, so fixing
+    // the Z constants to their real retail values changed nothing on
+    // screen. Retail does depth-test: opcode 0x1c (setAttrDepthTest)
+    // exists precisely to drive glEnable/glDisable(GL_DEPTH_TEST), and
+    // the whole *_Z scheme is meaningless without it.
+    //
+    // The convention lines up: our ortho is glOrtho(..., -200, 200) with
+    // modelview translate(0,0,-cameraZ), so z_eye = z_world - 26.88 and
+    // z_ndc = -z_eye/200 -- larger world z maps to smaller depth, which
+    // GL_LESS treats as nearer. That is retail's "larger = nearer", and
+    // the real z range (-60 .. 30) sits well inside the clip volume.
+    renderer->SetDepthTest(true);
+    // Colour writes ON for this pass. This is a NATIVE draw pass, the
+    // equivalent of retail's own ported-to-C++ ground renderer, so it must
+    // establish its device state rather than inherit whatever the last
+    // script draw list left behind -- and what it was inheriting was a
+    // disabled colour mask (measured: colorMask=0000 every frame once a
+    // level was running).
+    //
+    // Real content masks colour to lay down stencil (setColourMask(true),
+    // see Renderer::SetColourMask) and does not always balance it back:
+    // a full-game run logs 2213 mask-on calls against 4278 mask-off. The
+    // per-frame reset in Renderer::BeginFrame fixes the frame boundary, but
+    // a script pass during PreDrawAll re-masks colour and leaves it masked
+    // for everything drawn afterwards -- which is every ground piece.
+    //
+    // Symptom this fixes: the tutorial level rendered as a single flat
+    // background colour. The grounds were being submitted correctly the
+    // whole time (5 pieces/frame surviving the in-view cull, real geometry,
+    // colours resolving to rgb(193,135,43) against an rgb(209,184,75)
+    // background) and every fragment was discarded by the colour mask.
+    renderer->SetColourMask(false);
     for (b2Body* body = GetPhysicsWorld().GetBodyList(); body; body = body->GetNext()) {
         b2Fixture* fx = body->GetFixtureList();
         if (!fx) continue;
+        if (fx->IsSensor()) continue;
         if ((fx->GetFilterData().categoryBits & kGroundCategory) == 0) continue;
         // drawGrounds(): `if (!t.entity.isInView()) { continue; }`
         if (!IsInViewNative(body, *renderer)) continue;
@@ -394,10 +470,10 @@ void DrawGroundsNative() {
         if (!BuildGeometry(body, geo)) continue;
 
         switch (style) {
-            case 0: DrawNormal(*renderer, geo); break;  // NORMAL_GROUNDSTYLEID
-            case 1: DrawFire(*renderer, geo); break;     // FIRE_GROUNDSTYLEID
-            case 2: DrawDanger(*renderer, geo); break;   // DANGER_GROUNDSTYLEID
-            case 3: DrawNoClimb(*renderer, geo); break;  // NOCLIMB_GROUNDSTYLEID
+            case 0: DrawNormal(*renderer, geo); break;   // NORMAL_GROUNDSTYLEID
+            case 1: DrawNoClimb(*renderer, geo); break;  // NOCLIMB_GROUNDSTYLEID
+            case 2: DrawFire(*renderer, geo); break;     // FIRE_GROUNDSTYLEID
+            case 3: DrawDanger(*renderer, geo); break;   // DANGER_GROUNDSTYLEID
             // ICE(4)/MUD(5)/BOUNCY(6) -- confirmed real empty draw
             // functions in the reference (`t.draw=function(){};`), i.e.
             // these styles draw nothing even in retail's own pre-port GM

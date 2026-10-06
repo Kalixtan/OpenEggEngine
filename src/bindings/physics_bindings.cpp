@@ -182,7 +182,20 @@ int GM_CDECL gmf_addEdges(gmThread* a_thread) {
         float x, y;
         if (GetVector2D(m, v, x, y)) pts.push_back(b2Vec2(x, y));
     }
-    if (pts.size() < 2) return GM_OK; // degenerate, matches addPolygon's "fail safe rather than crash"
+    // Stock Box2D aborts the whole process if neighbouring chain vertices
+    // are no farther apart than b2_linearSlop.  Script-generated paths can
+    // contain repeated or nearly repeated points (the captured level-load
+    // crash was b2ChainShape::CreateChain here), so normalise precisely to
+    // the imported library's documented precondition before constructing a
+    // chain.  This is boundary validation, not a Box2D change.
+    std::vector<b2Vec2> usable;
+    const float minDistanceSquared = b2_linearSlop * b2_linearSlop;
+    for (const b2Vec2& point : pts) {
+        if (usable.empty() || b2DistanceSquared(usable.back(), point) > minDistanceSquared)
+            usable.push_back(point);
+    }
+    pts.swap(usable);
+    if (pts.size() < (loop ? 3u : 2u)) return GM_OK;
 
     // addEdges, 0x0008c658 -- see its full decompiled body for the exact
     // register-level derivation this comment summarizes):
@@ -200,15 +213,9 @@ int GM_CDECL gmf_addEdges(gmThread* a_thread) {
     //   one-sided CreateChain over just the original N points.
     //
     //   loop==true: retail computes a shoelace-style signed area over the
-    //   closed polygon (including the wrap-around edge) and, if it's
-    //   below a threshold constant (DAT_0008c654 -- its exact value isn't
-    //   recoverable from this decompiled corpus; 0.0f, a plain sign
-    //   check, is the natural reading and is what's used here, but this
-    //   is an ASSUMPTION, not a confirmed constant), completely rebuilds
-    //   the same N points in reverse order before submitting them -- i.e.
-    //   retail normalizes a closed edge loop's winding direction rather
-    //   than trusting whatever the script data happens to have. Vertex
-    //   count stays N either way for the loop case.
+    //   closed polygon (including the wrap-around edge) and reverses all N
+    //   points when the sum is below DAT_0008c654, which is exactly 0.0f in
+    //   the retail binary. Vertex count stays N either way.
     if (loop) {
         float area2 = 0.0f;
         for (size_t i = 0; i < pts.size(); ++i) {
@@ -222,7 +229,10 @@ int GM_CDECL gmf_addEdges(gmThread* a_thread) {
         c->AddFixture(chain);
     } else {
         std::vector<b2Vec2> doubled = pts;
-        for (int i = (int)pts.size() - 1; i >= 1; --i) doubled.push_back(pts[(size_t)i]);
+        // Retail walks back from the final point, but its 2N-1 output count
+        // excludes the last reverse point. Skip the repeated turn vertex too:
+        // Box2D rejects that zero-length edge, and it contributes no geometry.
+        for (int i = (int)pts.size() - 2; i >= 1; --i) doubled.push_back(pts[(size_t)i]);
         b2ChainShape* chain = new b2ChainShape();
         // This box2d version requires explicit ghost vertices for an open
         // chain; reusing the first/last points of the now-doubled list
@@ -287,6 +297,18 @@ int GM_CDECL gmf_setFrictionForPlayer(gmThread* a_thread) {
     return GM_OK;
 }
 
+// Fixture friction is part of the shape definition before appendShapes()
+// creates the Box2D fixtures. The shipped SingleCircleGround and
+// PlayerDeathBits scripts set it on this collection, not on the body.
+int GM_CDECL gmf_setFriction(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(friction, 0, 0.2f);
+    for (auto& def : c->fixtureDefs) def.friction = friction;
+    return GM_OK;
+}
+
 gmFunctionEntry s_shapeDefLib[] = {
     {"reset", gmf_reset, nullptr},
     {"addBox", gmf_addBox, nullptr},
@@ -298,6 +320,7 @@ gmFunctionEntry s_shapeDefLib[] = {
     {"setCollisionCategory", gmf_setCollisionCategory, nullptr},
     {"setCategoriesToCollideWith", gmf_setCategoriesToCollideWith, nullptr},
     {"setFrictionForPlayer", gmf_setFrictionForPlayer, nullptr},
+    {"setFriction", gmf_setFriction, nullptr},
 };
 
 void GM_CDECL ShapeDefGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {

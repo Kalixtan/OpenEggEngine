@@ -1,5 +1,6 @@
 #include "gmThread.h"
 #include "physics_global_bindings.h"
+#include "physics_joint_bindings.h"
 #include "physics_body_bindings.h"
 #include "vector2d_bindings.h"
 #include "../core/physics_world.h"
@@ -44,14 +45,14 @@ int GM_CDECL gmf_Physics_getEntityFromShapeID(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getShapeByID -- confirmed real (decompiled, same technique as the three
-// above) but EVERY call site in the entire corpus is commented out (grep
-// -rn confirms zero uncommented uses of "Physics.getShapeByID" anywhere in
-// game_data/Platformer) -- i.e. real retail code that's provably dead in
-// this game's own actual script content. Left unregistered (routes
-// through the same null-call leniency as any other genuinely-unreached
-// native) rather than building a whole extra "Shape" handle type solely
-// to satisfy commented-out code.
+// CraigEntityHelper uses this live retail native to change individual
+// fixtures between solid and sensor during state transitions.
+int GM_CDECL gmf_Physics_getShapeByID(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(sid, 0, 0);
+    a_thread->Push(MakePhysicsShapeByGlobalId(*a_thread->GetMachine(), sid));
+    return GM_OK;
+}
 
 // --- raycasting -----------------------------------------------------------
 // Confirmed real: Physics.raycastOne (85 call sites) and Physics.raycast
@@ -259,6 +260,7 @@ void GM_CDECL RayIterGCDestruct(gmMachine*, gmUserObject* a_object) {
 
 gmFunctionEntry s_physicsLib[] = {
     {"isShapeSensor", gmf_Physics_isShapeSensor, nullptr},
+    {"getShapeByID", gmf_Physics_getShapeByID, nullptr},
     {"getBodyFromShapeID", gmf_Physics_getBodyFromShapeID, nullptr},
     {"getEntityFromShapeID", gmf_Physics_getEntityFromShapeID, nullptr},
     {"raycastOne", gmf_Physics_raycastOne, nullptr},
@@ -268,9 +270,14 @@ gmFunctionEntry s_physicsLib[] = {
 } // namespace
 
 void RegisterPhysicsGlobalBindings(gmMachine& a_machine) {
+    RegisterPhysicsJointBindings(a_machine);
     g_rayIterType = a_machine.CreateUserType("RayHitEntityIterator");
     a_machine.RegisterTypeLibrary(g_rayIterType, s_rayIterLib, sizeof(s_rayIterLib) / sizeof(s_rayIterLib[0]));
     a_machine.RegisterUserCallbacks(g_rayIterType, nullptr, RayIterGCDestruct, nullptr);
 
-    a_machine.RegisterLibrary(s_physicsLib, sizeof(s_physicsLib) / sizeof(s_physicsLib[0]), "Physics");
+    // RegisterPhysicsJointBindings created the retail Physics global above.
+    // RegisterLibrary defaults to replacing the named table, which discarded
+    // createJoint/deleteJoint/getJoint and left live EntityBase.gm calls
+    // unbound. Extend that table with the global query helpers instead.
+    a_machine.RegisterLibrary(s_physicsLib, sizeof(s_physicsLib) / sizeof(s_physicsLib[0]), "Physics", false);
 }
