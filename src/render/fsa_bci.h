@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 // .fsa/.bci sprite-animation format -- container + pixel decode fully
@@ -19,17 +20,26 @@
 struct BciFrame {
     int width = 0;
     int height = 0;
-    // width*height entries, one 4-bit palette index (0-15) per pixel,
-    // row-major. 0 is confirmed transparent background.
+    // Palette-indexed BCI pixels (4-bit) and indexed PNG pixels (8-bit
+    // container, palette indices 0-15 in the shipped animation corpus) use
+    // the Animation palette bank at draw time. Index 0 is transparent.
     std::vector<uint8_t> indices;
+    // Non-indexed PNG pixels are stored as straight RGBA, row-major. These
+    // are uploaded directly and do not use the generated animation palette.
+    std::vector<uint8_t> rgba;
 };
 
 struct FsaAsset {
     std::vector<BciFrame> frames;
+    // FUN_000b6920 stores custom (image index, normalized weight) entries on
+    // the selected record in the shared retail FSA resource. Keep that state
+    // here so Animation instances sharing this cached asset see the same
+    // sequence, while their playback cursor and record duration stay local.
+    std::vector<std::pair<int, float>> customSequence;
 
-    // Parses the whole container and decodes every embedded .bci frame in
-    // directory order (confirmed real: entries are already named/ordered
-    // sequentially, e.g. spawnRecordPlayerIdle0001.bci..0015.bci). Returns
+    // Parses the whole container and decodes embedded .bci and .png frames
+    // in their FSA directory order, matching the retail loader traversal.
+    // Returns
     // false (frames left empty) if the file can't be read or isn't a valid
     // FSA container -- callers treat a frameless asset as "nothing to draw"
     // rather than crashing, same leniency as every other asset-load gap in

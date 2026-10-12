@@ -1,16 +1,15 @@
 // Engine entry point. Boots the GameMonkeyScript VM, registers the confirmed
-// native bindings (see src/bindings/), loads the retail hello-world test
-// scene (game_data_min/Main.gm, falling back to the full game_data tree for
-// shared engine scripts like FontHelper.gm the mini scene doesn't carry its
-// own copy of -- mirrors the real Platformer/PS3_Platformer overlay
-// pattern), and drives the render loop.
-#include <SDL2/SDL.h>
+// native bindings (see src/bindings/), loads the retail game_data/Main.gm
+// entry point by default (with game_data_min available as a fallback for
+// shared test assets), and drives the render loop.
+#include "platform_window.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <string>
 #include <array>
+#include <cmath>
 #include <box2d/box2d.h>
 
 #include "../core/gm_vm.h"
@@ -24,15 +23,16 @@
 #include "../render/bitmap_font.h"
 #include "../render/draw_list.h"
 #include "../render/draw_context.h"
-#include "../ported_native/ground_renderer.h"
 #include "../ported_native/player_renderer.h"
 #include "../ported_native/save_data_completion.h"
 #include "../bindings/gamemonkeyscript_bindings.h"
+#include "../bindings/animation_bindings.h"
 #include "../bindings/gamesystem_bindings.h"
 #include "../bindings/video_bindings.h"
 #include "../bindings/constants_bindings.h"
 #include "../bindings/system_bindings.h"
 #include "../bindings/physics_bindings.h"
+#include "../bindings/matrix4_bindings.h"
 #include "../bindings/physics_body_bindings.h"
 #include "../bindings/physics_global_bindings.h"
 #include "../core/physics_world.h"
@@ -52,6 +52,7 @@
 #include "../bindings/watermelon_bindings.h"
 #include "../bindings/videohelper_bindings.h"
 #include "headless_harness.h"
+#include "frontend_factory.h"
 #include "../bindings/process_handle_bindings.h"
 #include "../bindings/audio_bindings.h"
 #include "../bindings/mathutil_bindings.h"
@@ -60,10 +61,13 @@
 #include "gmCall.h"
 
 #ifndef GE3_PRIMARY_DATA_ROOT
-#define GE3_PRIMARY_DATA_ROOT "../game_data_min"
+#define GE3_PRIMARY_DATA_ROOT "../game_data"
 #endif
 #ifndef GE3_FALLBACK_DATA_ROOT
-#define GE3_FALLBACK_DATA_ROOT "../game_data"
+#define GE3_FALLBACK_DATA_ROOT "../game_data_min"
+#endif
+#ifndef GE3_DEFAULT_SIMULATION_SPEED_MULTIPLIER
+#define GE3_DEFAULT_SIMULATION_SPEED_MULTIPLIER 1.0f
 #endif
 
 // GAME_Update/GAME_PostDraw -- reserved top-level script hooks (Main.gm:
@@ -83,6 +87,19 @@
 // uncalled: Main.gm only defines a commented-out stub for it ("commented
 // out until it's needed"), so there is nothing real to invoke there.
 namespace {
+int KeyboardEventAliasCodes(int scancode, int* codes, int capacity) {
+    // Retail PS3 menus commonly accept both KEYBOARD_LEFT and JOYSTICK0_LEFT
+    // in one key handler. Dispatching both for one PC arrow press navigates
+    // twice. Keep joystick aliases in held-key/onKeyType polling, where some
+    // UI scripts listen only for JOYSTICK0_UP/DOWN, but avoid the duplicate
+    // discrete event. Physical controller events still use their own path.
+    if (scancode == PlatformKeyCode::Left || scancode == PlatformKeyCode::Right ||
+        scancode == PlatformKeyCode::Up || scancode == PlatformKeyCode::Down) {
+        return 0;
+    }
+    return KeyboardJoystickAliasCodes(scancode, codes, capacity);
+}
+
 void CallGlobalHookIfPresent(gmMachine& a_machine, const char* a_name, int a_intParam, bool a_hasParam) {
     gmVariable fn = a_machine.GetGlobals()->Get(&a_machine, a_name);
     if (fn.m_type != GM_FUNCTION) return;
@@ -125,7 +142,7 @@ int main(int argc, char** argv) {
         SaveData::ClearAll();
     }
 
-    // GE3_HEADLESS=1: the window is created hidden (see Renderer::Init), so
+    // GE3_HEADLESS=1: the frontend window is created hidden, so
     // nothing appears on the host desktop and nothing competes for the
     // host's real input focus. Deterministic timing + no frame limiter are
     // what a scripted/CI run almost always wants, so they're implied here
@@ -138,33 +155,42 @@ int main(int argc, char** argv) {
     // Scripted input + screenshot capture (GE3_HARNESS=<script>), see
     // headless_harness.h. Disabled and zero-cost when the env var is unset.
     HeadlessHarness harness;
-    harness.Init();
 
-    // Optional overrides for probing against the full retail game_data tree
-    // instead of the game_data_min hello-world scene:
+    // Optional overrides for probing against another data root, entry script,
+    // or process:
     //   gameengine3 [dataRoot] [entryScript] [processName] [--clear-save]
-    // With no args, behaves exactly as before (game_data_min/Main.gm).
+    // With no args, launches the retail game_data/Main.gm entry point.
     if (trace) fprintf(trace, "[TRACE] parsing args\n"), fflush(trace);
     std::string dataRoot = (argc > 1) ? argv[1] : GE3_PRIMARY_DATA_ROOT;
     std::string entryScript = (argc > 2) ? argv[2] : "Main.gm";
     std::string processName = (argc > 3) ? argv[3] : "Main";
 
     if (trace) fprintf(trace, "[TRACE] creating Renderer object\n"), fflush(trace);
+    std::unique_ptr<PlatformFrontend> hostFrontend = CreatePlatformFrontend();
+    if (!hostFrontend || !hostFrontend->Create(800, 600, "GameEngine3 Reimplementation",
+                                                std::getenv("GE3_HEADLESS") != nullptr)) {
+        return 1;
+    }
+    harness.Init(*hostFrontend);
     Renderer renderer;
     if (trace) fprintf(trace, "[TRACE] calling renderer.Init()...\n"), fflush(trace);
     // 800x600 -- confirmed real retail default (live Wine capture of the
-    // actual "flowers of error.exe", this session), not this engine's own
-    // prior 1280x720 guess. Also matches Main.gm's own fullscreen-toggle
-    // call (`Video.restartVideo(800,600,!Video.isFullScreen(),0)`, KEYBOARD_F
-    // handler) -- 800x600 is the literal size it restores to. This is
-    // deliberately 4:3, NOT the game's internal 16:9 content aspect, which
-    // is why retail visibly letterboxes (black bars top/bottom) at this
-    // default size -- see Renderer::UpdateViewportLetterbox.
-    if (!renderer.Init(800, 600, "GameEngine3 Reimplementation")) {
+    // actual "flowers of error.exe", this session). This is deliberately 4:3,
+    // not the game's 16:9 content aspect, which is why retail letterboxes at
+    // this default size. Main.gm's restartVideo key handler passes dimensions,
+    // but retail PPC ignores those arguments; they are not the source of this
+    // initial window size.
+    if (!renderer.Init(*hostFrontend, 800, 600)) {
         if (trace) fprintf(trace, "[TRACE] renderer.Init() failed\n"), fflush(trace);
         return 1;
     }
     if (trace) fprintf(trace, "[TRACE] renderer.Init() succeeded\n"), fflush(trace);
+
+    // RETAIL BYTECODE: graphics-mode setup at EBOOT 0x574a0 writes 1 to
+    // Video+0x8184 while installing its 1280x720 mode. This enables the
+    // per-path PS3_ texture-factor lookup; the desktop enters its equivalent
+    // initialized Video mode here, before any scripts can request textures.
+    GetEngineContext().video.textureResizeOverrideEnabled = true;
 
     GmVm vm;
     vm.Files().AddRoot(dataRoot);
@@ -177,9 +203,20 @@ int main(int argc, char** argv) {
     StrictCalls::Install(vm.Machine());
 
     if (trace) fprintf(trace, "[TRACE] loading fonts\n"), fflush(trace);
-    BitmapFont normalFont, heavyFont;
-    bool haveNormal = normalFont.Load(dataRoot + "/HelveticaNeueLTCom-Lt.json", dataRoot, renderer);
-    bool haveHeavy = heavyFont.Load(dataRoot + "/HelveticaNeueLTCom-Hv.json", dataRoot, renderer);
+    BitmapFont normalFont, heavyFont, courierFont, russianFont;
+    auto loadBitmapFont = [&](BitmapFont& font, const std::string& relativeJson) {
+        auto jsonPath = vm.Files().Resolve(relativeJson);
+        if (!jsonPath) return false;
+        return font.Load(*jsonPath, std::filesystem::path(*jsonPath).parent_path().string(),
+                         renderer, &vm.Files());
+    };
+    bool haveNormal = loadBitmapFont(normalFont, "HelveticaNeueLTCom-Lt.json");
+    bool haveHeavy = loadBitmapFont(heavyFont, "HelveticaNeueLTCom-Hv.json");
+    bool haveCourier = loadBitmapFont(courierFont, "courierFont.json");
+    // The Video font-resource constructor has an exact Russian font-name
+    // case, and game_data ships the corresponding bitmap atlas. Keep it on
+    // the same metrics/atlas path as retail instead of falling back to TTF.
+    bool haveRussian = loadBitmapFont(russianFont, "Helvetica_NeueLTCyrillic55_Russian.json");
     // FoE's PC build ships no retail JSON+PNG atlas at all (a Sound Shapes-
     // only format) -- it has grayscale-bold.ttf instead (see
     // reveng_pc/README.TXT's file listing / bitmap_font.h's LoadTTF header
@@ -245,6 +282,8 @@ int main(int argc, char** argv) {
     ctx.machine = &vm.Machine();
     ctx.normalFont = haveNormal ? &normalFont : nullptr;
     ctx.heavyFont = haveHeavy ? &heavyFont : nullptr;
+    ctx.courierFont = haveCourier ? &courierFont : nullptr;
+    ctx.russianFont = haveRussian ? &russianFont : nullptr;
     ctx.currentFont = ctx.normalFont;
     ctx.localization = &localization;
 
@@ -255,6 +294,7 @@ int main(int argc, char** argv) {
     RegisterVideoBindings(vm.Machine());
     RegisterSystemBindings(vm.Machine());
     RegisterPhysicsBindings(vm.Machine());
+    RegisterMatrix4Bindings(vm.Machine());
     RegisterPhysicsBodyBindings(vm.Machine());
     RegisterPhysicsGlobalBindings(vm.Machine());
     RegisterSequencerBindings(vm.Machine());
@@ -266,10 +306,10 @@ int main(int argc, char** argv) {
     RegisterEntityBindings(vm.Machine());
     RegisterVector2DBindings(vm.Machine());
     RegisterTextureBindings(vm.Machine());
-    RegisterInputBindings(vm.Machine());
-    InitializeDesktopControllers();
+    RegisterInputBindings(vm.Machine(), *hostFrontend);
+    RefreshPlatformControllers();
     RegisterPrintInfoBindings(vm.Machine());
-    RegisterAudioBindings(vm.Machine());
+    RegisterAudioBindings(vm.Machine(), *hostFrontend);
     InitializeAudioOutput();
     RegisterMathUtilBindings(vm.Machine());
     RegisterMathBindings(vm.Machine());
@@ -297,7 +337,7 @@ int main(int argc, char** argv) {
     // native engine bootstrap, exactly like retail's must, and has to
     // exist before Main.gm loads since Main.gm references it directly.
     {
-        gmVariable mainSequencer = CreateSequencerInstance(vm.Machine(), 120);
+        gmVariable mainSequencer = CreateSequencerInstance(vm.Machine(), 98);
         vm.Machine().GetGlobals()->Set(&vm.Machine(), "MainSequencer", mainSequencer);
         StrictCalls::MarkNative(vm.Machine(), mainSequencer);
     }
@@ -343,7 +383,7 @@ int main(int argc, char** argv) {
     // mechanism above) broke game_data_min's rendering by pulling in
     // Platformer/MainMenuScriptLoader.gm's large, global-state-mutating
     // script sweep.
-    bool isFullRetailTree = std::filesystem::exists(dataRoot + "/Platformer/Main.gm");
+    bool isFullRetailTree = vm.Files().Resolve("Platformer/Main.gm").has_value();
     if (isFullRetailTree) {
         if (trace) fprintf(trace, "[TRACE] loading Platformer/CoryPopup.gm\n"), fflush(trace);
         vm.LoadScript("Platformer/CoryPopup.gm");
@@ -353,43 +393,75 @@ int main(int argc, char** argv) {
     if (!vm.LoadScript(entryScript)) {
         std::fprintf(stderr, "main: %s failed to load, aborting\n", entryScript.c_str());
         ShutdownAudioOutput();
+        ReleaseTextureResourceLeases(renderer);
+        renderer.ReleaseAllTextures();
         renderer.Shutdown();
         return 1;
     }
     if (trace) fprintf(trace, "[TRACE] entry script loaded\n"), fflush(trace);
 
     if (trace) fprintf(trace, "[TRACE] starting process: %s\n", processName.c_str()), fflush(trace);
-    if (processManager.StartNewProcessList(processName) < 0) {
-        std::fprintf(stderr, "main: GameSystem.startNewProcessList(\"%s\") failed, aborting\n", processName.c_str());
+    if (processManager.StartInitialProcess(processName) < 0) {
+        std::fprintf(stderr, "main: failed to create initial process '%s', aborting\n", processName.c_str());
         ShutdownAudioOutput();
+        ReleaseTextureResourceLeases(renderer);
+        renderer.ReleaseAllTextures();
         renderer.Shutdown();
         return 1;
     }
     if (trace) fprintf(trace, "[TRACE] process started\n"), fflush(trace);
 
     if (trace) fprintf(trace, "[TRACE] entering main loop\n"), fflush(trace);
-    Uint32 lastTicks = SDL_GetTicks();
+    uint32_t lastTicks = hostFrontend->Milliseconds();
+    const uint64_t performanceFrequency = hostFrontend->PerformanceFrequency();
+    uint64_t lastPerformanceCounter = hostFrontend->PerformanceCounter();
+    unsigned int simulationTickCount = 0;
+    float simulationAccumulatorMs = 0.0f;
+    // FUN_0018a2e8 uses these exact float constants: f23=0x41855555
+    // (16.666666 ms) and the accumulated-delta cap=0x42480001
+    // (50.0000038 ms). See timing_manager_loop_18a2e8.disasm.
+    constexpr float kRetailSimulationStepMs = 16.666666f;
+    constexpr float kRetailSimulationDeltaCapMs = 50.0000038f;
+    // Diagnostic only: scales the retail script-selected simulationSpeed
+    // before it enters the retail-style accumulator. Set to 10 to test whether
+    // the current script speed (often 0.1) is the source of slow motion.
+    float simulationSpeedMultiplier = GE3_DEFAULT_SIMULATION_SPEED_MULTIPLIER;
+    if (const char* multiplierEnv = std::getenv("GE3_SIMULATION_SPEED_MULTIPLIER")) {
+        char* end = nullptr;
+        const float value = std::strtof(multiplierEnv, &end);
+        if (end != multiplierEnv && *end == '\0' && std::isfinite(value) && value > 0.0f)
+            simulationSpeedMultiplier = value;
+    }
+    if (simulationSpeedMultiplier != 1.0f)
+        std::fprintf(stderr, "main: simulation speed multiplier %.6g (GE3_SIMULATION_SPEED_MULTIPLIER)\n",
+                     simulationSpeedMultiplier);
     bool running = true;
     // Runtime physics-debug-draw toggle -- GE3_PHYSICS_DEBUG_DRAW=1 still
     // forces it on for a whole session, but that means relaunching just to
-    // look at collision shapes for a few seconds. +/= (SDL_SCANCODE_EQUALS
+    // look at collision shapes for a few seconds. +/= (USB HID equals key
     // -- same physical key as '+' on a standard layout, no shift required)
     // flips it live instead. Starts from the env var so scripted/CI runs
     // that already rely on it keep working unchanged.
-    bool physicsDebugDraw = std::getenv("GE3_PHYSICS_DEBUG_DRAW") != nullptr;
+    const char* physicsDebugDrawEnv = std::getenv("GE3_PHYSICS_DEBUG_DRAW");
+    // Treat the documented `=1` as the opt-in. Testing only whether the
+    // variable exists made common launch settings such as `=0` enable the
+    // collision overlay, which can look like white geometry on kinematic
+    // fixtures and obscure the actual sprite/ground rendering being audited.
+    bool physicsDebugDraw = physicsDebugDrawEnv &&
+                            std::strcmp(physicsDebugDrawEnv, "1") == 0;
     const bool profileFrames = std::getenv("GE3_PROFILE_FRAMES") != nullptr;
-    std::array<Uint64, 9> phaseTicks{};
+    std::array<uint64_t, 9> phaseTicks{};
     int profiledFrames = 0;
     while (running) {
-        Uint64 phaseStart = profileFrames ? SDL_GetPerformanceCounter() : 0;
+        uint64_t phaseStart = profileFrames ? hostFrontend->PerformanceCounter() : 0;
         auto recordPhase = [&](size_t phase) {
             if (!profileFrames) return;
-            Uint64 now = SDL_GetPerformanceCounter();
+            uint64_t now = hostFrontend->PerformanceCounter();
             phaseTicks[phase] += now - phaseStart;
             phaseStart = now;
         };
         // Scripted input for this frame (no-op unless GE3_HARNESS is set).
-        // Dispatched through exactly the same two sinks as real SDL events
+        // Dispatched through exactly the same two sinks as frontend events
         // below, so script sees no difference between a harness key and a
         // physical one.
         std::vector<int> hKeyDown, hKeyUp, hMouseDown, hMouseUp;
@@ -398,7 +470,7 @@ int main(int argc, char** argv) {
             processManager.DispatchKeyEvent(sc, true);
             DispatchKeyEventToEntities(sc, true);
             int aliases[32];
-            int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+            int count = KeyboardEventAliasCodes(sc, aliases, 32);
             for (int i = 0; i < count; ++i) {
                 processManager.DispatchKeyEvent(aliases[i], true);
                 DispatchKeyEventToEntities(aliases[i], true);
@@ -408,7 +480,7 @@ int main(int argc, char** argv) {
             processManager.DispatchKeyReleaseEvent(sc);
             DispatchKeyEventToEntities(sc, false);
             int aliases[32];
-            int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+            int count = KeyboardEventAliasCodes(sc, aliases, 32);
             for (int i = 0; i < count; ++i) {
                 processManager.DispatchKeyReleaseEvent(aliases[i]);
                 DispatchKeyEventToEntities(aliases[i], false);
@@ -433,105 +505,89 @@ int main(int argc, char** argv) {
             for (int sc : harness.HeldKeys()) SetVirtualKeyDown(sc, true);
         }
 
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) running = false;
-            // Escape used to force-quit here, but it's also the real
-            // in-game JOYSTICK0_CANCEL/CIRCLE key (input_bindings.cpp) --
-            // scripts need to actually see it via onKeyPress below, not
-            // have it swallowed as a debug shortcut. Close the window to
-            // quit instead.
-            if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
-                if (event.key.keysym.scancode == SDL_SCANCODE_EQUALS) {
-                    physicsDebugDraw = !physicsDebugDraw;
+        PlatformEvent event;
+        while (hostFrontend->PollEvent(event)) {
+            switch (event.type) {
+                case PlatformEventType::Quit:
+                    running = false;
+                    break;
+                case PlatformEventType::KeyDown:
+                    // Escape is an in-game cancel action; close the host
+                    // window to quit rather than swallowing that key.
+                    if (event.repeat) break;
+                    if (event.code == PlatformKeyCode::Equals) physicsDebugDraw = !physicsDebugDraw;
+                    processManager.DispatchKeyEvent(event.code, true);
+                    DispatchKeyEventToEntities(event.code, true);
+                    {
+                        int aliases[32];
+                        const int count = KeyboardEventAliasCodes(event.code, aliases, 32);
+                        for (int i = 0; i < count; ++i) {
+                            processManager.DispatchKeyEvent(aliases[i], true);
+                            DispatchKeyEventToEntities(aliases[i], true);
+                        }
+                    }
+                    break;
+                case PlatformEventType::KeyUp:
+                    processManager.DispatchKeyReleaseEvent(event.code);
+                    DispatchKeyEventToEntities(event.code, false);
+                    {
+                        int aliases[32];
+                        const int count = KeyboardEventAliasCodes(event.code, aliases, 32);
+                        for (int i = 0; i < count; ++i) {
+                            processManager.DispatchKeyReleaseEvent(aliases[i]);
+                            DispatchKeyEventToEntities(aliases[i], false);
+                        }
+                    }
+                    break;
+                case PlatformEventType::ControllerAdded:
+                case PlatformEventType::ControllerRemoved:
+                    RefreshPlatformControllers();
+                    break;
+                case PlatformEventType::ControllerButtonDown:
+                case PlatformEventType::ControllerButtonUp: {
+                    int codes[32];
+                    const int count = ControllerEventCodes(event.device, event.code, codes, 32);
+                    const bool down = event.type == PlatformEventType::ControllerButtonDown;
+                    for (int i = 0; i < count; ++i) {
+                        if (down) processManager.DispatchKeyEvent(codes[i], true);
+                        else processManager.DispatchKeyReleaseEvent(codes[i]);
+                        DispatchKeyEventToEntities(codes[i], down);
+                    }
+                    break;
                 }
-                processManager.DispatchKeyEvent(event.key.keysym.scancode, true);
-                // See DispatchKeyEventToEntities's header comment
-                // (entity_bindings.h) -- Player is a registered Entity, not
-                // a Process, so ProcessManager's own dispatch above never
-                // reached it; jump (and anything else driven through
-                // Player.gm's onKeyPress) was silently dead.
-                DispatchKeyEventToEntities(event.key.keysym.scancode, true);
-                int aliases[32];
-                int count = KeyboardJoystickAliasCodes(event.key.keysym.scancode, aliases, 32);
-                for (int i = 0; i < count; ++i) {
-                    processManager.DispatchKeyEvent(aliases[i], true);
-                    DispatchKeyEventToEntities(aliases[i], true);
+                case PlatformEventType::MouseButtonDown:
+                case PlatformEventType::MouseButtonUp: {
+                    const bool down = event.type == PlatformEventType::MouseButtonDown;
+                    const int code = event.code;
+                    if (code >= 0) {
+                        if (down) processManager.DispatchKeyEvent(code, true);
+                        else processManager.DispatchKeyReleaseEvent(code);
+                        DispatchKeyEventToEntities(code, down);
+                    }
+                    break;
                 }
-            }
-            if (event.type == SDL_KEYUP) {
-                processManager.DispatchKeyReleaseEvent(event.key.keysym.scancode);
-                DispatchKeyEventToEntities(event.key.keysym.scancode, false);
-                int aliases[32];
-                int count = KeyboardJoystickAliasCodes(event.key.keysym.scancode, aliases, 32);
-                for (int i = 0; i < count; ++i) {
-                    processManager.DispatchKeyReleaseEvent(aliases[i]);
-                    DispatchKeyEventToEntities(aliases[i], false);
-                }
-            }
-            if (event.type == SDL_CONTROLLERDEVICEADDED || event.type == SDL_CONTROLLERDEVICEREMOVED)
-                InitializeDesktopControllers();
-            if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERBUTTONUP) {
-                int codes[32];
-                int count = ControllerEventCodes(event.cbutton.which, event.cbutton.button, codes, 32);
-                for (int i = 0; i < count; ++i) {
-                    if (event.type == SDL_CONTROLLERBUTTONDOWN)
-                        processManager.DispatchKeyEvent(codes[i], true);
-                    else
-                        processManager.DispatchKeyReleaseEvent(codes[i]);
-                    DispatchKeyEventToEntities(codes[i], event.type == SDL_CONTROLLERBUTTONDOWN);
-                }
-            }
-            // Mouse buttons share the same onKeyPress/onKeyType/onKeyRelease
-            // dispatch as keyboard keys -- confirmed real (Main.gm's onKeyPress
-            // checks `arg0 == MOUSE_LEFTBUTTON` right alongside
-            // `arg0 == KEYBOARD_ESCAPE` etc, same handler, same integer
-            // namespace: MOUSE_LEFTBUTTON/RIGHTBUTTON/MIDDLEBUTTON = 0/1/2,
-            // input_bindings.cpp). "click starts" / "click and drag
-            // everything" (title screen) both route through this -- was
-            // entirely unwired (zero SDL_MOUSEBUTTON handling previously),
-            // so no click ever reached script.
-            if (event.type == SDL_MOUSEBUTTONDOWN) {
-                int code = (event.button.button == SDL_BUTTON_LEFT) ? 0
-                         : (event.button.button == SDL_BUTTON_RIGHT) ? 1
-                         : (event.button.button == SDL_BUTTON_MIDDLE) ? 2 : -1;
-                if (code >= 0) {
-                    processManager.DispatchKeyEvent(code, true);
-                    DispatchKeyEventToEntities(code, true);
-                }
-            }
-            if (event.type == SDL_MOUSEBUTTONUP) {
-                int code = (event.button.button == SDL_BUTTON_LEFT) ? 0
-                         : (event.button.button == SDL_BUTTON_RIGHT) ? 1
-                         : (event.button.button == SDL_BUTTON_MIDDLE) ? 2 : -1;
-                if (code >= 0) {
-                    processManager.DispatchKeyReleaseEvent(code);
-                    DispatchKeyEventToEntities(code, false);
-                }
-            }
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                // The user dragged the window border (SDL_WINDOW_RESIZABLE,
-                // Renderer::Init) -- update our tracked size/viewport/aspect
-                // to match; vertical-fit scaling (Renderer::kWorldHalfHeight)
-                // means the top/bottom of the world stays pinned to the
-                // window's top/bottom at any size.
-                renderer.OnWindowResized(event.window.data1, event.window.data2);
+                case PlatformEventType::Resized:
+                    renderer.OnWindowResized(event.width, event.height);
+                    break;
+                case PlatformEventType::None:
+                    break;
             }
         }
 
         // onKeyType: level-triggered, fired every frame for every key
         // currently held -- see ProcessManager::DispatchKeyEvent's header
         // comment. Cheap: only iterates scancodes actually down right now.
-        const Uint8* keyState = SDL_GetKeyboardState(nullptr);
-        for (int sc = 0; sc < SDL_NUM_SCANCODES; ++sc) {
+        int keyCount = 0;
+        const uint8_t* keyState = hostFrontend->KeyboardState(keyCount);
+        for (int sc = 0; sc < keyCount; ++sc) {
             if (keyState[sc]) {
                 processManager.DispatchKeyEvent(sc, false);
                 int aliases[32];
-                int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+                int count = KeyboardJoystickAliasCodes(sc, aliases, 32);
                 for (int i = 0; i < count; ++i) processManager.DispatchKeyEvent(aliases[i], false);
             }
         }
-        // Keys held by the harness script aren't in SDL's physical keyboard
+        // Keys held by the harness script aren't in the physical keyboard
         // state, so they need their own onKeyType pass -- without this a
         // scripted `keydown Right` would fire once and then look released to
         // anything level-triggered (which is most movement code).
@@ -539,7 +595,7 @@ int main(int argc, char** argv) {
             if (!keyState[sc]) {
                 processManager.DispatchKeyEvent(sc, false);
                 int aliases[32];
-                int count = KeyboardJoystickAliasCodes((SDL_Scancode)sc, aliases, 32);
+                int count = KeyboardJoystickAliasCodes(sc, aliases, 32);
                 for (int i = 0; i < count; ++i) processManager.DispatchKeyEvent(aliases[i], false);
             }
         }
@@ -548,136 +604,114 @@ int main(int argc, char** argv) {
         for (int i = 0; i < heldControllerCount; ++i)
             processManager.DispatchKeyEvent(heldControllerCodes[i], false);
 
-        Uint32 nowTicks = SDL_GetTicks();
-        unsigned int deltaMs = nowTicks - lastTicks;
+        uint32_t nowTicks = hostFrontend->Milliseconds();
+        const uint64_t nowPerformanceCounter = hostFrontend->PerformanceCounter();
+        const double wallElapsedMs = performanceFrequency != 0
+            ? (static_cast<double>(nowPerformanceCounter - lastPerformanceCounter) * 1000.0 /
+               static_cast<double>(performanceFrequency))
+            : static_cast<double>(nowTicks - lastTicks);
+        lastPerformanceCounter = nowPerformanceCounter;
         lastTicks = nowTicks;
-        // GE3_FIXED_TIMESTEP_MS=<n>: ignore real elapsed wall-clock time and
-        // feed a constant delta to every per-frame update instead. Retail
-        // runs at a real 60fps (16.67ms/frame, confirmed by the winedbg
-        // frame-timing capture -- see RENDER_PIPELINE_VERIFICATION.md), so
-        // GE3_FIXED_TIMESTEP_MS=17 makes this engine's frame N correspond to
-        // retail's frame N in ANIMATION time, not just frame index. Without
-        // it, headless software rendering (LIBGL_ALWAYS_SOFTWARE=1) produces
-        // frame deltas an order of magnitude larger than retail's, so every
-        // time-driven value (bg.gm's this.amt UV radius, Main.gm's
-        // transitionPerc fade, the ang/ang2 rotations) races far ahead --
-        // which is exactly what made earlier frame-by-frame comparisons
-        // against retail screenshots meaningless (this engine's "frame 400"
-        // was ~15x further through the animation than retail's frame 400).
-        // Deterministic and reproducible, so two runs of THIS engine at the
-        // same frame index are also byte-comparable to each other.
+        // GE3_FIXED_TIMESTEP_MS=<n> overrides only the measured elapsed time
+        // supplied to the retail-style accumulator below. A rendered frame
+        // may then execute zero or more fixed simulation updates, depending
+        // on the carried remainder; rendering and hardware audio still use
+        // the real outer-loop cadence.
+        float elapsedMs = static_cast<float>(wallElapsedMs);
         static const char* s_fixedStepEnv = std::getenv("GE3_FIXED_TIMESTEP_MS");
-        if (s_fixedStepEnv) deltaMs = (unsigned int)std::atoi(s_fixedStepEnv);
+        if (s_fixedStepEnv) elapsedMs = std::strtof(s_fixedStepEnv, nullptr);
 
-        // Hardware voices keep playing between VM ticks in retail. Advance
-        // their desktop handles before this frame's script reads validity or
-        // position, so a newly created voice starts at position zero.
-        AdvanceAudioVoices((float)deltaMs);
+        // Hardware voices advance from elapsed wall time between simulation
+        // ticks in retail. Keep this independent of the fixed simulation
+        // cadence so audio is not stalled on a render frame with no tick.
+        AdvanceAudioVoices(static_cast<float>(wallElapsedMs));
 
-        // Finish configuring any entity the level-load path left with
-        // configureData set but configure() never called (see
-        // ConfigureUnconfiguredEntities). Runs before update/draw so an
-        // entity is never simulated or drawn with its configure()-assigned
-        // fields still null. Idempotent: it skips anything already done.
-        ConfigureUnconfiguredEntities();
+        // RETAIL PPC: FUN_0019bbb0 calls FUN_0018a2e8 once as the retail main
+        // loop (direct branch at 0x0019cbfc). The loop initializes f25 to
+        // zero once, then carries its remainder across rendered frames,
+        // accumulating elapsed*simulationSpeed, capping the total at
+        // 50.0000038 ms, and dispatching 16.666666 ms updates. This desktop
+        // accumulator has the same lifetime and tick threshold.
+        const float speed = GetEngineContext().gameSystem.simulationSpeed * simulationSpeedMultiplier;
+        // RETAIL PPC: FUN_0018a2e8 uses `fmadds f25,f24,f1,f25` (one
+        // single-precision fused multiply-add) to add scaled elapsed time to
+        // the carried remainder, then `fsel` caps the total at 50.0000038 ms.
+        // Keep that fused rounding and total-cap order: splitting multiply
+        // and add can move a frame across the 16.666666 ms tick threshold.
+        const float accumulatedElapsedMs = std::fma(
+            elapsedMs, speed, simulationAccumulatorMs);
+        const float timeUntilCapMs = kRetailSimulationDeltaCapMs - accumulatedElapsedMs;
+        simulationAccumulatorMs = timeUntilCapMs >= 0.0f
+            ? accumulatedElapsedMs : kRetailSimulationDeltaCapMs;
+        // RETAIL PPC: GameSystem.isLoading (field +0xf3c) replaces the
+        // accumulator with exactly one 16.666666 ms tick each outer-loop
+        // pass. This prevents load work from catching up with multiple
+        // simulation ticks after a slow frame. It is separate from
+        // shouldUpdateEntities (+0xda2); see the field-helper decomp and
+        if (GetEngineContext().gameSystem.isLoadingFlag)
+            simulationAccumulatorMs = kRetailSimulationStepMs;
+        recordPhase(0); // frontend input and event dispatch
+        while (simulationAccumulatorMs >= kRetailSimulationStepMs) {
+            const float simDtMs = kRetailSimulationStepMs;
+            // The vendored GameMonkey scheduler takes integer milliseconds;
+            // distribute the retail 50 ms / 3 tick cadence as 17,17,16 so
+            // its cumulative clock does not run 2% fast from rounding every
+            // 16.666666 ms tick upward.
+            const unsigned int scriptDtMs = (simulationTickCount % 3 == 2) ? 16u : 17u;
+            ++simulationTickCount;
+            GetEngineContext().video.frameTimeMs = simDtMs;
 
-        vm.Tick(deltaMs);
-        ServiceGameMonkeyScriptCleanPass(vm.Machine());
-        GetEngineContext().gameSystem.currentTick++; // see game_system_state.h's getCurrentTick comment
-        // See save_data_completion.cpp's header comment -- patches a real
-        // data gap between recordList.gm (save-seeding) and
-        // recordList.json (the campaign menu's actual display source).
-        // Cheap no-op once already applied; checked every frame since
-        // there's no script-side hook to run it from exactly once instead.
-        EnsureCampaignSaveDataComplete();
-        UpdateAllSequencers(vm.Machine(), (float)deltaMs);
-        // Recovered retail movement update (FUN_00031f20) runs immediately
-        // before the single Box2D world step, using the same frame timestep;
-        // see Physics_Movement_Analysis.md.
-        // GameSystem.setIsShouldUpdateEntities -- confirmed real (decompiled
-        // setter at 0x0007058c, with a matching isShouldUpdateEntities
-        // getter), and this engine had the flag plumbed into state while
-        // never actually honouring it: entities and physics stepped
-        // unconditionally, including while a level was still loading.
-        //
-        // The corpus pins the contract exactly. Platformer/Main.gm ends its
-        // level load with
-        //     GameSystem.setIsShouldUpdateEntities(false);
-        // and its finalize-load path re-enables it immediately AFTER
-        // snapping the camera onto the player:
-        //     this.snapCamera = true;
-        //     GameSystem.setIsShouldUpdateEntities(true);
-        //
-        // So retail freezes the world for the whole load, places the player
-        // at the spawn point, snaps the camera to the player's screen, and
-        // only then resumes simulation.
-        //
-        // Ignoring it was what broke entering a level. The player is created
-        // at the origin and only positioned at the spawn point once loading
-        // finishes, so with the world running it simply fell: measured
-        // y = 0 -> -26 over the loading screen, crossing from screen row 0
-        // into row -1. That screen change retargets Main.gm's camera axis a
-        // full screen (21.96 units) at once, and the lerp it feeds --
-        // `cp += ((dest - cp) / t) * msElapsed * perc` with
-        // getCameraMoveTime() == 1.0 and perc passed literally as 1 -- has a
-        // factor of msElapsed (~17), so it overshot and diverged. Captured
-        // the runaway directly: successive camera x values growing by a
-        // factor of about -16 per step (7.7e29 -> -1.2e31 -> 2.0e32 -> ...)
-        // until they hit inf and then NaN, which is a lerp error term
-        // evolving as (1 - k) with k = 17. NaN camera then poisons
-        // everything downstream, including the in-view cull (every
-        // comparison against NaN is false, so nothing culls).
-        //
-        // Gated here rather than inside the physics/entity code so the
-        // scope matches the flag's name: processes (the loading screen and
-        // menus) keep updating, audio keeps running, only entity simulation
-        // pauses.
-        // A pause process freezes process/entity callbacks in ProcessManager,
-        // so the global physics steps must stop with them. Otherwise bodies
-        // continue moving while the scripts that drive kinematic motion,
-        // joints, and reset state are suspended (visible as background
-        // objects drifting or jittering behind the pause menu).
-        const bool simulateEntities = GetEngineContext().gameSystem.shouldUpdateEntities
-            && !processManager.IsPaused();
-        recordPhase(0); // input and SDL event dispatch
-        if (simulateEntities) {
-            // Script movement runs in milliseconds. StepPhysicsWorld converts
-            // that duration at the stock-Box2D boundary while preserving the
-            // scripts' world-units-per-millisecond velocity contract.
-            const float physicsDtMs = (float)deltaMs;
-            StepPhysicsBodyMovement(physicsDtMs);
-            recordPhase(1); // per-body movement logic
-            StepPhysicsWorld(physicsDtMs);
-        } else recordPhase(1);
-        recordPhase(2); // Box2D step
-        // Retail's entity update dispatchers FUN_0033e4d0 and
-        // FUN_0033e7e0 both read the byte at manager+0xda2 before invoking
-        // entity callbacks. GameSystem.setIsShouldUpdateEntities writes
-        // exactly that byte via FUN_0018a2a8. Process updates continue
-        // separately while entity simulation is paused for level loading.
-        processManager.UpdateAll((float)deltaMs, [&]() {
-            if (GetEngineContext().gameSystem.shouldUpdateEntities) {
-                UpdateEntitiesWithNativeUpdateHook((float)deltaMs);
-            }
-        });
-        CallGlobalHookIfPresent(vm.Machine(), "GAME_Update", (int)deltaMs, true);
-        // Entity postUpdate is a separate callback phase. In particular,
-        // Player.gm delegates it to its active movement state, which commits
-        // its final velocity before Main.gm's process postUpdate updates the
-        // camera. Keep its simulation and pause rules identical to update.
-        if (simulateEntities) {
-            PostUpdateEntitiesWithNativeHook((float)deltaMs);
+            // Retail's AnimationModule manager checks GameSystem.isPaused()
+            // before visiting its animation list.
+            if (!processManager.IsPaused()) AdvanceAnimationClock(simDtMs);
+
+            ConfigureUnconfiguredEntities();
+            vm.Tick(scriptDtMs);
+            ServiceGameMonkeyScriptCleanPass(vm.Machine());
+            GetEngineContext().gameSystem.currentTick++;
+            EnsureCampaignSaveDataComplete();
+            UpdateAllSequencers(vm.Machine(), simDtMs);
+
+            // GameSystem.setIsShouldUpdateEntities is bytecode-backed and
+            // gates both entity callbacks and physics during level loading.
+            // A pause process also freezes the physics world while its script
+            // callbacks are suspended.
+            const bool gamePaused = processManager.IsPaused();
+            const bool updateEntities = GetEngineContext().gameSystem.shouldUpdateEntities
+                && !gamePaused;
+            // Retail calls PhysicsManagerTick when the pause target (+0x48),
+            // loading flag (+0xf3c), and startup suppression flag (+0x350)
+            // are clear. Its bytecode does not gate that call on
+            // shouldUpdateEntities (+0xda2), so keep the independent entity
+            // dispatch flag from suppressing physics by itself. Desktop has
+            // no separate +0x350 field: retail's only setter call is behind
+            // a startup flag initialized to zero with no later write in that
+            // path (see PHYSICS_TIMING_CROSSWALK.md). Revisit if another
+            // startup entry or build provides a writer.
+            const bool stepPhysics = !gamePaused
+                && !GetEngineContext().gameSystem.isLoadingFlag;
+            if (stepPhysics) {
+                StepPhysicsBodyMovement(simDtMs);
+                recordPhase(1);
+                StepPhysicsWorld(simDtMs);
+            } else recordPhase(1);
+            recordPhase(2);
+
+            processManager.UpdateAll(simDtMs, [&]() {
+                if (GetEngineContext().gameSystem.shouldUpdateEntities)
+                    UpdateEntitiesWithNativeUpdateHook(simDtMs);
+            });
+            CallGlobalHookIfPresent(vm.Machine(), "GAME_Update",
+                                     static_cast<int>(scriptDtMs), true);
+            if (updateEntities) PostUpdateEntitiesWithNativeHook(simDtMs);
+            processManager.PostUpdateAll(simDtMs);
+            FlushEntityManagerFrameBoundary();
+            recordPhase(3);
+            simulationAccumulatorMs -= kRetailSimulationStepMs;
         }
-        processManager.PostUpdateAll((float)deltaMs);
-        // Retail's native entity-manager callback commits queued entities and
-        // drains deferred deletions at the end of its update event (FUN_000c3fb0
-        // -> FUN_000c3e70). The portable loop owns that callback boundary, so
-        // perform the same manager flush after process/entity update callbacks
-        // and before any preDraw/draw hooks enumerate committed entities.
-        FlushEntityManagerFrameBoundary();
-        recordPhase(3); // process/entity callbacks
 
         renderer.BeginFrame();
+        UpdateVideoTextureMaintenance();
         // Keep the shared DrawContext's colour-mask mirror in step with the
         // colour writes BeginFrame just re-enabled (see
         // Renderer::SetColourMask / BeginFrame). Without this, a
@@ -687,52 +721,23 @@ int main(int argc, char** argv) {
         GetDrawContext().colourMask = false;
         processManager.PreDrawAll();
         recordPhase(4); // clear and process preDraw lists
-        // Real ground-piece rendering (engine/src/ported_native/
-        // ground_renderer.h) -- retail itself ported this out of GM script
-        // into native C++ (Platformer_GroundProcessNEW's real registered
-        // process is a near-empty stub; the actual drawing logic only
-        // exists as a dead, never-called reference function left in the
-        // same file), so there's no script-level hook to lean on the way
-        // entity draw hooks below work -- called directly, unconditionally,
-        // every frame, positioned before entity draws so grounds paint
-        // behind entities/the player (painter's algorithm, no real depth
-        // test active in this 2D renderer).
-        DrawGroundsNative();
-        recordPhase(5); // native ground geometry
-        // Retail entities have an independent preDraw callback. Player's
-        // native draw caches this exact method and uses it for its auxiliary
-        // geometry before the player body is rendered.
-        PreDrawEntitiesWithNativeHook();
-        // Real, script-authored per-entity draw hooks (EntityPacks/*.gm's
-        // `t.draw=function(){...}`, confirmed real -- every entity type,
-        // including the player, draws itself this way). MUST run
-        // unconditionally, not gated behind a debug flag: this was
-        // previously only reachable through DrawAllPhysicsBodies()'s
-        // opt-in GE3_PHYSICS_DEBUG_DRAW path (a leftover from when that
-        // function also drew the flat-colour debug overlay unconditionally
-        // via drawStaticSurface()), which meant NO entity -- player,
-        // ground, obstacles, anything -- ever actually drew itself in a
-        // normal run once drawStaticSurface() was rewritten to just paint
-        // the background. Confirmed via a real retail screenshot
-        // retail shows the player sprite, ground, and hint text over the
-        // background wash; this engine was showing only the background.
-        std::vector<int> nativeDrawnUids = DrawEntitiesWithNativeDrawHook();
-        // Second pass: drawAlpha() -- confirmed real, separate hook (see
-        // DrawEntitiesWithNativeDrawAlphaHook's header comment, Ghidra-
-        // confirmed against the FoE PC binary). Run after every entity's
-        // normal draw() so alpha-blended content (PekkoAndJon's player/
-        // Thing enemies draw ALL their visuals here, nothing in draw())
-        // composites on top of already-drawn opaque geometry, matching
-        // retail's real two-pass draw/drawAlpha split.
-        DrawEntitiesWithNativeDrawAlphaHook();
-        // Real player rendering (engine/src/ported_native/player_renderer.h)
-        // -- retail's player draw is native C++ too (Entity.forceDraw
-        // dispatches through a per-entity vtable slot, not a script draw()
-        // hook), so it never runs through DrawEntitiesWithNativeDrawHook()
-        // above (Player.gm defines no draw() for that to call). Drawn after
-        // every other entity so the player reads on top, matching how a
-        // controllable character is drawn in every real gameplay screenshot.
-        DrawPlayerNative();
+        // Video.setIsShouldDrawEntities/isShouldDrawEntities are bytecode-
+        // verified accessors for the retail manager flag. Main.gm brackets
+        // level construction with false and re-enables it after camera/screen
+        // setup. The exact retail draw-loop consumer is still being traced;
+        // use the exposed flag here so those real transitions suppress the
+        // entity render passes instead of continuing to visit every object.
+        std::vector<int> nativeDrawnUids;
+        if (GetEngineContext().video.shouldDrawEntities) {
+            // Retail entities have an independent preDraw callback. Player's
+            // native draw caches this method for auxiliary geometry.
+            PreDrawEntitiesWithNativeHook();
+            // Script-authored per-entity draw and drawAlpha are separate
+            // retail passes. The player body is native and draws after them.
+            nativeDrawnUids = DrawEntitiesWithNativeDrawHook();
+            DrawEntitiesWithNativeDrawAlphaHook();
+            DrawPlayerNative();
+        }
         recordPhase(6); // entity and player rendering
         // postDraw() -- confirmed real, reserved lifecycle key (see
         // ProcessManager::PostDrawAll's header comment) -- was never called
@@ -783,7 +788,7 @@ int main(int argc, char** argv) {
         renderer.EndFrame();
         recordPhase(8); // swap, including any GPU synchronization
         if (profileFrames && ++profiledFrames == 120) {
-            const double msPerTick = 1000.0 / (double)SDL_GetPerformanceFrequency() / profiledFrames;
+            const double msPerTick = 1000.0 / (double)hostFrontend->PerformanceFrequency() / profiledFrames;
             static const char* names[] = {"input", "movement", "box2d", "update", "preDraw", "ground", "entities", "postDraw", "swap"};
             std::fprintf(stderr, "[profile] average ms/frame over %d frames:", profiledFrames);
             for (size_t i = 0; i < phaseTicks.size(); ++i) {
@@ -810,9 +815,9 @@ int main(int argc, char** argv) {
         // GE3_FIXED_TIMESTEP_MS already decouples animation from wall time).
         static const char* s_noLimit = std::getenv("GE3_NO_FPS_LIMIT");
         if (!s_noLimit) {
-            const Uint32 kFrameBudgetMs = 16; // 1000/60 = 16.67, floor to stay >= 60fps
-            Uint32 frameElapsed = SDL_GetTicks() - nowTicks;
-            if (frameElapsed < kFrameBudgetMs) SDL_Delay(kFrameBudgetMs - frameElapsed);
+            const uint32_t kFrameBudgetMs = 16; // 1000/60 = 16.67, floor to stay >= 60fps
+            const uint32_t frameElapsed = hostFrontend->Milliseconds() - nowTicks;
+            if (frameElapsed < kFrameBudgetMs) hostFrontend->Delay(kFrameBudgetMs - frameElapsed);
         }
 
         if (ctx.quitRequested) running = false;
@@ -821,6 +826,8 @@ int main(int argc, char** argv) {
 
     if (trace) fprintf(trace, "[TRACE] shutting down renderer\n"), fflush(trace);
     ShutdownAudioOutput();
+    ReleaseTextureResourceLeases(renderer);
+    renderer.ReleaseAllTextures();
     renderer.Shutdown();
     if (trace) fprintf(trace, "[TRACE] dumping survey\n"), fflush(trace);
     StrictCalls::DumpSurvey();

@@ -1,4 +1,9 @@
 #include "process_manager.h"
+#include "../bindings/audio_bindings.h"
+#include "../bindings/entity_bindings.h"
+#include "../bindings/gamemonkeyscript_bindings.h"
+#include "../bindings/animation_bindings.h"
+#include "../bindings/texture_bindings.h"
 #include "gmCall.h"
 #include "gmTableObject.h"
 #include "../bindings/process_base_bindings.h"
@@ -8,8 +13,13 @@
 #include "../render/draw_context.h"
 #include "../render/renderer.h"
 #include "engine_context.h"
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdint>
+#include <limits>
+#include <utility>
+#include <unordered_set>
 
 // Real drawList instances now record rather than draw immediately (see
 // draw_list.h's RecordingTarget/DrawListData header comment) -- a process's
@@ -21,7 +31,8 @@
 // convention, see draw_list.cpp's gmf_reset header comment), which clears
 // the list for the NEXT frame's rebuild -- so no clear is needed here,
 // only the replay.
-static void FlushDrawList(gmMachine& a_machine, const gmVariable& a_listVar) {
+static void QueueDrawList(gmMachine& a_machine, const gmVariable& a_listVar,
+                          std::vector<DrawListSubmission>& a_lists) {
     // Every registered user type (VMDRAWLIST, VMSHAPE, ...) gets its own
     // distinct gmType id counting up FROM GM_USER (gmVariable.h: "User
     // types continue from here") -- comparing against the bare GM_USER
@@ -30,10 +41,44 @@ static void FlushDrawList(gmMachine& a_machine, const gmVariable& a_listVar) {
     if (a_listVar.m_type < GM_USER) return;
     gmUserObject* obj = (gmUserObject*)a_machine.GetObject(a_listVar.m_value.m_ref);
     if (!obj || obj->m_userType != GetDrawListType()) return;
-    ReplayDrawList((DrawListData*)obj->m_user);
+    a_lists.push_back(CaptureDrawListSubmission((DrawListData*)obj->m_user));
 }
 
 ProcessManager::ProcessManager(gmMachine& a_machine) : m_machine(a_machine) {}
+
+namespace {
+
+// Retail GE3_Internal_AnimationPingPongScalarUpdate (FUN_00016810).
+// Preserve the PPC helper boundary: scale delta in double, round to float,
+// clamp by ordered comparisons, then compute the next state in double and
+// round once before endpoint reflection.
+void StepRetailPingPongScalar(float a_deltaMs, float a_scale,
+                              float& a_phase, float& a_rate) {
+    const float scaledDelta = static_cast<float>(
+        static_cast<double>(a_deltaMs) * static_cast<double>(a_scale));
+    const double scaledDeltaWide = static_cast<double>(scaledDelta);
+    double clampedDelta = 0.0;
+    if (0.0 - scaledDeltaWide < 0.0) clampedDelta = scaledDeltaWide;
+    if (1.0 - clampedDelta < 0.0) clampedDelta = 1.0;
+    const float next = static_cast<float>(
+        clampedDelta * static_cast<double>(a_rate) +
+        static_cast<double>(a_phase));
+    a_phase = next;
+    if (next < 0.0f) {
+        a_rate = -a_rate;
+        a_phase = std::fabs(next);
+    } else if (next > 1.0f) {
+        a_rate = -a_rate;
+        a_phase = 1.0f - next;
+    }
+}
+
+} // namespace
+
+int ProcessManager::StartInitialProcess(const std::string& a_name) {
+    if (!m_processes.empty() || !m_queuedOperations.empty()) return -1;
+    return CreateProcess(a_name);
+}
 
 // Convention-derived on-demand script load: confirmed for every real case
 // found (Platformer_MainMenu5 -> Platformer/MainMenu5.gm,
@@ -111,15 +156,26 @@ bool ProcessManager::TryAutoLoadScript(const std::string& a_processName) {
 }
 
 int ProcessManager::StartNewProcessList(const std::string& a_name, bool a_cleanupPrevious) {
-    const int id = CreateProcess(a_name);
-    if (id >= 0 && a_cleanupPrevious) {
-        // Retail creates a ParanoidCleanUpProcess controller for this path.
-        // Its exact per-frame teardown timing is not yet reproduced; mark
-        // old processes for removal through the next manager queue drain.
-        std::vector<int> oldIds;
-        for (const Process& process : m_processes) if (process.id != id) oldIds.push_back(process.id);
-        for (int oldId : oldIds) QueueTerminate(oldId);
+    if (!a_cleanupPrevious) {
+        // FUN_00186cf8's false branch queues a transition with a null target;
+        // it does not resolve or construct the requested factory. Its queue
+        // dispatcher still flushes the current process registry.
+        m_queuedOperations.push_back({QueuedOperation::Type::ResetProcessList, -1, false});
+        return -1;
     }
+
+    const int id = CreateProcess(a_name);
+    // FUN_00186cf8 constructs the cleanup controller and queues the list
+    // transition even when resolving the target returns null. Controller
+    // construction enters state 0 and requests the entity clear-all.
+    RequestEntityManagerDeleteAll();
+    if (Process* target = Get(id))
+        target->activationGeneration = std::numeric_limits<std::uint64_t>::max();
+    // FUN_00186cf8 queues a distinct start-list transition carrying the
+    // cleanup controller. Its dispatcher resets the old registry, inserts
+    // the controller with updatesEntities=true, and only the controller's
+    // final state queues the target process.
+    m_queuedOperations.push_back({QueuedOperation::Type::StartProcessListCleanup, id, false});
     return id;
 }
 
@@ -236,8 +292,11 @@ void ProcessManager::RunInit(int a_id) {
             // exists but does not return the GM boolean/int tag, then
             // assumes initialization succeeded. Keep that malformed
             // return case observable while preserving its default.
+            const Process* current = Get(a_id);
             std::fprintf(stderr,
-                         ": expecting 'init()' to return a boolean.  Assuming true.\n");
+                         ": expecting 'init()' to return a boolean.  Assuming true. "
+                         "[process=%s id=%d]\n",
+                         current ? current->name.c_str() : "<removed>", a_id);
         }
     }
 
@@ -252,6 +311,9 @@ void ProcessManager::RunInit(int a_id) {
 bool ProcessManager::IsRunning(int a_id) const {
     for (const auto& proc : m_processes) {
         if (proc.id == a_id) return true;
+    }
+    for (const NativeCleanupController& controller : m_cleanupControllers) {
+        if (controller.processFacade.id == a_id) return true;
     }
     return false;
 }
@@ -274,16 +336,155 @@ void ProcessManager::DrainOperationQueue() {
     // changes and terminations share that queue, preserving insertion order.
     std::vector<QueuedOperation> queued;
     queued.swap(m_queuedOperations);
+    for (auto it = m_cleanupControllers.begin(); it != m_cleanupControllers.end();) {
+        if (!it->terminationQueued) {
+            ++it;
+            continue;
+        }
+        UnrootGmVariable(m_machine, it->processFacade.table);
+        it = m_cleanupControllers.erase(it);
+    }
     for (const QueuedOperation& op : queued) {
         if (op.type == QueuedOperation::Type::Terminate) {
             DestroyProcess(op.processId);
+        } else if (op.type == QueuedOperation::Type::ResetProcessList) {
+            ResetProcessList();
+        } else if (op.type == QueuedOperation::Type::StartProcessListCleanup) {
+            ResetProcessList();
+            NativeCleanupController controller;
+            controller.targetProcessId = op.processId;
+            controller.processFacade.id = m_nextId++;
+            controller.processFacade.name = "ParanoidCleanUpProcess";
+            controller.processFacade.constructed = true;
+            controller.processFacade.initialized = true;
+            controller.processFacade.updatesEntities = true;
+            controller.processFacade.activationGeneration = m_dispatchGeneration;
+            controller.processFacade.table = CreateProcessHandle(
+                m_machine, controller.processFacade.id);
+            RootGmVariable(m_machine, controller.processFacade.table);
+            m_cleanupControllers.push_back(std::move(controller));
+        } else if (op.type == QueuedOperation::Type::ActivateProcess) {
+            if (Process* process = Get(op.processId))
+                // This run entry is being consumed in the current drain.
+                // A later list-reset entry in the same buffer must therefore
+                // see and remove it, just as retail dispatches entries in
+                // insertion order.
+                process->activationGeneration = m_dispatchGeneration;
         } else if (!op.active || op.processId < 0 || Get(op.processId)) {
             ApplyPauseState(op.active, op.processId);
         }
     }
 }
 
+void ProcessManager::UpdateCleanupControllers() {
+    for (NativeCleanupController& controller : m_cleanupControllers) {
+        if (controller.terminationQueued) continue;
+        const int state = controller.state;
+        const int stateUpdates = ++controller.stateUpdates;
+        if (state == 0) {
+            if (GetEntityManagerEntityCount() < 1) {
+                controller.state = 1;
+                controller.stateUpdates = 0;
+            }
+        } else if (state == 1) {
+            if (stateUpdates > 8) {
+                // Retail's state setter performs subsystem cleanup when it
+                // enters state 2, before the next controller update executes
+                // the command-buffer/GC phase.
+                CleanupAudioManagerTrackedResources();
+                controller.state = 2;
+                controller.stateUpdates = 0;
+            }
+        } else if (state == 2) {
+            // FUN_0004a6bc resets two native Video command buffers. This
+            // renderer submits immediately and has no corresponding queues;
+            // DAT_00f67ba8 also has no local counterpart. Do not clear the
+            // renderer's whole GL cache here: retail resource objects remain
+            // alive until their own references drain in state 6.
+            RequestGameMonkeyScriptCleanPasses(4);
+            controller.state = 3;
+            controller.stateUpdates = 0;
+        } else if (state == 3) {
+            if (GetGameMonkeyScriptCleanPassesRemaining() <= 0) {
+                controller.state = 4;
+                controller.stateUpdates = 0;
+            }
+        } else if (state == 4) {
+            // Ghidra finds only the state-4 read of DAT_00432d04 in EBOOT;
+            // any indirect/external writer remains unidentified. Desktop
+            // resource loading is synchronous, so there is no local work
+            // counter to wait on here.
+            controller.state = 5;
+            controller.stateUpdates = 0;
+        } else if (state == 5) {
+            controller.state = 6;
+            controller.stateUpdates = 0;
+        } else if (state == 6 && stateUpdates > 1) {
+            // Retail traverses the sentinel-based tree at DAT_0043b824, then
+            // reaches this transition regardless of whether the tree had
+            // entries. Do not turn that traversal into a resource-empty wait:
+            // the tree contents do not gate activation. Shared ownership
+            // preserves target resources while old process tables retire.
+            if (Process* target = Get(controller.targetProcessId))
+                target->updatesEntities = true;
+            // Retail queues controller termination followed by target
+            // runProcess. Both effects become visible at the next queue
+            // drain, preserving the manager's double-buffer boundary.
+            controller.terminationQueued = true;
+            m_queuedOperations.push_back(
+                {QueuedOperation::Type::ActivateProcess, controller.targetProcessId, false});
+        }
+    }
+}
+
+void ProcessManager::ResetProcessList() {
+    // FUN_00186af4 first detaches the complete active registry, then invokes
+    // each native process's destruction slot, and only after that clears the
+    // pause-process pointer. Keep the GM objects rooted while their script
+    // destructors run, but make the registry empty to any reentrant lookup.
+    const bool wasResettingProcessList = m_resettingProcessList;
+    m_resettingProcessList = true;
+    std::vector<Process> retired;
+    for (auto it = m_processes.begin(); it != m_processes.end();) {
+        if (!it->constructed || it->activationGeneration > m_dispatchGeneration) {
+            ++it;
+            continue;
+        }
+        retired.push_back(std::move(*it));
+        it = m_processes.erase(it);
+    }
+
+    for (Process& proc : retired) {
+        gmVariable tableVar = proc.table;
+        gmTableObject* table = (gmTableObject*)m_machine.GetObject(tableVar.m_value.m_ref);
+        gmCall call;
+        if (call.BeginTableFunction(&m_machine, "destructor", table, tableVar)) call.End();
+    }
+
+    m_pauseExemptProcessId = -1;
+    m_paused = false;
+    for (const Process& proc : retired) {
+        UnrootGmVariable(m_machine, proc.table);
+        UnrootGmVariable(m_machine, proc.preDrawList);
+        UnrootGmVariable(m_machine, proc.postDrawList);
+    }
+    m_resettingProcessList = wasResettingProcessList;
+    // The native full-list reset invokes every registered Process destructor,
+    // including an in-flight ParanoidCleanUpProcess controller.
+    for (const NativeCleanupController& controller : m_cleanupControllers)
+        UnrootGmVariable(m_machine, controller.processFacade.table);
+    m_cleanupControllers.clear();
+}
+
 void ProcessManager::DestroyProcess(int a_id) {
+    for (auto it = m_cleanupControllers.begin();
+         it != m_cleanupControllers.end(); ++it) {
+        if (it->processFacade.id != a_id) continue;
+        UnrootGmVariable(m_machine, it->processFacade.table);
+        m_cleanupControllers.erase(it);
+        return;
+    }
+
     Process* proc = Get(a_id);
     if (!proc) return;
 
@@ -315,6 +516,12 @@ Process* ProcessManager::GetByIndex(int a_index) {
         ? index % ringSize
         : (ringSize - ((-index) % ringSize)) % ringSize;
     if (slot == count) return nullptr; // linked-list sentinel
+    // A list transition empties the old active registry, then inserts the
+    // cleanup controller. It therefore precedes processes activated while
+    // cleanup is running.
+    for (NativeCleanupController& controller : m_cleanupControllers) {
+        if (slot-- == 0) return &controller.processFacade;
+    }
     for (Process& process : m_processes) {
         if (!process.constructed || process.activationGeneration > m_dispatchGeneration)
             continue;
@@ -329,35 +536,149 @@ int ProcessManager::GetCount() const {
         if (process.constructed && process.activationGeneration <= m_dispatchGeneration)
             ++count;
     }
+    // The retail startNewProcessList dispatcher inserts its cleanup
+    // controller into the same counted process registry as ordinary
+    // processes (FUN_0033ece8 -> FUN_0033aeac). Desktop keeps the controller
+    // in a separate vector, so include each controller until it is removed
+    // by the next queue drain.
+    count += static_cast<int>(m_cleanupControllers.size());
     return count;
 }
 
 Process* ProcessManager::GetByName(const std::string& a_name) {
     for (auto& proc : m_processes) {
-        if (proc.name == a_name) return &proc;
+        // Retail name lookup searches registered processes and queued
+        // transitions. A factory has a local ID reservation before it returns,
+        // but that reservation is not a native process/transition yet.
+        if (proc.constructed && proc.name == a_name) return &proc;
+    }
+    for (NativeCleanupController& controller : m_cleanupControllers) {
+        if (controller.processFacade.name == a_name)
+            return &controller.processFacade;
     }
     return nullptr;
 }
 
 Process* ProcessManager::GetEntityUpdateProcess() {
+    // Retail FUN_00187d24 searches the active process registry first. Only
+    // when that has no match does it inspect queued runProcess and
+    // startNewProcessList entries. Locally, activationGeneration marks the
+    // equivalent queue boundary: processes created after the last drain are
+    // constructed synchronously but are not active until the next update.
+    for (NativeCleanupController& controller : m_cleanupControllers) {
+        if (controller.processFacade.updatesEntities)
+            return &controller.processFacade;
+    }
     for (auto& proc : m_processes) {
-        if (proc.updatesEntities) return &proc;
+        if (proc.activationGeneration <= m_dispatchGeneration &&
+            proc.constructed && proc.updatesEntities) return &proc;
+    }
+    for (auto& proc : m_processes) {
+        if (proc.activationGeneration > m_dispatchGeneration &&
+            proc.constructed && proc.updatesEntities) return &proc;
     }
     return nullptr;
+}
+
+bool ProcessManager::GetGroundRegistration(int a_entityId, int& a_style,
+                                           bool& a_selected) const {
+    for (const Process& process : m_processes) {
+        if (process.name != "Platformer_GroundProcessNEW" ||
+            !process.constructed || process.activationGeneration > m_dispatchGeneration)
+            continue;
+        const auto found = process.groundRegistrations.find(a_entityId);
+        if (found == process.groundRegistrations.end()) continue;
+        a_style = found->second.style;
+        a_selected = found->second.selected;
+        return true;
+    }
+    return false;
+}
+
+void ProcessManager::GetGroundRegistrationsForCamera(float a_cameraX, float a_cameraY,
+    std::vector<std::pair<int, Process::GroundRegistration>>& a_out) const {
+    a_out.clear();
+    // PPC FUN_001ce4a0 constants at 0x001ce478..0x001ce49c, read directly
+    // from PS3 exes/EBOOT.elf: half-view x/y extents and reciprocal screen
+    // cell dimensions. Keep the same truncation plus negative-coordinate
+    // decrement used by EntityRegistration.registerEntity.
+    constexpr float kHalfViewX = 18.91f;
+    constexpr float kHalfViewY = 10.37f;
+    constexpr float kInvCellX = 0.025614753365516663f;
+    constexpr float kInvCellY = 0.04553733766078949f;
+    auto cellIndex = [](float position, float reciprocal) {
+        int result = static_cast<int>(position * reciprocal);
+        if (position < 0.0f) --result;
+        return result;
+    };
+    const int minX = cellIndex(a_cameraX - kHalfViewX, kInvCellX);
+    const int maxX = cellIndex(a_cameraX + kHalfViewX, kInvCellX);
+    const int minY = cellIndex(a_cameraY - kHalfViewY, kInvCellY);
+    const int maxY = cellIndex(a_cameraY + kHalfViewY, kInvCellY);
+
+    for (const Process& process : m_processes) {
+        if (process.name != "Platformer_GroundProcessNEW" ||
+            !process.constructed || process.activationGeneration > m_dispatchGeneration)
+            continue;
+        a_out.reserve(process.groundRegistrationOrder.size());
+        std::unordered_set<int> seen;
+        // FUN_001ce4a0 scans x cells outside y cells, then appends entries
+        // from each cell's registered vector, suppressing duplicates in its
+        // temporary draw vector. The per-cell vector preserves registration
+        // insertion order (FUN_001cd798 inserts; unregister removes).
+        for (int x = minX; x <= maxX; ++x) {
+            for (int y = minY; y <= maxY; ++y) {
+                for (int entityId : process.groundRegistrationOrder) {
+                    const auto found = process.groundRegistrations.find(entityId);
+                    if (found == process.groundRegistrations.end() ||
+                        seen.find(entityId) != seen.end()) continue;
+                    const Process::GroundRegistration& ground = found->second;
+                    if (x < ground.minCellX || x > ground.maxCellX ||
+                        y < ground.minCellY || y > ground.maxCellY) continue;
+                    seen.insert(entityId);
+                    Process::GroundRegistration visibleGround = ground;
+                    visibleGround.fireAmplitudePhase = process.fireAmplitudePhase;
+                    visibleGround.fireColourPhase = process.fireColourPhase;
+                    a_out.emplace_back(entityId, visibleGround);
+                }
+            }
+        }
+        return;
+    }
+}
+
+int ProcessManager::GetGroundCountOnScreen(int a_screenX, int a_screenY) const {
+    int count = 0;
+    for (const Process& process : m_processes) {
+        if (process.name != "Platformer_GroundProcessNEW" ||
+            !process.constructed || process.activationGeneration > m_dispatchGeneration)
+            continue;
+        for (const auto& entry : process.groundRegistrations) {
+            const Process::GroundRegistration& ground = entry.second;
+            if (a_screenX >= ground.minCellX && a_screenX <= ground.maxCellX &&
+                a_screenY >= ground.minCellY && a_screenY <= ground.maxCellY)
+                ++count;
+        }
+    }
+    return count;
 }
 
 void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_updateEntities) {
     DrainOperationQueue();
     ++m_dispatchGeneration;
     TickAlarms(m_machine, a_deltaMs);
+    UpdateCleanupControllers();
+    // FUN_0033ece8 re-registers the cleanup controller with updatesEntities
+    // set. The native manager dispatches the entity event immediately after
+    // that controller's update turn.
+    bool entitiesDispatched = !m_cleanupControllers.empty();
+    if (entitiesDispatched) a_updateEntities();
     // FUN_00188608 snapshots the first process with native byte +9 set
     // before it starts the registry walk. Its event adapter then dispatches
     // entities immediately after that process, even if the process just ran
     // init rather than update.
     const Process* selected = GetEntityUpdateProcess();
     const int entityProcessId = selected ? selected->id : -1;
-    bool entitiesDispatched = false;
-
     // Retail FUN_00188608 walks the process registry once per update event.
     // Its update adapter calls FUN_0018c8d4, which dispatches init() OR
     // update() for each process. A separate init pass would initialize later
@@ -379,6 +700,29 @@ void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_u
                 call.AddParamFloat(a_deltaMs);
                 call.End();
             }
+        }
+
+        // The fire owner is installed with style-2 ground rendering. Its
+        // first native update dispatch invokes vtable +0x34 (one-time shader
+        // setup, returning ready); later eligible dispatches invoke +0x38 and
+        // advance +0xbc then +0xdc. The callback itself checks GameSystem
+        // +0x350; shouldUpdateEntities belongs to the separate entity-update
+        // adapter, so it must not freeze this process-owned animation. Keep
+        // state advancement out of rendering so camera visibility cannot
+        // change animation time. The existing process pause filter above
+        // determines whether this process receives its update event.
+        for (Process& liveProc : m_processes) {
+            if (liveProc.id != processId || !liveProc.hasNativeGroundFireOwner)
+                continue;
+            if (!liveProc.nativeGroundFireUpdateReady) {
+                liveProc.nativeGroundFireUpdateReady = true;
+            } else if (!GetEngineContext().gameSystem.nativeFireGroundUpdateSuppressed) {
+                StepRetailPingPongScalar(a_deltaMs, liveProc.fireAmplitudeScale,
+                    liveProc.fireAmplitudePhase, liveProc.fireAmplitudeRate);
+                StepRetailPingPongScalar(a_deltaMs, liveProc.fireColourScale,
+                    liveProc.fireColourPhase, liveProc.fireColourRate);
+            }
+            break;
         }
         if (!entitiesDispatched && processId == entityProcessId) {
             a_updateEntities();
@@ -507,6 +851,7 @@ void ProcessManager::PreDrawAll() {
     // m_processes: preDraw() can recursively start further processes
     // (same reentrancy hazard as FinishBringUp) and reallocate the vector
     // mid-iteration.
+    std::vector<DrawListSubmission> orderedLists;
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
         if (proc.activationGeneration > m_dispatchGeneration) continue;
@@ -521,12 +866,14 @@ void ProcessManager::PreDrawAll() {
         // Re-fetch by id -- preDraw() may have recursively started/reaped
         // processes and reallocated m_processes (same hazard as
         // FinishBringUp), so `proc` itself can no longer be trusted here.
-        if (Process* p = Get(id)) FlushDrawList(m_machine, p->preDrawList);
+        if (Process* p = Get(id)) QueueDrawList(m_machine, p->preDrawList, orderedLists);
     }
+    ReplayDrawListsInOrder(orderedLists);
 }
 
 void ProcessManager::PostDrawAll() {
     // Same reentrancy/iteration reasoning as PreDrawAll.
+    std::vector<DrawListSubmission> orderedLists;
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
         if (proc.activationGeneration > m_dispatchGeneration) continue;
@@ -546,8 +893,9 @@ void ProcessManager::PostDrawAll() {
             call.End();
         }
         // See PreDrawAll's identical re-fetch -- same reentrancy hazard.
-        if (Process* p = Get(id)) FlushDrawList(m_machine, p->postDrawList);
+        if (Process* p = Get(id)) QueueDrawList(m_machine, p->postDrawList, orderedLists);
     }
+    ReplayDrawListsInOrder(orderedLists);
 }
 
 void ProcessManager::ApplyPauseState(bool a_active, int a_exemptProcessId) {
@@ -565,6 +913,10 @@ bool ProcessManager::AnyWantQuit() const {
 Process* ProcessManager::Get(int a_id) {
     for (auto& proc : m_processes) {
         if (proc.id == a_id) return &proc;
+    }
+    for (auto& controller : m_cleanupControllers) {
+        if (controller.processFacade.id == a_id)
+            return &controller.processFacade;
     }
     return nullptr;
 }

@@ -2,6 +2,9 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <cstdint>
+#include <unordered_map>
+#include <utility>
 #include "gmThread.h"
 #include "gmMachine.h"
 
@@ -44,10 +47,30 @@ inline void UnrootGmVariable(gmMachine& a_machine, const gmVariable& a_var) {
 // Implemented hooks include constructor/init/update/postUpdate/preDraw/
 // postDraw, keyboard dispatch, and entity contact dispatch in physics_world.
 // initialDraw/finalDraw and process-level touch dispatch still need a retail
-// caller-path audit; process-list transitions also remain approximate (see
+// caller-path audit; native cleanup-controller resource ownership remains
 struct Process {
+    struct GroundRegistration {
+        int style = 0;
+        bool selected = false;
+        float fireAmplitudePhase = 0.0f;
+        float fireColourPhase = 0.0f;
+        int minCellX = 0;
+        int maxCellX = 0;
+        int minCellY = 0;
+        int maxCellY = 0;
+    };
     int id = 0;
     std::string name;
+    // Native fire-ground owner state. Retail vtable +0x34 initializes the
+    // shader owner once; later update callbacks at +0x38 step these scalars.
+    bool hasNativeGroundFireOwner = false;
+    bool nativeGroundFireUpdateReady = false;
+    float fireAmplitudePhase = 0.0f;
+    float fireAmplitudeRate = 1.0f;
+    float fireAmplitudeScale = 2.0f / 800.0f;
+    float fireColourPhase = 0.0f;
+    float fireColourRate = 1.0f;
+    float fireColourScale = 2.0f / 600.0f;
     gmVariable table; // GM_TABLE -- the object returned by e.g. Main(p)
 
     // constructor() has run and `table` is safe for the caller to reach
@@ -89,6 +112,15 @@ struct Process {
     // FUN_0018c558 zeros it; GameSystem.getEntityUpdateProcess's
     // FUN_00187d24 returns a registered process with this flag set.
     bool updatesEntities = false;
+    // EntityRegistration.registerEntity/unregisterEntity own the ground draw
+    // list in retail. Keep only stable script entity IDs here; the GM table
+    // itself remains rooted by the entity manager and is resolved from the
+    // live physics body at draw time.
+    std::unordered_map<int, GroundRegistration> groundRegistrations;
+    // GroundProcessNEW's live list is append ordered: registerEntity first
+    // unregisters an existing entry, then pushBacks the replacement. Keep
+    // that order alongside the ID lookup map for painter-order rendering.
+    std::vector<int> groundRegistrationOrder;
     // gmVariable's default ctor leaves m_type uninitialized unless
     // GMMACHINE_NULL_VAR_CTOR is defined (it isn't here) -- must nullify
     // explicitly rather than relying on the default member initializer.
@@ -100,11 +132,16 @@ class ProcessManager {
 public:
     explicit ProcessManager(gmMachine& a_machine);
 
+    // Desktop cold-start entry: instantiate and activate the root process
+    // directly because there is no old process list to transition away from.
+    // This is bootstrap plumbing, not the script-facing retail API.
+    int StartInitialProcess(const std::string& a_name);
+
     // Mirrors GameSystem.startNewProcessList(name, [cleanupPrevious]):
-    // creates a new GM process instance and, when the retail-default-true
-    // flag is set, requests teardown of prior processes. Retail uses a
-    // ParanoidCleanUpProcess controller for that teardown; local timing is
-    // still an approximation (see GameSystem_Process_Flow_Analysis.md).
+    // true resolves/constructs a new GM process, resets the old process list,
+    // and runs the native cleanup controller phases before activating the
+    // target; false queues only the retail process-list reset and returns no
+    // process. The native resource registry mapping remains approximate.
     int StartNewProcessList(const std::string& a_name, bool a_cleanupPrevious = true);
 
     // Mirrors GameSystem.runProcess(name, [replaceExisting]): always creates
@@ -131,6 +168,13 @@ public:
     // Returns the first registered process enabled by
     // Entity.setIsUpdatesEntities, matching FUN_00187d24's primary search.
     Process* GetEntityUpdateProcess();
+    // Desktop lookup for the retail EntityRegistration registry. The wrapper
+    // arguments/entity-ID flow are bytecode verified at 0x001d0430/0x001d04bc;
+    // the private native registry's exact storage format remains unknown.
+    bool GetGroundRegistration(int a_entityId, int& a_style, bool& a_selected) const;
+    void GetGroundRegistrationsForCamera(float a_cameraX, float a_cameraY,
+        std::vector<std::pair<int, Process::GroundRegistration>>& a_out) const;
+    int GetGroundCountOnScreen(int a_screenX, int a_screenY) const;
 
     // Runs the retail update event once per frame, after draining the
     // termination queue. Each registered process receives either init() or
@@ -177,6 +221,10 @@ public:
     // manager drain. Draw calls keep showing the frozen world.
     void QueuePauseState(bool a_active, int a_exemptProcessId);
     bool IsPaused() const { return m_paused; }
+    // True only while the full-list reset is invoking process destructors.
+    // Retail's DAT_0042489c guards its temporary native-object teardown set
+    // across this interval; entity teardown uses the same scope.
+    bool IsResettingProcessList() const { return m_resettingProcessList; }
 
 private:
     gmMachine& m_machine;
@@ -188,13 +236,31 @@ private:
     // waits until the next one.
     std::uint64_t m_dispatchGeneration = 0;
     bool m_paused = false;
+    bool m_resettingProcessList = false;
     int m_pauseExemptProcessId = -1;
     struct QueuedOperation {
-        enum class Type { Terminate, Pause } type;
+        enum class Type {
+            Terminate,
+            Pause,
+            ResetProcessList,
+            StartProcessListCleanup,
+            ActivateProcess
+        } type;
         int processId;
         bool active;
     };
     std::vector<QueuedOperation> m_queuedOperations;
+    struct NativeCleanupController {
+        int targetProcessId = -1;
+        int state = 0;
+        int stateUpdates = 0;
+        bool terminationQueued = false;
+        // Retail inserts this native object into the public process registry.
+        // This facade lets indexed APIs return a process handle while cleanup
+        // state transitions remain driven by NativeCleanupController.
+        Process processFacade;
+    };
+    std::vector<NativeCleanupController> m_cleanupControllers;
 
     // Shared bring-up tail: inject process-base methods, run constructor()
     // on the process already reserved under a_id (init() is deferred, see
@@ -214,6 +280,8 @@ private:
     // See Process::needsInit for why it runs after FinishBringUp.
     void RunInit(int a_id);
     void DrainOperationQueue();
+    void ResetProcessList();
+    void UpdateCleanupControllers();
     void ApplyPauseState(bool a_active, int a_exemptProcessId);
     void DestroyProcess(int a_id);
 

@@ -94,6 +94,10 @@ int GM_CDECL gmf_MATH_MOD(gmThread* a_thread) {
     a_thread->PushFloat(std::fmod(a, b));
     return GM_OK;
 }
+// both arguments accept float or int and the result is pushed as float. The
+// retail helper 0x1dc1c0 is a custom float-oriented power implementation
+// matches the mathematical operation, but its exact rounding and exceptional
+// cases are not asserted to match the PowerPC helper bit for bit.
 int GM_CDECL gmf_MATH_POW(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2); GM_FLOAT_OR_INT_PARAM(a, 0, 0.0f); GM_FLOAT_OR_INT_PARAM(b, 1, 1.0f);
     a_thread->PushFloat(std::pow(a, b));
@@ -166,14 +170,12 @@ int GM_CDECL gmf_MATH_ATAN2(gmThread* a_thread) {
     a_thread->PushFloat(std::atan2(y, x));
     return GM_OK;
 }
-// MATH_LOG): both call the exact same unrecovered helper (FUN_001dcfb0)
-// with identical arguments including the same trailing flag (0) -- the
-// decompiled evidence can't tell natural log and log10 apart (that helper's
-// own body isn't in the decompiled corpus), and the byte-identical call
-// shape is at minimum consistent with MATH_LN and MATH_LOG being the same
-// operation in retail. Implemented identically (natural log) rather than
-// guessing a log10 split with no evidence either way; not exercised by any
-// corpus call site.
+// Confirmed against retail Math.MATH_LN (0xa6468) and MATH_LOG (0xa6544):
+// both call 0x1dcfb0 with the same arguments. The helper body and EBOOT
+// 0x3f317216 is ln(2), and the normalized-mantissa polynomial plus exponent
+// term computes the natural logarithm. Both retail bindings therefore share
+// natural-log semantics, matching std::log for ordinary finite inputs. Exact
+// PowerPC float rounding and exceptional-value behavior remain unverified.
 int GM_CDECL gmf_MATH_LN(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
     a_thread->PushFloat(std::log(x));

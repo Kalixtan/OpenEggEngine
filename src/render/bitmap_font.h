@@ -1,6 +1,9 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <unordered_map>
+
+class FileHelper;
 #include "renderer.h"
 
 // Loads the retail bitmap/SDF font format confirmed from
@@ -21,7 +24,8 @@ struct Glyph {
 
 class BitmapFont {
 public:
-    bool Load(const std::string& a_jsonPath, const std::string& a_imageDir, Renderer& a_renderer);
+    bool Load(const std::string& a_jsonPath, const std::string& a_imageDir, Renderer& a_renderer,
+              FileHelper* a_fileHelper = nullptr);
 
     // FoE's PC build ships a real TrueType font (grayscale-bold.ttf) instead
     // of a pre-baked JSON+PNG atlas -- there's no retail atlas to port, so
@@ -33,6 +37,14 @@ public:
 
     unsigned int GetTextureHandle() const { return m_textureHandle; }
     const Glyph* FindGlyph(int a_charCode) const;
+    // Retail glyph lookup falls back to the first glyph record when a
+    // codepoint is outside every charset range (FUN_00044074). This exposes
+    // the matching advance for layout helpers without changing normal draws.
+    float GetRetailGlyphAdvance(uint32_t a_codepoint) const;
+    // Video.getTextWidth's retail helper scans signed string bytes and uses
+    // glyph advance/bearing/width fields rather than rendered-character
+    // tokenization. This is intentionally separate from MeasureWidth().
+    float MeasureRetailTextWidth(const std::string& a_text, double a_scale) const;
 
     // Draws a_text centered/left/right-aligned at LOCAL point (a_x, a_y)
     // using a_scale world units per em -- matches drawList.print(x,y,z,
@@ -62,5 +74,7 @@ public:
 
 private:
     unsigned int m_textureHandle = 0;
+    Glyph m_retailFallbackGlyph;
+    bool m_hasRetailFallbackGlyph = false;
     std::unordered_map<int, Glyph> m_glyphs;
 };

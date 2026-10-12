@@ -50,6 +50,20 @@ bool MaybeInflate(std::string& a_text) {
     return false;
 }
 
+bool SaveTicketFilename(gmMachine& a_machine, const gmVariable& a_ticket, std::string& a_out) {
+    gmVariable filename = a_ticket;
+    if (a_ticket.m_type == GM_TABLE) {
+        gmTableObject* table = (gmTableObject*)a_machine.GetObject(a_ticket.m_value.m_ref);
+        if (!table) return false;
+        filename = table->Get(&a_machine, "filename");
+    }
+    if (filename.m_type != GM_STRING) return false;
+    gmStringObject* string = (gmStringObject*)a_machine.GetObject(filename.m_value.m_ref);
+    if (!string) return false;
+    a_out = string->GetString();
+    return true;
+}
+
 // Confirmed real, reveng: none (no decompiled evidence anywhere) --
 // GameMonkeyScript.loadTableFromXMLFile is confirmed real purely by usage
 // (game_data/Platformer/Mixer.gm, SystemHelper.gm, Platformer/User.gm).
@@ -485,24 +499,27 @@ int GM_CDECL gmf_GameMonkeyScript_saveTableToJsonSaveRequest(gmThread* a_thread)
 // GameMonkeyScript.loadTableFromJsonSaveRequest(ticket) -- confirmed real
 // (Main.gm's InitGame(), MyLevelsTOC.gm's t.load()), the read-side
 // counterpart to saveTableToJsonSaveRequest above: resolves a ticket (a
-// relative filename string, per this engine's ticket design, see that
-// function's comment) against SaveData::Dir() rather than FileHelper's
-// game_data-rooted resolve, since save data intentionally lives outside the
-// game_data tree entirely.
+// relative filename supplied by a SaveRequest ticket) against SaveData::Dir()
+// rather than FileHelper's game_data-rooted resolve, since save data
+// intentionally lives outside the game_data tree entirely. Legacy string
+// tickets remain accepted for saveTableToJsonSaveRequest callers.
 int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonSaveRequest(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    if (a_thread->Param(0).m_type != GM_STRING) { a_thread->PushNull(); return GM_OK; }
-    GM_STRING_PARAM(ticket, 0, "");
+    std::string ticket;
+    if (!SaveTicketFilename(*a_thread->GetMachine(), a_thread->Param(0), ticket)) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
 
     std::string text;
     if (!SaveData::ReadFile(ticket, text)) {
-        std::fprintf(stderr, "GameMonkeyScript.loadTableFromJsonSaveRequest: '%s' not found in save dir\n", ticket);
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromJsonSaveRequest: '%s' not found in save dir\n", ticket.c_str());
         a_thread->PushNull();
         return GM_OK;
     }
     rapidjson::Document doc;
     if (doc.Parse<rapidjson::kParseTrailingCommasFlag>(text.c_str()).HasParseError()) {
-        std::fprintf(stderr, "GameMonkeyScript.loadTableFromJsonSaveRequest: JSON parse failed for '%s'\n", ticket);
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromJsonSaveRequest: JSON parse failed for '%s'\n", ticket.c_str());
         a_thread->PushNull();
         return GM_OK;
     }
@@ -573,6 +590,14 @@ gmFunctionEntry s_gameMonkeyScriptLib[] = {
 };
 
 } // namespace
+
+void RequestGameMonkeyScriptCleanPasses(int a_passes) {
+    g_cleanPassesRemaining = std::max(a_passes, 1);
+}
+
+int GetGameMonkeyScriptCleanPassesRemaining() {
+    return g_cleanPassesRemaining;
+}
 
 void ServiceGameMonkeyScriptCleanPass(gmMachine& a_machine) {
     if (g_cleanPassesRemaining <= 0) return;

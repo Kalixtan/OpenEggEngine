@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <set>
 #include <sstream>
@@ -17,9 +18,9 @@
 #include <unordered_map>
 #include <vector>
 
-namespace {
-
 gmType g_colourType = -1;
+
+namespace {
 
 // Confirmed real: Main.gm:113 `global DEFAULT_COLOUR_SCHEME_ID=9;`, used
 // whenever a level's own save data doesn't specify one (Main.gm:7743). Moved
@@ -184,35 +185,120 @@ int GM_CDECL gmf_makeWithShade(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Standard RGB<->HSL, all channels in [0,1] (assumed -- no decompiled
-// scale evidence for hue specifically, 0..1 keeps it consistent with
-// saturation/lightness).
+float RetailFsel(float selector, float nonnegative, float negative) {
+    return std::signbit(selector) ? negative : nonnegative;
+}
+
+// Bytecode translation of EBOOT FUN_000c49f8. The native result is normalized
+// H/S/L: hue degrees are multiplied by 1/360 and lightness is (max+min)/2.
+// Preserve the PPC comparison choices, exact achromatic check, single-
+// precision divisions, and fused hue multiply-adds; callers include COLOUR
+// getters/interpolation and DrawList lightness shifting.
 void RgbToHsl(const ColourData& c, float& h, float& s, float& l) {
-    float mx = std::max({c.r, c.g, c.b}), mn = std::min({c.r, c.g, c.b});
-    l = (mx + mn) * 0.5f;
-    float d = mx - mn;
-    if (d < 1e-6f) { h = 0.0f; s = 0.0f; return; }
-    s = (l > 0.5f) ? d / (2.0f - mx - mn) : d / (mx + mn);
-    if (mx == c.r) h = (c.g - c.b) / d + (c.g < c.b ? 6.0f : 0.0f);
-    else if (mx == c.g) h = (c.b - c.r) / d + 2.0f;
-    else h = (c.r - c.g) / d + 4.0f;
-    h /= 6.0f;
+    constexpr float kHueScale = 0.0027777778450399637f; // 1/360 from 0xc49ec
+    constexpr float kHueSector = 60.0f;                 // 0xc49dc
+    constexpr float kFullTurn = 360.0f;                 // 0xc49e0
+    constexpr float kGreenOffset = 120.0f;              // 0xc49e4
+    constexpr float kBlueOffset = 240.0f;               // 0xc49e8
+    constexpr float kHalf = 0.5f;                       // 0xc49f0
+    constexpr float kTwo = 2.0f;                        // 0xc49f4
+
+    const float greenMinusBlue = c.g - c.b;
+    const float maxGreenBlue = RetailFsel(greenMinusBlue, c.g, c.b);
+    const float minGreenBlue = RetailFsel(greenMinusBlue, c.b, c.g);
+    const float redMinusMax = c.r - maxGreenBlue;
+    const float redMinusMin = c.r - minGreenBlue;
+    const float mx = RetailFsel(redMinusMax, c.r, maxGreenBlue);
+    const float mn = RetailFsel(redMinusMin, minGreenBlue, c.r);
+    const float delta = mx - mn;
+
+    float hueDegrees = 0.0f;
+    float saturation = 0.0f;
+    if (mx != mn) {
+        if (c.g > c.r || c.b > c.r) {
+            if (c.g < c.r || c.b > c.g) {
+                if (c.b >= c.r && c.b >= c.g) {
+                    hueDegrees = std::fma((c.r - c.g) / delta,
+                                          kHueSector, kBlueOffset);
+                }
+            } else {
+                hueDegrees = std::fma((c.b - c.r) / delta,
+                                      kHueSector, kGreenOffset);
+            }
+        } else {
+            const float redHue = std::fma((c.g - c.b) / delta,
+                                          kHueSector, kFullTurn);
+            hueDegrees = std::fmod(redHue, kFullTurn);
+        }
+    }
+
+    h = hueDegrees * kHueScale;
+    l = (mx + mn) * kHalf;
+    if (mx != mn) {
+        const float twiceLightness = l * kTwo;
+        const float denominator = l > kHalf
+            ? kTwo - twiceLightness : twiceLightness;
+        saturation = delta / denominator;
+    }
+    s = saturation;
 }
-float HueToRgb(float p, float q, float t) {
-    if (t < 0.0f) t += 1.0f;
-    if (t > 1.0f) t -= 1.0f;
-    if (t < 1.0f / 6.0f) return p + (q - p) * 6.0f * t;
-    if (t < 0.5f) return q;
-    if (t < 2.0f / 3.0f) return p + (q - p) * (2.0f / 3.0f - t) * 6.0f;
-    return p;
+// Bytecode translated from EBOOT FUN_000c4c08/FUN_000c4b80. Keep the
+// single-precision operation order and the PPC fused multiply-add points;
+// FUN_000c4c08 wraps hue samples below zero and above one before calling
+// FUN_000c4b80.
+float RetailHueToRgb(float p, float q, float t) {
+    constexpr float oneSixth = 0.1666666716337204f;
+    constexpr float half = 0.5f;
+    constexpr float twoThirds = 0.6666666865348816f;
+    const float scaledDelta = (q - p) * 6.0f;
+    if (t < oneSixth) return std::fma(scaledDelta, t, p);
+    if (t < half) return q;
+    if (t >= twoThirds) return p;
+    return std::fma(scaledDelta, twoThirds - t, p);
 }
+
 void HslToRgb(float h, float s, float l, ColourData& out) {
-    if (s < 1e-6f) { out.r = out.g = out.b = l; return; }
-    float q = (l < 0.5f) ? l * (1.0f + s) : l + s - l * s;
-    float p = 2.0f * l - q;
-    out.r = HueToRgb(p, q, h + 1.0f / 3.0f);
-    out.g = HueToRgb(p, q, h);
-    out.b = HueToRgb(p, q, h - 1.0f / 3.0f);
+    constexpr float oneThird = 0.3333333432674408f;
+    constexpr float half = 0.5f;
+    const float highSum = l + s;
+    const float qHigh = std::fma(-l, s, highSum); // PPC fnmsubs
+    const float qLow = l * (s + 1.0f);
+    const float q = RetailFsel(l - half, qHigh, qLow);
+    const float p = std::fma(l, 2.0f, -q); // PPC fmsubs
+
+    float hueRed = h + oneThird;
+    float hueGreen = h;
+    float hueBlue = h - oneThird;
+    hueRed = RetailFsel(hueRed, hueRed, hueRed + 1.0f);
+    hueGreen = RetailFsel(hueGreen, hueGreen, hueGreen + 1.0f);
+    hueBlue = RetailFsel(hueBlue, hueBlue, hueBlue + 1.0f);
+    hueRed = RetailFsel(1.0f - hueRed, hueRed, hueRed - 1.0f);
+    hueGreen = RetailFsel(1.0f - hueGreen, hueGreen, hueGreen - 1.0f);
+    hueBlue = RetailFsel(1.0f - hueBlue, hueBlue, hueBlue - 1.0f);
+    out.r = RetailHueToRgb(p, q, hueRed);
+    out.g = RetailHueToRgb(p, q, hueGreen);
+    out.b = RetailHueToRgb(p, q, hueBlue);
+}
+
+ColourData InterpolateHsl(const ColourData& a_from, const ColourData& a_to,
+                          float a_amount) {
+    const float t = Clamp01(a_amount);
+    float ha, sa, la, hb, sb, lb;
+    RgbToHsl(a_from, ha, sa, la);
+    RgbToHsl(a_to, hb, sb, lb);
+
+    float hue;
+    if (std::fabs(hb - ha) >= 0.5f) {
+        const float adjustedHa = (ha < 0.5f) ? ha + 1.0f : ha - 1.0f;
+        hue = (adjustedHa - hb) * t + hb;
+        hue -= std::floor(hue);
+    } else {
+        hue = (ha - hb) * t + hb;
+    }
+
+    ColourData result;
+    HslToRgb(hue, (sa - sb) * t + sb, (la - lb) * t + lb, result);
+    return result;
 }
 
 int GM_CDECL gmf_getHue(gmThread* a_thread) { ColourData* c = ThisColour(a_thread); if (!c) return GM_EXCEPTION; float h,s,l; RgbToHsl(*c,h,s,l); a_thread->PushFloat(h); return GM_OK; }
@@ -247,7 +333,9 @@ void GM_CDECL ColourGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
 // from usage) ---
 
 struct ColourManagerState {
-    std::vector<std::pair<std::string, ColourData>> colours; // ID == index
+    // Retail drawList.setColourRef stores pointers into its manager's packed
+    // RGB records. Keep record addresses stable as new colors are appended.
+    std::deque<std::pair<std::string, ColourData>> colours; // ID == index
     std::unordered_map<std::string, int> nameToIndex;
     std::string lastFilename;
 };
@@ -694,6 +782,21 @@ bool GetNamedColourRGB(const std::string& a_name, float& a_r, float& a_g, float&
     return LookupColourSchemeDefault(a_name, a_r, a_g, a_b);
 }
 
+bool GetInterpolatedNamedColourRGB(float a_amount, const std::string& a_from,
+                                   const std::string& a_to,
+                                   float& a_r, float& a_g, float& a_b) {
+    ColourData from, to;
+    if (!GetNamedColourRGB(a_from, from.r, from.g, from.b) ||
+        !GetNamedColourRGB(a_to, to.r, to.g, to.b))
+        return false;
+
+    const ColourData result = InterpolateHsl(from, to, a_amount);
+    a_r = result.r;
+    a_g = result.g;
+    a_b = result.b;
+    return true;
+}
+
 namespace {
 
 int GM_CDECL gmf_COLOURSCHEME_SetColour(gmThread* a_thread) {
@@ -789,7 +892,7 @@ int GM_CDECL gmf_COLOURSCHEME_SetColour(gmThread* a_thread) {
     if (a_thread->GetNumParams() >= 3) alpha = a_thread->ParamFloatOrInt(2, 1.0f);
 
     if (target) {
-        target->commands.push_back([r, g, b, alpha] { GetEngineContext().renderer->SetColour(r, g, b, alpha); });
+        target->commandBuffer->commands.push_back([r, g, b, alpha] { GetEngineContext().renderer->SetColour(r, g, b, alpha); });
     } else {
         GetEngineContext().renderer->SetColour(r, g, b, alpha);
     }
@@ -854,7 +957,7 @@ int GM_CDECL gmf_COLOURSCHEME_SetInterpolatedColour(gmThread* a_thread) {
     if (!target) target = RecordingTarget(a_thread);
     float r = result.r, g = result.g, bl = result.b;
     if (target) {
-        target->commands.push_back([r, g, bl] { GetEngineContext().renderer->SetColour(r, g, bl, 1.0f); });
+        target->commandBuffer->commands.push_back([r, g, bl] { GetEngineContext().renderer->SetColour(r, g, bl, 1.0f); });
     } else {
         GetEngineContext().renderer->SetColour(r, g, bl, 1.0f);
     }
@@ -1013,21 +1116,6 @@ int GM_CDECL gmf_COLOURSCHEME_SetGeneratedPaletteColour(gmThread* a_thread) {
     ResolveAnimColour(a_thread, a_thread->Param(1), fillR, fillG, fillB);
     ResolveAnimColour(a_thread, a_thread->Param(2), outR, outG, outB);
 
-    // Real call sites use this with two different param0 shapes: a real
-    // TEXTURE (Video.getTexture()'s return value) to recolour directly, or
-    // a PALETTE (Video.createPalette()'s return value) that only gets
-    // bound to an actual texture later via drawList.setTextureSubImg --
-    // see texture_bindings.h's PALETTE comment. A PALETTE has no texture
-    // handle yet, so just stash the pending colours on it; setTextureSubImg
-    // forwards them to the real texture once it knows which one.
-    PaletteData* pal = ResolvePaletteData(*a_thread->GetMachine(), texVar);
-    if (pal) {
-        pal->hasPendingTint = true;
-        pal->fillR = fillR; pal->fillG = fillG; pal->fillB = fillB;
-        pal->outlineR = outR; pal->outlineG = outG; pal->outlineB = outB;
-        return GM_OK;
-    }
-
     unsigned int handle = 0;
     if (texVar.m_type == GM_STRING) {
         const char* path = ((gmStringObject*)a_thread->GetMachine()->GetObject(texVar.m_value.m_ref))->GetString();
@@ -1046,8 +1134,24 @@ int GM_CDECL gmf_COLOURSCHEME_SetGeneratedPaletteColour(gmThread* a_thread) {
         // (SwayingTree.gm's flower head recolour among them).
         handle = ResolveTextureHandle(*a_thread->GetMachine(), texVar);
     }
-    if (handle == 0) return GM_OK;
-    GetEngineContext().renderer->SetTextureGeneratedTint(handle, fillR, fillG, fillB, outR, outG, outB);
+    if (handle != 0) {
+        // Indexed image files also expose a synthesized subtexture palette
+        // in this port. That child is not the argument's identity: retail's
+        // generated-palette native distinguishes a normal image from a
+        // palette-only TEXTURE (Video.createPalette()). Applying the tint
+        // to the image here preserves that distinction and fixes static
+        // generated sprites such as SwayingTree's head.
+        GetEngineContext().renderer->SetTextureGeneratedTint(
+            handle, fillR, fillG, fillB, outR, outG, outB);
+        return GM_OK;
+    }
+
+    // Video.createPalette() returns a palette-only TEXTURE with no image
+    // handle. Retain its generated colours until setTextureSubImg pairs it
+    // with an image resource.
+    PaletteData* pal = ResolvePaletteData(*a_thread->GetMachine(), texVar);
+    if (!pal) return GM_OK;
+    SetGeneratedPaletteColours(*pal, fillR, fillG, fillB, outR, outG, outB);
     return GM_OK;
 }
 
@@ -1069,10 +1173,115 @@ int GM_CDECL DrawList_SetInterpolatedColour(gmThread* a_thread) {
     return gmf_COLOURSCHEME_SetInterpolatedColour(a_thread);
 }
 
+// Bytecode verified against VMDRAWLIST.setColourHSL at EBOOT 0x7f420: it
+// accepts 1/2 color-reference arguments or 3/4 numeric HSL[A] arguments,
+// then records opcode 0x0b with RGB and alpha via 0x3d8e4/0x3ddb4->0x3da60.
+// HslToRgb translates the retail PPC operation order and fused operations
+// from FUN_000c4c08/FUN_000c4b80.
+int GM_CDECL DrawList_SetColourHSL(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    float r, g, b, alpha = 1.0f;
+    if (count == 1 || count == 2) {
+        if (!ResolveColourRGB(a_thread, a_thread->Param(0), r, g, b))
+            return GM_EXCEPTION;
+        if (count == 2) {
+            const gmVariable& value = a_thread->Param(1);
+            alpha = value.m_type == GM_FLOAT
+                ? value.m_value.m_float : static_cast<float>(value.m_value.m_int);
+        }
+    } else if (count == 3 || count == 4) {
+        auto scalar = [a_thread](int index) {
+            const gmVariable& value = a_thread->Param(index);
+            return value.m_type == GM_FLOAT
+                ? value.m_value.m_float : static_cast<float>(value.m_value.m_int);
+        };
+        ColourData converted;
+        HslToRgb(scalar(0), scalar(1), scalar(2), converted);
+        r = converted.r;
+        g = converted.g;
+        b = converted.b;
+        if (count == 4) alpha = scalar(3);
+    } else {
+        return GM_EXCEPTION;
+    }
+    return DC_RecordOrRun(a_thread, [r, g, b, alpha] {
+        GetEngineContext().renderer->SetColour(r, g, b, alpha);
+    });
+}
+
+// Bytecode verified against VMDRAWLIST.setColourWithLightnessShift at
+// EBOOT 0x7f6a0. It accepts (shift, colour) or (shift, alpha, colour), where
+// colour must be a string name or COLOUR object. Retail converts RGB to HSL,
+// adds shift to lightness, clamps lightness to [0,1] with PPC fsel branches,
+// converts back to RGB, then appends opcode 0x0b with RGBA through 0x3da60.
+// RgbToHsl's arithmetic is still a candidate for instruction-order audit.
+int GM_CDECL DrawList_SetColourWithLightnessShift(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    if (count != 2 && count != 3) return GM_EXCEPTION;
+
+    const gmVariable& colour = a_thread->Param(count - 1);
+    if (colour.m_type != GM_STRING && colour.m_type != g_colourType)
+        return GM_EXCEPTION;
+
+    auto scalar = [a_thread](int index) {
+        const gmVariable& value = a_thread->Param(index);
+        return value.m_type == GM_FLOAT
+            ? value.m_value.m_float : static_cast<float>(value.m_value.m_int);
+    };
+    float r, g, b;
+    if (!ResolveColourRGB(a_thread, colour, r, g, b)) return GM_EXCEPTION;
+
+    ColourData rgb{r, g, b};
+    float h, s, l;
+    RgbToHsl(rgb, h, s, l);
+    const float shifted = l + scalar(0);
+    l = shifted < 0.0f ? 0.0f : shifted;
+    l = l > 1.0f ? 1.0f : l;
+    ColourData converted;
+    HslToRgb(h, s, l, converted);
+    const float alpha = count == 3 ? scalar(1) : 1.0f;
+    return DC_RecordOrRun(a_thread, [converted, alpha] {
+        GetEngineContext().renderer->SetColour(converted.r, converted.g,
+                                               converted.b, alpha);
+    });
+}
+
 bool ResolveColourRGB(gmThread* a_thread, const gmVariable& a_var, float& a_r, float& a_g, float& a_b) {
     ColourData c;
     if (!ResolveColour(a_thread, a_var, c)) return false;
     a_r = c.r; a_g = c.g; a_b = c.b;
+    return true;
+}
+
+const void* GetColourManagerReferenceByID(int a_id) {
+    const ColourManagerState& state = GetColourManagerState();
+    if (a_id < 0 || a_id >= static_cast<int>(state.colours.size())) return nullptr;
+    return &state.colours[static_cast<size_t>(a_id)].second;
+}
+
+const void* GetColourManagerReferenceByName(const std::string& a_name) {
+    const ColourManagerState& state = GetColourManagerState();
+    const auto it = state.nameToIndex.find(a_name);
+    if (it == state.nameToIndex.end()) return nullptr;
+    return &state.colours[static_cast<size_t>(it->second)].second;
+}
+
+bool ReadColourManagerReference(const void* a_reference,
+                                float& a_r, float& a_g, float& a_b) {
+    if (!a_reference) return false;
+    const auto* colour = static_cast<const ColourData*>(a_reference);
+    a_r = colour->r;
+    a_g = colour->g;
+    a_b = colour->b;
+    return true;
+}
+
+bool GetColourObjectRGB(gmObject* a_object, float& a_r, float& a_g, float& a_b) {
+    if (!a_object || a_object->GetType() != g_colourType) return false;
+    const gmUserObject* userObject = static_cast<const gmUserObject*>(a_object);
+    const ColourData* colour = static_cast<const ColourData*>(userObject->m_user);
+    if (!colour) return false;
+    a_r = colour->r; a_g = colour->g; a_b = colour->b;
     return true;
 }
 

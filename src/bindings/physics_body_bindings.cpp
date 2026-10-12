@@ -1,22 +1,30 @@
 #include "gmThread.h"
 #include "physics_body_bindings.h"
 #include "physics_joint_bindings.h"
+#include "entity_bindings.h"
 #include <algorithm>
+#include <cstdio>
 #include "physics_bindings.h"
 #include "vector2d_bindings.h"
 #include "../core/physics_world.h"
+#include "../core/engine_context.h"
+#include "../core/retail_polygon_geometry.h"
 #include "../core/strict_calls.h"
 #include "../core/process_manager.h" // RootGmVariable/UnrootGmVariable
 #include <box2d/box2d.h>
 #include <vector>
+#include <unordered_map>
 #include <cmath>
+#include <limits>
+#include <type_traits>
+#include <utility>
+#include <cstdint>
 
 namespace {
 
 gmType g_physicsBodyType = -1;
 gmType g_physicsDataType = -1;
 gmType g_physicsShapeType = -1;
-gmType g_entityIterType = -1; // stub iterator for getCollidingEntities()
 
 // Game scripts express velocity and angular velocity per millisecond. Stock
 // Box2D expresses both per second, so keep the unit conversion at this
@@ -56,9 +64,13 @@ bool ReadVec2Args(gmThread* a_thread, gmMachine& a_machine, float& a_x, float& a
 
 struct PhysicsBodyData {
     b2Body* body = nullptr;
-    float radius = 0.0f; // last circle radius appendShapes saw, for getRadius()
     bool isSensor = false;
     bool isCollidable = true;
+    bool geometryDirty = false;
+    // A non-collidable body must not keep generating sensor overlap events.
+    // Keep each fixture's authored filter while masking it out, then restore
+    // it when the body is claimed/enabled again.
+    std::unordered_map<b2Fixture*, b2Filter> savedCollidableFilters;
     // The gmVariable (PhysicsBody user object) that wraps THIS struct --
     // set right after allocation in MakePhysicsBody. Needed so native code
     // that only has a b2Body* (e.g. a raycast hit, or Physics.
@@ -127,6 +139,74 @@ struct PhysicsBodyData {
     float dirX = 1.0f, dirY = 0.0f;
 };
 
+// Retail Entity.setIsEnabled(false) and PhysicsData.putToSleep both call
+// FUN_00032e60(0) before setting the native sleep bit. When rotation response
+// is disabled that helper writes the PhysicsShape-local angular velocity
+// (+0x40), which the Box2D fixed-rotation adapter stores separately from the
+// body's angular velocity. Box2D SetAwake(false) clears body velocities and
+// forces but cannot clear this adapter field by itself.
+void SetBodySleeping(PhysicsBodyData* a_body, bool a_sleeping) {
+    if (!a_body || !a_body->body) return;
+    if (a_sleeping) a_body->fixedRotationVel = 0.0f;
+    a_body->body->SetAwake(!a_sleeping);
+}
+
+namespace {
+
+b2Filter DesiredFixtureFilter(const PhysicsBodyData* body, b2Fixture* fixture) {
+    auto it = body->savedCollidableFilters.find(fixture);
+    return it != body->savedCollidableFilters.end() ? it->second : fixture->GetFilterData();
+}
+
+void ApplyDesiredFixtureFilter(PhysicsBodyData* body, b2Fixture* fixture,
+                               const b2Filter& desired) {
+    if (!body->isCollidable) {
+        body->savedCollidableFilters[fixture] = desired;
+        b2Filter disabled = desired;
+        disabled.maskBits = 0;
+        fixture->SetFilterData(disabled);
+    } else {
+        body->savedCollidableFilters.erase(fixture);
+        fixture->SetFilterData(desired);
+    }
+}
+
+void SetBodyCollidable(PhysicsBodyData* body, bool collidable) {
+    if (body->isCollidable == collidable) return;
+    if (!collidable) {
+        for (b2Fixture* fixture = body->body->GetFixtureList(); fixture;
+             fixture = fixture->GetNext()) {
+            const b2Filter desired = DesiredFixtureFilter(body, fixture);
+            body->savedCollidableFilters[fixture] = desired;
+            b2Filter disabled = desired;
+            disabled.maskBits = 0;
+            fixture->SetFilterData(disabled);
+        }
+        body->isCollidable = false;
+    } else {
+        body->isCollidable = true;
+        for (b2Fixture* fixture = body->body->GetFixtureList(); fixture;
+             fixture = fixture->GetNext()) {
+            auto it = body->savedCollidableFilters.find(fixture);
+            if (it == body->savedCollidableFilters.end()) continue;
+            const b2Filter desired = it->second;
+            body->savedCollidableFilters.erase(it);
+            fixture->SetFilterData(desired);
+        }
+    }
+}
+
+void TrackNewFixture(PhysicsBodyData* body, b2Fixture* fixture) {
+    if (body->isCollidable) return;
+    const b2Filter desired = fixture->GetFilterData();
+    body->savedCollidableFilters[fixture] = desired;
+    b2Filter disabled = desired;
+    disabled.maskBits = 0;
+    fixture->SetFilterData(disabled);
+}
+
+} // namespace
+
 // The raw wrapper can outlive its Box2D body: scripts retain body variables
 // while an entity tears down and rebuilds its PhysicsData.  Native entry
 // points must use ThisBody(), which refuses such detached wrappers; the one
@@ -157,10 +237,21 @@ void SyncBodyTypeFromMass(b2Body* a_body) {
 
 std::vector<gmVariable> g_bodiesByObjectId; // index 0 reserved/invalid
 // Every live PhysicsBodyData, for StepPhysicsBodyMovement to walk once per
-// tick. Parallel to g_bodiesByObjectId (which only holds the script-visible
-// gmVariable handles) because the integrator needs the raw struct.
+// tick and for liveness checks. Parallel to g_bodiesByObjectId (which only
+// holds the script-visible gmVariable handles) because the integrator needs
+// the raw struct.
 std::vector<PhysicsBodyData*> g_allPhysicsBodies;
+// Retail FUN_0035d28 iterates physics-data groups, then FUN_0002e860 walks
+// each group's body array in order. PhysicsData construction order is the
+// current local analogue for the retail manager's outer order; the exact
+// native group-registration point is not yet recovered. Flattening bodies
+// loses the verified nested order when entity groups are interleaved.
+struct PhysicsDataObj;
+std::vector<PhysicsDataObj*> g_allPhysicsData;
+std::vector<PhysicsDataObj*> g_orderedPhysicsMovementData;
+bool g_physicsMovementMembershipDirty = true;
 std::vector<b2Body*> g_deferredBodyDestructions;
+std::vector<std::pair<b2Body*, b2Fixture*>> g_deferredFixtureDestructions;
 
 // type is ALWAYS b2_dynamicBody -- confirmed by Ghidra disassembly of the
 // real createBody (0x00092428) and its callees this session: the only
@@ -212,10 +303,15 @@ int GM_CDECL gmf_PHYSICSBODY_GetBodyByID(gmThread* a_thread) {
 // creation time (appendShapes) and stashed directly on the b2Fixture's own
 // user data so id<->fixture is O(1) both ways.
 std::vector<b2Fixture*> g_shapesByGlobalId; // index 0 reserved/invalid
-int RegisterShapeGlobalId(b2Fixture* a_fixture) {
-    if (g_shapesByGlobalId.empty()) g_shapesByGlobalId.push_back(nullptr); // reserve id 0
+std::vector<float> g_shapePlayerFrictions;
+int RegisterShapeGlobalId(b2Fixture* a_fixture, float a_playerFriction = 0.3f) {
+    if (g_shapesByGlobalId.empty()) {
+        g_shapesByGlobalId.push_back(nullptr); // reserve id 0
+        g_shapePlayerFrictions.push_back(0.3f);
+    }
     int id = (int)g_shapesByGlobalId.size();
     g_shapesByGlobalId.push_back(a_fixture);
+    g_shapePlayerFrictions.push_back(a_playerFriction);
     a_fixture->GetUserData().pointer = (uintptr_t)id;
     return id;
 }
@@ -231,22 +327,184 @@ b2Fixture* ThisShape(gmThread* a_thread) {
     auto* handle = (PhysicsShapeHandle*)a_thread->ThisUserCheckType(g_physicsShapeType);
     return handle ? GetFixtureByGlobalId(handle->id) : nullptr;
 }
+PhysicsBodyData* PhysicsBodyForShapeFixture(b2Fixture* fixture) {
+    if (!fixture) return nullptr;
+    b2Body* owner = fixture->GetBody();
+    for (PhysicsBodyData* body : g_allPhysicsBodies)
+        if (body && body->body == owner) return body;
+    return nullptr;
+}
+
+int RetailShapeVertexCount(const b2Shape* shape) {
+    if (!shape) return 0;
+    switch (shape->GetType()) {
+        case b2Shape::e_circle: return 1;
+        case b2Shape::e_edge: return 2;
+        case b2Shape::e_polygon:
+            return static_cast<const b2PolygonShape*>(shape)->m_count;
+        case b2Shape::e_chain:
+            return static_cast<const b2ChainShape*>(shape)->m_count;
+        default: return 0;
+    }
+}
+
+bool RetailShapeLocalVertex(const b2Shape* shape, int index, b2Vec2& vertex) {
+    if (!shape || index < 0 || index >= RetailShapeVertexCount(shape)) return false;
+    switch (shape->GetType()) {
+        case b2Shape::e_circle:
+            vertex = static_cast<const b2CircleShape*>(shape)->m_p;
+            return index == 0;
+        case b2Shape::e_edge: {
+            const auto* edge = static_cast<const b2EdgeShape*>(shape);
+            vertex = index == 0 ? edge->m_vertex1 : edge->m_vertex2;
+            return true;
+        }
+        case b2Shape::e_polygon:
+            vertex = static_cast<const b2PolygonShape*>(shape)->m_vertices[index];
+            return true;
+        case b2Shape::e_chain:
+            vertex = static_cast<const b2ChainShape*>(shape)->m_vertices[index];
+            return true;
+        default: return false;
+    }
+}
+
+void SetShapeFixtureFilter(b2Fixture* fixture, const b2Filter& desired) {
+    if (!fixture) return;
+    PhysicsBodyData* body = PhysicsBodyForShapeFixture(fixture);
+    const b2Filter current = DesiredFixtureFilter(body, fixture);
+    if (current.categoryBits == desired.categoryBits &&
+        current.maskBits == desired.maskBits &&
+        current.groupIndex == desired.groupIndex) return;
+    ApplyDesiredFixtureFilter(body, fixture, desired);
+}
+
+// RETAIL PPC VERIFIED: PHYSICSSHAPE.getType (0x8d854) returns "circle" for
+// native kind 0; for kind 1 it returns "edge" when getVertexCount is 2 and
+// "polygon" otherwise. Unknown kinds return "unknown". Ownership is from
+// the PHYSICSSHAPE method table at 0x421988.
+int GM_CDECL gmf_shape_getType(gmThread* a_thread) {
+    b2Fixture* fixture = ThisShape(a_thread);
+    if (!fixture) { a_thread->PushNewString("unknown"); return GM_OK; }
+    const b2Shape* shape = fixture->GetShape();
+    const char* type = "unknown";
+    if (shape->GetType() == b2Shape::e_circle) type = "circle";
+    else if (shape->GetType() == b2Shape::e_edge ||
+             (shape->GetType() == b2Shape::e_chain && RetailShapeVertexCount(shape) == 2))
+        type = "edge";
+    else if (shape->GetType() == b2Shape::e_polygon || shape->GetType() == b2Shape::e_chain)
+        type = "polygon";
+    a_thread->PushNewString(type);
+    return GM_OK;
+}
+
+// RETAIL PPC VERIFIED: PHYSICSSHAPE.getVertexCount (0x8d4dc) dispatches the
+// selected native shape's virtual vertex-count method and returns its value.
+// Desktop counts the same local geometry vertices for each Box2D shape kind.
+int GM_CDECL gmf_shape_getVertexCount(gmThread* a_thread) {
+    b2Fixture* fixture = ThisShape(a_thread);
+    a_thread->PushInt(fixture ? RetailShapeVertexCount(fixture->GetShape()) : 0);
+    return GM_OK;
+}
+
+// RETAIL PPC VERIFIED: PHYSICSSHAPE.getVertexWorldPos (0x8d6a8) range-checks
+// the requested vertex and transforms its local coordinate by the owning
+// body's transform; an invalid index returns the native error status.
+int GM_CDECL gmf_shape_getVertexWorldPos(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    b2Fixture* fixture = ThisShape(a_thread);
+    if (!fixture) return GM_EXCEPTION;
+    GM_INT_PARAM(index, 0, 0);
+    b2Vec2 local;
+    if (!RetailShapeLocalVertex(fixture->GetShape(), index, local)) return GM_EXCEPTION;
+    const b2Vec2 world = fixture->GetBody()->GetWorldPoint(local);
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), world.x, world.y));
+    return GM_OK;
+}
+
+// RETAIL PPC VERIFIED: PHYSICSSHAPE.setCategoriesToCollideWith (0x8d984)
+// stores a 16-bit mask at native shape +0x0e. Helpers 0x15511c/0x1573d0 copy
+// the ShapeDef filter record and flag matching retail contacts with bit 0x40.
+// Box2D SetFilterData flags contacts for filtering and touches their proxies;
+// exact consumer/timing equivalence to retail bit 0x40 remains open.
+int GM_CDECL gmf_shape_setCategoriesToCollideWith(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(mask, 0, 0);
+    b2Fixture* fixture = ThisShape(a_thread);
+    if (!fixture) return GM_OK;
+    PhysicsBodyData* body = PhysicsBodyForShapeFixture(fixture);
+    b2Filter filter = DesiredFixtureFilter(body, fixture);
+    filter.maskBits = static_cast<uint16>(mask);
+    SetShapeFixtureFilter(fixture, filter);
+    return GM_OK;
+}
+
+// RETAIL PPC VERIFIED: PHYSICSSHAPE.setCollisionCategory (0x8d9e0) stores a
+// 16-bit category at native shape +0x0c. Helpers 0x155184/0x1573d0 copy the
+// ShapeDef filter record and flag matching retail contacts with bit 0x40.
+// Box2D SetFilterData flags contacts for filtering and touches their proxies;
+// exact consumer/timing equivalence to retail bit 0x40 remains open.
+int GM_CDECL gmf_shape_setCollisionCategory(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(category, 0, 0);
+    b2Fixture* fixture = ThisShape(a_thread);
+    if (!fixture) return GM_OK;
+    PhysicsBodyData* body = PhysicsBodyForShapeFixture(fixture);
+    b2Filter filter = DesiredFixtureFilter(body, fixture);
+    filter.categoryBits = static_cast<uint16>(category);
+    SetShapeFixtureFilter(fixture, filter);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_shape_isSensor(gmThread* a_thread) {
+    // RETAIL PPC VERIFIED: PHYSICSSHAPE.isSensor (0x8d5a0) reads native
+    // shape byte +0x44 and returns it as a boolean; fixture state is the local
+    // representation of that sensor byte.
     b2Fixture* fixture = ThisShape(a_thread);
     a_thread->PushInt(fixture && fixture->IsSensor() ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_shape_setIsSensor(gmThread* a_thread) {
+    // RETAIL PPC VERIFIED: PHYSICSSHAPE.setIsSensor (0x8d630) delegates to
+    // FUN_001572e8, which updates native shape byte +0x44. Desktop maps this
+    // to the fixture sensor state; immediate contact-flag/cache side effects
+    // from FUN_001572e8 remain a documented lifecycle gap.
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(value, 0, 0);
     b2Fixture* fixture = ThisShape(a_thread);
     if (fixture) fixture->SetSensor(value != 0);
     return GM_OK;
 }
+// PhysicsShape.setFrictionForPlayer -- bytecode verified against the retail
+// wrapper at 0x0008cbe4 and helper FUN_00038110: the helper stores the supplied
+// float directly at native shape offset +0x20. That value is consumed by the
+// retail player-contact solver; keep it beside the fixture's stable global ID
+// so PreSolve can apply it without changing ordinary Box2D friction.
+int GM_CDECL gmf_shape_setFrictionForPlayer(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(value, 0, 0.0f);
+    b2Fixture* fixture = ThisShape(a_thread);
+    if (!fixture) return GM_OK;
+    const int id = (int)fixture->GetUserData().pointer;
+    if (id > 0 && id < (int)g_shapePlayerFrictions.size())
+        g_shapePlayerFrictions[(size_t)id] = value;
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: PHYSICSSHAPE.dummy (0x8d184) returns zero without
+// reading arguments or mutating state; keep the retail no-op callable.
+int GM_CDECL gmf_shape_dummy(gmThread*) { return GM_OK; }
+
 gmFunctionEntry s_physicsShapeLib[] = {
+    {"dummy", gmf_shape_dummy, nullptr},
     {"isSensor", gmf_shape_isSensor, nullptr},
     {"getIsSensor", gmf_shape_isSensor, nullptr},
     {"setIsSensor", gmf_shape_setIsSensor, nullptr},
+    {"setFrictionForPlayer", gmf_shape_setFrictionForPlayer, nullptr},
+    {"getType", gmf_shape_getType, nullptr},
+    {"getVertexCount", gmf_shape_getVertexCount, nullptr},
+    {"getVertexWorldPos", gmf_shape_getVertexWorldPos, nullptr},
+    {"setCategoriesToCollideWith", gmf_shape_setCategoriesToCollideWith, nullptr},
+    {"setCollisionCategory", gmf_shape_setCollisionCategory, nullptr},
 };
 
 // Fixture ids are global handles exposed to script.  Box2D owns fixtures and
@@ -259,6 +517,8 @@ void UnregisterShapeGlobalId(b2Fixture* a_fixture) {
     if (id > 0 && id < (int)g_shapesByGlobalId.size() &&
         g_shapesByGlobalId[(size_t)id] == a_fixture) {
         g_shapesByGlobalId[(size_t)id] = nullptr;
+        g_shapePlayerFrictions[(size_t)id] = 0.3f;
+        a_fixture->GetUserData().pointer = 0;
     }
 }
 
@@ -277,6 +537,11 @@ void UnregisterBodyShapeGlobalIds(b2Body* a_body) {
 void InvalidatePhysicsBody(PhysicsBodyData* a_body) {
     if (!a_body || !a_body->body) return;
     b2Body* body = a_body->body;
+    // Native PhysicsData body removal erases the contact records immediately,
+    // before the manager's same-tick pair-queue recheck. Box2D destruction can
+    // be deferred while locked, so remove this body's local pair memberships
+    // before clearing its owner pointer or scheduling DestroyBody.
+    RemovePhysicsContactPairsForBody(body);
     UnregisterBodyShapeGlobalIds(body);
     // A checkpoint can remove a vehicle from onEntityCollide, i.e. while
     // b2World::Step is still dispatching callbacks. Box2D forbids body or
@@ -296,8 +561,17 @@ void InvalidatePhysicsBody(PhysicsBodyData* a_body) {
             g_deferredBodyDestructions.push_back(body);
         }
     } else {
+        // A fixture may have been queued by PreSolve during the step that
+        // just ended. Its body can be removed by a deferred script contact
+        // event before the fixture queue is flushed.
+        g_deferredFixtureDestructions.erase(
+            std::remove_if(g_deferredFixtureDestructions.begin(),
+                           g_deferredFixtureDestructions.end(),
+                           [body](const auto& entry) { return entry.first == body; }),
+            g_deferredFixtureDestructions.end());
         RemovePhysicsJointsForBody(body);
         GetPhysicsWorld().DestroyBody(body);
+        ClearEntityPhysicsBodyTeardown(body);
     }
 }
 
@@ -312,6 +586,44 @@ int GM_CDECL gmf_pb_getPos(gmThread* a_thread) {
         std::fprintf(stderr, "[getpos0] body=%p\n", (void*)b->body);
     }
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), p.x, p.y));
+    return GM_OK;
+}
+// Retail 0x8e020 returns a vector reference to the body's position at
+// native offset +0xc. Keep component writes attached to the Box2D body.
+int GM_CDECL gmf_pb_getPosRef(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    a_thread->Push(MakeVector2DRef(*a_thread->GetMachine(), b->selfVar, b,
+                                   [](void* ctx, float& x, float& y) {
+                                       auto* body = static_cast<PhysicsBodyData*>(ctx)->body;
+                                       if (!body) { x = 0.0f; y = 0.0f; return; }
+                                       const b2Vec2 p = body->GetPosition();
+                                       x = p.x; y = p.y;
+                                   },
+                                   [](void* ctx, float x, float y) {
+                                       auto* body = static_cast<PhysicsBodyData*>(ctx)->body;
+                                       if (body) body->SetTransform(b2Vec2(x, y), body->GetAngle());
+                                   }));
+    return GM_OK;
+}
+// Retail 0x8e354 accepts one vector or two numeric coordinates and applies
+// the body's full transform. 0x8e5ac accepts the same forms but applies
+// rotation only.
+int GM_CDECL gmf_pb_getWorldPos(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    if (a_thread->GetNumParams() != 1 && a_thread->GetNumParams() != 2) return GM_EXCEPTION;
+    float x, y;
+    if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
+    const b2Vec2 world = b2Mul(b->body->GetTransform(), b2Vec2(x, y));
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), world.x, world.y));
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getWorldDir(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    if (a_thread->GetNumParams() != 1 && a_thread->GetNumParams() != 2) return GM_EXCEPTION;
+    float x, y;
+    if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
+    const b2Vec2 world = b2Mul(b->body->GetTransform().q, b2Vec2(x, y));
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), world.x, world.y));
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setPos(gmThread* a_thread) {
@@ -362,15 +674,11 @@ int GM_CDECL gmf_pb_getVelRef(gmThread* a_thread) {
                                    }));
     return GM_OK;
 }
-// applyForce(force, offset) -- confirmed real (Player.gm's CHEAT/fly-mode
-// state: `parent.getMainBody().applyForce(v, zero);`), entirely unregistered
-// before this -- calling it on a real PhysicsBody userobject is a hard
-// "getdot failed" GM error (see doesRotationResponse's header comment for
-// the same class of bug), aborting whatever function called it. Maps
-// directly onto Box2D's own ApplyForce(force, worldPoint, wake) -- offset
-// is a body-local point, so it's applied relative to the body's current
-// world position, matching every real call site's `(force, zero)`/
-// `(force, someLocalOffset)` shape.
+// applyForce(force, point) -- bytecode verified against the retail wrapper
+// at 0x000921c8. It adds the supplied force to the native force accumulator
+// and computes torque as (point - bodyPosition) x force, so the second vector
+// is a world-space application point. Preserve that coordinate space when
+// forwarding to Box2D; it is not a body-local offset.
 int GM_CDECL gmf_pb_applyForce(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -378,10 +686,9 @@ int GM_CDECL gmf_pb_applyForce(gmThread* a_thread) {
     float fx, fy, ox, oy;
     if (!GetVector2D(m, a_thread->Param(0), fx, fy)) return GM_EXCEPTION;
     if (!GetVector2D(m, a_thread->Param(1), ox, oy)) { ox = 0.0f; oy = 0.0f; }
-    b2Vec2 worldPoint = b->body->GetPosition() + b2Vec2(ox, oy);
     b->body->ApplyForce((kPhysicsMillisecondsPerSecond * kPhysicsMillisecondsPerSecond) *
                         b2Vec2(fx, fy),
-                        worldPoint, true);
+                        b2Vec2(ox, oy), true);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getSpeed(gmThread* a_thread) {
@@ -413,6 +720,28 @@ int GM_CDECL gmf_pb_getDir(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Vec2 dir = BodyFacingDirection(*b);
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), dir.x, dir.y));
+    return GM_OK;
+}
+// Retail 0x8f4e4 calls 0x31e94 before returning a vector reference to
+// native offsets +0x1c/+0x20. That helper refreshes the stored direction
+// from the body angle only when rotation response is enabled. Subsequent
+// component writes through the reference update those stored floats.
+int GM_CDECL gmf_pb_getDirRef(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    if (!b->body->IsFixedRotation()) {
+        const float angle = b->body->GetAngle();
+        b->dirX = std::cos(angle);
+        b->dirY = std::sin(angle);
+    }
+    a_thread->Push(MakeVector2DRef(*a_thread->GetMachine(), b->selfVar, b,
+                                   [](void* ctx, float& x, float& y) {
+                                       const auto* body = static_cast<PhysicsBodyData*>(ctx);
+                                       x = body->dirX; y = body->dirY;
+                                   },
+                                   [](void* ctx, float x, float y) {
+                                       auto* body = static_cast<PhysicsBodyData*>(ctx);
+                                       body->dirX = x; body->dirY = y;
+                                   }));
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setDir(gmThread* a_thread) {
@@ -516,9 +845,86 @@ int GM_CDECL gmf_pb_stopRotatingTo(gmThread* a_thread) {
     b->rotateToActive = false;
     return GM_OK;
 }
+// Retail polygon vtable +0x1c/+0x20 returns vertex-extrema width/height;
+// +0x2c returns its stored centroid. Body bounds use centroid +/- half
+// extents. Box2D ComputeAABB includes collision skin and is not this API.
+bool GetShapeLocalBounds(const b2Shape* a_shape, b2AABB& a_bounds) {
+    if (!a_shape) return false;
+    if (a_shape->GetType() == b2Shape::e_circle) {
+        const auto* circle = static_cast<const b2CircleShape*>(a_shape);
+        const b2Vec2 radius(circle->m_radius, circle->m_radius);
+        a_bounds.lowerBound = circle->m_p - radius;
+        a_bounds.upperBound = circle->m_p + radius;
+        return true;
+    }
+    const b2Vec2* vertices = nullptr;
+    int count = 0;
+    b2Vec2 center(0.0f, 0.0f);
+    b2Vec2 edgeVertices[2];
+    switch (a_shape->GetType()) {
+        case b2Shape::e_polygon: {
+            const auto* polygon = static_cast<const b2PolygonShape*>(a_shape);
+            vertices = polygon->m_vertices;
+            count = polygon->m_count;
+            center = polygon->m_centroid;
+            break;
+        }
+        case b2Shape::e_edge: {
+            const auto* edge = static_cast<const b2EdgeShape*>(a_shape);
+            edgeVertices[0] = edge->m_vertex1;
+            edgeVertices[1] = edge->m_vertex2;
+            vertices = edgeVertices;
+            count = 2;
+            break;
+        }
+        case b2Shape::e_chain: {
+            const auto* chain = static_cast<const b2ChainShape*>(a_shape);
+            vertices = chain->m_vertices;
+            count = chain->m_count;
+            break;
+        }
+        default: return false;
+    }
+    if (!vertices || count <= 0) return false;
+    b2Vec2 low = vertices[0], high = vertices[0];
+    for (int i = 1; i < count; ++i) {
+        low.x = std::min(low.x, vertices[i].x);
+        low.y = std::min(low.y, vertices[i].y);
+        high.x = std::max(high.x, vertices[i].x);
+        high.y = std::max(high.y, vertices[i].y);
+    }
+    if (a_shape->GetType() != b2Shape::e_polygon) center = 0.5f * (low + high);
+    const b2Vec2 half = 0.5f * (high - low);
+    a_bounds.lowerBound = center - half;
+    a_bounds.upperBound = center + half;
+    return true;
+}
+bool GetBodyLocalBounds(b2Body* a_body, b2AABB& a_bounds) {
+    if (!a_body) return false;
+    bool found = false;
+    for (b2Fixture* fixture = a_body->GetFixtureList(); fixture; fixture = fixture->GetNext()) {
+        b2AABB part;
+        if (!GetShapeLocalBounds(fixture->GetShape(), part)) continue;
+        if (!found) a_bounds = part;
+        else {
+            a_bounds.lowerBound.x = std::min(a_bounds.lowerBound.x, part.lowerBound.x);
+            a_bounds.lowerBound.y = std::min(a_bounds.lowerBound.y, part.lowerBound.y);
+            a_bounds.upperBound.x = std::max(a_bounds.upperBound.x, part.upperBound.x);
+            a_bounds.upperBound.y = std::max(a_bounds.upperBound.y, part.upperBound.y);
+        }
+        found = true;
+    }
+    return found;
+}
 int GM_CDECL gmf_pb_getRadius(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    a_thread->PushFloat(b->radius);
+    b2AABB bounds;
+    float radius = 0.0f;
+    if (GetBodyLocalBounds(b->body, bounds)) {
+        radius = 0.5f * std::max(bounds.upperBound.x - bounds.lowerBound.x,
+                                 bounds.upperBound.y - bounds.lowerBound.y);
+    }
+    a_thread->PushFloat(radius);
     return GM_OK;
 }
 // Shape-level query/setter pair used by EntityBase's socket attachment and
@@ -534,10 +940,40 @@ int GM_CDECL gmf_pb_getShapeRadius(gmThread* a_thread) {
         const b2Shape* shape = fixture->GetShape();
         if (shape->GetType() == b2Shape::e_circle)
             radius = static_cast<const b2CircleShape*>(shape)->m_radius;
-        else
-            radius = shape->m_radius;
+        else {
+            b2AABB bounds;
+            if (GetShapeLocalBounds(shape, bounds))
+                radius = std::max(bounds.upperBound.x - bounds.lowerBound.x,
+                                  bounds.upperBound.y - bounds.lowerBound.y);
+        }
     }
     a_thread->PushFloat(radius);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getShapeWidth(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    if (!fixture) { a_thread->PushFloat(0.0f); return GM_OK; }
+    b2AABB aabb;
+    if (!GetShapeLocalBounds(fixture->GetShape(), aabb)) {
+        a_thread->PushFloat(0.0f); return GM_OK;
+    }
+    a_thread->PushFloat(aabb.upperBound.x - aabb.lowerBound.x);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getShapeHeight(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    if (!fixture) { a_thread->PushFloat(0.0f); return GM_OK; }
+    b2AABB aabb;
+    if (!GetShapeLocalBounds(fixture->GetShape(), aabb)) {
+        a_thread->PushFloat(0.0f); return GM_OK;
+    }
+    a_thread->PushFloat(aabb.upperBound.y - aabb.lowerBound.y);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setAllowSleeping(gmThread* a_thread) {
@@ -572,7 +1008,8 @@ int GM_CDECL gmf_pb_setAsCircle(gmThread* a_thread) {
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
-        if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        if (!haveFilter) { filter = DesiredFixtureFilter(b, f); haveFilter = true; }
+        b->savedCollidableFilters.erase(f);
         UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
@@ -584,22 +1021,14 @@ int GM_CDECL gmf_pb_setAsCircle(gmThread* a_thread) {
     def.density = 1.0f;
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
-    fx->SetSensor(b->isSensor || !b->isCollidable);
+    fx->SetSensor(b->isSensor);
+    TrackNewFixture(b, fx);
     RegisterShapeGlobalId(fx);
-    b->radius = r;
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
 }
-// isCircle()/getWidth()/getHeight() -- confirmed real (Ghidra: retail
-// FUN_0043c150/FUN_0043b8c0/FUN_0043b930, same PhysicsBody table), real
-// caller VideoHelper.gm's VIDEOHELPER_DrawBoundingBox (called from
-// PekkoAndJon/Main.gm:258, gated behind the in-game `showingBoundingBox`
-// debug toggle -- reachable, not dead code). Mapped generically off the
-// body's first fixture's AABB rather than a stored shape-specific
-// width/height field (retail's internal PhysicsShape representation isn't
-// recoverable past the opaque vtable call), which gives the same values
-// setAsCircle/addBox/addPolygon shapes would produce for a bounding-box
-// debug draw.
+// isCircle()/getWidth()/getHeight() are registered on the body. Retail
+// width/height helpers union all local shape extents before subtraction.
 int GM_CDECL gmf_pb_isCircle(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
@@ -614,19 +1043,15 @@ int GM_CDECL gmf_pb_isRect(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pb_getWidth(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    b2Fixture* f = b->body->GetFixtureList();
-    if (!f) { a_thread->PushFloat(0.0f); return GM_OK; }
     b2AABB aabb;
-    f->GetShape()->ComputeAABB(&aabb, b2Transform(b2Vec2(0, 0), b2Rot(0)), 0);
+    if (!GetBodyLocalBounds(b->body, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
     a_thread->PushFloat(aabb.upperBound.x - aabb.lowerBound.x);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getHeight(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    b2Fixture* f = b->body->GetFixtureList();
-    if (!f) { a_thread->PushFloat(0.0f); return GM_OK; }
     b2AABB aabb;
-    f->GetShape()->ComputeAABB(&aabb, b2Transform(b2Vec2(0, 0), b2Rot(0)), 0);
+    if (!GetBodyLocalBounds(b->body, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
     a_thread->PushFloat(aabb.upperBound.y - aabb.lowerBound.y);
     return GM_OK;
 }
@@ -638,10 +1063,8 @@ int GM_CDECL gmf_pb_appendShapes(gmThread* a_thread) {
     // including when the collection contains several shapes.
     for (auto& def : sd->fixtureDefs) {
         b2Fixture* fx = b->body->CreateFixture(&def);
-        RegisterShapeGlobalId(fx);
-        if (def.shape->GetType() == b2Shape::e_circle) {
-            b->radius = ((b2CircleShape*)def.shape)->m_radius;
-        }
+        TrackNewFixture(b, fx);
+        RegisterShapeGlobalId(fx, sd->playerFriction);
     }
     SyncBodyTypeFromMass(b->body);
     int lastIndex = -1;
@@ -654,9 +1077,9 @@ int GM_CDECL gmf_pb_setCollisionCategory(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(category, 0, 1);
     for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-        b2Filter filter = f->GetFilterData();
+        b2Filter filter = DesiredFixtureFilter(b, f);
         filter.categoryBits = (uint16)category;
-        f->SetFilterData(filter);
+        ApplyDesiredFixtureFilter(b, f, filter);
     }
     return GM_OK;
 }
@@ -665,9 +1088,9 @@ int GM_CDECL gmf_pb_setCategoriesToCollideWith(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(mask, 0, -1);
     for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-        b2Filter filter = f->GetFilterData();
+        b2Filter filter = DesiredFixtureFilter(b, f);
         filter.maskBits = (uint16)mask;
-        f->SetFilterData(filter);
+        ApplyDesiredFixtureFilter(b, f, filter);
     }
     return GM_OK;
 }
@@ -680,13 +1103,13 @@ int GM_CDECL gmf_pb_setCategoriesToCollideWith(gmThread* a_thread) {
 int GM_CDECL gmf_pb_getCollisionCategory(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)f->GetFilterData().categoryBits : 0);
+    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).categoryBits : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)f->GetFilterData().maskBits : -1);
+    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).maskBits : -1);
     return GM_OK;
 }
 // setCollisionGroup(group)/getCollisionGroup() -- confirmed real and
@@ -710,16 +1133,16 @@ int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(group, 0, 0);
     for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-        b2Filter filter = f->GetFilterData();
+        b2Filter filter = DesiredFixtureFilter(b, f);
         filter.groupIndex = (int16)group;
-        f->SetFilterData(filter);
+        ApplyDesiredFixtureFilter(b, f, filter);
     }
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getCollisionGroup(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)f->GetFilterData().groupIndex : 0);
+    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).groupIndex : 0);
     return GM_OK;
 }
 // 0x0008fafc) and confirmed-live: `this.mainpb.isSleeping()`
@@ -740,10 +1163,11 @@ int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
 }
 // PhysicsShape.putToSleep is the single-body counterpart of
 // PhysicsData.putToSleep. Retail clears velocity/forces and marks the
-// underlying body asleep; Box2D's SetAwake(false) performs that transition.
+// underlying body asleep; FUN_00032e60(0) also zeros the shape-local angular
+// velocity for fixed-rotation bodies, so use the shared retail sleep helper.
 int GM_CDECL gmf_pb_putToSleep(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    b->body->SetAwake(false);
+    SetBodySleeping(b, true);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setIsSensor(gmThread* a_thread) {
@@ -752,7 +1176,7 @@ int GM_CDECL gmf_pb_setIsSensor(gmThread* a_thread) {
     GM_INT_PARAM(v, 0, 0);
     b->isSensor = (v != 0);
     for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext())
-        f->SetSensor(b->isSensor || !b->isCollidable);
+        f->SetSensor(b->isSensor);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_isSensor(gmThread* a_thread) {
@@ -760,19 +1184,15 @@ int GM_CDECL gmf_pb_isSensor(gmThread* a_thread) {
     a_thread->PushInt(b->isSensor ? 1 : 0);
     return GM_OK;
 }
-// setIsCollidable(false): no dedicated Box2D concept, and no decompiled
-// body found (not in the retail symbol index). Same mapping already used
-// (and accepted) for the PhysicsData sibling, gmf_pd_setIsCollidable below:
-// "not collidable" -> sensor-mode fixtures, so contacts/overlap are still
-// detected (getCollidingEntities etc still work) but Box2D stops applying
-// collision response. Composes with setIsSensor via the same OR.
+// A sensor still reports overlap contacts to the listener. Retail callers
+// use setIsCollidable(false) to deactivate pooled bullets and hidden fixtures,
+// so disable filter matching while preserving their sensor setting and
+// authored category/mask/group for a later setIsCollidable(true).
 int GM_CDECL gmf_pb_setIsCollidable(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(v, 0, 1);
-    b->isCollidable = (v != 0);
-    for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext())
-        f->SetSensor(b->isSensor || !b->isCollidable);
+    SetBodyCollidable(b, v != 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_isCollidable(gmThread* a_thread) {
@@ -787,11 +1207,30 @@ int GM_CDECL gmf_pb_setFriction(gmThread* a_thread) {
     for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetFriction(f);
     return GM_OK;
 }
+int GM_CDECL gmf_pb_getFriction(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    // Retail FUN_00034008 reads the first appended shape in its tail-linked
+    // list, returning 0.0f when there are no shapes. Box2D prepends fixtures.
+    b2Fixture* first = b->body->GetFixtureList();
+    while (first && first->GetNext()) first = first->GetNext();
+    a_thread->PushFloat(first ? first->GetFriction() : 0.0f);
+    return GM_OK;
+}
 int GM_CDECL gmf_pb_setRestitution(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(r, 0, 0.0f);
     for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetRestitution(r);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getRestitution(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    // Retail FUN_00034060 follows the same first-shape convention.
+    b2Fixture* first = b->body->GetFixtureList();
+    while (first && first->GetNext()) first = first->GetNext();
+    a_thread->PushFloat(first ? first->GetRestitution() : 0.0f);
     return GM_OK;
 }
 // setShapeDensity(shapeIndex, density) -- confirmed real 2-arg signature
@@ -824,18 +1263,29 @@ int GM_CDECL gmf_pb_setShapeDensity(gmThread* a_thread) {
 // "all fixtures" setIsSensor/setCategoriesToCollideWith/
 // 1761-1832, 0x000912d8/0x00091bec/0x00091d8c -- getShapeCategoriesToCollideWith
 // reads a ushort at the resolved fixture struct's +0x3e, matching Box2D's
-// own b2Filter::maskBits field). Same "falls back to all fixtures on an
-// out-of-range index" no-crash convention as setShapeDensity above, for
-// the same reason (no confirmed decompiled out-of-range behavior to match
-// against, and every real call site the corpus has for setShapeDensity
-// uses a valid index).
+// own b2Filter::maskBits field). Do not infer setShapeDensity's out-of-range
+// fallback for these indexed methods: setIsShapeSensor's signed negative and
+// invalid-high behavior is handled from its own FUN_0003355c disassembly.
+// Invalid-index behavior for the category setters remains unresolved.
 int GM_CDECL gmf_pb_setIsShapeSensor(gmThread* a_thread) {
+    // Verification: retail PhysicsBody.setIsShapeSensor at 0x00091d8c
+    // resolves the indexed shape through FUN_0003355c and updates it through
+    // FUN_001572e8. For valid indices this has the same sensor value as
+    // b2Fixture::SetSensor; retail also updates owning-body state and live
+    // contact sensor flags immediately. Desktop Box2D observes the changed
+    // fixture at its next contact update, so that timing remains open (see
+    // the physics collision audit). Invalid indices use the retail diagnostic
+    // string recovered from FUN_0003355c.
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_INT_PARAM(isSensor, 1, 0);
-    b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
-    if (fx) fx->SetSensor(isSensor != 0 || !b->isCollidable);
+    // FUN_0003355c compares the index as signed, then walks the shape list
+    // only while index > 0. A negative index therefore resolves to the first
+    // shape when the body has any shapes; preserve that retail edge case.
+    b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex < 0 ? 0 : shapeIndex);
+    if (fx) fx->SetSensor(isSensor != 0);
+    else std::fprintf(stderr, "PHYSICSBODY::setIsShapeSensor: unknown shape\n");
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setShapeCategoriesToCollideWith(gmThread* a_thread) {
@@ -845,9 +1295,9 @@ int GM_CDECL gmf_pb_setShapeCategoriesToCollideWith(gmThread* a_thread) {
     GM_INT_PARAM(mask, 1, -1);
     b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
     if (fx) {
-        b2Filter filter = fx->GetFilterData();
+        b2Filter filter = DesiredFixtureFilter(b, fx);
         filter.maskBits = (uint16)mask;
-        fx->SetFilterData(filter);
+        ApplyDesiredFixtureFilter(b, fx, filter);
     }
     return GM_OK;
 }
@@ -856,15 +1306,13 @@ int GM_CDECL gmf_pb_getShapeCategoriesToCollideWith(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(shapeIndex, 0, 0);
     b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
-    if (fx) { a_thread->PushInt((int)fx->GetFilterData().maskBits); return GM_OK; }
+    if (fx) { a_thread->PushInt((int)DesiredFixtureFilter(b, fx).maskBits); return GM_OK; }
     a_thread->PushInt(-1);
     return GM_OK;
 }
-// 1436-1452, 0x0008ff6c, reads flag bit 8) counterpart to the already-
-// implemented setter (setIsUsingContinuousPhysics, confirmed live:
-// Player.gm:66). No confirmed-live call site for the getter itself was
-// found, but it's a trivial, direct proxy for Box2D's own IsBullet() --
-// the exact flag setIsUsingContinuousPhysics's SetBullet call sets.
+// 1436-1452, 0x0008ff6c, reads flag bit 8), paired with retail
+// setIsBullet (0x00090cd0), which sets/clears that same flag. The desktop
+// Box2D bullet bit represents the recovered native state.
 int GM_CDECL gmf_pb_isBullet(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     a_thread->PushInt(b->body->IsBullet() ? 1 : 0);
@@ -908,23 +1356,10 @@ int GM_CDECL gmf_pb_getCenterOfMass(gmThread* a_thread) {
 // Retail PhysicsBody.setMass (EBOOT 0x91fe4 -> 0x33c60) passes a mass
 // record to Box2D's SetMassData equivalent at 0x156720. The record keeps
 // the current local center and uses mass + center.x^2 + center.y^2 as its
-// origin inertia. Fixture density is unchanged.
+// origin inertia. Retail bytecode passes zero through unchanged; the vendored
+// Box2D SetMassData path has been adjusted to preserve its zero inverse mass.
 void SetRetailBodyMass(b2Body* a_body, float a_mass) {
     if (!a_body || a_body->GetMass() == a_mass) return;
-    if (a_mass <= 0.0f) {
-        // Box2D 2.4 SetMassData clamps a dynamic body's requested zero mass
-        // to one. Retail's Box2D keeps it at zero. ResetMassData preserves
-        // zero mass; restore fixture densities afterward because the retail
-        // body override does not change them.
-        std::vector<std::pair<b2Fixture*, float>> densities;
-        for (b2Fixture* fixture = a_body->GetFixtureList(); fixture; fixture = fixture->GetNext()) {
-            densities.emplace_back(fixture, fixture->GetDensity());
-            fixture->SetDensity(0.0f);
-        }
-        a_body->ResetMassData();
-        for (const auto& [fixture, density] : densities) fixture->SetDensity(density);
-        return;
-    }
     b2MassData data;
     a_body->GetMassData(&data);
     data.mass = a_mass;
@@ -965,6 +1400,56 @@ b2Fixture* FixtureAtShapeIndex(b2Body* a_body, int a_index) {
     }
     return fixture;
 }
+int GM_CDECL gmf_pb_removeShape(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    if (!fixture) return GM_OK;
+    UnregisterShapeGlobalId(fixture);
+    // The saved filter map is keyed by fixture address. Drop this entry even
+    // for deferred destruction so a later Box2D allocation reusing the same
+    // address cannot inherit this fixture's old collidability state.
+    b->savedCollidableFilters.erase(fixture);
+    if (GetPhysicsWorld().IsLocked()) {
+        const auto entry = std::make_pair(b->body, fixture);
+        if (std::find(g_deferredFixtureDestructions.begin(),
+                      g_deferredFixtureDestructions.end(), entry) ==
+            g_deferredFixtureDestructions.end()) {
+            g_deferredFixtureDestructions.push_back(entry);
+        }
+    } else {
+        b->body->DestroyFixture(fixture);
+        SyncBodyTypeFromMass(b->body);
+    }
+    return GM_OK;
+}
+// The retail getShape wrapper at 0x0008dcc4 returns without pushing a GM
+// value. It is distinct from getShapeObjectID/getShapeIndex.
+int GM_CDECL gmf_pb_getShape(gmThread*) { return GM_OK; }
+int GM_CDECL gmf_pb_getShapeIndex(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(shapeId, 0, 0);
+    if (shapeId <= 0) { a_thread->PushInt(-1); return GM_OK; }
+    std::vector<b2Fixture*> fixtures;
+    for (b2Fixture* fixture = b->body->GetFixtureList(); fixture;
+         fixture = fixture->GetNext()) fixtures.push_back(fixture);
+    int index = 0;
+    for (auto it = fixtures.rbegin(); it != fixtures.rend(); ++it, ++index) {
+        if ((int)(*it)->GetUserData().pointer == shapeId) {
+            a_thread->PushInt(index);
+            return GM_OK;
+        }
+    }
+    a_thread->PushInt(-1);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_rebuildBodyMass(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    b->body->ResetMassData();
+    return GM_OK;
+}
 int GM_CDECL gmf_pb_getNumShapes(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread);
     if (!b) return GM_EXCEPTION;
@@ -993,6 +1478,19 @@ int GM_CDECL gmf_pb_isPointWithin(gmThread* a_thread) {
         if (f->TestPoint(b2Vec2(x, y))) { inside = true; break; }
     }
     a_thread->PushInt(inside ? 1 : 0);
+    return GM_OK;
+}
+// Retail 0x91ed0 passes a vector and local shape index to helper 0x338e0,
+// which selects that shape and tests the point using the body's transform.
+int GM_CDECL gmf_pb_isPointWithinShape(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    gmMachine& m = *a_thread->GetMachine();
+    float x, y;
+    if (!GetVector2D(m, a_thread->Param(0), x, y)) return GM_EXCEPTION;
+    GM_INT_PARAM(index, 1, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    a_thread->PushInt(fixture && fixture->TestPoint(b2Vec2(x, y)) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getShapeType(gmThread* a_thread) {
@@ -1037,6 +1535,89 @@ int GM_CDECL gmf_pb_getShapeVert(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), vertex.x, vertex.y));
     return GM_OK;
 }
+// Retail 0x8ee48 calls the polygon vertex-count/vertex helpers, inserts
+// vector2D values at integer table keys 0..count-1, then sets table.size.
+int GM_CDECL gmf_pb_getShapeVerts(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    gmMachine& m = *a_thread->GetMachine();
+    gmTableObject* table = m.AllocTableObject();
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, shapeIndex);
+    int count = 0;
+    if (fixture && fixture->GetShape()->GetType() == b2Shape::e_polygon) {
+        const auto* polygon = static_cast<const b2PolygonShape*>(fixture->GetShape());
+        count = polygon->m_count;
+        for (int i = 0; i < count; ++i) {
+            const b2Vec2& vertex = polygon->m_vertices[i];
+            table->Set(&m, gmVariable((gmint)i), MakeVector2D(m, vertex.x, vertex.y));
+        }
+    }
+    table->Set(&m, "size", gmVariable(count));
+    a_thread->PushTable(table);
+    return GM_OK;
+}
+void RefreshShapeAfterRetailEdit(PhysicsBodyData* body) {
+    // Retail FUN_000327b0/FUN_000328e8 mark cached shape bounds dirty; the
+    // geometry change itself is immediate. Refresh only Box2D's broadphase
+    // proxies at the next pre-step body update. Retail does not reset mass,
+    // wake the body, or rewrite its motion history here.
+    body->geometryDirty = true;
+}
+
+int GM_CDECL gmf_pb_setPolygonShapeVertices(gmThread* a_thread) {
+    PhysicsBodyData* body = ThisBody(a_thread);
+    if (!body) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(3);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    GM_INT_PARAM(vertexCount, 2, 0);
+    if (vertexCount < 0 || vertexCount >= 16) return GM_EXCEPTION;
+    const gmVariable verticesVar = a_thread->Param(1);
+    if (verticesVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    gmMachine& machine = *a_thread->GetMachine();
+    gmTableObject* table = (gmTableObject*)machine.GetObject(verticesVar.m_value.m_ref);
+    if (!table) return GM_EXCEPTION;
+
+    std::vector<b2Vec2> vertices;
+    vertices.reserve((size_t)vertexCount);
+    for (int i = 0; i < vertexCount; ++i) {
+        float x = 0.0f, y = 0.0f;
+        if (!GetVector2D(machine, table->Get(gmVariable((gmint)i)), x, y))
+            return GM_EXCEPTION;
+        vertices.emplace_back(x, y);
+    }
+
+    // Retail's signed bounds check leaves a negative index at the first
+    // shape; its traversal advances only for positive indices.
+    b2Fixture* fixture = FixtureAtShapeIndex(body->body, std::max(shapeIndex, 0));
+    if (!fixture || fixture->GetShape()->GetType() != b2Shape::e_polygon)
+        return GM_EXCEPTION;
+    auto* polygon = static_cast<b2PolygonShape*>(fixture->GetShape());
+    SetRetailPolygonGeometry(polygon, vertices);
+    RefreshShapeAfterRetailEdit(body);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_pb_setEdgeShapeVertex(gmThread* a_thread) {
+    PhysicsBodyData* body = ThisBody(a_thread);
+    if (!body) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(3);
+    GM_INT_PARAM(shapeIndex, 0, 0);
+    gmMachine& machine = *a_thread->GetMachine();
+    float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
+    if (!GetVector2D(machine, a_thread->Param(1), x1, y1) ||
+        !GetVector2D(machine, a_thread->Param(2), x2, y2))
+        return GM_EXCEPTION;
+    // Preserve the same negative-index behavior as retail's shape traversal.
+    b2Fixture* fixture = FixtureAtShapeIndex(body->body, std::max(shapeIndex, 0));
+    if (!fixture || fixture->GetShape()->GetType() != b2Shape::e_edge)
+        return GM_EXCEPTION;
+    static_cast<b2EdgeShape*>(fixture->GetShape())->SetTwoSided(
+        b2Vec2(x1, y1), b2Vec2(x2, y2));
+    RefreshShapeAfterRetailEdit(body);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_pb_getShapeWorldVert(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -1051,6 +1632,22 @@ int GM_CDECL gmf_pb_getShapeWorldVert(gmThread* a_thread) {
         }
     }
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), vertex.x, vertex.y));
+    return GM_OK;
+}
+// Retail 0x8f9e4 gets the selected shape's vtable +0x2c offset vector.
+// Circle 0x153b30 and polygon 0x154cc8 both return their stored local
+// center at native shape offset +0x18. GetShapeLocalBounds uses those same
+// centers (circle m_p, polygon m_centroid).
+int GM_CDECL gmf_pb_getShapeOffset(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
+    b2AABB bounds;
+    b2Vec2 center(0.0f, 0.0f);
+    if (fixture && GetShapeLocalBounds(fixture->GetShape(), bounds))
+        center = 0.5f * (bounds.lowerBound + bounds.upperBound);
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), center.x, center.y));
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getShapeObjectID(gmThread* a_thread) {
@@ -1228,7 +1825,8 @@ int GM_CDECL gmf_pb_setAsRect(gmThread* a_thread) {
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
-        if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        if (!haveFilter) { filter = DesiredFixtureFilter(b, f); haveFilter = true; }
+        b->savedCollidableFilters.erase(f);
         UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
@@ -1240,9 +1838,9 @@ int GM_CDECL gmf_pb_setAsRect(gmThread* a_thread) {
     def.density = 1.0f;
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
-    fx->SetSensor(b->isSensor || !b->isCollidable);
+    fx->SetSensor(b->isSensor);
+    TrackNewFixture(b, fx);
     RegisterShapeGlobalId(fx);
-    b->radius = 0.0f;
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
 }
@@ -1308,27 +1906,40 @@ int GM_CDECL gmf_pb_getObjectID(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getEntity(gmThread* a_thread); // defined below PhysicsDataObj, registered here
-int GM_CDECL gmf_pb_setIsUsingContinuousPhysics(gmThread* a_thread) {
-    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(v, 0, 0);
-    b->body->SetBullet(v != 0);
+// Retail getAABB/getMinPos/getMaxPos all read the body's cached world-space
+// fixture bounds (0x32fe8, 0x33198, 0x331e4). Compute the same union from
+// Box2D shapes so all three script entry points share one bounds source.
+b2AABB GetBodyWorldAABB(b2Body* body) {
+    b2AABB aabb;
+    bool first = true;
+    for (b2Fixture* fx = body->GetFixtureList(); fx; fx = fx->GetNext()) {
+        for (int i = 0; i < fx->GetShape()->GetChildCount(); ++i) {
+            b2AABB shapeAabb;
+            fx->GetShape()->ComputeAABB(&shapeAabb, body->GetTransform(), i);
+            if (first) { aabb = shapeAabb; first = false; }
+            else aabb.Combine(shapeAabb);
+        }
+    }
+    if (first) { b2Vec2 p = body->GetPosition(); aabb.lowerBound = p; aabb.upperBound = p; }
+    return aabb;
+}
+// Retail 0x923d0 calls 0x31934 to mark cached body/owner bounds dirty, then
+// returns no value. This adapter recomputes those bounds on every query;
+// there is no cached result to invalidate.
+int GM_CDECL gmf_pb_getDirty(gmThread* a_thread) {
+    if (!ThisBody(a_thread)) return GM_EXCEPTION;
+    return GM_OK;
+}
+// Retail 0x8f690 explicitly pushes a null GM value.
+int GM_CDECL gmf_pb_getBBox(gmThread* a_thread) {
+    if (!ThisBody(a_thread)) return GM_EXCEPTION;
+    a_thread->PushNull();
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getAABB(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     gmMachine& m = *a_thread->GetMachine();
-    b2AABB aabb;
-    bool first = true;
-    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) {
-        for (int i = 0; i < fx->GetShape()->GetChildCount(); ++i) {
-            b2AABB shapeAabb;
-            fx->GetShape()->ComputeAABB(&shapeAabb, b->body->GetTransform(), i);
-            if (first) { aabb = shapeAabb; first = false; }
-            else aabb.Combine(shapeAabb);
-        }
-    }
-    if (first) { b2Vec2 p = b->body->GetPosition(); aabb.lowerBound = p; aabb.upperBound = p; }
+    const b2AABB aabb = GetBodyWorldAABB(b->body);
     gmTableObject* t = m.AllocTableObject();
     // Lowercase field names -- confirmed real by exhaustive corpus usage:
     // every one of the ~220 real `.getAABB().minx/.maxx/.miny/.maxy`
@@ -1344,6 +1955,18 @@ int GM_CDECL gmf_pb_getAABB(gmThread* a_thread) {
     t->Set(&m, "maxx", gmVariable(aabb.upperBound.x));
     t->Set(&m, "maxy", gmVariable(aabb.upperBound.y));
     a_thread->PushTable(t);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getMinPos(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    const b2Vec2 lower = GetBodyWorldAABB(b->body).lowerBound;
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), lower.x, lower.y));
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_getMaxPos(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    const b2Vec2 upper = GetBodyWorldAABB(b->body).upperBound;
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), upper.x, upper.y));
     return GM_OK;
 }
 
@@ -1386,52 +2009,92 @@ int GM_CDECL gmf_pb_raycast(gmThread* a_thread) {
     return GM_OK;
 }
 
-// --- real ENTITYLISTREFCONTAINER-shaped colliding-entities iterator -----
-// Matches the idiom real scripts use
-// (`for(it=x.getCollidingEntities();it.isValid();it.goToNext())`). Backed
-// by real Box2D contacts -- see gmf_pd_getCollidingEntities below.
-struct EntityIterData {
-    std::vector<gmVariable> entities;
-    size_t index = 0;
+struct RaycastShapesOneResult {
+    int shapeId = -1;
+    float fraction = 1.0f;
+    b2Vec2 normal = b2Vec2(0.0f, 0.0f);
 };
-int GM_CDECL gmf_iter_isValid(gmThread* a_thread) {
-    EntityIterData* it = (EntityIterData*)a_thread->ThisUserCheckType(g_entityIterType);
-    a_thread->PushInt((it && it->index < it->entities.size()) ? 1 : 0);
-    return GM_OK;
-}
-int GM_CDECL gmf_iter_goToNext(gmThread* a_thread) {
-    EntityIterData* it = (EntityIterData*)a_thread->ThisUserCheckType(g_entityIterType);
-    if (it && it->index < it->entities.size()) ++it->index;
-    return GM_OK;
-}
-int GM_CDECL gmf_iter_getEntity(gmThread* a_thread) {
-    EntityIterData* it = (EntityIterData*)a_thread->ThisUserCheckType(g_entityIterType);
-    if (it && it->index < it->entities.size()) a_thread->Push(it->entities[it->index]);
-    else a_thread->PushNull();
-    return GM_OK;
-}
-// PhysicsBody.getCollisionInfo -- no per-contact info (point/normal/
-// impulse) tracked; honest stub.
-GE3_REMOVED(gmf_pb_getCollisionInfo, "PhysicsBody.getCollisionInfo")
-gmFunctionEntry s_entityIterLib[] = {
-    {"isValid", gmf_iter_isValid, nullptr},
-    {"goToNext", gmf_iter_goToNext, nullptr},
-    {"get", gmf_iter_getEntity, nullptr},
-    {"getEntity", gmf_iter_getEntity, nullptr},
-};
-void GM_CDECL EntityIterGCDestruct(gmMachine*, gmUserObject* a_object) {
-    delete (EntityIterData*)a_object->m_user;
+
+// RETAIL BYTECODE VERIFIED: helper 0x339a4 walks one PhysicsBody's native
+// shape list, skips sensors unless its second flag is nonzero, and when its
+// first flag is nonzero rejects shapes whose point-containment virtual
+// (vtable +0x0c) accepts the body's stored +0x0c point. PhysicsShape's
+// isPointWithinShape wrapper (0x91ed0 -> 0x338e0) uses that same virtual slot.
+// The local body origin is the Box2D adapter for that stored point; exact
+// field mapping and fixture-list ordering still need runtime comparison.
+bool RaycastPhysicsBodyShapesOne(PhysicsBodyData* a_body, float a_sx, float a_sy,
+                                float a_ex, float a_ey,
+                                bool a_rejectContainingBodyPoint,
+                                bool a_includeSensors,
+                                RaycastShapesOneResult& a_result) {
+    if (!a_body || !a_body->body) return false;
+    const b2Vec2 bodyPoint = a_body->body->GetPosition();
+    b2RayCastInput input;
+    input.p1.Set(a_sx, a_sy);
+    input.p2.Set(a_ex, a_ey);
+    input.maxFraction = 1.0f;
+    bool hit = false;
+    for (b2Fixture* fixture = a_body->body->GetFixtureList(); fixture;
+         fixture = fixture->GetNext()) {
+        if (!a_includeSensors && fixture->IsSensor()) continue;
+        if (a_rejectContainingBodyPoint && fixture->TestPoint(bodyPoint)) continue;
+        for (int child = 0; child < fixture->GetShape()->GetChildCount(); ++child) {
+            b2RayCastOutput output;
+            input.maxFraction = hit ? a_result.fraction : 1.0f;
+            if (!fixture->RayCast(&output, input, child)) continue;
+            if (hit && output.fraction >= a_result.fraction) continue;
+            hit = true;
+            a_result.shapeId = (int)(uint32_t)fixture->GetUserData().pointer;
+            a_result.fraction = output.fraction;
+            a_result.normal = output.normal;
+        }
+    }
+    return hit;
 }
 
+// RETAIL PPC VERIFIED: PHYSICSBODY.raycastShapesOne (0x91658) takes two
+// vectors, two filter flags, and an output table. It writes lambda/nx/ny/
+// shapeID on a hit and returns shapeID, or -1 on a miss.
+int GM_CDECL gmf_pb_raycastShapesOne(gmThread* a_thread) {
+    PhysicsBodyData* body = ThisBody(a_thread);
+    if (!body) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(5);
+    gmMachine& machine = *a_thread->GetMachine();
+    float sx, sy, ex, ey;
+    if (!GetVector2D(machine, a_thread->Param(0), sx, sy) ||
+        !GetVector2D(machine, a_thread->Param(1), ex, ey)) return GM_EXCEPTION;
+    gmVariable resultVar = a_thread->Param(4);
+    if (resultVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    auto* result = static_cast<gmTableObject*>(machine.GetObject(resultVar.m_value.m_ref));
+    if (!result) return GM_EXCEPTION;
+    RaycastShapesOneResult ray;
+    const bool hit = RaycastPhysicsBodyShapesOne(body, sx, sy, ex, ey,
+        a_thread->ParamInt(2, 0) != 0, a_thread->ParamInt(3, 0) != 0, ray);
+    if (!hit) { a_thread->PushInt(-1); return GM_OK; }
+    result->Set(&machine, "lambda", gmVariable(ray.fraction));
+    result->Set(&machine, "nx", gmVariable(ray.normal.x));
+    result->Set(&machine, "ny", gmVariable(ray.normal.y));
+    result->Set(&machine, "shapeID", gmVariable((gmint)ray.shapeId));
+    a_thread->PushInt(ray.shapeId);
+    return GM_OK;
+}
+
+// Retail PHYSICSBODY.dummy at 0x8da3c returns immediately without a value.
+int GM_CDECL gmf_pb_dummy(gmThread*) { return GM_OK; }
 gmFunctionEntry s_physicsBodyLib[] = {
+    {"dummy", gmf_pb_dummy, nullptr},
     {"getPos", gmf_pb_getPos, nullptr},
+    {"getPosRef", gmf_pb_getPosRef, nullptr},
     {"getPosVec", gmf_pb_getPos, nullptr},
+    {"getWorldPos", gmf_pb_getWorldPos, nullptr},
+    {"getWorldDir", gmf_pb_getWorldDir, nullptr},
     {"setPos", gmf_pb_setPos, nullptr},
     {"getVel", gmf_pb_getVel, nullptr},
     {"setVel", gmf_pb_setVel, nullptr},
     {"getSpeed", gmf_pb_getSpeed, nullptr},
     {"setSpeed", gmf_pb_setSpeed, nullptr},
     {"getDir", gmf_pb_getDir, nullptr},
+    {"getDirRef", gmf_pb_getDirRef, nullptr},
     {"setDir", gmf_pb_setDir, nullptr},
     {"thrust", gmf_pb_thrust, nullptr},
     {"reverseThrust", gmf_pb_reverseThrust, nullptr},
@@ -1444,6 +2107,8 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"stopRotatingTo", gmf_pb_stopRotatingTo, nullptr},
     {"getRadius", gmf_pb_getRadius, nullptr},
     {"getShapeRadius", gmf_pb_getShapeRadius, nullptr},
+    {"getShapeWidth", gmf_pb_getShapeWidth, nullptr},
+    {"getShapeHeight", gmf_pb_getShapeHeight, nullptr},
     {"setAllowSleeping", gmf_pb_setAllowSleeping, nullptr},
     {"setAsCircle", gmf_pb_setAsCircle, nullptr},
     {"setAsRect", gmf_pb_setAsRect, nullptr},
@@ -1452,6 +2117,10 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"getWidth", gmf_pb_getWidth, nullptr},
     {"getHeight", gmf_pb_getHeight, nullptr},
     {"appendShapes", gmf_pb_appendShapes, nullptr},
+    {"removeShape", gmf_pb_removeShape, nullptr},
+    {"getShape", gmf_pb_getShape, nullptr},
+    {"getShapeIndex", gmf_pb_getShapeIndex, nullptr},
+    {"rebuildBodyMass", gmf_pb_rebuildBodyMass, nullptr},
     {"setCollisionCategory", gmf_pb_setCollisionCategory, nullptr},
     {"getCollisionCategory", gmf_pb_getCollisionCategory, nullptr},
     {"setCategoriesToCollideWith", gmf_pb_setCategoriesToCollideWith, nullptr},
@@ -1463,12 +2132,17 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"setIsSensor", gmf_pb_setIsSensor, nullptr},
     {"isSensor", gmf_pb_isSensor, nullptr},
     {"setIsBullet", gmf_pb_setIsBullet, nullptr},
+    // Compatibility spelling used by the shipped Player.gm. Retail exposes
+    // setIsBullet; both names reach the same verified native flag setter.
+    {"setIsUsingContinuousPhysics", gmf_pb_setIsBullet, nullptr},
     {"getAngularVel", gmf_pb_getAngularVel, nullptr},
     {"setAngularVel", gmf_pb_setAngularVel, nullptr},
     {"setIsCollidable", gmf_pb_setIsCollidable, nullptr},
     {"isCollidable", gmf_pb_isCollidable, nullptr},
     {"setFriction", gmf_pb_setFriction, nullptr},
+    {"getFriction", gmf_pb_getFriction, nullptr},
     {"setRestitution", gmf_pb_setRestitution, nullptr},
+    {"getRestitution", gmf_pb_getRestitution, nullptr},
     {"setShapeDensity", gmf_pb_setShapeDensity, nullptr},
     {"setIsShapeSensor", gmf_pb_setIsShapeSensor, nullptr},
     {"setShapeCategoriesToCollideWith", gmf_pb_setShapeCategoriesToCollideWith, nullptr},
@@ -1481,9 +2155,14 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"getNumShapes", gmf_pb_getNumShapes, nullptr},
     {"isShapeSensor", gmf_pb_isShapeSensor, nullptr},
     {"isPointWithin", gmf_pb_isPointWithin, nullptr},
+    {"isPointWithinShape", gmf_pb_isPointWithinShape, nullptr},
     {"getNumShapeVerts", gmf_pb_getNumShapeVerts, nullptr},
     {"getShapeVert", gmf_pb_getShapeVert, nullptr},
+    {"getShapeVerts", gmf_pb_getShapeVerts, nullptr},
+    {"setEdgeShapeVertex", gmf_pb_setEdgeShapeVertex, nullptr},
+    {"setPolygonShapeVertices", gmf_pb_setPolygonShapeVertices, nullptr},
     {"getShapeWorldVert", gmf_pb_getShapeWorldVert, nullptr},
+    {"getShapeOffset", gmf_pb_getShapeOffset, nullptr},
     {"getShapeObjectID", gmf_pb_getShapeObjectID, nullptr},
     {"isContainsShape", gmf_pb_isContainsShape, nullptr},
     {"getShapeWorldCenterPos", gmf_pb_getShapeWorldCenterPos, nullptr},
@@ -1508,10 +2187,13 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"setRotateVel", gmf_pb_setRotateVel, nullptr},
     {"getObjectID", gmf_pb_getObjectID, nullptr},
     {"getEntity", gmf_pb_getEntity, nullptr},
-    {"setIsUsingContinuousPhysics", gmf_pb_setIsUsingContinuousPhysics, nullptr},
+    {"getBBox", gmf_pb_getBBox, nullptr},
+    {"getDirty", gmf_pb_getDirty, nullptr},
     {"getAABB", gmf_pb_getAABB, nullptr},
+    {"getMinPos", gmf_pb_getMinPos, nullptr},
+    {"getMaxPos", gmf_pb_getMaxPos, nullptr},
     {"raycast", gmf_pb_raycast, nullptr},
-    {"getCollisionInfo", gmf_pb_getCollisionInfo, nullptr}, // no collision-info tracked, see header
+    {"raycastShapesOne", gmf_pb_raycastShapesOne, nullptr},
     {"applyForce", gmf_pb_applyForce, nullptr},
     {"getVelRef", gmf_pb_getVelRef, nullptr},
 };
@@ -1562,6 +2244,10 @@ struct PhysicsDataObj {
     // The entity table this PhysicsData belongs to, if any -- see
     // MakePhysicsData/getCollidingEntities.
     gmVariable ownerEntity = gmVariable::s_null;
+    // One rooted GM CollisionInfo user object per active directed pair. Retail
+    // returns the existing pair-map value pointer on every lookup; this cache
+    // preserves that identity until physics_world invalidates the pair.
+    std::unordered_map<uint32_t, gmVariable> collisionInfoViews;
 };
 
 PhysicsDataObj* ThisData(gmThread* a_thread) {
@@ -1776,34 +2462,138 @@ int GM_CDECL gmf_pd_getNumBodies(gmThread* a_thread) {
     a_thread->PushInt((int)d->bodies.size());
     return GM_OK;
 }
-// getCollidingEntities -- real Box2D contacts, not a stub: walks every
-// body this PhysicsData owns, keeps only currently-touching contacts
-// (b2Contact::IsTouching(), so overlapping-AABB-but-not-actually-touching
-// broad-phase pairs are excluded), resolves the other side's b2Body user
-// data back to ITS owning PhysicsDataObj (set in gmf_pd_createBody) and
-// then to that PhysicsData's ownerEntity, de-duplicating (two fixtures
-// between the same pair of entities would otherwise appear twice).
-int GM_CDECL gmf_pd_getCollidingEntities(gmThread* a_thread) {
+
+// Retail PhysicsData.raycast (0x00094eec -> FUN_000300d8) visits each body
+// in this PhysicsData and keeps the closest hit. It writes the hit fraction
+// and outward normal to the caller's table, leaving that table alone on a
+// miss. Iterate fixtures directly so unrelated world bodies cannot win and
+// equal-distance hits keep the first body in retail append order.
+int GM_CDECL gmf_pd_raycast(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(3);
     gmMachine& m = *a_thread->GetMachine();
-    std::vector<gmVariable> found;
-    for (gmVariable& bodyVar : d->bodies) {
-        PhysicsBodyData* b = GetBodyData(m, bodyVar);
-        if (!b || !b->body) continue;
-        for (b2ContactEdge* edge = b->body->GetContactList(); edge; edge = edge->next) {
-            if (!edge->contact->IsTouching()) continue;
-            PhysicsDataObj* otherData = (PhysicsDataObj*)(uintptr_t)edge->other->GetUserData().pointer;
-            if (!otherData || otherData == d) continue;
-            if (otherData->ownerEntity.m_type != GM_TABLE) continue;
-            bool already = false;
-            for (gmVariable& e : found) {
-                if (e.m_value.m_ref == otherData->ownerEntity.m_value.m_ref) { already = true; break; }
+    float sx, sy, ex, ey;
+    if (!GetVector2D(m, a_thread->Param(0), sx, sy) ||
+        !GetVector2D(m, a_thread->Param(1), ex, ey)) return GM_EXCEPTION;
+    gmVariable resultVar = a_thread->Param(2);
+    if (resultVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    gmTableObject* result = (gmTableObject*)m.GetObject(resultVar.m_value.m_ref);
+    if (!result) return GM_EXCEPTION;
+
+    b2RayCastInput input;
+    input.p1.Set(sx, sy);
+    input.p2.Set(ex, ey);
+    input.maxFraction = 1.0f;
+    bool hit = false;
+    float bestFraction = 1.0f;
+    b2Vec2 bestNormal(0.0f, 0.0f);
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* body = GetBodyData(m, bodyVar);
+        if (!body || !body->body) continue;
+        for (b2Fixture* fixture = body->body->GetFixtureList(); fixture;
+             fixture = fixture->GetNext()) {
+            for (int child = 0; child < fixture->GetShape()->GetChildCount(); ++child) {
+                b2RayCastOutput output;
+                input.maxFraction = bestFraction;
+                if (fixture->RayCast(&output, input, child) &&
+                    (!hit || output.fraction < bestFraction)) {
+                    hit = true;
+                    bestFraction = output.fraction;
+                    bestNormal = output.normal;
+                }
             }
-            if (!already) found.push_back(otherData->ownerEntity);
         }
     }
-    gmUserObject* iterObj = m.AllocUserObject(new EntityIterData{std::move(found), 0}, g_entityIterType);
-    a_thread->Push(gmVariable(iterObj));
+    if (hit) {
+        result->Set(&m, "lambda", gmVariable(bestFraction));
+        result->Set(&m, "nx", gmVariable(bestNormal.x));
+        result->Set(&m, "ny", gmVariable(bestNormal.y));
+    }
+    a_thread->PushInt(hit ? 1 : 0);
+    return GM_OK;
+}
+
+// RETAIL PPC VERIFIED: MULTIBODYPHYSICSDATA.raycastShapesOne (0x95100)
+// walks the body's vector in index order, calls 0x339a4 for each body, and
+// retains only a strictly nearer hit. A tie therefore keeps the earlier
+// body/shape. The output keys and integer shapeID/-1 return match wrapper
+// 0x91658. Point-field mapping and local fixture traversal order remain open.
+int GM_CDECL gmf_pd_raycastShapesOne(gmThread* a_thread) {
+    PhysicsDataObj* data = ThisData(a_thread);
+    if (!data) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(5);
+    gmMachine& machine = *a_thread->GetMachine();
+    float sx, sy, ex, ey;
+    if (!GetVector2D(machine, a_thread->Param(0), sx, sy) ||
+        !GetVector2D(machine, a_thread->Param(1), ex, ey)) return GM_EXCEPTION;
+    gmVariable resultVar = a_thread->Param(4);
+    if (resultVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    auto* result = static_cast<gmTableObject*>(machine.GetObject(resultVar.m_value.m_ref));
+    if (!result) return GM_EXCEPTION;
+
+    const bool rejectContainingBodyPoint = a_thread->ParamInt(2, 0) != 0;
+    const bool includeSensors = a_thread->ParamInt(3, 0) != 0;
+    bool hit = false;
+    RaycastShapesOneResult closest;
+    for (const gmVariable& bodyVar : data->bodies) {
+        PhysicsBodyData* body = GetBodyData(machine, bodyVar);
+        RaycastShapesOneResult candidate;
+        if (!RaycastPhysicsBodyShapesOne(body, sx, sy, ex, ey,
+                rejectContainingBodyPoint, includeSensors, candidate)) continue;
+        if (hit && candidate.fraction >= closest.fraction) continue;
+        hit = true;
+        closest = candidate;
+    }
+    if (!hit) { a_thread->PushInt(-1); return GM_OK; }
+    result->Set(&machine, "lambda", gmVariable(closest.fraction));
+    result->Set(&machine, "nx", gmVariable(closest.normal.x));
+    result->Set(&machine, "ny", gmVariable(closest.normal.y));
+    result->Set(&machine, "shapeID", gmVariable((gmint)closest.shapeId));
+    a_thread->PushInt(closest.shapeId);
+    return GM_OK;
+}
+
+// Retail PhysicsData.getShapeByID (0x000934c0 -> FUN_00030600) searches
+// only bodies held by this PhysicsData, then resolves the global fixture ID
+// within that body. A foreign shape ID returns null even when it exists in
+// the world, as happens in JumperGoomba's other-side collision query.
+int GM_CDECL gmf_pd_getShapeByID(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(shapeId, 0, 0);
+    gmMachine& m = *a_thread->GetMachine();
+    b2Fixture* fixture = GetFixtureByGlobalId(shapeId);
+    if (fixture) {
+        for (const gmVariable& bodyVar : d->bodies) {
+            PhysicsBodyData* body = GetBodyData(m, bodyVar);
+            if (body && body->body == fixture->GetBody()) {
+                a_thread->Push(MakePhysicsShapeByGlobalId(m, shapeId));
+                return GM_OK;
+            }
+        }
+    }
+    a_thread->PushNull();
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: getCollidingEntities (0x8bc64) fills a linked list
+// from the active pair tree via 0x315bc; the outer tree key is the other
+// Entity's unsigned ID at Entity+4. Each mapped pair record supplies the
+// other PhysicsData pointer; iterator get resolves it to its owner Entity.
+// The one-argument path clears/refills the same EntityListRefContainer and
+// resets its cursor through 0x31c178/0x31abec. The local retained map uses
+// that same other-Entity-ID ordering and keeps the initially mapped
+// PhysicsData owner for the lifetime of the pair.
+// Desktop getCollidingEntities reads the retained directed pair map, matching
+// retail's ordered outer Entity-ID tree and preserving the pair value through
+// synchronous onEntitySeparate dispatch.
+int GM_CDECL gmf_pd_getCollidingEntities(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
+    std::vector<gmVariable> found;
+    GetPhysicsCollidingEntitiesForPhysicsData(
+        reinterpret_cast<uintptr_t>(d), found);
+    const gmVariable* reuse = a_thread->GetNumParams() > 0 ? &a_thread->Param(0) : nullptr;
+    if (!PushOrRefillEntityListIterator(a_thread, std::move(found), reuse))
+        return GM_EXCEPTION;
     return GM_OK;
 }
 
@@ -1856,28 +2646,40 @@ struct ShapeContactEntry {
     int otherShapeId = -1;
     std::vector<int> myShapeIds;
     std::vector<b2Vec2> normals; // world-space, pointing from the other shape toward mine ("itToMe")
+    std::vector<float> normalSigns; // live-contact orientation from retail record +4
     std::vector<ContactPoints> points;
-    // The live b2Contact each record came from, so disableContact(i) can
-    // actually reach it. Retail's Physics.disableContact (0x000982f4)
-    // scans its own vector for the record whose index matches and ORs a
-    // flag into that contact; this is the same lookup.
+    // The live b2Contact each record came from, so disableContact can mark
+    // contacts in the selected SCI when its otherShapeId is retail's ID 4.
     std::vector<b2Contact*> contacts;
 };
 struct CollisionInfoData {
-    std::vector<b2Body*> collidingMyBodies;
     std::vector<ShapeContactEntry> contacts;
-    // isAllSensors() backing -- see gmf_ci_isAllSensors's own header comment.
-    // Retail FUN_0002e08c walks CollisionInfo's keys (the OTHER shape IDs)
-    // and calls FUN_00036eec, which reads that shape's sensor byte. This is
-    // true only when every contacted OTHER shape is a sensor. In particular,
-    // a note's sensor touching the player's solid body must return false.
-    bool allSensors = true;
+    // Retail CollisionInfo.getEntity returns the entity owning the OTHER
+    // PhysicsData in this directed pair record (PPC 0x97e00; record created
+    // at 0x30f28). Like the retail record, this handle is only valid while its
+    // owner PhysicsData remains alive; it is not an independent GC root.
+    gmVariable otherEntity = gmVariable::s_null;
+    // A native pair entry remains findable during onEntitySeparate until its
+    // callback returns, even after its final contact record was erased.
+    bool pairExists = false;
+    uintptr_t physicsDataKey = 0;
+    uint32_t otherEntityId = 0;
+    bool invalidated = false;
 };
 struct ShapeCollisionInfoData {
+    // Retail records are grouped by their outer other-shape ID; record[3]
+    // (tested against literal 4 by disableContact) stores this same ID.
+    int otherShapeId = -1;
     std::vector<int> myShapeIds;
     std::vector<b2Vec2> normals;
+    std::vector<float> normalSigns;
     std::vector<ContactPoints> points;
-    std::vector<b2Contact*> contacts; // parallel to myShapeIds, for disableContact
+    std::vector<b2Contact*> contacts; // native contact records represented by this SCI
+    // Retail returns a pointer into the CollisionInfo's stored shape-group
+    // map. Keep the parent object alive and resolve this key again on each
+    // getter so the local proxy observes live group contents.
+    gmVariable ownerCollisionInfo = gmVariable::s_null;
+    gmMachine* machine = nullptr;
 };
 struct IntIterData {
     std::vector<int> values;
@@ -1891,6 +2693,10 @@ int GM_CDECL gmf_INTLISTREFCONTAINER(gmThread* a_thread) {
     return GM_OK;
 }
 
+// RETAIL PPC VERIFIED: outer CollisionInfo groups use a signed-key tree, but
+// each group's contact records preserve contact-add insertion order (0x30f28)
+// with stable deletion (0x31308). Query this adapter's persistent listener
+// records in contact-add order, then sort only outer signed shape-ID groups.
 CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_myData, const gmVariable& a_otherEntityVar) {
     CollisionInfoData* info = new CollisionInfoData();
     if (a_otherEntityVar.m_type != GM_TABLE) return info;
@@ -1902,52 +2708,64 @@ CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_my
     gmObject* obj = a_machine.GetObject(pdVar.m_value.m_ref);
     if (!obj) return info;
     PhysicsDataObj* otherData = (PhysicsDataObj*)((gmUserObject*)obj)->m_user;
-
-    for (gmVariable& myBodyVar : a_myData->bodies) {
-        PhysicsBodyData* myBody = GetBodyData(a_machine, myBodyVar);
-        if (!myBody || !myBody->body) continue;
-        for (b2ContactEdge* edge = myBody->body->GetContactList(); edge; edge = edge->next) {
-            if (!edge->contact->IsTouching()) continue;
-            PhysicsDataObj* otherOwner = (PhysicsDataObj*)(uintptr_t)edge->other->GetUserData().pointer;
-            if (otherOwner != otherData) continue;
-
-            b2Contact* contact = edge->contact;
-            b2Fixture* fA = contact->GetFixtureA();
-            b2Fixture* fB = contact->GetFixtureB();
-            bool aIsMine = (fA->GetBody() == myBody->body);
-            b2Fixture* myFixture = aIsMine ? fA : fB;
-            b2Fixture* otherFixture = aIsMine ? fB : fA;
-            if (!otherFixture->IsSensor()) info->allSensors = false;
-
-            b2WorldManifold wm;
-            contact->GetWorldManifold(&wm); // normal points from A to B
-            b2Vec2 itToMe = aIsMine ? -wm.normal : wm.normal;
-            ContactPoints cp;
-            cp.count = contact->GetManifold()->pointCount;
-            cp.pts[0] = wm.points[0];
-            if (cp.count > 1) cp.pts[1] = wm.points[1];
-
-            // Global ids (see RegisterShapeGlobalId), matching the same
-            // id-space Physics.isShapeSensor/getBodyFromShapeID/
-            // getEntityFromShapeID resolve against.
-            int myShapeId = (int)myFixture->GetUserData().pointer;
-            int otherShapeId = (int)otherFixture->GetUserData().pointer;
-
-            bool bodyAlready = false;
-            for (b2Body* b : info->collidingMyBodies) if (b == myBody->body) { bodyAlready = true; break; }
-            if (!bodyAlready) info->collidingMyBodies.push_back(myBody->body);
-
-            ShapeContactEntry* entry = nullptr;
-            for (auto& e : info->contacts) if (e.otherShapeId == otherShapeId) { entry = &e; break; }
-            if (!entry) { info->contacts.push_back(ShapeContactEntry{otherShapeId, {}, {}, {}, {}}); entry = &info->contacts.back(); }
-            entry->myShapeIds.push_back(myShapeId);
-            entry->normals.push_back(itToMe);
-            entry->points.push_back(cp);
-            entry->contacts.push_back(contact);
+    info->otherEntity = otherData->ownerEntity;
+    int otherEntityId = -1;
+    if (info->otherEntity.m_type == GM_TABLE) {
+        gmTableObject* owner = static_cast<gmTableObject*>(
+            a_machine.GetObject(info->otherEntity.m_value.m_ref));
+        if (owner) {
+            const gmVariable id = owner->Get(&a_machine, "__objectID");
+            if (id.m_type == GM_INT) otherEntityId = id.m_value.m_int;
         }
     }
-    // Retail stores per-other-shape entries in an ordered map. Preserve its
-    // key iteration order for getCollidingShapeIDList()/getFirstShape... .
+    if (otherEntityId < 0) return info;
+    info->physicsDataKey = reinterpret_cast<uintptr_t>(a_myData);
+    info->otherEntityId = static_cast<uint32_t>(otherEntityId);
+    std::vector<PhysicsContactRecordView> records;
+    info->pairExists = GetPhysicsContactRecordsForPhysicsData(
+        reinterpret_cast<uintptr_t>(a_myData),
+        static_cast<uint32_t>(otherEntityId), records);
+    for (const PhysicsContactRecordView& record : records) {
+        b2Contact* contact = record.contact;
+        if (!contact) continue;
+        b2Fixture* fA = contact->GetFixtureA();
+        b2Fixture* fB = contact->GetFixtureB();
+        const bool myIsA = record.normalSign < 0.0f;
+        b2Fixture* myFixture = myIsA ? fA : fB;
+        b2Fixture* otherFixture = myIsA ? fB : fA;
+        // Retained contact records can describe sensor overlaps with no
+        // manifold points. Zero initialization matches the native helper's
+        // point-count checks without exposing undefined output bytes.
+        b2WorldManifold wm{};
+        contact->GetWorldManifold(&wm);
+        ContactPoints cp;
+        cp.count = contact->GetManifold()->pointCount;
+        for (int point = 0; point < cp.count && point < 2; ++point)
+            cp.pts[point] = wm.points[point];
+
+        ShapeContactEntry* entry = nullptr;
+        for (auto& candidate : info->contacts)
+            if (candidate.otherShapeId == record.otherShapeId) {
+                entry = &candidate;
+                break;
+            }
+        if (!entry) {
+            info->contacts.push_back(ShapeContactEntry{
+                record.otherShapeId, {}, {}, {}, {}, {}});
+            entry = &info->contacts.back();
+        }
+        entry->myShapeIds.push_back(record.myShapeId);
+        entry->normals.push_back(record.normalSign * wm.normal);
+        entry->normalSigns.push_back(record.normalSign);
+        entry->points.push_back(cp);
+        entry->contacts.push_back(contact);
+    }
+    // RETAIL PPC VERIFIED: getShapeCollisionInfo searches this int-keyed
+    // red-black tree with signed comparisons (0x2f52d0); getFirstShape...
+    // returns its leftmost value (0x2dbec), and getCollidingShapeIDList walks
+    // it in-order via 0x2f5228. Sort outer groups by signed shape ID. Inner
+    // records retain the existing traversal order, the closest local analogue
+    // to the retail insertion-ordered per-shape vector.
     std::sort(info->contacts.begin(), info->contacts.end(),
               [](const ShapeContactEntry& a, const ShapeContactEntry& b) {
                   return a.otherShapeId < b.otherShapeId;
@@ -1955,111 +2773,302 @@ CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_my
     return info;
 }
 
+namespace {
+void CopyCollisionInfoContents(CollisionInfoData* a_destination,
+                               CollisionInfoData* a_source) {
+    if (!a_destination || !a_source) return;
+    a_destination->contacts = std::move(a_source->contacts);
+    a_destination->otherEntity = a_source->otherEntity;
+    a_destination->pairExists = a_source->pairExists;
+    a_destination->physicsDataKey = a_source->physicsDataKey;
+    a_destination->otherEntityId = a_source->otherEntityId;
+    a_destination->invalidated = a_source->invalidated;
+}
+
+bool RefreshCollisionInfoData(gmMachine& a_machine, CollisionInfoData* a_info) {
+    if (!a_info || a_info->invalidated || !a_info->pairExists ||
+        a_info->physicsDataKey == 0)
+        return false;
+    auto ownerIt = std::find_if(g_allPhysicsData.begin(), g_allPhysicsData.end(),
+        [a_info](PhysicsDataObj* a_data) {
+            return reinterpret_cast<uintptr_t>(a_data) == a_info->physicsDataKey;
+        });
+    if (ownerIt == g_allPhysicsData.end()) {
+        InvalidatePhysicsCollisionInfoView(a_info->physicsDataKey,
+                                           a_info->otherEntityId);
+        return false;
+    }
+    CollisionInfoData* fresh = BuildCollisionInfo(a_machine, *ownerIt,
+                                                   a_info->otherEntity);
+    const bool stillActive = fresh->pairExists;
+    if (stillActive) {
+        CopyCollisionInfoContents(a_info, fresh);
+    } else {
+        a_info->contacts.clear();
+        a_info->pairExists = false;
+        a_info->invalidated = true;
+        a_info->physicsDataKey = 0;
+    }
+    delete fresh;
+    return stillActive;
+}
+
+void RefreshShapeCollisionInfoData(ShapeCollisionInfoData* a_info) {
+    if (!a_info || !a_info->machine ||
+        a_info->ownerCollisionInfo.m_type != g_collisionInfoType)
+        return;
+    gmObject* object = a_info->machine->GetObject(
+        a_info->ownerCollisionInfo.m_value.m_ref);
+    if (!object) return;
+    auto* parent = static_cast<CollisionInfoData*>(
+        static_cast<gmUserObject*>(object)->m_user);
+    if (!RefreshCollisionInfoData(*a_info->machine, parent)) {
+        a_info->myShapeIds.clear();
+        a_info->normals.clear();
+        a_info->normalSigns.clear();
+        a_info->points.clear();
+        a_info->contacts.clear();
+        return;
+    }
+    auto group = std::find_if(parent->contacts.begin(), parent->contacts.end(),
+        [a_info](const ShapeContactEntry& a_entry) {
+            return a_entry.otherShapeId == a_info->otherShapeId;
+        });
+    if (group == parent->contacts.end()) {
+        a_info->myShapeIds.clear();
+        a_info->normals.clear();
+        a_info->normalSigns.clear();
+        a_info->points.clear();
+        a_info->contacts.clear();
+        return;
+    }
+    a_info->myShapeIds = group->myShapeIds;
+    a_info->normals = group->normals;
+    a_info->normalSigns = group->normalSigns;
+    a_info->points = group->points;
+    a_info->contacts = group->contacts;
+}
+} // namespace
+
+void InvalidatePhysicsCollisionInfoViewImpl(uintptr_t a_physicsData,
+                                            uint32_t a_otherEntityId) {
+    auto ownerIt = std::find_if(g_allPhysicsData.begin(), g_allPhysicsData.end(),
+        [a_physicsData](PhysicsDataObj* a_data) {
+            return reinterpret_cast<uintptr_t>(a_data) == a_physicsData;
+        });
+    if (ownerIt == g_allPhysicsData.end()) return;
+    PhysicsDataObj* owner = *ownerIt;
+    auto viewIt = owner->collisionInfoViews.find(a_otherEntityId);
+    if (viewIt == owner->collisionInfoViews.end()) return;
+    gmVariable view = viewIt->second;
+    gmMachine* machine = GetEngineContext().machine;
+    if (machine && view.m_type == g_collisionInfoType) {
+        gmObject* object = machine->GetObject(view.m_value.m_ref);
+        if (object) {
+            auto* info = static_cast<CollisionInfoData*>(
+                static_cast<gmUserObject*>(object)->m_user);
+            if (info) {
+                info->contacts.clear();
+                info->pairExists = false;
+                info->invalidated = true;
+                info->physicsDataKey = 0;
+            }
+        }
+        UnrootGmVariable(*machine, view);
+    }
+    owner->collisionInfoViews.erase(viewIt);
+}
+
 int GM_CDECL gmf_pd_getCollisionInfo(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     gmMachine& m = *a_thread->GetMachine();
     CollisionInfoData* info = BuildCollisionInfo(m, d, a_thread->Param(0));
-    // Retail Physics.getCollisionInfo first looks the other PhysicsData up
-    // in its active collision map and pushes null on a miss
+    // RETAIL PPC VERIFIED: Physics.getCollisionInfo (0x8bb5c) calls
+    // 0x31544, which confirms an exact active-pair map key with 0x2f6348
+    // before retrieving the mapped CollisionInfo value through 0x2f902c.
+    // The latter is a get-or-insert helper, but this getter invokes it only
+    // after the exact-key check, so a miss returns null without creating a
+    // record. Desktop builds the value from persistent contact-add/remove
+    // records; native object identity and exact PhysicsData-key ordering are
+    // still represented by an adapter view. The view cache preserves the
+    // existing mapped-value identity while this directed pair is active.
+    // An allocated but
     // empty CollisionInfo is truthy to GM, so returning one here made every
     // `if (?data.getCollisionInfo(other))` path claim a collision after the
     // bodies had separated.
-    if (info->contacts.empty()) {
+    if (!info->pairExists) {
         delete info;
         a_thread->PushNull();
         return GM_OK;
     }
+    auto cached = d->collisionInfoViews.find(info->otherEntityId);
+    if (cached != d->collisionInfoViews.end()) {
+        gmObject* object = cached->second.m_type == g_collisionInfoType
+            ? m.GetObject(cached->second.m_value.m_ref) : nullptr;
+        auto* existing = object
+            ? static_cast<CollisionInfoData*>(static_cast<gmUserObject*>(object)->m_user)
+            : nullptr;
+        if (existing && !existing->invalidated) {
+            CopyCollisionInfoContents(existing, info);
+            delete info;
+            a_thread->Push(cached->second);
+            return GM_OK;
+        }
+        UnrootGmVariable(m, cached->second);
+        d->collisionInfoViews.erase(cached);
+    }
     gmUserObject* obj = m.AllocUserObject(info, g_collisionInfoType);
-    a_thread->Push(gmVariable(obj));
+    gmVariable view(obj);
+    RootGmVariable(m, view);
+    d->collisionInfoViews.emplace(info->otherEntityId, view);
+    a_thread->Push(view);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_isColliding(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     const int argc = a_thread->GetNumParams();
     if (argc > 1) return GM_EXCEPTION;
-    // Retail's no-arg path checks whether its collision collection is
-    // nonempty; its one-arg path looks the other PhysicsData up in that
-    // collection (FUN_002f6348). The local equivalent scans touching Box2D
-    // contacts and compares the stored owner entity. Contact/map update
-    // timing still needs a retail tick trace.
+    // RETAIL PPC VERIFIED: Physics.isColliding (0x8b9c4) returns whether the
+    // PhysicsData pair map count at +8 is nonzero with no argument; with one
+    // Entity argument it reads the Entity's +4 ID and calls 0x2f6348 for that
+    // exact unsigned outer-map key. Desktop uses the retained directed pair
+    // map. Empty pair records remain visible while onEntitySeparate runs,
+    // matching native erase-helper order.
     const gmVariable target = argc == 1 ? a_thread->Param(0) : gmVariable::s_null;
-    PhysicsDataObj* targetData = nullptr;
-    if (target.m_type == g_physicsDataType) {
-        gmObject* targetObject = a_thread->GetMachine()->GetObject(target.m_value.m_ref);
-        if (targetObject) targetData = (PhysicsDataObj*)((gmUserObject*)targetObject)->m_user;
-    }
-    bool colliding = false;
-    for (const gmVariable& bodyVar : d->bodies) {
-        PhysicsBodyData* body = GetBodyData(*a_thread->GetMachine(), bodyVar);
-        if (!body || !body->body) continue;
-        for (b2ContactEdge* edge = body->body->GetContactList(); edge; edge = edge->next) {
-            if (!edge->contact || !edge->contact->IsTouching()) continue;
-            if (argc == 0) { colliding = true; break; }
-            const uintptr_t userData = edge->other->GetUserData().pointer;
-            PhysicsDataObj* other = reinterpret_cast<PhysicsDataObj*>(userData);
-            if (!other) continue;
-            if (target.m_type == GM_TABLE && other->ownerEntity.m_type == GM_TABLE &&
-                target.m_value.m_ref == other->ownerEntity.m_value.m_ref) {
-                colliding = true;
-                break;
-            }
-            if (targetData && other == targetData) {
-                colliding = true;
-                break;
+    bool hasTargetEntityId = false;
+    uint32_t targetEntityId = 0;
+    if (target.m_type == GM_TABLE) {
+        gmTableObject* targetTable = static_cast<gmTableObject*>(
+            a_thread->GetMachine()->GetObject(target.m_value.m_ref));
+        if (targetTable) {
+            const gmVariable id = targetTable->Get(a_thread->GetMachine(), "__objectID");
+            if (id.m_type == GM_INT) {
+                targetEntityId = static_cast<uint32_t>(id.m_value.m_int);
+                hasTargetEntityId = true;
             }
         }
-        if (colliding) break;
     }
+    const uintptr_t myData = reinterpret_cast<uintptr_t>(d);
+    const bool colliding = argc == 0
+        ? PhysicsDataHasAnyCollisionPairs(myData)
+        : hasTargetEntityId && PhysicsDataPairIsColliding(myData, targetEntityId);
     a_thread->PushInt(colliding ? 1 : 0);
     return GM_OK;
 }
+// RETAIL PPC VERIFIED: CollisionInfo.isBodyColliding (0x9778c) calls
+// 0x2dd04. Retail walks the supplied PhysicsBody's shape IDs and checks each
+// against both the CollisionInfo outer shape key and every record's my-shape
+// ID. Mirror that ID comparison directly instead of caching Box2D body
+// pointers at CollisionInfo construction time.
 int GM_CDECL gmf_ci_isBodyColliding(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
     GM_CHECK_NUM_PARAMS(1);
     PhysicsBodyData* b = GetBodyData(*a_thread->GetMachine(), a_thread->Param(0));
     bool found = false;
-    if (b) for (b2Body* body : info->collidingMyBodies) if (body == b->body) { found = true; break; }
-    a_thread->PushInt(found ? 1 : 0);
-    return GM_OK;
-}
-// CollisionInfo.isBodyCollidingWithShape(body, globalShapeId): check the
-// contact records captured for this entity pair, preserving the distinction
-// between a platform's solid and sensor fixtures. Retail dispatches to
-// FUN_0002df38 (EBOOT 0x97920) with precisely these two arguments.
-int GM_CDECL gmf_ci_isBodyCollidingWithShape(gmThread* a_thread) {
-    auto* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
-    if (!info) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(2);
-    PhysicsBodyData* body = GetBodyData(*a_thread->GetMachine(), a_thread->Param(0));
-    GM_INT_PARAM(shapeId, 1, 0);
-    bool found = false;
-    if (body && body->body) {
-        for (const ShapeContactEntry& entry : info->contacts) {
-            if (std::find(entry.myShapeIds.begin(), entry.myShapeIds.end(), shapeId) == entry.myShapeIds.end())
-                continue;
-            for (b2ContactEdge* edge = body->body->GetContactList(); edge; edge = edge->next) {
-                b2Contact* contact = edge->contact;
-                if (!contact || !contact->IsTouching()) continue;
-                b2Fixture* other = contact->GetFixtureA()->GetBody() == body->body
-                    ? contact->GetFixtureB() : contact->GetFixtureA();
-                if ((int)other->GetUserData().pointer == shapeId) { found = true; break; }
+    if (b && b->body) {
+        for (b2Fixture* fixture = b->body->GetFixtureList(); fixture && !found;
+             fixture = fixture->GetNext()) {
+            const int shapeId = static_cast<int>(fixture->GetUserData().pointer);
+            for (const ShapeContactEntry& entry : info->contacts) {
+                if (entry.otherShapeId == shapeId ||
+                    std::find(entry.myShapeIds.begin(), entry.myShapeIds.end(), shapeId) !=
+                        entry.myShapeIds.end()) {
+                    found = true;
+                    break;
+                }
             }
-            if (found) break;
         }
     }
     a_thread->PushInt(found ? 1 : 0);
     return GM_OK;
 }
+// RETAIL PPC VERIFIED: CollisionInfo.isBodyCollidingWithShape
+// (0x97920 -> 0x2df38) tests each outer shape ID and each contact's +8 shape
+// ID. PPC sign-extends the raw second argument before the helper call. It
+// returns true when either ID matches the explicit shape and the opposite ID
+// belongs to the supplied body, including either orientation.
+// 0x33b5c checks body ownership by walking its shape-ID list. It does not
+// recheck whether the native contact is still touching.
+int GM_CDECL gmf_ci_isBodyCollidingWithShape(gmThread* a_thread) {
+    auto* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
+    GM_CHECK_NUM_PARAMS(2);
+    PhysicsBodyData* body = GetBodyData(*a_thread->GetMachine(), a_thread->Param(0));
+    const int shapeId = a_thread->Param(1).m_value.m_int;
+    bool found = false;
+    auto bodyContains = [body](int id) {
+        if (!body || !body->body) return false;
+        b2Fixture* fixture = GetFixtureByGlobalId(id);
+        return fixture && fixture->GetBody() == body->body;
+    };
+    for (const ShapeContactEntry& entry : info->contacts) {
+        const bool outerMatches = bodyContains(entry.otherShapeId) ||
+            entry.otherShapeId == shapeId;
+        for (int myShapeId : entry.myShapeIds) {
+            const bool innerMatches = myShapeId == shapeId || bodyContains(myShapeId);
+            if (outerMatches && innerMatches) {
+                found = true;
+                break;
+            }
+        }
+        if (found) break;
+    }
+    a_thread->PushInt(found ? 1 : 0);
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: CollisionInfo.isBodyCollidingWithBody (0x97850 ->
+// 0x2ddb8) checks each pair record if either side's shape ID belongs to
+// either supplied PhysicsBody. Shape ownership is established by global
+// fixture IDs, matching the retail PhysicsBody shape-ID walk in 0x33b5c.
+int GM_CDECL gmf_ci_isBodyCollidingWithBody(gmThread* a_thread) {
+    auto* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
+    GM_CHECK_NUM_PARAMS(2);
+    gmMachine& machine = *a_thread->GetMachine();
+    PhysicsBodyData* bodyA = GetBodyData(machine, a_thread->Param(0));
+    PhysicsBodyData* bodyB = GetBodyData(machine, a_thread->Param(1));
+    auto bodyContains = [](PhysicsBodyData* body, int id) {
+        if (!body || !body->body) return false;
+        b2Fixture* fixture = GetFixtureByGlobalId(id);
+        return fixture && fixture->GetBody() == body->body;
+    };
+    bool found = false;
+    for (const ShapeContactEntry& entry : info->contacts) {
+        const bool outerMatches = bodyContains(bodyA, entry.otherShapeId) ||
+            bodyContains(bodyB, entry.otherShapeId);
+        if (!outerMatches) continue;
+        for (int myShapeId : entry.myShapeIds) {
+            if (bodyContains(bodyA, myShapeId) || bodyContains(bodyB, myShapeId)) {
+                found = true;
+                break;
+            }
+        }
+        if (found) break;
+    }
+    a_thread->PushInt(found ? 1 : 0);
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: CollisionInfo.isShapeColliding (0x976cc -> 0x2dc14)
+// sign-extends the raw shape-ID payload, then scans ordered outer keys and
+// 16-byte contact records, returning true if the ID occurs on either side.
 int GM_CDECL gmf_ci_isShapeColliding(gmThread* a_thread) {
     auto* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(shapeId, 0, 0);
+    const int shapeId = a_thread->Param(0).m_value.m_int;
     bool found = false;
     for (const ShapeContactEntry& entry : info->contacts) {
-        if (std::find(entry.myShapeIds.begin(), entry.myShapeIds.end(), shapeId) != entry.myShapeIds.end()) {
+        // Retail FUN_0002dc14 checks the collision-map key first, then
+        // each shape ID in that entry. The key is the other fixture's ID;
+        // checking only myShapeIds misses one orientation of the contact.
+        if (entry.otherShapeId == shapeId ||
+            std::find(entry.myShapeIds.begin(), entry.myShapeIds.end(), shapeId) != entry.myShapeIds.end()) {
             found = true;
             break;
         }
@@ -2067,9 +3076,15 @@ int GM_CDECL gmf_ci_isShapeColliding(gmThread* a_thread) {
     a_thread->PushInt(found ? 1 : 0);
     return GM_OK;
 }
+// Retail PPC verified: wrapper 0x979f0 allocates or reuses an
+// INTLISTREFCONTAINER, clears/reinitializes it via 0x31c3f8 when reused, then
+// fills it with signed-key in-order tree traversal through 0x2d86c. The local
+// vector is that copied ID list; INTLISTREFCONTAINER's five exposed methods
+// match their registered retail method-table cursor/value/count behavior.
 int GM_CDECL gmf_ci_getCollidingShapeIDList(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
     gmMachine& m = *a_thread->GetMachine();
     IntIterData* it = nullptr;
     gmVariable result;
@@ -2093,14 +3108,25 @@ int GM_CDECL gmf_ci_getCollidingShapeIDList(gmThread* a_thread) {
     a_thread->Push(result);
     return GM_OK;
 }
+// Retail PPC verified: Physics.getShapeCollisionInfo (0x974cc) sign-extends
+// the raw argument payload, searches by signed key through 0x2db88/0x2f52d0,
+// and returns null on a miss. A hit is the stored ShapeCollisionInfo pointer
+// at tree-node +0x10. Desktop currently materializes a copied user object, so
+// pointer identity/aliasing is not yet equivalent; see the CollisionInfo audit.
 int GM_CDECL gmf_ci_getShapeCollisionInfo(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(sid, 0, -1);
+    const int sid = a_thread->Param(0).m_value.m_int;
     for (auto& e : info->contacts) {
         if (e.otherShapeId == sid) {
-            ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.myShapeIds, e.normals, e.points, e.contacts};
+            ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.otherShapeId, e.myShapeIds, e.normals, e.normalSigns, e.points, e.contacts};
+            sci->machine = a_thread->GetMachine();
+            if (const gmVariable* owner = a_thread->GetThis()) {
+                sci->ownerCollisionInfo = *owner;
+                RootGmVariable(*sci->machine, sci->ownerCollisionInfo);
+            }
             gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(sci, g_shapeCollisionInfoType);
             a_thread->Push(gmVariable(obj));
             return GM_OK;
@@ -2109,60 +3135,63 @@ int GM_CDECL gmf_ci_getShapeCollisionInfo(gmThread* a_thread) {
     a_thread->PushNull();
     return GM_OK;
 }
-// getFirstShapeCollisionInfo() -- no-arg convenience wrapper, confirmed
-// real (Player.gm:4398's checkDeath(): `local sci=ci.
-// getFirstShapeCollisionInfo(); SYSTEMHELPER_NotifyEvent("KillPlayer",...,
-// sci.getContactNormal(0));`) but was entirely unregistered -- calling it
-// on a real CollisionInfo userobject is the same hard "getdot failed" class
-// of bug as every other missing-binding case this session, aborting
-// checkDeath() (and the onEntityCollide/onEntityTouch call chain that leads
-// into it) before the real "KillPlayer" event could ever fire: touching a
-// DANGER/FIRE ground silently did nothing, no matter how solid/red the
-// rendering looked. Just the first entry in the same `info->contacts` list
-// getShapeCollisionInfo(id) already searches -- there's no real ordering
-// guarantee beyond "whichever contact was recorded first", matching a
-// plain "first" accessor rather than a specific shape lookup.
+// Retail wrapper 0x975d4 delegates to 0x2dbec, which returns null for an
+// empty map or the stored ShapeCollisionInfo pointer from the leftmost entry.
+// Desktop sorts outer groups to preserve signed-key order, but currently copies
+// the group into a new user object; pointer alias/identity is a known mismatch.
 int GM_CDECL gmf_ci_getFirstShapeCollisionInfo(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
     if (info->contacts.empty()) { a_thread->PushNull(); return GM_OK; }
     ShapeContactEntry& e = info->contacts.front();
-    ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.myShapeIds, e.normals, e.points, e.contacts};
+    ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.otherShapeId, e.myShapeIds, e.normals, e.normalSigns, e.points, e.contacts};
+    sci->machine = a_thread->GetMachine();
+    if (const gmVariable* owner = a_thread->GetThis()) {
+        sci->ownerCollisionInfo = *owner;
+        RootGmVariable(*sci->machine, sci->ownerCollisionInfo);
+    }
     gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(sci, g_shapeCollisionInfoType);
     a_thread->Push(gmVariable(obj));
     return GM_OK;
 }
-// disableContact(shapeIndex) -- REAL, now implemented. Retail body
-// vector of 16-byte records and, for the record whose index field equals
-// the argument, ORs a flag bit into that contact:
-//     for each record: if (record[3] == index) *(u32*)(record[0]+4) |= 1;
-// Same shape as the lookup here: find the recorded contact at this index
-// and mark it for the current step.
-//
-// The argument indexes this ShapeCollisionInfo's own parallel arrays --
-// the same `i` that getContactNormal(i)/getContactPos(i, n) take (see
-// Player.gm:4489, where `i` comes from the loop over this sci's shapes).
+// RETAIL PPC VERIFIED FROM INSTRUCTIONS: ShapeCollisionInfo.disableContact
+// (0x982f4 -> 0x2d7fc) walks 16-byte records and sets contact flag bit 0
+// when record[3] equals constant 4. The 0x30f28 insertion helper stores the
+// record's param_4 shape-object ID there, which is also this SCI's outer key.
+// The second argument is unused; Ghidra's decompiler incorrectly renders the
+// literal comparison as record[3] == param_2.
 int GM_CDECL gmf_sci_disableContact(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
+    RefreshShapeCollisionInfoData(sci);
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(index, 0, 0);
-    if (index >= 0 && index < (int)sci->contacts.size()) {
-        DisableContactThisFrame(sci->contacts[(size_t)index]);
+    if (sci->otherShapeId == 4) {
+        for (b2Contact* contact : sci->contacts)
+            DisableContactThisFrame(contact);
     }
     return GM_OK;
 }
+// RETAIL PPC VERIFIED: ShapeCollisionInfo.getNumOfMyShapesColliding
+// (0x97f34 -> 0x2d544) returns the record vector's 16-byte element count.
+// Desktop's parallel myShapeIds vector has one element per record.
 int GM_CDECL gmf_sci_getNumOfMyShapesColliding(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
+    RefreshShapeCollisionInfoData(sci);
     a_thread->PushInt((int)sci->myShapeIds.size());
     return GM_OK;
 }
+// RETAIL PPC VERIFIED: ShapeCollisionInfo.getMyContactShapeID
+// (0x97fdc -> 0x2d56c) sign-extends the raw first argument and returns record
+// +8 for a nonnegative in-range index, or -1 otherwise. The wrapper does not
+// type-convert its argument; read the same raw GM payload here.
 int GM_CDECL gmf_sci_getMyContactShapeID(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
+    RefreshShapeCollisionInfoData(sci);
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(idx, 0, 0);
+    const int idx = a_thread->Param(0).m_value.m_int;
     a_thread->PushInt((idx >= 0 && idx < (int)sci->myShapeIds.size()) ? sci->myShapeIds[idx] : -1);
     return GM_OK;
 }
@@ -2172,81 +3201,232 @@ int GM_CDECL gmf_sci_getMyContactShapeID(gmThread* a_thread) {
 // crash (this engine's default GE3_STRICT=halt mode) reached the moment
 // the player pressed R1 (JOYSTICK0_R1, run/dash) and grounded again in
 // ANY level, not level-specific. Backed by the exact same per-shape
-// `points[idx].count` data getContactNormal/getContactPos already expose
-// (real Box2D manifold point count for that contact).
+// real Box2D manifold point count for that contact.
 int GM_CDECL gmf_sci_getNumContacts(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
+    RefreshShapeCollisionInfoData(sci);
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(idx, 0, 0);
+    // Retail sign-extends the raw argument payload before calling 0x2d5bc.
+    const int idx = a_thread->Param(0).m_value.m_int;
     int count = (idx >= 0 && idx < (int)sci->points.size()) ? sci->points[idx].count : 0;
+    if (idx >= 0 && idx < (int)sci->contacts.size()) {
+        int liveCount = 0;
+        if (GetPhysicsContactManifoldPointCount(sci->contacts[idx], liveCount))
+            count = liveCount;
+    }
     a_thread->PushInt(count);
     return GM_OK;
 }
+// RETAIL PPC VERIFIED: getContactNormal (0x98144 -> 0x2d71c -> 0x151038)
+// reads the live contact and record orientation sign, rebuilds its world
+// manifold, and returns the signed normal. Preserve the sign and query an
+// active contact at call time; cached normal is only a stale-view fallback.
 int GM_CDECL gmf_sci_getContactNormal(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
+    RefreshShapeCollisionInfoData(sci);
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(idx, 0, 0);
+    const int idx = a_thread->Param(0).m_value.m_int;
     b2Vec2 n = (idx >= 0 && idx < (int)sci->normals.size()) ? sci->normals[idx] : b2Vec2(0.0f, 0.0f);
+    if (idx >= 0 && idx < (int)sci->contacts.size() &&
+        idx < (int)sci->normalSigns.size()) {
+        float x = 0.0f, y = 0.0f;
+        if (GetPhysicsContactWorldNormal(sci->contacts[idx], sci->normalSigns[idx], x, y))
+            n.Set(x, y);
+    }
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), n.x, n.y));
     return GM_OK;
 }
-// getContactPos(myShapeIndex, pointIndex) -- confirmed real, pointIndex
-// genuinely varies (Player.gm:2050's `cp=sci.getContactPos(j,i)`), so this
-// is a real per-manifold-point lookup, not always point 0.
+// Retail bytecode verified: Physics.getContactPos (0x98214) passes both
+// indices to FUN_0002d618. Retail returns (0,0) if either index is negative
+// or out of range; it never substitutes point zero for an invalid point
+// index. Player.gm:2050 confirms pointIndex varies in real gameplay.
 int GM_CDECL gmf_sci_getContactPos(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
+    RefreshShapeCollisionInfoData(sci);
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(myIdx, 0, 0);
-    GM_INT_PARAM(ptIdx, 1, 0);
+    // Retail sign-extends both raw GM argument payloads before the helper call.
+    const int myIdx = a_thread->Param(0).m_value.m_int;
+    const int ptIdx = a_thread->Param(1).m_value.m_int;
     b2Vec2 p(0.0f, 0.0f);
-    if (myIdx >= 0 && myIdx < (int)sci->points.size()) {
-        const ContactPoints& cp = sci->points[myIdx];
-        int clamped = (ptIdx >= 0 && ptIdx < cp.count) ? ptIdx : 0;
-        p = cp.pts[clamped];
+    if (myIdx >= 0 && myIdx < (int)sci->points.size() && ptIdx >= 0) {
+        if (myIdx < (int)sci->contacts.size()) {
+            int liveCount = 0;
+            if (GetPhysicsContactManifoldPointCount(sci->contacts[myIdx], liveCount)) {
+                if (ptIdx < liveCount && ptIdx < b2_maxManifoldPoints) {
+                    float x = 0.0f, y = 0.0f;
+                    if (GetPhysicsContactWorldPoint(sci->contacts[myIdx], ptIdx, x, y))
+                        p.Set(x, y);
+                }
+            } else {
+                // The returned ShapeCollisionInfo may outlive its contact.
+                // Preserve the copied value without touching a stale pointer.
+                const ContactPoints& cp = sci->points[myIdx];
+                if (ptIdx < cp.count && ptIdx < 2) p = cp.pts[ptIdx];
+            }
+        } else {
+            const ContactPoints& cp = sci->points[myIdx];
+            if (ptIdx < cp.count && ptIdx < 2) p = cp.pts[ptIdx];
+        }
     }
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), p.x, p.y));
     return GM_OK;
 }
+// Retail method-table entry INTLISTREFCONTAINER.isValid resolves to PPC
+// 0x31e3d0. It tests the initialized flag and compares the current node with
+// the backing list sentinel; index<size has the same result for this copied list.
 int GM_CDECL gmf_intIter_isValid(gmThread* a_thread) {
     IntIterData* it = (IntIterData*)a_thread->ThisUserCheckType(g_intIterType);
     a_thread->PushInt((it && it->index < it->values.size()) ? 1 : 0);
     return GM_OK;
 }
+// Retail INTLISTREFCONTAINER.goToNext at 0x31e47c follows current.next on a
+// circular sentinel list. The vector cursor's modulo size+1 models the same
+// first-to-end-to-first cycle, including the empty list.
 int GM_CDECL gmf_intIter_goToNext(gmThread* a_thread) {
     IntIterData* it = (IntIterData*)a_thread->ThisUserCheckType(g_intIterType);
-    if (it && it->index < it->values.size()) ++it->index;
+    if (it) it->index = (it->index + 1) % (it->values.size() + 1);
     return GM_OK;
 }
+// Retail INTLISTREFCONTAINER.get at 0x31e5a0 returns the current node value,
+// or GM null when the cursor is at the sentinel. Local copied integer nodes
+// expose the same value and end result.
 int GM_CDECL gmf_intIter_get(gmThread* a_thread) {
     IntIterData* it = (IntIterData*)a_thread->ThisUserCheckType(g_intIterType);
     if (it && it->index < it->values.size()) a_thread->PushInt(it->values[it->index]);
     else a_thread->PushNull();
     return GM_OK;
 }
-// isAllSensors() -- confirmed real, live call site Player.gm:4458:
-// `if(!ci.isAllSensors()){this.setOverrideGravity(null);}` right after a
-// KillPlayer-style collide check -- decides whether the thing the player
-// just touched was solid ground (apply override gravity) vs. a pure sensor
-// trigger (leave gravity alone). Was entirely unbound, a hard "getdot
-// failed" aborting this branch of checkDeath()'s collide handling every
-// single call. True (vacuous) when there were no non-sensor contacts.
+// Retail INTLISTREFCONTAINER.reset at 0x31e4c4 resets the cursor to the
+// backing list's first node; local snapshot index zero is the same position.
+int GM_CDECL gmf_intIter_reset(gmThread* a_thread) {
+    IntIterData* it = (IntIterData*)a_thread->ThisUserCheckType(g_intIterType);
+    if (it) it->index = 0; // retail reset follows the sentinel's first link
+    return GM_OK;
+}
+// Retail INTLISTREFCONTAINER.size at 0x31e50c returns the backing list count;
+// this container owns a copied ID list, represented locally by vector length.
+int GM_CDECL gmf_intIter_size(gmThread* a_thread) {
+    IntIterData* it = (IntIterData*)a_thread->ThisUserCheckType(g_intIterType);
+    a_thread->PushInt(it ? (gmint)it->values.size() : 0);
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: `Physics.isAllSensors` at 0x97c8c calls 0x2e08c,
+// which walks CollisionInfo's outer other-shape IDs and queries each current
+// sensor byte through 0x36eec; an empty map returns true. 0x36eec defaults to
+// true if the shape ID no longer resolves. Resolve IDs at query time, matching
+// retail's live lookup rather than caching sensor state at snapshot creation.
 int GM_CDECL gmf_ci_isAllSensors(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
-    a_thread->PushInt(info->allSensors ? 1 : 0);
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
+    bool allSensors = true;
+    for (const ShapeContactEntry& entry : info->contacts) {
+        b2Fixture* fixture = GetFixtureByGlobalId(entry.otherShapeId);
+        if (fixture && !fixture->IsSensor()) {
+            allSensors = false;
+            break;
+        }
+    }
+    a_thread->PushInt(allSensors ? 1 : 0);
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: Physics.isMyShapeCollidingWithSensorsOnly (0x97d40)
+// passes the requested shape ID and CollisionInfo receiver to 0x2e138. The
+// helper checks only contact records whose +8 field is this shape ID, then
+// tests each record's other shape sensor byte through 0x36eec. No matching
+// records returns true. Keep this per-shape query distinct from isAllSensors.
+int GM_CDECL gmf_ci_isMyShapeCollidingWithSensorsOnly(gmThread* a_thread) {
+    auto* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
+    if (a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+
+    // Retail forwards the raw 32-bit GM value to the helper without type
+    // conversion; extra arguments are ignored by the wrapper.
+    const int myShapeId = a_thread->Param(0).m_value.m_int;
+    bool allSensors = true;
+    for (const ShapeContactEntry& entry : info->contacts) {
+        for (int contactShapeId : entry.myShapeIds) {
+            if (contactShapeId != myShapeId) continue;
+            // Retail queries the current other-shape sensor flag by outer
+            // shape ID; it does not dereference the retained contact record.
+            b2Fixture* otherFixture = GetFixtureByGlobalId(entry.otherShapeId);
+            if (otherFixture && !otherFixture->IsSensor()) {
+                allSensors = false;
+                break;
+            }
+        }
+        if (!allSensors) break;
+    }
+    a_thread->PushInt(allSensors ? 1 : 0);
+    return GM_OK;
+}
+// Retail Physics.getNumCollidingShapes (0x97420) returns the CollisionInfo
+// shape-group count stored at receiver +0x14. BuildCollisionInfo keeps one
+// contacts entry per other-shape ID, the same groups exposed by
+// getCollidingShapeIDList() and getShapeCollisionInfo(shapeId).
+int GM_CDECL gmf_ci_getNumCollidingShapes(gmThread* a_thread) {
+    CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
+    a_thread->PushInt((int)info->contacts.size());
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: CollisionInfo.getEntity (0x97e00) reads the first
+// PhysicsData pointer in its pair record and converts PhysicsData+0x98 to the
+// owning Entity. The contact callback inserts a directed record in A's
+// CollisionInfo map with B's PhysicsData first and A's second (0x374e0 ->
+// 0x30f28 -> 0x2e3c4), so this returns the other/colliding entity.
+int GM_CDECL gmf_ci_getEntity(gmThread* a_thread) {
+    CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
+    a_thread->Push(info->otherEntity);
+    return GM_OK;
+}
+// RETAIL PPC VERIFIED: CollisionInfo.getContactNormalOfMyCollidingShape
+// (0x97e64) sign-extends the raw first payload and calls helper 0x2e278 with
+// that my-shape ID. The helper walks signed-key ordered other-shape groups and
+// returns the first matching record normal, defaulting to (0,1). Desktop
+// preserves the same group and listener order; runtime normal direction and
+// equal-ID contact sequence still need a matched capture.
+int GM_CDECL gmf_ci_getContactNormalOfMyCollidingShape(gmThread* a_thread) {
+    CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
+    if (!info) return GM_EXCEPTION;
+    RefreshCollisionInfoData(*a_thread->GetMachine(), info);
+    GM_CHECK_NUM_PARAMS(1);
+    const int shapeId = a_thread->Param(0).m_value.m_int;
+    b2Vec2 normal(0.0f, 1.0f);
+    bool foundContact = false;
+    for (const ShapeContactEntry& entry : info->contacts) {
+        for (size_t i = 0; i < entry.myShapeIds.size() && i < entry.normals.size(); ++i) {
+            if (entry.myShapeIds[i] == shapeId) {
+                normal = entry.normals[i];
+                foundContact = true;
+                break;
+            }
+        }
+        if (foundContact) break;
+    }
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), normal.x, normal.y));
     return GM_OK;
 }
 gmFunctionEntry s_collisionInfoLib[] = {
+    {"getEntity", gmf_ci_getEntity, nullptr},
     {"isBodyColliding", gmf_ci_isBodyColliding, nullptr},
+    {"isBodyCollidingWithBody", gmf_ci_isBodyCollidingWithBody, nullptr},
     {"isBodyCollidingWithShape", gmf_ci_isBodyCollidingWithShape, nullptr},
     {"isShapeColliding", gmf_ci_isShapeColliding, nullptr},
+    {"getNumCollidingShapes", gmf_ci_getNumCollidingShapes, nullptr},
     {"getCollidingShapeIDList", gmf_ci_getCollidingShapeIDList, nullptr},
     {"getShapeCollisionInfo", gmf_ci_getShapeCollisionInfo, nullptr},
     {"getFirstShapeCollisionInfo", gmf_ci_getFirstShapeCollisionInfo, nullptr},
     {"isAllSensors", gmf_ci_isAllSensors, nullptr},
+    {"isMyShapeCollidingWithSensorsOnly", gmf_ci_isMyShapeCollidingWithSensorsOnly, nullptr},
+    {"getContactNormalOfMyCollidingShape", gmf_ci_getContactNormalOfMyCollidingShape, nullptr},
 };
 gmFunctionEntry s_shapeCollisionInfoLib[] = {
     {"getNumOfMyShapesColliding", gmf_sci_getNumOfMyShapesColliding, nullptr},
@@ -2257,9 +3437,11 @@ gmFunctionEntry s_shapeCollisionInfoLib[] = {
     {"disableContact", gmf_sci_disableContact, nullptr},
 };
 gmFunctionEntry s_intIterLib[] = {
+    {"get", gmf_intIter_get, nullptr},
     {"isValid", gmf_intIter_isValid, nullptr},
     {"goToNext", gmf_intIter_goToNext, nullptr},
-    {"get", gmf_intIter_get, nullptr},
+    {"reset", gmf_intIter_reset, nullptr},
+    {"size", gmf_intIter_size, nullptr},
 };
 
 int GM_CDECL gmf_pd_getPos(gmThread* a_thread) {
@@ -2373,7 +3555,13 @@ int GM_CDECL gmf_pd_setDir(gmThread* a_thread) {
 int GM_CDECL gmf_pd_getRadius(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushFloat(b ? b->radius : 0.0f);
+    b2AABB bounds;
+    float radius = 0.0f;
+    if (b && GetBodyLocalBounds(b->body, bounds)) {
+        radius = 0.5f * std::max(bounds.upperBound.x - bounds.lowerBound.x,
+                                 bounds.upperBound.y - bounds.lowerBound.y);
+    }
+    a_thread->PushFloat(radius);
     return GM_OK;
 }
 // setAsCircle/isCircle/isRect/getWidth/getHeight/setIsSensor/setMaxSpeed/
@@ -2395,7 +3583,8 @@ int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
-        if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        if (!haveFilter) { filter = DesiredFixtureFilter(b, f); haveFilter = true; }
+        b->savedCollidableFilters.erase(f);
         UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
@@ -2407,9 +3596,9 @@ int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
     def.density = 1.0f;
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
-    fx->SetSensor(b->isSensor || !b->isCollidable);
+    fx->SetSensor(b->isSensor);
+    TrackNewFixture(b, fx);
     RegisterShapeGlobalId(fx);
-    b->radius = r;
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
 }
@@ -2430,20 +3619,16 @@ int GM_CDECL gmf_pd_isRect(gmThread* a_thread) {
 int GM_CDECL gmf_pd_getWidth(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
-    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    if (!f) { a_thread->PushFloat(0.0f); return GM_OK; }
     b2AABB aabb;
-    f->GetShape()->ComputeAABB(&aabb, b2Transform(b2Vec2(0, 0), b2Rot(0)), 0);
+    if (!b || !GetBodyLocalBounds(b->body, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
     a_thread->PushFloat(aabb.upperBound.x - aabb.lowerBound.x);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getHeight(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
-    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    if (!f) { a_thread->PushFloat(0.0f); return GM_OK; }
     b2AABB aabb;
-    f->GetShape()->ComputeAABB(&aabb, b2Transform(b2Vec2(0, 0), b2Rot(0)), 0);
+    if (!b || !GetBodyLocalBounds(b->body, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
     a_thread->PushFloat(aabb.upperBound.y - aabb.lowerBound.y);
     return GM_OK;
 }
@@ -2455,7 +3640,7 @@ int GM_CDECL gmf_pd_setIsSensor(gmThread* a_thread) {
     if (b) {
         b->isSensor = (v != 0);
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext())
-            f->SetSensor(b->isSensor || !b->isCollidable);
+            f->SetSensor(b->isSensor);
     }
     return GM_OK;
 }
@@ -2556,7 +3741,8 @@ int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
         b2Fixture* next = f->GetNext();
-        if (!haveFilter) { filter = f->GetFilterData(); haveFilter = true; }
+        if (!haveFilter) { filter = DesiredFixtureFilter(b, f); haveFilter = true; }
+        b->savedCollidableFilters.erase(f);
         UnregisterShapeGlobalId(f);
         b->body->DestroyFixture(f);
         f = next;
@@ -2568,9 +3754,9 @@ int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
     def.density = 1.0f;
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
-    fx->SetSensor(b->isSensor || !b->isCollidable);
+    fx->SetSensor(b->isSensor);
+    TrackNewFixture(b, fx);
     RegisterShapeGlobalId(fx);
-    b->radius = 0.0f;
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
 }
@@ -2578,14 +3764,14 @@ int GM_CDECL gmf_pd_getCollisionCategory(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)f->GetFilterData().categoryBits : 0);
+    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).categoryBits : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)f->GetFilterData().maskBits : -1);
+    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).maskBits : -1);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setCollisionCategory(gmThread* a_thread) {
@@ -2595,9 +3781,9 @@ int GM_CDECL gmf_pd_setCollisionCategory(gmThread* a_thread) {
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (b) {
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-            b2Filter filter = f->GetFilterData();
+            b2Filter filter = DesiredFixtureFilter(b, f);
             filter.categoryBits = (uint16)category;
-            f->SetFilterData(filter);
+            ApplyDesiredFixtureFilter(b, f, filter);
         }
     }
     return GM_OK;
@@ -2609,9 +3795,9 @@ int GM_CDECL gmf_pd_setCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (b) {
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-            b2Filter filter = f->GetFilterData();
+            b2Filter filter = DesiredFixtureFilter(b, f);
             filter.maskBits = (uint16)mask;
-            f->SetFilterData(filter);
+            ApplyDesiredFixtureFilter(b, f, filter);
         }
     }
     return GM_OK;
@@ -2628,9 +3814,9 @@ int GM_CDECL gmf_pd_setCollisionGroup(gmThread* a_thread) {
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (b) {
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-            b2Filter filter = f->GetFilterData();
+            b2Filter filter = DesiredFixtureFilter(b, f);
             filter.groupIndex = (int16)group;
-            f->SetFilterData(filter);
+            ApplyDesiredFixtureFilter(b, f, filter);
         }
     }
     return GM_OK;
@@ -2639,7 +3825,7 @@ int GM_CDECL gmf_pd_getCollisionGroup(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)f->GetFilterData().groupIndex : 0);
+    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).groupIndex : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_isSleeping(gmThread* a_thread) {
@@ -2649,14 +3835,14 @@ int GM_CDECL gmf_pd_isSleeping(gmThread* a_thread) {
     return GM_OK;
 }
 // Retail PhysicsData.putToSleep walks all owned bodies, zeros linear/angular
-// velocity, forces/torque, and sleep time, then marks the body asleep. Box2D's
-// SetAwake(false) performs those same state transitions.
+// velocity, forces/torque, and sleep time, then marks the body asleep. The
+// fixed-rotation adapter also needs the shape-local angular velocity cleared.
 int GM_CDECL gmf_pd_putToSleep(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     gmMachine& m = *a_thread->GetMachine();
     for (const gmVariable& bodyVar : d->bodies) {
         PhysicsBodyData* b = GetBodyData(m, bodyVar);
-        if (b && b->body) b->body->SetAwake(false);
+        SetBodySleeping(b, true);
     }
     return GM_OK;
 }
@@ -2703,10 +3889,8 @@ int GM_CDECL gmf_pd_appendShapes(gmThread* a_thread) {
     if (!b || !b->body) return GM_OK;
     for (auto& def : sd->fixtureDefs) {
         b2Fixture* fx = b->body->CreateFixture(&def);
-        RegisterShapeGlobalId(fx);
-        if (def.shape->GetType() == b2Shape::e_circle) {
-            b->radius = ((b2CircleShape*)def.shape)->m_radius;
-        }
+        TrackNewFixture(b, fx);
+        RegisterShapeGlobalId(fx, sd->playerFriction);
     }
     SyncBodyTypeFromMass(b->body);
     int lastIndex = -1;
@@ -2856,9 +4040,7 @@ int GM_CDECL gmf_pd_setIsCollidable(gmThread* a_thread) {
     GM_INT_PARAM(v, 0, 1);
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (b) {
-        b->isCollidable = (v != 0);
-        for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext())
-            fx->SetSensor(b->isSensor || !b->isCollidable);
+        SetBodyCollidable(b, v != 0);
     }
     return GM_OK;
 }
@@ -2970,13 +4152,42 @@ int GM_CDECL gmf_pd_getShapeRadius(gmThread* a_thread) {
 
 } // namespace
 
+void InvalidatePhysicsMovementMembership() {
+    g_physicsMovementMembershipDirty = true;
+}
+
+void InvalidatePhysicsCollisionInfoView(uintptr_t a_physicsData,
+                                        uint32_t a_otherEntityId) {
+    InvalidatePhysicsCollisionInfoViewImpl(a_physicsData, a_otherEntityId);
+}
+
+gmType GetShapeCollisionInfoType() {
+    return g_shapeCollisionInfoType;
+}
+
+gmVariable MakeIntListRefContainer(gmMachine& a_machine, std::vector<int> a_values) {
+    auto* data = new IntIterData();
+    data->values = std::move(a_values);
+    gmUserObject* object = a_machine.AllocUserObject(data, g_intIterType);
+    return gmVariable(object);
+}
+
 void FlushDeferredPhysicsBodyDestructions() {
     // StepPhysicsWorld invokes this only after b2World::Step has released
     // its lock. Keep the guard for shutdown and direct callers.
     if (GetPhysicsWorld().IsLocked()) return;
+    for (const auto& [body, fixture] : g_deferredFixtureDestructions) {
+        if (std::find(g_deferredBodyDestructions.begin(),
+                      g_deferredBodyDestructions.end(), body) !=
+            g_deferredBodyDestructions.end()) continue;
+        body->DestroyFixture(fixture);
+        SyncBodyTypeFromMass(body);
+    }
+    g_deferredFixtureDestructions.clear();
     for (b2Body* body : g_deferredBodyDestructions) {
         RemovePhysicsJointsForBody(body);
         GetPhysicsWorld().DestroyBody(body);
+        ClearEntityPhysicsBodyTeardown(body);
     }
     g_deferredBodyDestructions.clear();
 }
@@ -3003,6 +4214,19 @@ bool PhysicsDataHasBodies(gmMachine& a_machine, const gmVariable& a_physicsDataV
     if (!obj) return false;
     PhysicsDataObj* d = (PhysicsDataObj*)((gmUserObject*)obj)->m_user;
     return d && !d->bodies.empty();
+}
+
+void SetPhysicsDataAwake(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
+                         bool a_awake) {
+    if (a_physicsDataVar.m_type != g_physicsDataType) return;
+    gmObject* obj = a_machine.GetObject(a_physicsDataVar.m_value.m_ref);
+    if (!obj) return;
+    PhysicsDataObj* data = (PhysicsDataObj*)((gmUserObject*)obj)->m_user;
+    if (!data) return;
+    for (const gmVariable& bodyVar : data->bodies) {
+        PhysicsBodyData* body = GetBodyData(a_machine, bodyVar);
+        SetBodySleeping(body, !a_awake);
+    }
 }
 
 bool GetPhysicsDataPos(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
@@ -3039,11 +4263,65 @@ bool GetPhysicsDataAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar
     return true;
 }
 
+// EntityRegistration.registerEntity asks the retail entity-bounds helper for
+// the union of every entity-owned shape (FUN_000302f8 walks the full linked
+// shape list and accumulates each FUN_00032fe8 result). PhysicsData stores
+// those bodies in `bodies`; preserve that full-list behavior here rather than
+// using GetPhysicsDataAABB's intentional main-body query.
+bool GetPhysicsDataAllBodiesAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
+                                 float& a_minX, float& a_minY,
+                                 float& a_maxX, float& a_maxY) {
+    a_minX = a_minY = std::numeric_limits<float>::infinity();
+    a_maxX = a_maxY = -std::numeric_limits<float>::infinity();
+    if (a_physicsDataVar.m_type != g_physicsDataType) return false;
+    gmObject* obj = a_machine.GetObject(a_physicsDataVar.m_value.m_ref);
+    if (!obj) return false;
+    auto* data = static_cast<PhysicsDataObj*>(
+        static_cast<gmUserObject*>(obj)->m_user);
+    if (!data) return false;
+
+    bool haveBounds = false;
+    for (const gmVariable& bodyVar : data->bodies) {
+        PhysicsBodyData* bodyData = GetBodyData(a_machine, bodyVar);
+        if (!bodyData || !bodyData->body) continue;
+        b2Body* body = bodyData->body;
+        bool haveBodyFixture = false;
+        for (b2Fixture* fixture = body->GetFixtureList(); fixture;
+             fixture = fixture->GetNext()) {
+            const b2Shape* shape = fixture->GetShape();
+            for (int child = 0; child < shape->GetChildCount(); ++child) {
+                b2AABB bounds;
+                shape->ComputeAABB(&bounds, body->GetTransform(), child);
+                a_minX = std::min(a_minX, bounds.lowerBound.x);
+                a_minY = std::min(a_minY, bounds.lowerBound.y);
+                a_maxX = std::max(a_maxX, bounds.upperBound.x);
+                a_maxY = std::max(a_maxY, bounds.upperBound.y);
+                haveBounds = haveBodyFixture = true;
+            }
+        }
+        if (!haveBodyFixture) {
+            const b2Vec2 position = body->GetPosition();
+            a_minX = std::min(a_minX, position.x);
+            a_minY = std::min(a_minY, position.y);
+            a_maxX = std::max(a_maxX, position.x);
+            a_maxY = std::max(a_maxY, position.y);
+            haveBounds = true;
+        }
+    }
+    return haveBounds;
+}
+
 // --- exposed for physics_global_bindings.cpp (the "Physics" global class,
 // e.g. isShapeSensor/getBodyFromShapeID/getEntityFromShapeID/raycastOne) --
 
 b2Fixture* FindFixtureByGlobalId(int a_id) {
     return GetFixtureByGlobalId(a_id);
+}
+float GetFixturePlayerFriction(b2Fixture* a_fixture) {
+    if (!a_fixture) return 0.3f;
+    const int id = (int)a_fixture->GetUserData().pointer;
+    if (id <= 0 || id >= (int)g_shapePlayerFrictions.size()) return 0.3f;
+    return g_shapePlayerFrictions[(size_t)id];
 }
 gmVariable MakePhysicsShapeByGlobalId(gmMachine& a_machine, int a_id) {
     if (!GetFixtureByGlobalId(a_id)) return gmVariable::s_null;
@@ -3096,6 +4374,43 @@ void SetPhysicsDataOwnerEntity(gmMachine& a_machine, const gmVariable& a_physics
     UnrootGmVariable(a_machine, d->ownerEntity);
     d->ownerEntity = a_ownerEntity;
     RootGmVariable(a_machine, d->ownerEntity);
+    InvalidatePhysicsMovementMembership();
+}
+
+void DestroyPhysicsDataForEntity(gmMachine& a_machine, const gmVariable& a_entity) {
+    if (a_entity.m_type != GM_TABLE) return;
+    gmTableObject* entity = (gmTableObject*)a_machine.GetObject(a_entity.m_value.m_ref);
+    if (!entity) return;
+
+    gmVariable dataVar = entity->Get(&a_machine, "PhysicsData");
+    if (dataVar.m_type == GM_NULL)
+        dataVar = entity->Get(&a_machine, "__physicsData");
+    if (dataVar.m_type != g_physicsDataType) return;
+    gmObject* object = a_machine.GetObject(dataVar.m_value.m_ref);
+    if (!object) return;
+    PhysicsDataObj* data = (PhysicsDataObj*)((gmUserObject*)object)->m_user;
+    if (!data) return;
+
+    // Mirror native entity teardown at the deletion boundary instead of
+    // waiting for GM collection: script code may retain the PhysicsData or
+    // PhysicsBody wrappers after the entity is gone. InvalidatePhysicsBody
+    // clears native IDs/owner links immediately and defers only the Box2D
+    // call itself when the world is locked.
+    for (gmVariable& bodyVar : data->bodies) {
+        PhysicsBodyData* body = GetBodyData(a_machine, bodyVar);
+        if (body && body->body) MarkEntityPhysicsBodyForTeardown(body->body);
+        InvalidatePhysicsBody(body);
+        UnrootGmVariable(a_machine, bodyVar);
+    }
+    data->bodies.clear();
+
+    // PhysicsData's owner is explicitly rooted for contact-to-entity lookup.
+    // Break that root now; otherwise an entity owning this PhysicsData and
+    // PhysicsData rooting the entity form a cycle that survives manager
+    // deletion and postpones its native resource cleanup indefinitely.
+    UnrootGmVariable(a_machine, data->ownerEntity);
+    data->ownerEntity = gmVariable::s_null;
+    InvalidatePhysicsMovementMembership();
 }
 
 gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity, int a_type) {
@@ -3104,6 +4419,8 @@ gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity, int a
     data->ownerEntity = a_ownerEntity;
     RootGmVariable(a_machine, data->ownerEntity);
     gmUserObject* obj = a_machine.AllocUserObject(data, g_physicsDataType);
+    g_allPhysicsData.push_back(data);
+    InvalidatePhysicsMovementMembership();
     return gmVariable(obj);
 }
 
@@ -3131,112 +4448,162 @@ float RetailDirectionAngle(float a_x, float a_y) {
 // remain in script millisecond units; the stock-Box2D conversion is confined
 // to the body/world adapter boundary.
 void StepPhysicsBodyMovement(float a_dt) {
-    for (PhysicsBodyData* b : g_allPhysicsBodies) {
-        if (!b || !b->body) continue;
+    gmMachine* machine = GetEngineContext().machine;
+    if (!machine) return;
 
-        const bool rotationResponse = !b->body->IsFixedRotation();
-        if (rotationResponse) {
-            const float angle = b->body->GetAngle();
-            b->dirX = std::cos(angle);
-            b->dirY = std::sin(angle);
+    // Retail FUN_0035d28 walks the PhysicsManager ordered entity map at
+    // +0x74/+0x78, then passes each entry's PhysicsData to FUN_0002e860.
+    // Entity.setIsEnabled removes/reinserts entries in that same map through
+    // FUN_000370a8/FUN_0003726c. Its key is the native entity object ID
+    // (entity+4), so sort the lifetime registry's eligible owners by the
+    // mirrored __objectID before preserving each PhysicsData body's order.
+    if (g_physicsMovementMembershipDirty) {
+        struct TickEntry { PhysicsDataObj* data; int objectId; size_t insertionOrder; };
+        std::vector<TickEntry> tickEntries;
+        tickEntries.reserve(g_allPhysicsData.size());
+        size_t insertionOrder = 0;
+        for (PhysicsDataObj* data : g_allPhysicsData) {
+            const size_t thisOrder = insertionOrder++;
+            if (!data) continue;
+            if (data->ownerEntity.m_type != GM_TABLE) continue;
+            gmTableObject* owner = (gmTableObject*)machine->GetObject(
+                data->ownerEntity.m_value.m_ref);
+            if (!owner) continue;
+            gmVariable enabled = owner->Get(machine, "__enabled");
+            if (enabled.m_type != GM_INT || enabled.m_value.m_int == 0) continue;
+            gmVariable noPhysicsUpdate = owner->Get(machine, "__noPhysicsUpdate");
+            if (noPhysicsUpdate.m_type == GM_INT && noPhysicsUpdate.m_value.m_int != 0)
+                continue;
+            gmVariable id = owner->Get(machine, "__objectID");
+            if (id.m_type != GM_INT) continue;
+            tickEntries.push_back({data, id.m_value.m_int, thisOrder});
         }
+        std::stable_sort(tickEntries.begin(), tickEntries.end(),
+            [](const TickEntry& a, const TickEntry& b) {
+                if (a.objectId != b.objectId) return a.objectId < b.objectId;
+                return a.insertionOrder < b.insertionOrder;
+            });
+        g_orderedPhysicsMovementData.clear();
+        g_orderedPhysicsMovementData.reserve(tickEntries.size());
+        for (const TickEntry& entry : tickEntries)
+            g_orderedPhysicsMovementData.push_back(entry.data);
+        g_physicsMovementMembershipDirty = false;
+    }
+    for (PhysicsDataObj* data : g_orderedPhysicsMovementData) {
+        for (const gmVariable& bodyVar : data->bodies) {
+            if (bodyVar.m_type != g_physicsBodyType) continue;
+            PhysicsBodyData* b = GetBodyData(*machine, bodyVar);
+            if (!b || !b->body) continue;
 
-        // Retain PPC fmadds' single-rounding behavior for the velocity
-        // integration: velocity*decay + facing*thrust*dt.
-        const b2Vec2 oldVelocity = ScriptVelocity(b->body->GetLinearVelocity());
-        const float thrustX = (b->dirX * b->thrustAccum) * a_dt;
-        const float thrustY = (b->dirY * b->thrustAccum) * a_dt;
-        float velocityX = std::fma(oldVelocity.x, b->velocityDecayRate, thrustX);
-        float velocityY = std::fma(oldVelocity.y, b->velocityDecayRate, thrustY);
+            if (b->geometryDirty) {
+                b->body->RefreshFixtureProxies();
+                b->geometryDirty = false;
+            }
 
-        const float speed = std::sqrt(std::fma(velocityX, velocityX,
-                                                velocityY * velocityY));
-        const float excess = std::max(speed - b->maxSpeed, 0.0f);
-        const float excessFactor = 1.0f - b->maxVelocityDecayRate;
-        float adjustedSpeed = std::fma(-excess, excessFactor, speed);
-        if (b->brakeFlag)
-            adjustedSpeed = std::fma(-b->brakeAcc, a_dt, adjustedSpeed);
-        adjustedSpeed = std::max(adjustedSpeed, 0.0f);
-        if (speed == 0.0f) {
-            velocityX = 0.0f;
-            velocityY = 0.0f;
-        } else {
-            velocityX = (velocityX / speed) * adjustedSpeed;
-            velocityY = (velocityY / speed) * adjustedSpeed;
-        }
-        b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(velocityX, velocityY)));
+            const bool rotationResponse = !b->body->IsFixedRotation();
+            if (rotationResponse) {
+                const float angle = b->body->GetAngle();
+                b->dirX = std::cos(angle);
+                b->dirY = std::sin(angle);
+            }
 
-        if (b->rotateToActive) {
-            const float currentAngle = RetailDirectionAngle(b->dirX, b->dirY);
-            const float targetAngle = RetailDirectionAngle(b->rotateToX,
-                                                            b->rotateToY);
-            const float rawDifference = std::fabs(targetAngle - currentAngle);
-            const float angleDifference = std::min(rawDifference,
-                                                    6.28318548203f - rawDifference);
-            const float sign = static_cast<float>(b->rotateToSign);
-            const float signedDt = sign * a_dt;
-            const float rotationInput = b->rotateAcc * signedDt;
-            const float turnThreshold = rotationInput;
-            if (angleDifference <= turnThreshold || angleDifference <= 0.005f) {
-                if (rotationResponse) {
-                    b->body->SetAngularVelocity(0.0f);
-                    b2Vec2 direction(b->rotateToX, b->rotateToY);
-                    if (direction.LengthSquared() > 0.0f) direction.Normalize();
-                    b->body->SetTransform(b->body->GetPosition(),
-                                          RetailDirectionAngle(direction.x,
-                                                               direction.y));
-                } else {
-                    b->fixedRotationVel = 0.0f;
-                    b->dirX = b->rotateToX;
-                    b->dirY = b->rotateToY;
-                }
-                b->rotateToActive = false;
+            // Retain PPC fmadds' single-rounding behavior for the velocity
+            // integration: velocity*decay + facing*thrust*dt.
+            const b2Vec2 oldVelocity = ScriptVelocity(b->body->GetLinearVelocity());
+            const float thrustX = (b->dirX * b->thrustAccum) * a_dt;
+            const float thrustY = (b->dirY * b->thrustAccum) * a_dt;
+            float velocityX = std::fma(oldVelocity.x, b->velocityDecayRate, thrustX);
+            float velocityY = std::fma(oldVelocity.y, b->velocityDecayRate, thrustY);
+
+            const float speed = std::sqrt(std::fma(velocityX, velocityX,
+                                                    velocityY * velocityY));
+            const float excess = std::max(speed - b->maxSpeed, 0.0f);
+            const float excessFactor = 1.0f - b->maxVelocityDecayRate;
+            float adjustedSpeed = std::fma(-excess, excessFactor, speed);
+            if (b->brakeFlag)
+                adjustedSpeed = std::fma(-b->brakeAcc, a_dt, adjustedSpeed);
+            adjustedSpeed = std::max(adjustedSpeed, 0.0f);
+            if (speed == 0.0f) {
+                velocityX = 0.0f;
+                velocityY = 0.0f;
             } else {
-                if (rotationResponse) {
-                    b->body->SetAngularVelocity(Box2DAngularVelocity(
-                        ScriptAngularVelocity(b->body->GetAngularVelocity()) + rotationInput));
+                velocityX = (velocityX / speed) * adjustedSpeed;
+                velocityY = (velocityY / speed) * adjustedSpeed;
+            }
+            b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(velocityX, velocityY)));
+
+            if (b->rotateToActive) {
+                const float currentAngle = RetailDirectionAngle(b->dirX, b->dirY);
+                const float targetAngle = RetailDirectionAngle(b->rotateToX,
+                                                                b->rotateToY);
+                const float rawDifference = std::fabs(targetAngle - currentAngle);
+                const float angleDifference = std::min(rawDifference,
+                                                        6.28318548203f - rawDifference);
+                const float sign = static_cast<float>(b->rotateToSign);
+                const float signedDt = sign * a_dt;
+                const float rotationInput = b->rotateAcc * signedDt;
+                const float turnThreshold = rotationInput;
+                if (angleDifference <= turnThreshold || angleDifference <= 0.005f) {
+                    if (rotationResponse) {
+                        b->body->SetAngularVelocity(0.0f);
+                        b2Vec2 direction(b->rotateToX, b->rotateToY);
+                        if (direction.LengthSquared() > 0.0f) direction.Normalize();
+                        b->body->SetTransform(b->body->GetPosition(),
+                                              RetailDirectionAngle(direction.x,
+                                                                   direction.y));
+                    } else {
+                        b->fixedRotationVel = 0.0f;
+                        b->dirX = b->rotateToX;
+                        b->dirY = b->rotateToY;
+                    }
+                    b->rotateToActive = false;
                 } else {
-                    b->fixedRotationVel += rotationInput;
+                    if (rotationResponse) {
+                        b->body->SetAngularVelocity(Box2DAngularVelocity(
+                            ScriptAngularVelocity(b->body->GetAngularVelocity()) + rotationInput));
+                    } else {
+                        b->fixedRotationVel += rotationInput;
+                    }
                 }
             }
-        }
 
-        if (rotationResponse) {
-            b->body->SetAngularVelocity(Box2DAngularVelocity(RetailStepAngularVelocity(
-                *b, ScriptAngularVelocity(b->body->GetAngularVelocity()), a_dt)));
-        } else {
-            b->fixedRotationVel = RetailStepAngularVelocity(
-                *b, b->fixedRotationVel, a_dt);
-            const float angle = RetailDirectionAngle(b->dirX, b->dirY) +
-                                b->fixedRotationVel * a_dt;
-            b->dirX = std::cos(angle);
-            b->dirY = std::sin(angle);
-        }
+            if (rotationResponse) {
+                b->body->SetAngularVelocity(Box2DAngularVelocity(RetailStepAngularVelocity(
+                    *b, ScriptAngularVelocity(b->body->GetAngularVelocity()), a_dt)));
+            } else {
+                b->fixedRotationVel = RetailStepAngularVelocity(
+                    *b, b->fixedRotationVel, a_dt);
+                const float angle = RetailDirectionAngle(b->dirX, b->dirY) +
+                                    b->fixedRotationVel * a_dt;
+                b->dirX = std::cos(angle);
+                b->dirY = std::sin(angle);
+            }
 
-        // GE3_MOVE_DEBUG=1: dump the real per-tick movement state for any
-        // body that is actually being driven, so on-screen speed can be
-        // checked against real numbers instead of inferred. Zero cost when
-        // unset, same pattern as GE3_UV_DEBUG in shape_bindings.cpp.
-        static const char* s_moveDebug = std::getenv("GE3_MOVE_DEBUG");
-        if (s_moveDebug && (b->thrustAccum != 0.0f ||
-                            ScriptVelocity(b->body->GetLinearVelocity()).LengthSquared() > 0.0f)) {
-            b2Vec2 p = b->body->GetPosition();
-            const b2Vec2 vel = ScriptVelocity(b->body->GetLinearVelocity());
-            std::fprintf(stderr,
-                "[move] id=%d pos=(%.1f,%.1f) vel=(%.1f,%.1f) |v|=%.1f "
-                "dir=(%.2f,%.2f) accum=%.4g maxSpeed=%.4g decay=%.4g\n",
-                b->objectId, p.x, p.y, vel.x, vel.y, vel.Length(),
-                b->dirX, b->dirY, b->thrustAccum, b->maxSpeed,
-                b->velocityDecayRate);
-        }
+            // GE3_MOVE_DEBUG=1: dump the real per-tick movement state for any
+            // body that is actually being driven, so on-screen speed can be
+            // checked against real numbers instead of inferred. Zero cost when
+            // unset, same pattern as GE3_UV_DEBUG in shape_bindings.cpp.
+            static const char* s_moveDebug = std::getenv("GE3_MOVE_DEBUG");
+            if (s_moveDebug && (b->thrustAccum != 0.0f ||
+                                ScriptVelocity(b->body->GetLinearVelocity()).LengthSquared() > 0.0f)) {
+                b2Vec2 p = b->body->GetPosition();
+                const b2Vec2 vel = ScriptVelocity(b->body->GetLinearVelocity());
+                std::fprintf(stderr,
+                    "[move] id=%d pos=(%.1f,%.1f) vel=(%.1f,%.1f) |v|=%.1f "
+                    "dir=(%.2f,%.2f) accum=%.4g maxSpeed=%.4g decay=%.4g\n",
+                    b->objectId, p.x, p.y, vel.x, vel.y, vel.Length(),
+                    b->dirX, b->dirY, b->thrustAccum, b->maxSpeed,
+                    b->velocityDecayRate);
+            }
 
-        b->thrustAccum = 0.0f;
-        b->rotAccum = 0.0f;
-        b->thrustFlag = false;
-        b->reverseFlag = false;
-        b->brakeFlag = false;
-        b->rotLeftFlag = false;
-        b->rotRightFlag = false;
+            b->thrustAccum = 0.0f;
+            b->rotAccum = 0.0f;
+            b->thrustFlag = false;
+            b->reverseFlag = false;
+            b->brakeFlag = false;
+            b->rotLeftFlag = false;
+            b->rotRightFlag = false;
+        }
     }
 }
 
@@ -3254,11 +4621,6 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
                                    sizeof(s_physicsBodyLib) / sizeof(s_physicsBodyLib[0]));
     a_machine.RegisterUserCallbacks(g_physicsBodyType, nullptr, PhysicsBodyGCDestruct, nullptr);
 
-    g_entityIterType = a_machine.CreateUserType("EntityIterator");
-    a_machine.RegisterTypeLibrary(g_entityIterType, s_entityIterLib,
-                                   sizeof(s_entityIterLib) / sizeof(s_entityIterLib[0]));
-    a_machine.RegisterUserCallbacks(g_entityIterType, nullptr, EntityIterGCDestruct, nullptr);
-
     g_collisionInfoType = a_machine.CreateUserType("CollisionInfo");
     a_machine.RegisterTypeLibrary(g_collisionInfoType, s_collisionInfoLib,
                                    sizeof(s_collisionInfoLib) / sizeof(s_collisionInfoLib[0]));
@@ -3269,9 +4631,14 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
     a_machine.RegisterTypeLibrary(g_shapeCollisionInfoType, s_shapeCollisionInfoLib,
                                    sizeof(s_shapeCollisionInfoLib) / sizeof(s_shapeCollisionInfoLib[0]));
     a_machine.RegisterUserCallbacks(g_shapeCollisionInfoType, nullptr,
-        [](gmMachine*, gmUserObject* a_object) { delete (ShapeCollisionInfoData*)a_object->m_user; }, nullptr);
+        [](gmMachine*, gmUserObject* a_object) {
+            auto* sci = static_cast<ShapeCollisionInfoData*>(a_object->m_user);
+            if (sci && sci->machine)
+                UnrootGmVariable(*sci->machine, sci->ownerCollisionInfo);
+            delete sci;
+        }, nullptr);
 
-    g_intIterType = a_machine.CreateUserType("IntListRefContainer");
+    g_intIterType = a_machine.CreateUserType("INTLISTREFCONTAINER");
     a_machine.RegisterLibraryFunction("INTLISTREFCONTAINER", gmf_INTLISTREFCONTAINER);
     a_machine.RegisterTypeLibrary(g_intIterType, s_intIterLib,
                                    sizeof(s_intIterLib) / sizeof(s_intIterLib[0]));
@@ -3350,6 +4717,9 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         {"getAABB", gmf_pd_getAABB, nullptr},
         {"getMinPos", gmf_pd_getMinPos, nullptr},
         {"getMaxPos", gmf_pd_getMaxPos, nullptr},
+        {"raycast", gmf_pd_raycast, nullptr},
+        {"raycastShapesOne", gmf_pd_raycastShapesOne, nullptr},
+        {"getShapeByID", gmf_pd_getShapeByID, nullptr},
         {"getShapeRadius", gmf_pd_getShapeRadius, nullptr},
         {"isPointWithin", gmf_pd_isPointWithin, nullptr},
     };
@@ -3359,7 +4729,33 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
     a_machine.RegisterUserCallbacks(g_physicsDataType, nullptr,
         [](gmMachine* a_m, gmUserObject* a_object) {
             PhysicsDataObj* d = (PhysicsDataObj*)a_object->m_user;
+            g_allPhysicsData.erase(
+                std::remove(g_allPhysicsData.begin(), g_allPhysicsData.end(), d),
+                g_allPhysicsData.end());
+            InvalidatePhysicsMovementMembership();
             UnrootGmVariable(*a_m, d->ownerEntity);
+            // CollisionInfo views are explicitly rooted because the native
+            // PhysicsData map owns their identity in retail. The owner is
+            // going away now, so make any script-held view inert before
+            // dropping our roots; otherwise its next accessor could resolve
+            // a recycled PhysicsData address.
+            for (const auto& cached : d->collisionInfoViews) {
+                const gmVariable& view = cached.second;
+                if (view.m_type == g_collisionInfoType) {
+                    gmObject* object = a_m->GetObject(view.m_value.m_ref);
+                    auto* user = object ? static_cast<gmUserObject*>(object) : nullptr;
+                    auto* info = user
+                        ? static_cast<CollisionInfoData*>(user->m_user) : nullptr;
+                    if (info) {
+                        info->contacts.clear();
+                        info->pairExists = false;
+                        info->invalidated = true;
+                        info->physicsDataKey = 0;
+                    }
+                }
+                UnrootGmVariable(*a_m, view);
+            }
+            d->collisionInfoViews.clear();
             for (gmVariable& bv : d->bodies) {
                 // Guard against a body outliving its owning PhysicsData
                 // (e.g. an entity dying without its bodies being destroyed

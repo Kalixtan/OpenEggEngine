@@ -2,6 +2,7 @@
 #include "savedata_bindings.h"
 #include "../core/save_data.h"
 #include "gmTableObject.h"
+#include "gmStringObject.h"
 #include <cstdio>
 
 namespace {
@@ -138,6 +139,22 @@ int GM_CDECL gmf_SAVEDATA_abortLoad(gmThread* a_thread) {
 
 gmVariable g_getSizeFn;
 gmVariable g_getFilenameFn;
+gmVariable g_getIfDoneFn;
+gmVariable g_getIfErrorFn;
+
+bool GetTicketFilename(gmMachine& a_machine, const gmVariable& a_ticket, std::string& a_out) {
+    gmVariable filename = a_ticket;
+    if (a_ticket.m_type == GM_TABLE) {
+        gmTableObject* table = (gmTableObject*)a_machine.GetObject(a_ticket.m_value.m_ref);
+        if (!table) return false;
+        filename = table->Get(&a_machine, "filename");
+    }
+    if (filename.m_type != GM_STRING) return false;
+    gmStringObject* string = (gmStringObject*)a_machine.GetObject(filename.m_value.m_ref);
+    if (!string) return false;
+    a_out = string->GetString();
+    return true;
+}
 
 int GM_CDECL gmf_ticket_getSize(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
@@ -152,17 +169,36 @@ int GM_CDECL gmf_ticket_getFilename(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_ticket_getIfDone(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    a_thread->PushInt(self && self->Get(a_thread->GetMachine(), "done").m_value.m_int != 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_ticket_getIfError(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    a_thread->PushInt(self && self->Get(a_thread->GetMachine(), "error").m_value.m_int != 0);
+    return GM_OK;
+}
+
 // A ticket exposing .getSize()/.getFilename(), for reqGetFileSize/
 // reqOSFreeSpace/reqCreateSave/reqSaveScreenShot-shaped "just give the
 // script something with the right methods" returns. size<0 means "file
 // doesn't exist" -> real call sites (Main.gm) test getSize() as a bool, so
-// stored as 0 (falsy) either way.
-gmVariable MakeSizeTicket(gmMachine& a_machine, const std::string& a_filename, long long a_size) {
+// stat-style tickets report 0 (falsy) either way. reqLoadFile opts into exact
+// requested-size preservation because retail getSize() returns request+0x4c.
+gmVariable MakeSizeTicket(gmMachine& a_machine, const std::string& a_filename, long long a_size,
+                          bool a_done = true, bool a_error = false,
+                          bool a_preserveSize = false) {
     gmTableObject* t = a_machine.AllocTableObject();
     t->Set(&a_machine, "filename", gmVariable(a_machine.AllocStringObject(a_filename.c_str())));
-    t->Set(&a_machine, "size", gmVariable((gmint)(a_size > 0 ? a_size : 0)));
+    const long long reportedSize = a_preserveSize ? a_size : (a_size > 0 ? a_size : 0);
+    t->Set(&a_machine, "size", gmVariable((gmint)reportedSize));
+    t->Set(&a_machine, "done", gmVariable((gmint)(a_done ? 1 : 0)));
+    t->Set(&a_machine, "error", gmVariable((gmint)(a_error ? 1 : 0)));
     t->Set(&a_machine, "getSize", g_getSizeFn);
     t->Set(&a_machine, "getFilename", g_getFilenameFn);
+    t->Set(&a_machine, "getIfDone", g_getIfDoneFn);
+    t->Set(&a_machine, "getIfError", g_getIfErrorFn);
     return gmVariable(t);
 }
 
@@ -176,16 +212,28 @@ int GM_CDECL gmf_SAVEDATA_reqGetFileSize(gmThread* a_thread) {
     return GM_OK;
 }
 
-// SaveData.c @ 0xad440). `size` (from reqGetFileSize's ticket, or a stored
-// TOC entry field) isn't needed by a synchronous local read; the ticket
-// returned is the relative path itself, matching GameMonkeyScript.
-// loadTableFromJsonSaveRequest's own established string-ticket contract
-// (see that function's comment) so real call sites that hand this straight
-// to it keep working unchanged.
+// SaveData.c @ 0xad440), returns native SAVEREQUEST type 52. Retail stores
+// the second argument's integer size directly at request+0x4c; when passed a
+// SAVEREQUEST it reads that request's +0x4c field instead. `getSize()` at
+// 0xae1a0 returns this stored value. Preserve it in the desktop table ticket;
+// check file existence separately for the local error flag.
 int GM_CDECL gmf_SAVEDATA_reqLoadFile(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_STRING_PARAM(path, 0, "");
-    a_thread->PushNewString(path);
+    gmMachine* machine = a_thread->GetMachine();
+    const gmVariable sizeArg = a_thread->Param(1);
+    long long requestedSize = 0;
+    if (sizeArg.m_type == GM_INT) {
+        requestedSize = sizeArg.m_value.m_int;
+    } else if (sizeArg.m_type == GM_TABLE) {
+        gmTableObject* sourceTicket = (gmTableObject*)machine->GetObject(sizeArg.m_value.m_ref);
+        if (sourceTicket) {
+            const gmVariable storedSize = sourceTicket->Get(machine, "size");
+            if (storedSize.m_type == GM_INT) requestedSize = storedSize.m_value.m_int;
+        }
+    }
+    const long long fileSize = SaveData::FileSize(path);
+    a_thread->Push(MakeSizeTicket(*machine, path, requestedSize, true, fileSize < 0, true));
     return GM_OK;
 }
 
@@ -202,16 +250,15 @@ int GM_CDECL gmf_SAVEDATA_reqDelete(gmThread* a_thread) {
 // SAVEDATA_reqSaveFromLoadRequest(dstPath, loadTicket) -- confirmed real
 // (EditScreenInfoPopupBase.gm) copy a level's data from one TOC slot to
 // another (level/image/loop file each copied separately). `loadTicket` is
-// whatever SAVEDATA_reqLoadFile returned for the source -- a relative path
-// string, per this engine's ticket convention above -- so this reads that
-// source file and writes it to dstPath, returning dstPath as the new
-// ticket (consistent with saveTableToJsonSaveRequest's own convention).
+// whatever SAVEDATA_reqLoadFile returned for the source. Resolve either the
+// table-backed desktop request or a legacy string ticket, copy the bytes,
+// and return a size ticket for dstPath.
 int GM_CDECL gmf_SAVEDATA_reqSaveFromLoadRequest(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_STRING_PARAM(dstPath, 0, "");
     gmVariable srcVar = a_thread->Param(1);
-    if (srcVar.m_type == GM_STRING) {
-        const char* srcPath = ((gmStringObject*)a_thread->GetMachine()->GetObject(srcVar.m_value.m_ref))->GetString();
+    std::string srcPath;
+    if (GetTicketFilename(*a_thread->GetMachine(), srcVar, srcPath)) {
         std::string content;
         if (SaveData::ReadFile(srcPath, content)) {
             SaveData::WriteFile(dstPath, content);
@@ -340,6 +387,8 @@ void RegisterSaveDataBindings(gmMachine& a_machine) {
     // Shared, stateless ticket-method function objects (see MakeSizeTicket).
     g_getSizeFn = gmVariable(a_machine.AllocFunctionObject(gmf_ticket_getSize));
     g_getFilenameFn = gmVariable(a_machine.AllocFunctionObject(gmf_ticket_getFilename));
+    g_getIfDoneFn = gmVariable(a_machine.AllocFunctionObject(gmf_ticket_getIfDone));
+    g_getIfErrorFn = gmVariable(a_machine.AllocFunctionObject(gmf_ticket_getIfError));
 
     a_machine.RegisterLibraryFunction("SAVEDATA_reqGetFileSize", gmf_SAVEDATA_reqGetFileSize);
     a_machine.RegisterLibraryFunction("SAVEDATA_reqLoadFile", gmf_SAVEDATA_reqLoadFile);

@@ -249,6 +249,26 @@ bool IsKnownRetailNullCall(gmThread* a_thread, const std::string& a_name) {
     // receiver so a real method gap on another object remains visible.
     if (a_name == "stopSound" || a_name == "playSoundWithMixer")
         return receiverIsLibrary("Audio");
+    // PJInvaderBullet.gm calls this on its PhysicsBody during explosion,
+    // but the retail EBOOT name pool and PhysicsBody registration expose
+    // setRotateVel and setAngularVel, not setRotateSpeed. Preserve the VM's
+    // retail null-call behavior for this one absent method.
+    // MovingAsteroid.gm also calls vector2D.dot, but retail has no "dot"
+    // method string or registration on that native vector type. Keep its
+    // null comparison path rather than inventing a vector operation.
+    // Several shipped entities spell "Categories" as "Catagories" on a
+    // PhysicsBody. Retail registers only the correctly spelled setter, so
+    // these calls also take the GameMonkey null-call path in the original.
+    if (a_name == "setRotateSpeed" || a_name == "dot" ||
+        a_name == "setCatagoriesToCollideWith") {
+        const gmVariable& receiver = a_thread->GetLastNullReceiver();
+        if (receiver.m_type < GM_USER) return false;
+        const char* typeName = a_thread->GetMachine()->GetTypeName(receiver.m_type);
+        if (!typeName) return false;
+        return (a_name == "setRotateSpeed" && std::strcmp(typeName, "PhysicsBody") == 0) ||
+               (a_name == "setCatagoriesToCollideWith" && std::strcmp(typeName, "PhysicsBody") == 0) ||
+               (a_name == "dot" && std::strcmp(typeName, "vector2D") == 0);
+    }
     return false;
 }
 

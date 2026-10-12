@@ -4,56 +4,65 @@
 #include "../bindings/vector2d_bindings.h"
 #include "../core/engine_context.h"
 #include "../render/renderer.h"
-#include <SDL2/SDL.h>
 #include <string>
 #include <cctype>
-#include <vector>
 
-// SDL-backed desktop input. Keyboard scancodes and controller events use
-// separate integer ranges so a physical face button cannot accidentally
-// trigger a KEYBOARD_* action with the same desktop fallback key.
+// Frontend-neutral input bindings. Keyboard usage codes and logical pad
+// buttons are translated by the active platform frontend.
 namespace {
 
 constexpr int kNumberedButtonBase = 1024;
 constexpr int kAliasBase = 2048;
 struct ControllerAlias {
     const char* name;
-    SDL_GameControllerButton button;
-    SDL_Scancode fallback;
+    int button;
+    int fallback;
 };
 const ControllerAlias kAliases[] = {
-    {"JOYSTICK0_CROSS", SDL_CONTROLLER_BUTTON_A, SDL_SCANCODE_Z},
-    {"JOYSTICK0_CIRCLE", SDL_CONTROLLER_BUTTON_B, SDL_SCANCODE_V},
-    {"JOYSTICK0_SQUARE", SDL_CONTROLLER_BUTTON_X, SDL_SCANCODE_X},
-    {"JOYSTICK0_TRIANGLE", SDL_CONTROLLER_BUTTON_Y, SDL_SCANCODE_C},
-    {"JOYSTICK0_ACCEPT", SDL_CONTROLLER_BUTTON_A, SDL_SCANCODE_RETURN},
-    {"JOYSTICK0_CANCEL", SDL_CONTROLLER_BUTTON_B, SDL_SCANCODE_ESCAPE},
-    {"JOYSTICK0_START", SDL_CONTROLLER_BUTTON_START, SDL_SCANCODE_P},
-    {"JOYSTICK0_SELECT", SDL_CONTROLLER_BUTTON_BACK, SDL_SCANCODE_TAB},
-    {"JOYSTICK0_UP", SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_SCANCODE_UP},
-    {"JOYSTICK0_DOWN", SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_SCANCODE_DOWN},
-    {"JOYSTICK0_LEFT", SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_SCANCODE_LEFT},
-    {"JOYSTICK0_RIGHT", SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_SCANCODE_RIGHT},
-    {"JOYSTICK0_L1", SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_SCANCODE_Q},
-    {"JOYSTICK0_R1", SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, SDL_SCANCODE_E},
-    {"JOYSTICK0_L3", SDL_CONTROLLER_BUTTON_LEFTSTICK, SDL_SCANCODE_N},
-    {"JOYSTICK0_R3", SDL_CONTROLLER_BUTTON_RIGHTSTICK, SDL_SCANCODE_M},
-    {"JOYSTICK0_LS_UP", SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_SCANCODE_W},
-    {"JOYSTICK0_LS_DOWN", SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_SCANCODE_S},
-    {"JOYSTICK0_LS_LEFT", SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_SCANCODE_A},
-    {"JOYSTICK0_LS_RIGHT", SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_SCANCODE_D},
+    {"JOYSTICK0_CROSS", PlatformPadButton::A, KeyCode::Z},
+    {"JOYSTICK0_CIRCLE", PlatformPadButton::B, KeyCode::V},
+    {"JOYSTICK0_SQUARE", PlatformPadButton::X, KeyCode::X},
+    {"JOYSTICK0_TRIANGLE", PlatformPadButton::Y, KeyCode::C},
+    {"JOYSTICK0_ACCEPT", PlatformPadButton::A, KeyCode::Return},
+    {"JOYSTICK0_CANCEL", PlatformPadButton::B, KeyCode::Escape},
+    {"JOYSTICK0_START", PlatformPadButton::Start, KeyCode::P},
+    {"JOYSTICK0_SELECT", PlatformPadButton::Back, KeyCode::Tab},
+    {"JOYSTICK0_UP", PlatformPadButton::DpadUp, KeyCode::Up},
+    {"JOYSTICK0_DOWN", PlatformPadButton::DpadDown, KeyCode::Down},
+    {"JOYSTICK0_LEFT", PlatformPadButton::DpadLeft, KeyCode::Left},
+    {"JOYSTICK0_RIGHT", PlatformPadButton::DpadRight, KeyCode::Right},
+    {"JOYSTICK0_L1", PlatformPadButton::LeftShoulder, KeyCode::Q},
+    {"JOYSTICK0_R1", PlatformPadButton::RightShoulder, KeyCode::E},
+    {"JOYSTICK0_L3", PlatformPadButton::LeftStick, KeyCode::N},
+    {"JOYSTICK0_R3", PlatformPadButton::RightStick, KeyCode::M},
+    {"JOYSTICK0_LS_UP", PlatformPadButton::DpadUp, KeyCode::W},
+    {"JOYSTICK0_LS_DOWN", PlatformPadButton::DpadDown, KeyCode::S},
+    {"JOYSTICK0_LS_LEFT", PlatformPadButton::DpadLeft, KeyCode::A},
+    {"JOYSTICK0_LS_RIGHT", PlatformPadButton::DpadRight, KeyCode::D},
 };
-constexpr SDL_GameControllerButton kNumberedButtons[] = {
-    SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B,
-    SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_Y,
-    SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
-    SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_START,
-    SDL_CONTROLLER_BUTTON_LEFTSTICK, SDL_CONTROLLER_BUTTON_RIGHTSTICK,
-    SDL_CONTROLLER_BUTTON_DPAD_UP, SDL_CONTROLLER_BUTTON_DPAD_DOWN,
-    SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT
+constexpr int kNumberedButtons[] = {
+    PlatformPadButton::A, PlatformPadButton::B,
+    PlatformPadButton::X, PlatformPadButton::Y,
+    PlatformPadButton::LeftShoulder, PlatformPadButton::RightShoulder,
+    PlatformPadButton::Back, PlatformPadButton::Start,
+    PlatformPadButton::LeftStick, PlatformPadButton::RightStick,
+    PlatformPadButton::DpadUp, PlatformPadButton::DpadDown,
+    PlatformPadButton::DpadLeft, PlatformPadButton::DpadRight
 };
 constexpr int kNumberedButtonCount = sizeof(kNumberedButtons) / sizeof(kNumberedButtons[0]);
 constexpr int kAliasCount = sizeof(kAliases) / sizeof(kAliases[0]);
+
+int AliasCode(int a_index) {
+    const std::string name = kAliases[a_index].name;
+    if (name == "JOYSTICK0_ACCEPT") {
+        for (int i = 0; i < kAliasCount; ++i)
+            if (std::string(kAliases[i].name) == "JOYSTICK0_CROSS") return kAliasBase + i;
+    } else if (name == "JOYSTICK0_CANCEL") {
+        for (int i = 0; i < kAliasCount; ++i)
+            if (std::string(kAliases[i].name) == "JOYSTICK0_CIRCLE") return kAliasBase + i;
+    }
+    return kAliasBase + a_index;
+}
 
 int GM_CDECL gmf_falseBool(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_zeroFloat(gmThread* a_thread) { a_thread->PushFloat(0.0f); return GM_OK; }
@@ -63,7 +72,10 @@ int GM_CDECL gmf_noop(gmThread* a_thread) { return GM_OK; }
 
 // Virtual key state -- see SetVirtualKeyDown's header comment. File-scope
 // (not in the anonymous namespace) so the setters below can reach it.
-bool g_virtualKeys[SDL_NUM_SCANCODES] = {false};
+bool g_virtualKeys[KeyCode::Count] = {false};
+bool g_virtualMouseValid = false;
+int g_virtualMouseX = 0, g_virtualMouseY = 0;
+bool g_virtualMouseButtons[3] = {false, false, false};
 bool g_inputEnabled = true;
 bool g_disabledUntilAllKeysUp = false;
 bool g_doingRealtimeUpdate = false;
@@ -71,45 +83,9 @@ float g_typeRate = 0.0f;
 float g_typeDelay = 0.0f;
 float g_joystickDeadzone = 0.0f;
 float g_joystickAsButtonThreshold = 0.0f;
-std::vector<SDL_GameController*> g_controllers;
-int g_controllerDeviceCount = -1;
-bool g_controllerSubsystemInitialized = false;
+PlatformFrontend* g_frontend = nullptr;
 
-bool RefreshControllers() {
-    if (!g_controllerSubsystemInitialized) {
-        if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0) return false;
-        SDL_GameControllerEventState(SDL_ENABLE);
-        g_controllerSubsystemInitialized = true;
-    }
-
-    const int deviceCount = SDL_NumJoysticks();
-    if (deviceCount < 0) return false;
-    if (deviceCount != g_controllerDeviceCount) {
-        for (SDL_GameController* controller : g_controllers) {
-            if (controller) SDL_GameControllerClose(controller);
-        }
-        g_controllers.assign(deviceCount, nullptr);
-        g_controllerDeviceCount = deviceCount;
-    }
-
-    for (int i = 0; i < deviceCount; ++i) {
-        SDL_GameController*& controller = g_controllers[i];
-        if (controller && !SDL_GameControllerGetAttached(controller)) {
-            SDL_GameControllerClose(controller);
-            controller = nullptr;
-        }
-        if (!controller && SDL_IsGameController(i)) {
-            controller = SDL_GameControllerOpen(i);
-        }
-    }
-    return true;
-}
-
-SDL_GameController* ControllerAt(int a_joystickIndex) {
-    if (a_joystickIndex < 0 || !RefreshControllers() ||
-        a_joystickIndex >= (int)g_controllers.size()) return nullptr;
-    return g_controllers[a_joystickIndex];
-}
+PlatformFrontend& Frontend() { return *g_frontend; }
 
 // Confirmed from Input.c: the getter/setter read and write the INPUT
 // object's byte at +0xf3e (FUN_00188278/FUN_0018c21c). Keep that state on
@@ -196,19 +172,19 @@ int GM_CDECL gmf_isDoingRealtimeUpdate(gmThread* a_thread) {
 }
 
 bool KeyDown(int code) {
-    if (code >= kNumberedButtonBase && code < kNumberedButtonBase + kNumberedButtonCount) {
-        SDL_GameController* controller = ControllerAt(0);
-        return controller && SDL_GameControllerGetButton(controller, kNumberedButtons[code - kNumberedButtonBase]);
-    }
+    if (!g_frontend) return false;
+    if (code >= 0 && code < 3)
+        return g_virtualMouseButtons[code] || Frontend().IsMouseButtonDown(code);
+    if (code >= kNumberedButtonBase && code < kNumberedButtonBase + kNumberedButtonCount)
+        return Frontend().IsControllerButtonDown(0, kNumberedButtons[code - kNumberedButtonBase]);
     if (code >= kAliasBase && code < kAliasBase + kAliasCount) {
         const ControllerAlias& alias = kAliases[code - kAliasBase];
-        SDL_GameController* controller = ControllerAt(0);
-        if (controller && SDL_GameControllerGetButton(controller, alias.button)) return true;
+        if (Frontend().IsControllerButtonDown(0, alias.button)) return true;
         code = alias.fallback;
     }
-    if (code <= SDL_SCANCODE_UNKNOWN || code >= SDL_NUM_SCANCODES) return false;
+    if (code <= KeyCode::Unknown || code >= KeyCode::Count) return false;
     if (g_virtualKeys[code]) return true;
-    return SDL_GetKeyboardState(nullptr)[code] != 0;
+    return Frontend().IsKeyDown(code);
 }
 
 // Confirmed real: 1 int param (a KEYBOARD_*/JOYSTICK0_* code), returns
@@ -220,51 +196,42 @@ int GM_CDECL gmf_isKeyPressed(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_isShiftPressed(gmThread* a_thread) {
-    a_thread->PushInt((KeyDown(SDL_SCANCODE_LSHIFT) || KeyDown(SDL_SCANCODE_RSHIFT)) ? 1 : 0);
+    a_thread->PushInt((KeyDown(KeyCode::LeftShift) || KeyDown(KeyCode::RightShift)) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_isControlPressed(gmThread* a_thread) {
-    a_thread->PushInt((KeyDown(SDL_SCANCODE_LCTRL) || KeyDown(SDL_SCANCODE_RCTRL)) ? 1 : 0);
+    a_thread->PushInt((KeyDown(KeyCode::LeftControl) || KeyDown(KeyCode::RightControl)) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_isAltPressed(gmThread* a_thread) {
-    a_thread->PushInt((KeyDown(SDL_SCANCODE_LALT) || KeyDown(SDL_SCANCODE_RALT)) ? 1 : 0);
+    a_thread->PushInt((KeyDown(KeyCode::LeftAlt) || KeyDown(KeyCode::RightAlt)) ? 1 : 0);
     return GM_OK;
 }
 
 // Confirmed real: 2 int params (joystick index, axis index), returns
-// as the left stick and 2/3 as the right stick. SDL's standardized
-// GameController layout supplies these axes for compatible attached pads;
+// as the left stick and 2/3 as the right stick. The platform frontend maps
+// physical controller layouts into these logical axes;
 // keyboard emulation remains available when no compatible pad is attached.
 int GM_CDECL gmf_getJoystickAxis(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(joyIndex, 0, 0);
     GM_INT_PARAM(axis, 1, 0);
     float value = 0.0f;
-    if (SDL_GameController* controller = ControllerAt(joyIndex)) {
-        if (axis >= 0 && axis < 4) {
-            static const SDL_GameControllerAxis kAxes[4] = {
-                SDL_CONTROLLER_AXIS_LEFTX, SDL_CONTROLLER_AXIS_LEFTY,
-                SDL_CONTROLLER_AXIS_RIGHTX, SDL_CONTROLLER_AXIS_RIGHTY
-            };
-            value = (float)SDL_GameControllerGetAxis(controller, kAxes[axis]) / 32767.0f;
-            // The scripts treat positive Y as up; SDL reports up as negative.
-            if (axis == 1 || axis == 3) value = -value;
-            if (value < -1.0f) value = -1.0f;
-        }
+    if (g_frontend && Frontend().IsControllerPresent(joyIndex)) {
+        value = Frontend().ControllerAxis(joyIndex, axis);
     } else if (joyIndex == 0) {
         if (axis == 0) {
-            if (KeyDown(SDL_SCANCODE_D) || KeyDown(SDL_SCANCODE_RIGHT)) value += 1.0f;
-            if (KeyDown(SDL_SCANCODE_A) || KeyDown(SDL_SCANCODE_LEFT)) value -= 1.0f;
+            if (KeyDown(KeyCode::D) || KeyDown(KeyCode::Right)) value += 1.0f;
+            if (KeyDown(KeyCode::A) || KeyDown(KeyCode::Left)) value -= 1.0f;
         } else if (axis == 1) {
-            if (KeyDown(SDL_SCANCODE_W) || KeyDown(SDL_SCANCODE_UP)) value += 1.0f;
-            if (KeyDown(SDL_SCANCODE_S) || KeyDown(SDL_SCANCODE_DOWN)) value -= 1.0f;
+            if (KeyDown(KeyCode::W) || KeyDown(KeyCode::Up)) value += 1.0f;
+            if (KeyDown(KeyCode::S) || KeyDown(KeyCode::Down)) value -= 1.0f;
         } else if (axis == 2) {
-            if (KeyDown(SDL_SCANCODE_L)) value += 1.0f;
-            if (KeyDown(SDL_SCANCODE_J)) value -= 1.0f;
+            if (KeyDown(KeyCode::L)) value += 1.0f;
+            if (KeyDown(KeyCode::J)) value -= 1.0f;
         } else if (axis == 3) {
-            if (KeyDown(SDL_SCANCODE_I)) value += 1.0f;
-            if (KeyDown(SDL_SCANCODE_K)) value -= 1.0f;
+            if (KeyDown(KeyCode::I)) value += 1.0f;
+            if (KeyDown(KeyCode::K)) value -= 1.0f;
         }
     }
     a_thread->PushFloat(value);
@@ -275,7 +242,7 @@ int GM_CDECL gmf_isControllerPresent(gmThread* a_thread) {
     // Platformer_PlayMenu treats a false result as a controller-disconnect
     // event and starts the pause process every update. Desktop has a fully
     // supported keyboard input path (including stick emulation), so it is a
-    // usable local gameplay device even when SDL has no game controller.
+    // usable local gameplay device even when no game controller is attached.
     // Reporting that availability here avoids applying the handheld/console
     // disconnect policy to a native PC session.
     a_thread->PushInt(1);
@@ -293,7 +260,9 @@ int GM_CDECL gmf_isControllerPresent(gmThread* a_thread) {
 // bottom (not pre-flipped) -- Main.gm's own getMouseY() negates the result
 // itself, so flipping here too would double-invert.
 void NormalizedMousePos(float& a_x, float& a_y) {
-    int x, y; SDL_GetMouseState(&x, &y);
+    int x = 0, y = 0;
+    if (g_frontend) Frontend().MousePosition(x, y);
+    if (g_virtualMouseValid) { x = g_virtualMouseX; y = g_virtualMouseY; }
     Renderer* r = GetEngineContext().renderer;
     int w = r ? r->GetWidth() : 0;
     int h = r ? r->GetHeight() : 0;
@@ -324,8 +293,8 @@ int GM_CDECL gmf_getMousePos(gmThread* a_thread) { return gmf_getMousePosVec(a_t
 // GenericTextInputProcess.gm/2.gm, ColourEditorProcess*.gm's text-entry
 // widgets -- check `?cha` for "was this printable" before appending it to
 // a text buffer). Since this engine's KEYBOARD_*/JOYSTICK0_* constants are
-// SDL_Scancode values directly (see header comment above), this maps
-// SDL_Scancode -> ASCII the same way, respecting the shift flag for
+// USB HID key usage values directly (see header comment above), this maps
+// those stable key codes -> ASCII the same way, respecting the shift flag for
 // letter case and the standard US-QWERTY shifted symbols.
 int GM_CDECL gmf_KEYCODE_GetAscii(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
@@ -334,42 +303,42 @@ int GM_CDECL gmf_KEYCODE_GetAscii(gmThread* a_thread) {
     if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(s, 1, 0); shift = (s != 0); }
 
     char c = 0;
-    if (code >= SDL_SCANCODE_A && code <= SDL_SCANCODE_Z) {
-        c = (char)('a' + (code - SDL_SCANCODE_A));
+    if (code >= KeyCode::A && code <= KeyCode::Z) {
+        c = (char)('a' + (code - KeyCode::A));
         if (shift) c = (char)std::toupper((unsigned char)c);
-    } else if (code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9) {
+    } else if (code >= KeyCode::Num1 && code <= KeyCode::Num9) {
         static const char kShifted[] = "!@#$%^&*(";
-        c = shift ? kShifted[code - SDL_SCANCODE_1] : (char)('1' + (code - SDL_SCANCODE_1));
-    } else if (code == SDL_SCANCODE_0) {
+        c = shift ? kShifted[code - KeyCode::Num1] : (char)('1' + (code - KeyCode::Num1));
+    } else if (code == KeyCode::Num0) {
         c = shift ? ')' : '0';
-    } else if (code == SDL_SCANCODE_SPACE) {
+    } else if (code == KeyCode::Space) {
         c = ' ';
     } else {
         switch (code) {
-            case SDL_SCANCODE_MINUS: c = shift ? '_' : '-'; break;
-            case SDL_SCANCODE_EQUALS: c = shift ? '+' : '='; break;
-            case SDL_SCANCODE_COMMA: c = shift ? '<' : ','; break;
-            case SDL_SCANCODE_PERIOD: c = shift ? '>' : '.'; break;
-            case SDL_SCANCODE_SLASH: c = shift ? '?' : '/'; break;
-            case SDL_SCANCODE_BACKSLASH: c = shift ? '|' : '\\'; break;
-            case SDL_SCANCODE_SEMICOLON: c = shift ? ':' : ';'; break;
-            case SDL_SCANCODE_APOSTROPHE: c = shift ? '"' : '\''; break;
-            case SDL_SCANCODE_LEFTBRACKET: c = shift ? '{' : '['; break;
-            case SDL_SCANCODE_RIGHTBRACKET: c = shift ? '}' : ']'; break;
-            case SDL_SCANCODE_GRAVE: c = shift ? '~' : '`'; break;
-            case SDL_SCANCODE_KP_0: c = '0'; break;
-            case SDL_SCANCODE_KP_1: c = '1'; break;
-            case SDL_SCANCODE_KP_2: c = '2'; break;
-            case SDL_SCANCODE_KP_3: c = '3'; break;
-            case SDL_SCANCODE_KP_4: c = '4'; break;
-            case SDL_SCANCODE_KP_5: c = '5'; break;
-            case SDL_SCANCODE_KP_6: c = '6'; break;
-            case SDL_SCANCODE_KP_7: c = '7'; break;
-            case SDL_SCANCODE_KP_8: c = '8'; break;
-            case SDL_SCANCODE_KP_9: c = '9'; break;
-            case SDL_SCANCODE_KP_PLUS: c = '+'; break;
-            case SDL_SCANCODE_KP_MINUS: c = '-'; break;
-            case SDL_SCANCODE_KP_MULTIPLY: c = '*'; break;
+            case KeyCode::Minus: c = shift ? '_' : '-'; break;
+            case KeyCode::Equals: c = shift ? '+' : '='; break;
+            case KeyCode::Comma: c = shift ? '<' : ','; break;
+            case KeyCode::Period: c = shift ? '>' : '.'; break;
+            case KeyCode::Slash: c = shift ? '?' : '/'; break;
+            case KeyCode::Backslash: c = shift ? '|' : '\\'; break;
+            case KeyCode::Semicolon: c = shift ? ':' : ';'; break;
+            case KeyCode::Apostrophe: c = shift ? '"' : '\''; break;
+            case KeyCode::LeftBracket: c = shift ? '{' : '['; break;
+            case KeyCode::RightBracket: c = shift ? '}' : ']'; break;
+            case KeyCode::Grave: c = shift ? '~' : '`'; break;
+            case KeyCode::Keypad0: c = '0'; break;
+            case KeyCode::Keypad1: c = '1'; break;
+            case KeyCode::Keypad2: c = '2'; break;
+            case KeyCode::Keypad3: c = '3'; break;
+            case KeyCode::Keypad4: c = '4'; break;
+            case KeyCode::Keypad5: c = '5'; break;
+            case KeyCode::Keypad6: c = '6'; break;
+            case KeyCode::Keypad7: c = '7'; break;
+            case KeyCode::Keypad8: c = '8'; break;
+            case KeyCode::Keypad9: c = '9'; break;
+            case KeyCode::KeypadPlus: c = '+'; break;
+            case KeyCode::KeypadMinus: c = '-'; break;
+            case KeyCode::KeypadMultiply: c = '*'; break;
             default: c = 0; break;
         }
     }
@@ -432,45 +401,63 @@ gmFunctionEntry s_inputLib[] = {
 
 } // namespace
 
-void InitializeDesktopControllers() { RefreshControllers(); }
+void RefreshPlatformControllers() {
+    if (g_frontend) Frontend().RefreshControllers();
+}
 
-int ControllerEventCodes(SDL_JoystickID instance, Uint8 button, int* codes, int capacity) {
-    SDL_GameController* controller = ControllerAt(0);
-    if (!controller || SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller)) != instance) return 0;
+int ControllerEventCodes(int instance, int button, int* codes, int capacity) {
+    if (!g_frontend) return 0;
+    const int controllerIndex = Frontend().ControllerIndexForInstance(instance);
+    if (controllerIndex < 0) return 0;
     int count = 0;
     for (int i = 0; i < kNumberedButtonCount; ++i) {
-        if (kNumberedButtons[i] == button && count < capacity) codes[count++] = kNumberedButtonBase + i;
+        if (kNumberedButtons[i] == button && count < capacity)
+            codes[count++] = kNumberedButtonBase + i;
     }
     for (int i = 0; i < kAliasCount; ++i) {
-        if (kAliases[i].button == button && count < capacity) codes[count++] = kAliasBase + i;
+        if (std::string(kAliases[i].name).find("JOYSTICK0_LS_") == 0) continue;
+        if (kAliases[i].button != button) continue;
+        const int code = AliasCode(i);
+        bool alreadyAdded = false;
+        for (int j = 0; j < count; ++j) alreadyAdded |= codes[j] == code;
+        if (!alreadyAdded && count < capacity) codes[count++] = code;
     }
     return count;
 }
 
-int KeyboardJoystickAliasCodes(SDL_Scancode scancode, int* codes, int capacity) {
+int KeyboardJoystickAliasCodes(int scancode, int* codes, int capacity) {
     int count = 0;
     for (int i = 0; i < kAliasCount; ++i) {
-        if (kAliases[i].fallback == scancode && count < capacity) codes[count++] = kAliasBase + i;
+        if (kAliases[i].fallback == scancode && count < capacity) {
+            const int code = AliasCode(i);
+            bool alreadyAdded = false;
+            for (int j = 0; j < count; ++j) alreadyAdded |= codes[j] == code;
+            if (!alreadyAdded) codes[count++] = code;
+        }
     }
     return count;
 }
 
 int HeldControllerCodes(int* codes, int capacity) {
-    SDL_GameController* controller = ControllerAt(0);
-    if (!controller) return 0;
+    if (!g_frontend || !Frontend().IsControllerPresent(0)) return 0;
     int count = 0;
     for (int i = 0; i < kNumberedButtonCount; ++i) {
-        if (SDL_GameControllerGetButton(controller, kNumberedButtons[i]) && count < capacity)
+        if (Frontend().IsControllerButtonDown(0, kNumberedButtons[i]) && count < capacity)
             codes[count++] = kNumberedButtonBase + i;
     }
     for (int i = 0; i < kAliasCount; ++i) {
-        if (SDL_GameControllerGetButton(controller, kAliases[i].button) && count < capacity)
-            codes[count++] = kAliasBase + i;
+        if (std::string(kAliases[i].name).find("JOYSTICK0_LS_") == 0) continue;
+        if (!Frontend().IsControllerButtonDown(0, kAliases[i].button)) continue;
+        const int code = AliasCode(i);
+        bool alreadyAdded = false;
+        for (int j = 0; j < count; ++j) alreadyAdded |= codes[j] == code;
+        if (!alreadyAdded && count < capacity) codes[count++] = code;
     }
     return count;
 }
 
-void RegisterInputBindings(gmMachine& a_machine) {
+void RegisterInputBindings(gmMachine& a_machine, PlatformFrontend& a_frontend) {
+    g_frontend = &a_frontend;
     a_machine.RegisterLibrary(s_inputLib, sizeof(s_inputLib) / sizeof(s_inputLib[0]), "Input");
 
     // KeyCode.c), not under "Input." or "KeyCode." -- matches every real
@@ -484,64 +471,78 @@ void RegisterInputBindings(gmMachine& a_machine) {
     // A/B/X/Y, LB/RB, Back/Start, stick clicks, then the D-pad.
     for (int i = 0; i < kNumberedButtonCount; ++i)
         g->Set(&a_machine, ("JOYSTICK0_BUTTON" + std::to_string(i)).c_str(), gmVariable((gmint)(kNumberedButtonBase + i)));
-    for (int i = 0; i < kAliasCount; ++i)
-        g->Set(&a_machine, kAliases[i].name, gmVariable((gmint)(kAliasBase + i)));
+    int crossCode = kAliasBase;
+    int circleCode = kAliasBase + 1;
+    for (int i = 0; i < kAliasCount; ++i) {
+        if (std::string(kAliases[i].name) == "JOYSTICK0_CROSS") crossCode = kAliasBase + i;
+        if (std::string(kAliases[i].name) == "JOYSTICK0_CIRCLE") circleCode = kAliasBase + i;
+    }
+    for (int i = 0; i < kAliasCount; ++i) {
+        int code = AliasCode(i);
+        // Retail menus use CROSS/ACCEPT and CIRCLE/CANCEL as platform
+        // synonyms. They must be one logical key event for one physical
+        // button; otherwise a handler that accepts either spelling runs
+        // twice when desktop input emits both aliases.
+        if (std::string(kAliases[i].name) == "JOYSTICK0_ACCEPT") code = crossCode;
+        if (std::string(kAliases[i].name) == "JOYSTICK0_CANCEL") code = circleCode;
+        g->Set(&a_machine, kAliases[i].name, gmVariable((gmint)code));
+    }
 
     // Remaining aliases still use keyboard fallbacks until trigger and
     // right-stick digital thresholds are implemented.
-    g->Set(&a_machine, "JOYSTICK0_L2", gmVariable((gmint)SDL_SCANCODE_1));
-    g->Set(&a_machine, "JOYSTICK0_R2", gmVariable((gmint)SDL_SCANCODE_3));
-    g->Set(&a_machine, "JOYSTICK0_RS_UP", gmVariable((gmint)SDL_SCANCODE_I));
-    g->Set(&a_machine, "JOYSTICK0_RS_DOWN", gmVariable((gmint)SDL_SCANCODE_K));
-    g->Set(&a_machine, "JOYSTICK0_RS_LEFT", gmVariable((gmint)SDL_SCANCODE_J));
-    g->Set(&a_machine, "JOYSTICK0_RS_RIGHT", gmVariable((gmint)SDL_SCANCODE_L));
+    g->Set(&a_machine, "JOYSTICK0_L2", gmVariable((gmint)KeyCode::Num1));
+    g->Set(&a_machine, "JOYSTICK0_R2", gmVariable((gmint)KeyCode::Num3));
+    g->Set(&a_machine, "JOYSTICK0_RS_UP", gmVariable((gmint)KeyCode::I));
+    g->Set(&a_machine, "JOYSTICK0_RS_DOWN", gmVariable((gmint)KeyCode::K));
+    g->Set(&a_machine, "JOYSTICK0_RS_LEFT", gmVariable((gmint)KeyCode::J));
+    g->Set(&a_machine, "JOYSTICK0_RS_RIGHT", gmVariable((gmint)KeyCode::L));
 
     g->Set(&a_machine, "MOUSE_LEFTBUTTON", gmVariable((gmint)0));
     g->Set(&a_machine, "MOUSE_RIGHTBUTTON", gmVariable((gmint)1));
     g->Set(&a_machine, "MOUSE_MIDDLEBUTTON", gmVariable((gmint)2));
 
-    // KEYBOARD_* -- direct SDL_Scancode values.
-    struct { const char* name; SDL_Scancode code; } kKeys[] = {
-        {"KEYBOARD_A", SDL_SCANCODE_A}, {"KEYBOARD_B", SDL_SCANCODE_B}, {"KEYBOARD_C", SDL_SCANCODE_C},
-        {"KEYBOARD_D", SDL_SCANCODE_D}, {"KEYBOARD_E", SDL_SCANCODE_E}, {"KEYBOARD_F", SDL_SCANCODE_F},
-        {"KEYBOARD_G", SDL_SCANCODE_G}, {"KEYBOARD_H", SDL_SCANCODE_H}, {"KEYBOARD_I", SDL_SCANCODE_I},
-        {"KEYBOARD_J", SDL_SCANCODE_J}, {"KEYBOARD_K", SDL_SCANCODE_K}, {"KEYBOARD_L", SDL_SCANCODE_L},
-        {"KEYBOARD_M", SDL_SCANCODE_M}, {"KEYBOARD_N", SDL_SCANCODE_N}, {"KEYBOARD_O", SDL_SCANCODE_O},
-        {"KEYBOARD_P", SDL_SCANCODE_P}, {"KEYBOARD_Q", SDL_SCANCODE_Q}, {"KEYBOARD_R", SDL_SCANCODE_R},
-        {"KEYBOARD_S", SDL_SCANCODE_S}, {"KEYBOARD_T", SDL_SCANCODE_T}, {"KEYBOARD_U", SDL_SCANCODE_U},
-        {"KEYBOARD_V", SDL_SCANCODE_V}, {"KEYBOARD_W", SDL_SCANCODE_W}, {"KEYBOARD_X", SDL_SCANCODE_X},
-        {"KEYBOARD_Y", SDL_SCANCODE_Y}, {"KEYBOARD_Z", SDL_SCANCODE_Z},
-        {"KEYBOARD_0", SDL_SCANCODE_0}, {"KEYBOARD_1", SDL_SCANCODE_1}, {"KEYBOARD_2", SDL_SCANCODE_2},
-        {"KEYBOARD_3", SDL_SCANCODE_3}, {"KEYBOARD_4", SDL_SCANCODE_4}, {"KEYBOARD_5", SDL_SCANCODE_5},
-        {"KEYBOARD_6", SDL_SCANCODE_6}, {"KEYBOARD_7", SDL_SCANCODE_7}, {"KEYBOARD_8", SDL_SCANCODE_8},
-        {"KEYBOARD_9", SDL_SCANCODE_9},
-        {"KEYBOARD_UP", SDL_SCANCODE_UP}, {"KEYBOARD_DOWN", SDL_SCANCODE_DOWN},
-        {"KEYBOARD_LEFT", SDL_SCANCODE_LEFT}, {"KEYBOARD_RIGHT", SDL_SCANCODE_RIGHT},
-        {"KEYBOARD_ENTER", SDL_SCANCODE_RETURN}, {"KEYBOARD_ESCAPE", SDL_SCANCODE_ESCAPE},
-        {"KEYBOARD_BACKSPACE", SDL_SCANCODE_BACKSPACE}, {"KEYBOARD_DELETE", SDL_SCANCODE_DELETE},
-        {"KEYBOARD_TAB", SDL_SCANCODE_TAB}, {"KEYBOARD_SPACE", SDL_SCANCODE_SPACE},
-        {"KEYBOARD_HOME", SDL_SCANCODE_HOME}, {"KEYBOARD_END", SDL_SCANCODE_END},
-        {"KEYBOARD_INSERT", SDL_SCANCODE_INSERT},
-        {"KEYBOARD_PAGEUP", SDL_SCANCODE_PAGEUP}, {"KEYBOARD_PAGEDOWN", SDL_SCANCODE_PAGEDOWN},
-        {"KEYBOARD_LEFTSHIFT", SDL_SCANCODE_LSHIFT}, {"KEYBOARD_RIGHTSHIFT", SDL_SCANCODE_RSHIFT},
-        {"KEYBOARD_LEFTCONTROL", SDL_SCANCODE_LCTRL}, {"KEYBOARD_RIGHTCONTROL", SDL_SCANCODE_RCTRL},
-        {"KEYBOARD_LEFTALT", SDL_SCANCODE_LALT},
-        {"KEYBOARD_MINUS", SDL_SCANCODE_MINUS}, {"KEYBOARD_PLUS", SDL_SCANCODE_EQUALS},
-        {"KEYBOARD_COMMA", SDL_SCANCODE_COMMA}, {"KEYBOARD_PERIOD", SDL_SCANCODE_PERIOD},
-        {"KEYBOARD_SLASH", SDL_SCANCODE_SLASH}, {"KEYBOARD_BACKSLASH", SDL_SCANCODE_BACKSLASH},
-        {"KEYBOARD_LEFTSQUAREBRACKET", SDL_SCANCODE_LEFTBRACKET},
-        {"KEYBOARD_RIGHTSQUAREBRACKET", SDL_SCANCODE_RIGHTBRACKET},
-        {"KEYBOARD_F1", SDL_SCANCODE_F1}, {"KEYBOARD_F2", SDL_SCANCODE_F2}, {"KEYBOARD_F3", SDL_SCANCODE_F3},
-        {"KEYBOARD_F4", SDL_SCANCODE_F4}, {"KEYBOARD_F5", SDL_SCANCODE_F5}, {"KEYBOARD_F6", SDL_SCANCODE_F6},
-        {"KEYBOARD_F7", SDL_SCANCODE_F7}, {"KEYBOARD_F8", SDL_SCANCODE_F8}, {"KEYBOARD_F9", SDL_SCANCODE_F9},
-        {"KEYBOARD_F10", SDL_SCANCODE_F10}, {"KEYBOARD_F11", SDL_SCANCODE_F11}, {"KEYBOARD_F12", SDL_SCANCODE_F12},
-        {"KEYBOARD_KEYPAD_1", SDL_SCANCODE_KP_1}, {"KEYBOARD_KEYPAD_2", SDL_SCANCODE_KP_2},
-        {"KEYBOARD_KEYPAD_3", SDL_SCANCODE_KP_3}, {"KEYBOARD_KEYPAD_4", SDL_SCANCODE_KP_4},
-        {"KEYBOARD_KEYPAD_5", SDL_SCANCODE_KP_5}, {"KEYBOARD_KEYPAD_6", SDL_SCANCODE_KP_6},
-        {"KEYBOARD_KEYPAD_7", SDL_SCANCODE_KP_7}, {"KEYBOARD_KEYPAD_8", SDL_SCANCODE_KP_8},
-        {"KEYBOARD_KEYPAD_9", SDL_SCANCODE_KP_9}, {"KEYBOARD_KEYPAD_0", SDL_SCANCODE_KP_0},
-        {"KEYBOARD_KEYPAD_PLUS", SDL_SCANCODE_KP_PLUS}, {"KEYBOARD_KEYPAD_MINUS", SDL_SCANCODE_KP_MINUS},
-        {"KEYBOARD_KEYPAD_ASTERISK", SDL_SCANCODE_KP_MULTIPLY},
+    // KEYBOARD_* -- stable USB HID keyboard-page usage values.
+    struct { const char* name; int code; } kKeys[] = {
+        {"KEYBOARD_A", KeyCode::A}, {"KEYBOARD_B", KeyCode::B}, {"KEYBOARD_C", KeyCode::C},
+        {"KEYBOARD_D", KeyCode::D}, {"KEYBOARD_E", KeyCode::E}, {"KEYBOARD_F", KeyCode::F},
+        {"KEYBOARD_G", KeyCode::G}, {"KEYBOARD_H", KeyCode::H}, {"KEYBOARD_I", KeyCode::I},
+        {"KEYBOARD_J", KeyCode::J}, {"KEYBOARD_K", KeyCode::K}, {"KEYBOARD_L", KeyCode::L},
+        {"KEYBOARD_M", KeyCode::M}, {"KEYBOARD_N", KeyCode::N}, {"KEYBOARD_O", KeyCode::O},
+        {"KEYBOARD_P", KeyCode::P}, {"KEYBOARD_Q", KeyCode::Q}, {"KEYBOARD_R", KeyCode::R},
+        {"KEYBOARD_S", KeyCode::S}, {"KEYBOARD_T", KeyCode::T}, {"KEYBOARD_U", KeyCode::U},
+        {"KEYBOARD_V", KeyCode::V}, {"KEYBOARD_W", KeyCode::W}, {"KEYBOARD_X", KeyCode::X},
+        {"KEYBOARD_Y", KeyCode::Y}, {"KEYBOARD_Z", KeyCode::Z},
+        {"KEYBOARD_0", KeyCode::Num0}, {"KEYBOARD_1", KeyCode::Num1}, {"KEYBOARD_2", KeyCode::Num2},
+        {"KEYBOARD_3", KeyCode::Num3}, {"KEYBOARD_4", KeyCode::Num4}, {"KEYBOARD_5", KeyCode::Num5},
+        {"KEYBOARD_6", KeyCode::Num6}, {"KEYBOARD_7", KeyCode::Num7}, {"KEYBOARD_8", KeyCode::Num8},
+        {"KEYBOARD_9", KeyCode::Num9},
+        {"KEYBOARD_UP", KeyCode::Up}, {"KEYBOARD_DOWN", KeyCode::Down},
+        {"KEYBOARD_LEFT", KeyCode::Left}, {"KEYBOARD_RIGHT", KeyCode::Right},
+        {"KEYBOARD_ENTER", KeyCode::Return}, {"KEYBOARD_ESCAPE", KeyCode::Escape},
+        {"KEYBOARD_BACKSPACE", KeyCode::Backspace}, {"KEYBOARD_DELETE", KeyCode::Delete},
+        {"KEYBOARD_TAB", KeyCode::Tab}, {"KEYBOARD_SPACE", KeyCode::Space},
+        {"KEYBOARD_HOME", KeyCode::Home}, {"KEYBOARD_END", KeyCode::End},
+        {"KEYBOARD_INSERT", KeyCode::Insert},
+        {"KEYBOARD_PAGEUP", KeyCode::PageUp}, {"KEYBOARD_PAGEDOWN", KeyCode::PageDown},
+        {"KEYBOARD_LEFTSHIFT", KeyCode::LeftShift}, {"KEYBOARD_RIGHTSHIFT", KeyCode::RightShift},
+        {"KEYBOARD_LEFTCONTROL", KeyCode::LeftControl}, {"KEYBOARD_RIGHTCONTROL", KeyCode::RightControl},
+        {"KEYBOARD_LEFTALT", KeyCode::LeftAlt},
+        {"KEYBOARD_MINUS", KeyCode::Minus}, {"KEYBOARD_PLUS", KeyCode::Equals},
+        {"KEYBOARD_COMMA", KeyCode::Comma}, {"KEYBOARD_PERIOD", KeyCode::Period},
+        {"KEYBOARD_SLASH", KeyCode::Slash}, {"KEYBOARD_BACKSLASH", KeyCode::Backslash},
+        {"KEYBOARD_LEFTSQUAREBRACKET", KeyCode::LeftBracket},
+        {"KEYBOARD_RIGHTSQUAREBRACKET", KeyCode::RightBracket},
+        {"KEYBOARD_F1", KeyCode::F1}, {"KEYBOARD_F2", KeyCode::F2}, {"KEYBOARD_F3", KeyCode::F3},
+        {"KEYBOARD_F4", KeyCode::F4}, {"KEYBOARD_F5", KeyCode::F5}, {"KEYBOARD_F6", KeyCode::F6},
+        {"KEYBOARD_F7", KeyCode::F7}, {"KEYBOARD_F8", KeyCode::F8}, {"KEYBOARD_F9", KeyCode::F9},
+        {"KEYBOARD_F10", KeyCode::F10}, {"KEYBOARD_F11", KeyCode::F11}, {"KEYBOARD_F12", KeyCode::F12},
+        {"KEYBOARD_KEYPAD_1", KeyCode::Keypad1}, {"KEYBOARD_KEYPAD_2", KeyCode::Keypad2},
+        {"KEYBOARD_KEYPAD_3", KeyCode::Keypad3}, {"KEYBOARD_KEYPAD_4", KeyCode::Keypad4},
+        {"KEYBOARD_KEYPAD_5", KeyCode::Keypad5}, {"KEYBOARD_KEYPAD_6", KeyCode::Keypad6},
+        {"KEYBOARD_KEYPAD_7", KeyCode::Keypad7}, {"KEYBOARD_KEYPAD_8", KeyCode::Keypad8},
+        {"KEYBOARD_KEYPAD_9", KeyCode::Keypad9}, {"KEYBOARD_KEYPAD_0", KeyCode::Keypad0},
+        {"KEYBOARD_KEYPAD_PLUS", KeyCode::KeypadPlus}, {"KEYBOARD_KEYPAD_MINUS", KeyCode::KeypadMinus},
+        {"KEYBOARD_KEYPAD_ASTERISK", KeyCode::KeypadMultiply},
     };
     // ENGINE PATCH (this session): the PS3-no-keyboard reasoning below was
     // Sound Shapes-only -- FoE's real binary is `flowers of error.exe`, a PC
@@ -560,10 +561,21 @@ void RegisterInputBindings(gmMachine& a_machine) {
 }
 
 void SetVirtualKeyDown(int a_scancode, bool a_down) {
-    if (a_scancode <= SDL_SCANCODE_UNKNOWN || a_scancode >= SDL_NUM_SCANCODES) return;
+    if (a_scancode <= KeyCode::Unknown || a_scancode >= KeyCode::Count) return;
     g_virtualKeys[a_scancode] = a_down;
 }
 
 void ClearVirtualKeys() {
-    for (int i = 0; i < SDL_NUM_SCANCODES; ++i) g_virtualKeys[i] = false;
+    for (int i = 0; i < KeyCode::Count; ++i) g_virtualKeys[i] = false;
+}
+
+void SetVirtualMousePosition(int a_x, int a_y) {
+    g_virtualMouseValid = true;
+    g_virtualMouseX = a_x;
+    g_virtualMouseY = a_y;
+}
+
+void SetVirtualMouseButtonDown(int a_buttonCode, bool a_down) {
+    if (a_buttonCode >= 0 && a_buttonCode < 3)
+        g_virtualMouseButtons[a_buttonCode] = a_down;
 }

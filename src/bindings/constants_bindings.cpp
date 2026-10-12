@@ -51,6 +51,13 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     gmTableObject* g = a_machine.GetGlobals();
     a_machine.RegisterLibraryFunction("NOTES_GetNoteNumber", gmf_NOTES_GetNoteNumber);
 
+    // Native sequencer states used by EntityBase's custom pattern table.
+    // Retail registers these exact values at 0x00063ef0, 0x00063f10,
+    // and 0x00063f34. SEQUENCE_ToString's alphabet is "012" at 0x003726f4.
+    g->Set(&a_machine, "STEP_OFF", gmVariable((gmint)0));
+    g->Set(&a_machine, "STEP_ON", gmVariable((gmint)1));
+    g->Set(&a_machine, "STEP_SUSTAIN", gmVariable((gmint)2));
+
     // Confirmed live on real RPCS3/retail via game_data_testcart's TEST 101.
     g->Set(&a_machine, "SW", gmVariable(0.61f));
 

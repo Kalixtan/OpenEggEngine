@@ -6,7 +6,9 @@ class Shader {
 public:
     bool Compile(const char* a_vertexSrc, const char* a_fragmentSrc);
     void Use() const;
+    void Destroy();
     GLint Uniform(const char* a_name) const;
+    GLuint Program() const { return m_program; }
     ~Shader();
 
 private:

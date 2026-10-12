@@ -7,5 +7,5 @@
 // render/bitmap_font.cpp's alignment enum, keep in sync if you change them).
 // SW is likewise a placeholder "world units" scale, chosen so
 // game_data_min/Main.gm's `this.size = SW*16` comfortably covers
-// Renderer::kWorldHalfHeight.
+// Renderer::GetWorldHalfHeight().
 void RegisterConstantsBindings(gmMachine& a_machine);

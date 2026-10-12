@@ -2,6 +2,25 @@
 #include <GL/glew.h>
 #include <string>
 #include <vector>
+#include <memory>
+#include <cstdint>
+
+// Native TEXTURE palette storage (retail offsets +0x40/+0x78), shared with
+// its optional +0x4c subtexture object.
+struct PaletteData {
+    std::vector<uint8_t> rgba = std::vector<uint8_t>(256 * 4, 0); // retail ABGR byte order
+    size_t entryCount = 256; // retail TEXTURE +0x24
+    int mode = 0;
+    bool dirty = false;
+    bool hasPendingTint = false;
+    float fillR = 1.0f, fillG = 1.0f, fillB = 1.0f;
+    float outlineR = 1.0f, outlineG = 1.0f, outlineB = 1.0f;
+};
+
+// Retail FUN_00421a40 rounds each upload dimension to a power of two.
+// Shared with Animation.getTextureExt, which may run before its first frame
+// has been uploaded to GL.
+int NextPowerOfTwo(int a_value);
 
 // Loose confirmed contract: Video.getTexture(path, area) returns a handle;
 // drawList.drawTextureByHandle(...) draws it. We use the raw GL texture id
@@ -11,26 +30,23 @@ struct Texture {
     GLuint id = 0;
     int width = 0;
     int height = 0;
+    int sourceBitsPerPixel = 32; // decoded resource-record +0x10 equivalent
+    // Retail texture object's selector at +0x48; keep it on the shared
+    // resource so multiple GM handles for one cached texture see the same
+    // value, as repeated Video.getTexture() calls do in retail.
+    int shaderType = 0;
+    // Native parent texture's dirty flag (+0x78), separate from its optional
+    // child palette object's state. +0x48 is shared with shaderType.
+    bool paletteDirty = false;
 
-    // RETAIL MATCH (reveng_pc/RETAIL_GL_GROUND_TRUTH.md, retail
-    // FUN_00421a60): retail rounds every texture UP to power-of-two
-    // dimensions, zero-fills the padding, uploads the padded buffer, and
-    // then compensates at draw time by scaling UVs by the occupied
-    // fraction. The real textured-quad draw (FUN_00421d90) reads exactly
-    // these two floats out of the texture object (offsets +0x28/+0x2c) and
-    // uses them as the quad's maximum U/V instead of a literal 1.0.
-    //
-    // This is NOT cosmetic: because retail never sets GL_TEXTURE_WRAP_S/T
-    // (so wrap stays at the GL default GL_REPEAT), UVs outside [0,1] tile
-    // across the PADDED extent -- i.e. the repeat period includes the
-    // transparent padding, not just the image. PekkoAndJon/bg.gm's
-    // kaleidoscope backdrop drives UVs far outside [0,1], so an unpadded
-    // NPOT upload tiles with a different period and produces a visibly
-    // different pattern.
-    int potWidth = 0;      // width  rounded up to a power of two
-    int potHeight = 0;     // height rounded up to a power of two
-    float uMax = 1.0f;     // width  / potWidth
-    float vMax = 1.0f;     // height / potHeight
+    // GL allocation dimensions. PS3 Video's texture constructor uses the
+    // decoded dimensions for the ordinary image formats supported here.
+    int potWidth = 0;
+    int potHeight = 0;
+    // Retail TEXTURE +0x34/+0x38 UV extents; ordinary decoded textures set
+    // both to 1.0 because source and allocation dimensions are equal.
+    float uMax = 1.0f;
+    float vMax = 1.0f;
 
     bool grayscale = false; // single-channel source (font atlas); see LoadFromFile
     // ENGINE PATCH (2026-08-17): chroma-key "paint by numbers" template
@@ -94,8 +110,18 @@ struct Texture {
     float fillTintR = 1.0f, fillTintG = 1.0f, fillTintB = 1.0f;
     float outlineTintR = 1.0f, outlineTintG = 1.0f, outlineTintB = 1.0f;
     std::vector<unsigned char> paletteTemplateRgba;
+    // Original PNG indexed-colour data, retained so retail TEXTURE palette
+    // operations can replace the PLTE lookup table without losing indices.
+    bool hasIndexedPixels = false;
+    std::vector<unsigned char> indexedPixels; // bottom-up, one byte per texel
+    std::vector<unsigned char> sourcePaletteRgba; // 256 entries, ordinary RGBA order
+    size_t sourcePaletteEntries = 0;
+    std::shared_ptr<PaletteData> subTexturePalette;
 
     static bool LoadFromFile(const std::string& a_path, Texture& a_out);
+    // Decodes an encoded image payload (for example a completed save request)
+    // and uploads it with the same orientation/sampler path as a file texture.
+    static bool LoadFromEncodedMemory(const unsigned char* a_data, size_t a_size, Texture& a_out);
 
     // Uploads a caller-owned RGBA8 buffer (top-to-bottom row order, same as
     // any decoded image) directly, for procedurally-generated textures that
@@ -104,5 +130,6 @@ struct Texture {
     // stbi_set_flip_vertically_on_load(true) -- both paths must agree on
     // the bottom-left-origin GL UV convention every other texture user
     // (drawTextureByHandle, the bitmap font atlas) already relies on.
-    static bool LoadFromMemoryRGBA(const unsigned char* a_rgba, int a_width, int a_height, Texture& a_out);
+    static bool LoadFromMemoryRGBA(const unsigned char* a_rgba, int a_width, int a_height,
+                                   Texture& a_out, bool a_nearestFilter = false);
 };

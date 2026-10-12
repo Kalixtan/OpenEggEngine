@@ -1,14 +1,17 @@
 #include "bitmap_font.h"
+#include "../core/file_helper.h"
 #include "rapidjson/document.h"
 #include "stb_image.h" // declarations only -- implementation lives in texture.cpp
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include "../core/engine_context.h"
+#include "../bindings/animation_bindings.h"
 #include <fstream>
 #include <sstream>
 #include <cstdio>
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <unordered_map>
 #include <vector>
 
@@ -41,21 +44,84 @@ const char* ResolveIconAlias(const std::string& a_token) {
     return nullptr;
 }
 
-// Lazily loads and caches Platformer/extFont/<NAME>.png by token name.
+// Retail FUN_00044540 maps this exact codepoint interval to the name table
+// at EBOOT.elf 0x0041f81c. The table is the order shown below.
+const char* RetailSpecialCharacterName(uint32_t a_codepoint) {
+    static const char* const names[] = {
+        "CROSS", "CIRCLE", "SQUARE", "TRIANGLE",
+        "L1", "R1", "L2", "R2", "LS", "RS", "RSX", "RSY",
+        "START", "SELECT", "LSX", "LSY", "DPAD", "CASSETTE",
+        "SKULL", "SKULL_EMPTY"
+    };
+    if (a_codepoint < 0x2510 || a_codepoint > 0x2523) return nullptr;
+    return names[a_codepoint - 0x2510];
+}
+
+// Match FUN_0004387c's UTF-8 leading-byte length and continuation-bit
+// assembly. Retail accepts legacy five/six-byte forms and does not validate
+// continuation bytes; normal valid UTF-8 therefore maps identically, while
+// malformed inputs avoid reading past the C++ string buffer.
+uint32_t DecodeRetailCodepoint(const std::string& a_text, size_t& a_offset) {
+    const unsigned char first = (unsigned char)a_text[a_offset++];
+    unsigned int byteCount = first < 0x80 ? 1 : first < 0xe0 ? 2 :
+                             first < 0xf0 ? 3 : first < 0xf8 ? 4 :
+                             first < 0xfc ? 5 : 6;
+    const unsigned char leadMasks[] = {0x00, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe};
+    uint32_t codepoint = first & (unsigned char)~leadMasks[byteCount - 1];
+    for (unsigned int i = 1; i < byteCount; ++i) {
+        const unsigned char next = a_offset < a_text.size()
+            ? (unsigned char)a_text[a_offset] : 0;
+        if (a_offset < a_text.size()) ++a_offset;
+        codepoint = (codepoint << 6) | (next & 0x3f);
+    }
+    return codepoint;
+}
+
+// Lazily loads Platformer/extFont/<NAME>.png, or asks the shared animation
+// runtime for the current frame when retail's FSA-first path is present.
 // Returns 0 (drawn as nothing, not a black quad) for unknown tokens --
 // same "don't crash, don't draw garbage" leniency as the rest of this
 // engine's native-binding gaps.
 unsigned int GetIconTexture(const std::string& a_token, Renderer& a_renderer) {
     static std::unordered_map<std::string, unsigned int> s_cache;
-    auto it = s_cache.find(a_token);
-    if (it != s_cache.end()) return it->second;
-
     const char* alias = ResolveIconAlias(a_token);
-    std::string filename = std::string(alias ? alias : a_token.c_str()) + ".png";
-    unsigned int handle = 0;
+    const std::string iconName = alias ? alias : a_token;
     EngineContext& ctx = GetEngineContext();
     if (ctx.fileHelper) {
-        auto resolved = ctx.fileHelper->Resolve("Platformer/extFont/" + filename);
+        const std::string base = "Platformer/extFont/" + iconName;
+        auto resolvedFsa = ctx.fileHelper->Resolve(base + ".fsa");
+        if (resolvedFsa) {
+            // Animated glyphs must resolve their current frame each draw;
+            // caching the first GL handle here would freeze retail playback.
+            int width = 0, height = 0;
+            unsigned int handle = 0;
+            if (GetFontAnimationFrame(*resolvedFsa, handle, width, height)) {
+                // The desktop's extFont metrics currently assume the shipped
+                // square assets, matching the extFont authoring requirement.
+                return handle;
+            } else {
+                // Do not silently fall through to PNG: retail gives an
+                // existing FSA priority even when its format is unsupported.
+                static std::unordered_map<std::string, bool> s_warnedFsa;
+                if (!s_warnedFsa[iconName]) {
+                    std::fprintf(stderr,
+                        "BitmapFont: unsupported FSA special character '%s'\n",
+                        iconName.c_str());
+                    s_warnedFsa[iconName] = true;
+                }
+            }
+        }
+    }
+
+    // FSA takes priority in retail. Only consult/cache the static PNG when no
+    // FSA asset exists at the resolved path.
+    auto it = s_cache.find(a_token);
+    if (it != s_cache.end()) return it->second;
+    unsigned int handle = 0;
+    if (ctx.fileHelper && !ctx.fileHelper->Resolve(
+            "Platformer/extFont/" + iconName + ".fsa")) {
+        auto resolved = ctx.fileHelper->Resolve(
+            "Platformer/extFont/" + iconName + ".png");
         if (resolved) handle = a_renderer.LoadTexture(*resolved);
     }
     s_cache[a_token] = handle;
@@ -64,17 +130,20 @@ unsigned int GetIconTexture(const std::string& a_token, Renderer& a_renderer) {
 
 struct FontToken {
     bool isIcon = false;
-    unsigned char ch = 0;   // valid when !isIcon
+    uint32_t codepoint = 0; // valid when !isIcon
     std::string iconToken;  // valid when isIcon
 };
 
-// Icons are drawn as a roughly-cap-height square inline with text --
-// matches the visual proportion of the retail calibration/pause-menu
-// screenshots (icon glyphs sit slightly above the baseline, about as
-// tall as a capital letter) since no decompiled per-icon metrics exist.
-constexpr float kIconSize = 0.84f;
-constexpr float kIconYOfs = 0.06f;
-constexpr float kIconAdvance = 0.95f; // slightly wider than the icon itself for breathing room between it and adjacent text
+// FUN_00041e40 writes the same five metrics as a normal font glyph:
+// width=.98*(imageWidth/imageHeight), height=.98, advance=width+.08,
+// yOfs=.12446, bearingX=.04. extFont's own instructions require square
+// icons, making the retail width .98 and advance 1.06 for the supported
+// assets. yOfs/bearingX use DrawText's ordinary glyph baseline formula.
+constexpr float kIconWidth = 0.98f;
+constexpr float kIconHeight = 0.98f;
+constexpr float kIconAdvance = 1.06f;
+constexpr float kIconYOfs = 0.12446f;
+constexpr float kIconBearingX = 0.04f;
 
 std::vector<FontToken> Tokenize(const std::string& a_text) {
     std::vector<FontToken> out;
@@ -99,16 +168,27 @@ std::vector<FontToken> Tokenize(const std::string& a_text) {
             }
         }
         FontToken t;
-        t.isIcon = false;
-        t.ch = (unsigned char)a_text[i];
+        t.codepoint = DecodeRetailCodepoint(a_text, i);
+        if (t.codepoint >= 0x2500 && t.codepoint <= 0x25ff) {
+            const char* specialName = RetailSpecialCharacterName(t.codepoint);
+            t.isIcon = true;
+            if (specialName) {
+                t.iconToken = specialName;
+            } else {
+                char iconName[8];
+                std::snprintf(iconName, sizeof(iconName), "icon%02x",
+                              (unsigned)(t.codepoint - 0x2500));
+                t.iconToken = iconName;
+            }
+        }
         out.push_back(t);
-        ++i;
     }
     return out;
 }
 }
 
-bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageDir, Renderer& a_renderer) {
+bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageDir, Renderer& a_renderer,
+                      FileHelper* a_fileHelper) {
     std::ifstream f(a_jsonPath, std::ios::binary);
     if (!f) {
         std::fprintf(stderr, "BitmapFont::Load: could not open '%s'\n", a_jsonPath.c_str());
@@ -137,6 +217,10 @@ bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageD
 
     if (!page.HasMember("image") || !page["image"].IsString()) return false;
     std::string imagePath = a_imageDir + "/" + page["image"].GetString();
+    if (a_fileHelper) {
+        if (auto resolvedImage = a_fileHelper->Resolve(page["image"].GetString()))
+            imagePath = *resolvedImage;
+    }
     m_textureHandle = a_renderer.LoadTexture(imagePath);
     if (!m_textureHandle) return false;
 
@@ -151,6 +235,8 @@ bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageD
 
     if (!page.HasMember("characters") || !page["characters"].IsArray()) return false;
 
+    m_glyphs.clear();
+    m_hasRetailFallbackGlyph = false;
     for (const auto& c : page["characters"].GetArray()) {
         if (!c.HasMember("charCode")) continue;
         Glyph g;
@@ -167,6 +253,10 @@ bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageD
         g.u1 = u1px / atlasW;
         g.v0 = v0px / atlasH;
         g.v1 = v1px / atlasH;
+        if (!m_hasRetailFallbackGlyph) {
+            m_retailFallbackGlyph = g;
+            m_hasRetailFallbackGlyph = true;
+        }
         m_glyphs[c["charCode"].GetInt()] = g;
     }
 
@@ -291,11 +381,16 @@ bool BitmapFont::LoadTTF(const std::string& a_ttfPath, float a_pixelHeight, Rend
     if (!m_textureHandle) return false;
 
     m_glyphs.clear();
+    m_hasRetailFallbackGlyph = false;
     for (int i = 0; i < 95; ++i) {
         const Packed& p = packed[i];
         if (!p.ok) continue;
         Glyph g;
         g.advance = (float)p.advance / a_pixelHeight;
+        if (!m_hasRetailFallbackGlyph) {
+            m_retailFallbackGlyph = g;
+            m_hasRetailFallbackGlyph = true;
+        }
         if (p.w <= 0 || p.h <= 0) {
             // Space etc: zero-size ink box, advance only. MUST still be
             // inserted -- FindGlyph returning null makes DrawText's
@@ -329,6 +424,47 @@ const Glyph* BitmapFont::FindGlyph(int a_charCode) const {
     return it == m_glyphs.end() ? nullptr : &it->second;
 }
 
+float BitmapFont::GetRetailGlyphAdvance(uint32_t a_codepoint) const {
+    const Glyph* glyph = FindGlyph(static_cast<int>(a_codepoint));
+    return glyph ? glyph->advance : (m_hasRetailFallbackGlyph ? m_retailFallbackGlyph.advance : 0.0f);
+}
+
+float BitmapFont::MeasureRetailTextWidth(const std::string& a_text, double a_scale) const {
+    // Retail Video.getTextWidth -> FUN_00052c20 uses strlen and looks up each
+    // signed byte separately via FUN_000441c4. That helper selects a glyph
+    // range or falls back to the font's first glyph record.
+    auto glyphForByte = [this](unsigned char a_byte) -> const Glyph* {
+        const int signedCode = static_cast<int>(static_cast<int8_t>(a_byte));
+        const Glyph* glyph = FindGlyph(signedCode);
+        return glyph ? glyph : (m_hasRetailFallbackGlyph ? &m_retailFallbackGlyph : nullptr);
+    };
+    auto scaled = [a_scale](float a_value) -> float {
+        return static_cast<float>(static_cast<double>(a_value) * a_scale);
+    };
+
+    float width = 0.0f;
+    for (size_t i = 0; i < a_text.size(); ++i) {
+        const Glyph* glyph = glyphForByte(static_cast<unsigned char>(a_text[i]));
+        if (!glyph) continue;
+
+        float accumulated = width;
+        if (i == 0) {
+            // First byte: advance minus its bearing.
+            width = static_cast<float>(static_cast<double>(glyph->advance) * a_scale -
+                                       static_cast<double>(scaled(glyph->bearingX)));
+        } else if (i == a_text.size() - 1) {
+            // Last byte: include the right ink edge, not the advance.
+            accumulated = static_cast<float>(static_cast<double>(glyph->bearingX) * a_scale +
+                                             static_cast<double>(scaled(glyph->width)));
+            width = static_cast<float>(static_cast<double>(width) + accumulated);
+        } else {
+            width = static_cast<float>(static_cast<double>(width) +
+                                       static_cast<double>(scaled(glyph->advance)));
+        }
+    }
+    return width;
+}
+
 float BitmapFont::MeasureWidth(const std::string& a_text, float a_scale) const {
     float width = 0.0f;
     for (const FontToken& t : Tokenize(a_text)) {
@@ -336,7 +472,7 @@ float BitmapFont::MeasureWidth(const std::string& a_text, float a_scale) const {
             width += kIconAdvance * a_scale;
             continue;
         }
-        const Glyph* g = FindGlyph((int)t.ch);
+        const Glyph* g = FindGlyph((int)t.codepoint);
         if (!g) continue;
         width += g->advance * a_scale;
     }
@@ -369,8 +505,10 @@ void BitmapFont::DrawText(Renderer& a_renderer, const std::string& a_text, float
         if (t.isIcon) {
             unsigned int iconHandle = GetIconTexture(t.iconToken, a_renderer);
             if (iconHandle) {
-                float lx0 = cursorX, ly0 = a_y + kIconYOfs * a_scale;
-                float lx1 = lx0 + kIconSize * a_scale, ly1 = ly0 + kIconSize * a_scale;
+                float lx0 = cursorX + kIconBearingX * a_scale;
+                float lx1 = lx0 + kIconWidth * a_scale;
+                float ly0 = a_y - kIconYOfs * a_scale;
+                float ly1 = ly0 + kIconHeight * a_scale;
                 float x0, y0, x1, y1, x2, y2, x3, y3;
                 TransformCorner(a_matA, a_matB, a_matC, a_matD, a_matE, a_matF, lx0, ly0, x0, y0);
                 TransformCorner(a_matA, a_matB, a_matC, a_matD, a_matE, a_matF, lx1, ly0, x1, y1);
@@ -382,7 +520,7 @@ void BitmapFont::DrawText(Renderer& a_renderer, const std::string& a_text, float
             continue;
         }
 
-        const Glyph* g = FindGlyph((int)t.ch);
+        const Glyph* g = FindGlyph((int)t.codepoint);
         if (!g) continue;
 
         // Retail formula, decompiled from the real glyph-quad builder

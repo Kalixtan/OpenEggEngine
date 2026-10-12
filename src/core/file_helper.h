@@ -2,20 +2,24 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <memory>
 
-// Resolves script/data paths the way the retail engine's FILEHELPER_AREA_*
-// system does: scripts and assets are looked up by relative path against
-// one or more data roots, first match wins.
-// Retail ships a shared root plus a platform-specific overlay
-// (Platformer/ + PS3_Platformer/); we mirror that same idea to let the
-// game_data_min hello-world test find shared engine scripts (FontHelper.gm
-// etc.) that only exist in the full game_data tree.
+class PsarcArchive;
+
+// Resolves script/data paths across loose roots and mounted PSARC layers.
+// For the retail data layout, the loose game_data directory overlays
+// patch_data001.psarc, which overlays game_data.psarc. A PS3_Platformer copy
+// is only a fallback for missing Platformer assets; separately registered
+// roots follow in registration order (game_data_min supplies shared test
+// assets and scripts).
 class FileHelper {
 public:
+    // Verified against the supplied retail archive names/layout. Adding a
+    // game_data directory auto-mounts its sibling "game_data packed" folder.
     void AddRoot(const std::string& root);
 
-    // Returns the first existing absolute path for a_relativePath across
-    // all registered roots, in registration order.
+    // Returns the resolved absolute path, checking roots in registration
+    // order and preferring the requested path over an overlay fallback.
     std::optional<std::string> Resolve(const std::string& a_relativePath) const;
 
     // Reads a whole file as text via Resolve(). Returns false if not found.
@@ -28,6 +32,15 @@ public:
     // check.
     const std::string& PrimaryRoot() const;
 
+    // Lists the visible names in a directory across loose files and mounted
+    // PSARC overlays, with the same first-visible-source precedence as Resolve.
+    std::vector<std::string> ListFiles(const std::string& a_relativeDirectory) const;
+
 private:
-    std::vector<std::string> m_roots;
+    struct Source {
+        std::string root;
+        std::shared_ptr<PsarcArchive> archive;
+    };
+    std::vector<Source> m_sources;
+    std::string m_primaryRoot;
 };

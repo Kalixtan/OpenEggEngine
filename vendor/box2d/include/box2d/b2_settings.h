@@ -58,9 +58,11 @@
 /// and 0.1 AABB extension without changing Box2D's algorithms.
 #define b2_lengthUnitsPerMeter 1.0f
 
-/// The maximum number of vertices on a convex polygon. You cannot increase
-/// this too much because b2BlockAllocator has a maximum object size.
-#define b2_maxPolygonVertices	8
+/// The maximum number of vertices on a convex polygon. Contact feature IDs
+/// store vertex indices in uint8 fields, so the largest representable count is
+/// 256 (indices 0 through 255). Shapes above the block allocator's small-block
+/// threshold use its heap-allocation path.
+#define b2_maxPolygonVertices	256
 
 // User data
 

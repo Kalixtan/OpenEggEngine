@@ -1,6 +1,7 @@
 #pragma once
 #include "gmMachine.h"
 #include "gmThread.h"
+#include "../platform/platform_window.h"
 #include <string>
 
 // covering most of the corpus's real call sites -- see audio_bindings.cpp
@@ -13,20 +14,24 @@
 // missed -- playSound/setVoiceVolume/getVoiceVolume) has a body; a small
 // remainder (methods with zero real corpus call sites, per an exhaustive
 // grep) fall back to a plausible-typed default matching the confirmed
-// ones' conventions. SDL now decodes and mixes WAV voices for desktop
-// output. VAG paths use a WAV sibling when one exists. Effects and exact
-// retail mixer behavior remain open. The voice-
-// handle registry backed by actual per-voice state (volume/pan/pitch/loop/
+// ones' conventions. The frontend decodes WAVs and outputs the mixed voices.
+// VAG paths use a WAV sibling when one exists. Effects and exact
+// retail mixer behavior remain open. The voice-handle registry is backed
+// by actual per-voice state (volume/pan/pitch/loop/
 // position/pause), so isVoiceValid/stopVoice/setVoiceVolume/etc. operate
 // on tracked state consistent with what playSound handed back. Voice
 // positions and known-duration one-shots advance on the engine frame clock.
-// Gate handling, output, effects, and precise lifetime parity remain open.
-void RegisterAudioBindings(gmMachine& a_machine);
+// Timed gates use the retail default stop fade; exact envelope curves,
+// effects, and precise lifetime parity remain open.
+void RegisterAudioBindings(gmMachine& a_machine, PlatformFrontend& a_frontend);
 
 // Advance script-visible voice playback cursors once per engine frame.
 void AdvanceAudioVoices(float a_deltaMs);
 void InitializeAudioOutput();
 void ShutdownAudioOutput();
+// Mirror the manager-owned resource-list clear in retail
+// AudioManagerClearTrackedResources. Active voices keep their own sample refs.
+void CleanupAudioManagerTrackedResources();
 
 // For process_handle_bindings.cpp's Process.setGlobalVolume -- confirmed
 // real call site (PauseProcessBase.gm: `this.gameProcess.setGlobalVolume(gv)`)
@@ -39,7 +44,8 @@ float GetMasterVolumeNative();
 
 // Shared voice allocation path for Audio.playSound and the EntityBase mixer
 // wrappers. The frame mixer reads this same state for desktop output.
-int CreateVoiceNative(const std::string& a_path, float a_pan, float a_volume);
+int CreateVoiceNative(const std::string& a_path, float a_pan, float a_volume,
+                      int a_note = 96);
 
 // For entity_bindings.cpp's per-entity EntityBase.playSound (confirmed
 // real via direct Ghidra cross-reference, 0x001c5d6c-adjacent -- distinct

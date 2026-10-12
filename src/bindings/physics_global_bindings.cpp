@@ -5,9 +5,25 @@
 #include "vector2d_bindings.h"
 #include "../core/physics_world.h"
 #include <box2d/box2d.h>
+#include <cstdint>
 #include <vector>
+#include <set>
 
 namespace {
+
+// RETAIL PPC VERIFIED: PHYSICS.flush (0x89d40) forwards to 0x36d00, which
+// loads the fixed 0.01 ms delta from 0x36cf8 and invokes PhysicsManagerTick
+// (0x35d28). The ordinary manager tick uses the same millisecond delta domain
+// as the 16.666666 ms game tick. Keep movement-before-world-step order; the
+// local world adapter converts milliseconds to seconds at the Box2D boundary.
+int GM_CDECL gmf_Physics_flush(gmThread*) {
+    // Retail wrapper never inspects explicit arguments, so preserve that
+    // permissive call behavior.
+    constexpr float kRetailFlushDeltaMs = 0.01f;
+    StepPhysicsBodyMovement(kRetailFlushDeltaMs);
+    StepPhysicsWorld(kRetailFlushDeltaMs);
+    return GM_OK;
+}
 
 // --- isShapeSensor/getBodyFromShapeID/getEntityFromShapeID --------------
 // All three confirmed real and heavily used (Player.gm's ledge-hang/
@@ -51,6 +67,23 @@ int GM_CDECL gmf_Physics_getShapeByID(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(sid, 0, 0);
     a_thread->Push(MakePhysicsShapeByGlobalId(*a_thread->GetMachine(), sid));
+    return GM_OK;
+}
+
+// RETAIL BYTECODE: Physics.setNumFramesToIgnoreCollisions @ 0x0008b860
+// forwards the integer argument to FUN_00036f34, which stores it at manager
+// +0x5c. FUN_00035d28 decrements positive values and skips post-step
+// collision-pair traversal until the countdown reaches zero.
+int GM_CDECL gmf_Physics_setNumFramesToIgnoreCollisions(gmThread* a_thread) {
+    const gmint frames = a_thread->Param(0).m_value.m_int;
+    SetPhysicsNumFramesToIgnoreCollisions(frames);
+    return GM_OK;
+}
+
+// RETAIL BYTECODE: Physics.getNumFramesToIgnoreCollisions @ 0x0008b8bc
+// reads the signed integer from the same manager field through FUN_00036f3c.
+int GM_CDECL gmf_Physics_getNumFramesToIgnoreCollisions(gmThread* a_thread) {
+    a_thread->PushInt(GetPhysicsNumFramesToIgnoreCollisions());
     return GM_OK;
 }
 
@@ -168,6 +201,29 @@ int GM_CDECL gmf_Physics_raycastOne(gmThread* a_thread) {
     return GM_OK;
 }
 
+// RETAIL PPC: Physics.raycastSimple @ 0x0008ac5c decodes exactly two
+// vector2D arguments, calls FUN_00036a78 with both filter bytes zero, and
+// pushes the helper's hit flag as a GM integer/boolean. The wrapper and
+// return contract and the second flag's sensor behavior are bytecode-
+// verified: the PPC callback at 0x002ff0c8 rejects sensor fixtures when
+// this flag is zero. The first flag's complete filter semantics are still
+// being reconciled; the desktop currently maps it to raycastOne's
+// start-overlap exclusion, which remains an inference.
+int GM_CDECL gmf_Physics_raycastSimple(gmThread* a_thread) {
+    gmMachine& m = *a_thread->GetMachine();
+    float sx, sy, ex, ey;
+    if (!GetVector2D(m, a_thread->Param(0), sx, sy) ||
+        !GetVector2D(m, a_thread->Param(1), ex, ey)) return GM_EXCEPTION;
+
+    ClosestRayCastCallback cb;
+    cb.rayStart = b2Vec2(sx, sy);
+    cb.ignoreSensors = true;
+    cb.ignoreAlreadyColliding = true;
+    GetPhysicsWorld().RayCast(&cb, b2Vec2(sx, sy), b2Vec2(ex, ey));
+    a_thread->PushInt(cb.hit ? 1 : 0);
+    return GM_OK;
+}
+
 // raycast -- all touching entities along the ray, deduplicated, as a real
 // entity iterator (matches the ENTITYLISTREFCONTAINER idiom used
 // elsewhere, e.g. PhysicsData.getCollidingEntities).
@@ -198,6 +254,103 @@ struct AllHitsRayCastCallback : b2RayCastCallback {
         return 1.0f; // don't clip -- keep going, collect every hit
     }
 };
+
+struct ShapeAABBQueryCallback : b2QueryCallback {
+    const b2Shape* exactQueryShape = nullptr;
+    b2Transform exactQueryTransform;
+    std::vector<int> shapeIds;
+    std::set<int> seen;
+
+    bool ReportFixture(b2Fixture* fixture) override {
+        const int shapeId = (int)(intptr_t)fixture->GetUserData().pointer;
+        if (shapeId <= 0 || seen.count(shapeId)) return true;
+        if (exactQueryShape) {
+            const b2Shape* fixtureShape = fixture->GetShape();
+            bool overlaps = false;
+            for (int child = 0; child < fixtureShape->GetChildCount(); ++child) {
+                if (b2TestOverlap(exactQueryShape, 0, fixtureShape, child,
+                                  exactQueryTransform,
+                                  fixture->GetBody()->GetTransform())) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (!overlaps) return true;
+        }
+        seen.insert(shapeId);
+        shapeIds.push_back(shapeId);
+        return true;
+    }
+};
+
+int PushShapeAABBQuery(gmThread* a_thread, const b2AABB& bounds,
+                       const b2Shape* exactQueryShape = nullptr,
+                       const b2Transform* exactQueryTransform = nullptr) {
+    if (!bounds.IsValid()) {
+        a_thread->Push(MakeIntListRefContainer(
+            *a_thread->GetMachine(), std::vector<int>{}));
+        return GM_OK;
+    }
+    ShapeAABBQueryCallback callback;
+    callback.exactQueryShape = exactQueryShape;
+    if (exactQueryTransform) callback.exactQueryTransform = *exactQueryTransform;
+    GetPhysicsWorld().QueryAABB(&callback, bounds);
+    a_thread->Push(MakeIntListRefContainer(
+        *a_thread->GetMachine(), std::move(callback.shapeIds)));
+    return GM_OK;
+}
+
+int PushEmptyShapeQuery(gmThread* a_thread) {
+    a_thread->Push(MakeIntListRefContainer(
+        *a_thread->GetMachine(), std::vector<int>{}));
+    return GM_OK;
+}
+
+int GM_CDECL gmf_Physics_getShapesWithin(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(4);
+    GM_FLOAT_OR_INT_PARAM(centerX, 0, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(centerY, 1, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(halfWidth, 2, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(halfHeight, 3, 0.0f);
+
+    // The active TouchEditProcess/Main call sites pass an area center plus
+    // half extents. FUN_00036b68 constructs a rectangle around that center;
+    // its rotation constant DAT_00036b60 is zero in the retail binary.
+    if (halfWidth < 0.0f || halfHeight < 0.0f) return PushEmptyShapeQuery(a_thread);
+    b2PolygonShape queryShape;
+    queryShape.SetAsBox(halfWidth, halfHeight);
+    b2Transform queryTransform;
+    queryTransform.Set(b2Vec2(centerX, centerY), 0.0f);
+    b2AABB bounds;
+    queryShape.ComputeAABB(&bounds, queryTransform, 0);
+    return PushShapeAABBQuery(a_thread, bounds, &queryShape, &queryTransform);
+}
+
+int GM_CDECL gmf_Physics_getShapesNear(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(4);
+    GM_FLOAT_OR_INT_PARAM(centerX, 0, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(centerY, 1, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(halfWidth, 2, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(halfHeight, 3, 0.0f);
+    if (halfWidth < 0.0f || halfHeight < 0.0f) return PushEmptyShapeQuery(a_thread);
+    b2AABB bounds;
+    bounds.lowerBound.Set(centerX - halfWidth, centerY - halfHeight);
+    bounds.upperBound.Set(centerX + halfWidth, centerY + halfHeight);
+    return PushShapeAABBQuery(a_thread, bounds);
+}
+
+int GM_CDECL gmf_Physics_getShapesRoughlyWithin(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(4);
+    GM_FLOAT_OR_INT_PARAM(minX, 0, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(minY, 1, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(maxX, 2, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(maxY, 3, 0.0f);
+    if (minX > maxX || minY > maxY) return GM_EXCEPTION;
+    b2AABB bounds;
+    bounds.lowerBound.Set(minX, minY);
+    bounds.upperBound.Set(maxX, maxY);
+    return PushShapeAABBQuery(a_thread, bounds);
+}
 
 gmType g_rayIterType = -1;
 struct RayEntityIterData {
@@ -259,12 +412,24 @@ void GM_CDECL RayIterGCDestruct(gmMachine*, gmUserObject* a_object) {
 }
 
 gmFunctionEntry s_physicsLib[] = {
+    {"flush", gmf_Physics_flush, nullptr},
     {"isShapeSensor", gmf_Physics_isShapeSensor, nullptr},
     {"getShapeByID", gmf_Physics_getShapeByID, nullptr},
     {"getBodyFromShapeID", gmf_Physics_getBodyFromShapeID, nullptr},
     {"getEntityFromShapeID", gmf_Physics_getEntityFromShapeID, nullptr},
+    {"setNumFramesToIgnoreCollisions", gmf_Physics_setNumFramesToIgnoreCollisions, nullptr},
+    {"getNumFramesToIgnoreCollisions", gmf_Physics_getNumFramesToIgnoreCollisions, nullptr},
     {"raycastOne", gmf_Physics_raycastOne, nullptr},
+    {"raycastSimple", gmf_Physics_raycastSimple, nullptr},
     {"raycast", gmf_Physics_raycast, nullptr},
+    // Retail's native Physics table calls the all-hits iterator function
+    // `raycastShapes` (Physics.raycastShapes @ 0x0008a3a4). The game_data
+    // scripts in this checkout call it `raycast`; keep that compatibility
+    // name while also exposing the retail native entry point.
+    {"raycastShapes", gmf_Physics_raycast, nullptr},
+    {"getShapesNear", gmf_Physics_getShapesNear, nullptr},
+    {"getShapesRoughlyWithin", gmf_Physics_getShapesRoughlyWithin, nullptr},
+    {"getShapesWithin", gmf_Physics_getShapesWithin, nullptr},
 };
 
 } // namespace

@@ -1,11 +1,16 @@
 #include "draw_context.h"
 #include "draw_list.h"
 #include "../core/engine_context.h"
+#include "../core/save_data.h"
 #include "../core/strict_calls.h"
 #include "../bindings/colour_bindings.h"
 #include "../bindings/texture_bindings.h"
+#include "../bindings/video_bindings.h"
 #include "../bindings/vector2d_bindings.h"
+#include "../bindings/matrix4_bindings.h"
+#include "../bindings/shape_bindings.h"
 #include "gmTableObject.h"
+#include "gmStringObject.h"
 #include <functional>
 #include <algorithm>
 #include <cmath>
@@ -13,6 +18,8 @@
 #include <string>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+#include <optional>
 
 DrawContext& GetDrawContext() {
     static DrawContext ctx;
@@ -20,9 +27,36 @@ DrawContext& GetDrawContext() {
 }
 
 int DC_RecordOrRun(gmThread* a_thread, std::function<void()> a_apply) {
-    if (DrawListData* rec = RecordingTarget(a_thread)) { rec->commands.push_back(std::move(a_apply)); return GM_OK; }
+    if (DrawListData* rec = RecordingTarget(a_thread)) { rec->commandBuffer->commands.push_back(std::move(a_apply)); return GM_OK; }
     a_apply();
     return GM_OK;
+}
+
+static std::optional<std::string> ResolveDrawTexturePath(const char* a_path, int a_area) {
+    EngineContext& ctx = GetEngineContext();
+    if (a_area == 1 && ctx.fileHelper) return ResolveTextureAssetPath(a_path, a_area);
+    std::string fullPath;
+    if (a_area == 0) fullPath = SaveData::Dir() + "/" + a_path;
+    else if (a_area == 2) fullPath = a_path;
+    else return std::nullopt;
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(fullPath, ec) || ec) return std::nullopt;
+    return fullPath;
+}
+
+// The retail wrappers widen GM_FLOAT values to double and convert GM_INT
+// values directly to double before calling FUN_0003e040. Keep that precision
+// through its double addition/absolute-value operations; the helper then
+// rounds once to float before multiplying by its 0.5f constant.
+static double RetailFloatOrIntAsDouble(gmThread* a_thread, int a_index) {
+    const gmVariable& value = a_thread->Param(a_index);
+    return value.m_type == GM_FLOAT
+        ? static_cast<double>(value.m_value.m_float)
+        : static_cast<double>(value.m_value.m_int);
+}
+
+static float RetailSmoothLevelFromArgs(double a_first, double a_second) {
+    return static_cast<float>(a_second + std::fabs(a_first)) * 0.5f;
 }
 
 int GM_CDECL DC_gmf_pushAttributes(gmThread* a_thread) {
@@ -31,7 +65,10 @@ int GM_CDECL DC_gmf_pushAttributes(gmThread* a_thread) {
         ctx.attrStack.push_back({ctx.depthTest, ctx.depthWrite, ctx.colourMask,
                                   ctx.stencilFunc, ctx.stencilRef,
                                   ctx.stencilSfail, ctx.stencilDpfail, ctx.stencilDppass,
-                                  ctx.culling});
+                                  ctx.culling, ctx.fontEdge, ctx.fontWidth,
+                                  ctx.distanceTextureEnabled,
+                                  ctx.distanceTextureDiscardLevel,
+                                  ctx.distanceTextureSmoothLevel});
     });
 }
 
@@ -51,6 +88,11 @@ int GM_CDECL DC_gmf_popAttributes(gmThread* a_thread) {
         ctx.stencilDpfail = a.stencilDpfail;
         ctx.stencilDppass = a.stencilDppass;
         ctx.culling = a.culling;
+        ctx.fontEdge = a.fontEdge;
+        ctx.fontWidth = a.fontWidth;
+        ctx.distanceTextureEnabled = a.distanceTextureEnabled;
+        ctx.distanceTextureDiscardLevel = a.distanceTextureDiscardLevel;
+        ctx.distanceTextureSmoothLevel = a.distanceTextureSmoothLevel;
 
         Renderer* renderer = GetEngineContext().renderer;
         renderer->SetDepthTest(ctx.depthTest);
@@ -92,45 +134,61 @@ int GM_CDECL DC_gmf_setAttrCulling(gmThread* a_thread) {
     });
 }
 
-// 0x00082b0c): sets a transparent-pass draw-order/sort key, distinct from
-// the opaque depth-test Z this engine already models (see Renderer's
-// GL_EQUAL depth-layering comment). Real call site (BaseNotePlant.gm:1025/
-// 1029: `drawList.setOrderTransparent(WIZARD_MODE_NOTE_Z);`, right after
-// `drawList.translate(notePos, z)` already placed the note at that exact
-// Z) -- this engine draws everything in a single painter's-algorithm pass
-// with no separate transparent-object sort bucket to feed a second sort
-// key into, so genuine no-op (the translate() call already did the real
-// positioning work).
+// Retail FUN_00041ad0 quantizes transparent Z by float 0x42055556, adds 0xff00,
+// clamps to 16 bits, and selects tier 3 in the draw-list order key.
 int GM_CDECL DC_gmf_setOrderTransparent(gmThread* a_thread) {
-    (void)a_thread;
+    DrawListData* list = RecordingTarget(a_thread);
+    if (!list) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(z, 0, 0.0f);
+    const int quantized = std::clamp((int)(z * 33.333335876464844f) + 0xff00, 0, 0xffff);
+    list->orderKey = 0x30000000u | (unsigned int)quantized;
     return GM_OK;
 }
 
-// sets a 2-bit draw-order/tier field on the DrawList's internal struct to
-// its maximum value (`& 0xcfffffff | 0x30000000`), the same "which sort
-// bucket does this belong to" mechanic as setOrderTransparent just above,
-// just picking the opposite end of the tier range. Real call site
-// (TutorialMessage.gm:95, right before `pushMatrix()`/`translate(pos,z)`)
-// already picks an explicit Z from PLAYER_MODE_NOTE_Z/FRONT_Z (this
-// engine's existing single-pass GL_EQUAL depth-layering already places it
-// correctly) -- setOrderLast is a same-Z tie-breaker for retail's
-// multi-bucket sorted renderer, which this engine's single painter's-
-// algorithm pass has no equivalent bucket system for. Same architecture
-// gap and same no-op resolution as setOrderTransparent.
+// Retail FUN_00041b38 uses a different tier and reverses Z within it.
+int GM_CDECL DC_gmf_setOrderAlphaTest(gmThread* a_thread) {
+    DrawListData* list = RecordingTarget(a_thread);
+    if (!list) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(z, 0, 0.0f);
+    const int quantized = std::clamp(0xff - (int)(z * 33.333335876464844f), 0, 0xffff);
+    list->orderKey = 0x20000000u | (unsigned int)quantized;
+    return GM_OK;
+}
+
+// Retail 0x00082bbc changes only the tier bits of native field +0x30.
 int GM_CDECL DC_gmf_setOrderLast(gmThread* a_thread) {
-    (void)a_thread;
+    DrawListData* list = RecordingTarget(a_thread);
+    if (!list) return GM_EXCEPTION;
+    list->orderKey = (list->orderKey & 0xcfffffffu) | 0x30000000u;
     return GM_OK;
 }
 
-// setDistanceTextureRenderAttributes(near, far) -- confirmed real
-// texture fade/blend range (a shader uniform pair). Real call site
-// (BaseNotePlant.gm:1054: `drawList.setDistanceTextureRenderAttributes(
-// 0.5f-u, 0.55f+u);`, right before drawTextureByHandle) -- this engine's
-// textured-quad renderer has no per-draw distance-fade shader stage,
-// genuine no-op.
+// Verification: retail PPC plus native config table and Cg reflection. Native
+// config row IDs differ from Cg paramno: row 1 is aColor/category 5, row 2 is
+// aDiscardLevel, row 3 is aSmoothLevel, and row 4 is aSize/category 10.
+// setDistanceTextureRenderAttributes(near, far) -- retail records two
+// 4-byte payloads through FUN_0003e040 (DrawList.c:0x000815b8). Cg reflection
+// and FUN_0003e040 establish that those payloads update native IDs 2
+// (aDiscardLevel) and 3 (aSmoothLevel). Preserve both until another setter,
+// resetFontRenderAttributes, or popAttributes changes them.
 int GM_CDECL DC_gmf_setDistanceTextureRenderAttributes(gmThread* a_thread) {
-    (void)a_thread;
-    return GM_OK;
+    GM_CHECK_NUM_PARAMS(2);
+    const double nearValue = RetailFloatOrIntAsDouble(a_thread, 0);
+    const double farValue = RetailFloatOrIntAsDouble(a_thread, 1);
+    // FUN_0003e040 receives (-near, far) from the retail wrapper. PPC fsel
+    // selects native ID 2 / aDiscardLevel (0.25 for positive `near`) while
+    // ID 3 / aSmoothLevel receives (near + far) / 2.
+    const double retailFirst = -nearValue;
+    const float discardLevel = retailFirst < 0.0 ? 0.25f : 0.5f;
+    const float smoothLevel = RetailSmoothLevelFromArgs(retailFirst, farValue);
+    return DC_RecordOrRun(a_thread, [discardLevel, smoothLevel] {
+        DrawContext& ctx = GetDrawContext();
+        ctx.distanceTextureEnabled = true;
+        ctx.distanceTextureDiscardLevel = discardLevel;
+        ctx.distanceTextureSmoothLevel = smoothLevel;
+    });
 }
 
 // drawList.setColourMask(bool) -- confirmed real, see Renderer::SetColourMask.
@@ -209,84 +267,126 @@ int GM_CDECL DC_gmf_setAttrDefaultStencil(gmThread* a_thread) {
     });
 }
 
-// setColour -- now DECOMPILED-CONFIRMED via live Ghidra cross-reference
-// matrixstack_setColour.txt): Video's own OPD-resolved body is
-// FUN_00076578 @ 0x00076578, drawList's is FUN_0007e6c8 @ 0x0007e6c8 --
-// TWO SEPARATE native functions (not one shared implementation the way
-// this engine's DC_gmf_setColour singleton assumed), differing in how they
-// STORE the result (Video appends a colour-set opcode to its deferred
-// command stream; drawList appends into its own growable float buffer)
-// but IDENTICAL in dispatch contract, confirmed byte-for-byte across both
-// bodies:
-//   1 arg:  arg0 type-dispatch -- GM_INT(1)=colour ID, GM_STRING(0x25)=
-//           colour name, COLOUR-type=read r/g/b off the object directly.
-//           Alpha defaults (a per-function rodata float constant, exact
-//           value not pinned down, but matches this engine's existing 1.0
-//           default -- nothing in the corpus distinguishes it from 1.0).
-//   2 args: same arg0 dispatch, alpha = explicit arg1.
-//   3 args: pure numeric (r,g,b), alpha implicit (same default).
-//   4 args: pure numeric (r,g,b,a), alpha explicit.
-// This is EXACTLY the shape this file's previous (corpus-inferred)
-// implementation already used -- confirms rather than changes that
-// dispatch logic. The three GM_INT/GM_STRING/COLOUR-type branches also
-// match colour_bindings.cpp's ResolveColour() precisely (by-name registry
-// lookup / by-ID array lookup / direct object read), so ResolveColourRGB
-// below is reused as-is. What's NOT replicated is retail's actual storage
-// (opcode stream / growable buffer) -- this engine's SetColour() applies
-// the result immediately to the current draw colour instead, matching
-// this project's stated principle for the renderer layer (docs/
-// ARCHITECTURE.md: "this is the one place where 'matches retail' means
-// matching visible output, not matching implementation") since backing
-// that exact storage mechanism would require replicating retail's whole
-// deferred-command-stream renderer, not just this one call.
-int GM_CDECL gmf_DC_setColour_video(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1);
-    gmVariable arg0 = a_thread->Param(0);
-    float r, g, b;
-    bool tryNamedForm = (a_thread->GetNumParams() < 3);
-    if (tryNamedForm && ResolveColourRGB(a_thread, arg0, r, g, b)) {
-        float a = 1.0f;
-        if (a_thread->GetNumParams() >= 2) { GM_FLOAT_OR_INT_PARAM(alpha, 1, 1.0f); a = alpha; }
-        return DC_RecordOrRun(a_thread, [r, g, b, a] { GetEngineContext().renderer->SetColour(r, g, b, a); });
+// Retail drawList.setColour wrapper at 0x7e6c8 appends a color command after
+// converting scalar payloads (float payload for GM_FLOAT, otherwise signed
+// integer payload). Its 1/2-argument forms accept color ID, name, or COLOUR;
+// its 3/4-argument forms are RGB[A]. Invalid arities/types return -1.
+// Verification: FUN_0007e6c8 uses float payloads only for GM_FLOAT and
+// sign-extends/converts every other raw 32-bit payload to single precision.
+static float RetailSetColourScalar(gmThread* a_thread, int a_index) {
+    const gmVariable& value = a_thread->Param(a_index);
+    return value.m_type == GM_FLOAT
+        ? value.m_value.m_float
+        : static_cast<float>(value.m_value.m_int);
+}
+
+int GM_CDECL gmf_DC_setColour_drawList(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    float r, g, b, alpha = 1.0f;
+    if (count == 1 || count == 2) {
+        if (!ResolveColourRGB(a_thread, a_thread->Param(0), r, g, b))
+            return GM_EXCEPTION;
+        if (count == 2) alpha = RetailSetColourScalar(a_thread, 1);
+    } else if (count == 3 || count == 4) {
+        r = RetailSetColourScalar(a_thread, 0);
+        g = RetailSetColourScalar(a_thread, 1);
+        b = RetailSetColourScalar(a_thread, 2);
+        if (count == 4) alpha = RetailSetColourScalar(a_thread, 3);
+    } else {
+        return GM_EXCEPTION;
+    }
+    return DC_RecordOrRun(a_thread, [r, g, b, alpha] {
+        GetEngineContext().renderer->SetColour(r, g, b, alpha);
+    });
+}
+// Verification: DrawList.setColourRef wrapper 0x7ebac accepts exactly 1/2
+// args. Arg 0 resolves a live int-ID, string-name, or COLOUR reference; arg 1
+// when present becomes alpha (float payload, otherwise signed integer payload).
+// Each valid call appends opcode 0x0c with {RGB pointer, alpha}; replay reads
+// the referenced RGB then. COLOUR references are rooted on the drawList until
+// reset/destruction so their data remains live for every replay.
+int GM_CDECL gmf_DC_setColourRef(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    if (count != 1 && count != 2) return GM_EXCEPTION;
+
+    const gmVariable& colourRef = a_thread->Param(0);
+    const float alpha = count == 2 ? RetailSetColourScalar(a_thread, 1) : 1.0f;
+    DrawListData* target = RecordingTarget(a_thread);
+    if (!target) return GM_EXCEPTION;
+
+    if (colourRef.m_type == GM_INT) {
+        const int id = colourRef.m_value.m_int;
+        const void* reference = GetColourManagerReferenceByID(id);
+        if (!reference) return GM_EXCEPTION;
+        target->commandBuffer->commands.emplace_back([reference, alpha] {
+            float r, g, b;
+            if (ReadColourManagerReference(reference, r, g, b))
+                GetEngineContext().renderer->SetColour(r, g, b, alpha);
+        });
+        return GM_OK;
     }
 
-    GM_CHECK_NUM_PARAMS(3);
-    GM_FLOAT_OR_INT_PARAM(rr, 0, 1.0f);
-    GM_FLOAT_OR_INT_PARAM(gg, 1, 1.0f);
-    GM_FLOAT_OR_INT_PARAM(bb, 2, 1.0f);
-    GM_FLOAT_OR_INT_PARAM(aa, 3, 1.0f);
-    return DC_RecordOrRun(a_thread, [rr, gg, bb, aa] { GetEngineContext().renderer->SetColour(rr, gg, bb, aa); });
+    if (colourRef.m_type == GM_STRING) {
+        auto* stringObject = static_cast<gmStringObject*>(
+            a_thread->GetMachine()->GetObject(colourRef.m_value.m_ref));
+        if (!stringObject) return GM_EXCEPTION;
+        const std::string name = stringObject->GetString();
+        const void* reference = GetColourManagerReferenceByName(name);
+        if (!reference) return GM_EXCEPTION;
+        target->commandBuffer->commands.emplace_back([reference, alpha] {
+            float r, g, b;
+            if (ReadColourManagerReference(reference, r, g, b))
+                GetEngineContext().renderer->SetColour(r, g, b, alpha);
+        });
+        return GM_OK;
+    }
+
+    if (colourRef.m_type == g_colourType) {
+        gmObject* object = a_thread->GetMachine()->GetObject(colourRef.m_value.m_ref);
+        float r, g, b;
+        if (!GetColourObjectRGB(object, r, g, b)) return GM_EXCEPTION;
+        target->commandBuffer->commands.emplace_back([object, alpha] {
+            float r, g, b;
+            if (GetColourObjectRGB(object, r, g, b))
+                GetEngineContext().renderer->SetColour(r, g, b, alpha);
+        });
+        target->commandBuffer->retainedObjects.push_back(object);
+        return GM_OK;
+    }
+
+    return GM_EXCEPTION;
 }
-// drawList.setColour -- same confirmed dispatch, see comment above
-// (FUN_0007e6c8's body is byte-for-byte the same shape as Video's
-// FUN_00076578, just storing into a different buffer natively).
-int GM_CDECL gmf_DC_setColour_drawList(gmThread* a_thread) {
-    return gmf_DC_setColour_video(a_thread);
-}
-// drawList.setColourRef -- confirmed real (EBOOT.elf, function named
-// "setColourRef" already in Ghidra's own symbol table @ 0x0007ebac) but a
-// GENUINELY DIFFERENT function from setColour, not an alias -- takes a
-// name/id-shaped first argument feeding a lookup-and-store helper
-// (FUN_002b6af4 among others), not the r/g/b dispatch above. Not yet
-// decompiled/understood well enough to implement -- stays trapped.
-GE3_REMOVED(gmf_DC_setColourRef, "drawList.setColourRef")
 
 int GM_CDECL DC_gmf_setFontRenderAttributes(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_FLOAT_OR_INT_PARAM(edge, 0, 0.5f);
-    GM_FLOAT_OR_INT_PARAM(width, 1, 0.5f);
-    return DC_RecordOrRun(a_thread, [edge, width] {
+    const double edge = RetailFloatOrIntAsDouble(a_thread, 0);
+    const double width = RetailFloatOrIntAsDouble(a_thread, 1);
+    // Match FUN_0003e040's PPC fsel: a nonnegative first argument stores
+    // 0.5, a negative one 0.25. Unlike the distance-texture wrapper, the
+    // font wrapper passes its first argument unchanged.
+    const float storedEdge = edge < 0.0 ? 0.25f : 0.5f;
+    const float storedWidth = RetailSmoothLevelFromArgs(edge, width);
+    return DC_RecordOrRun(a_thread, [storedEdge, storedWidth] {
         DrawContext& ctx = GetDrawContext();
-        ctx.fontEdge = edge;
-        ctx.fontWidth = width;
+        ctx.fontEdge = storedEdge;
+        ctx.fontWidth = storedWidth;
     });
 }
 
+// Verification: decomp-confirmed native call and parameter writes; the native
+// table row map distinguishes descriptor IDs from Cg paramno. Reset writes
+// rows 2/3 (discard/smooth); row 4 (aSize) is not set by this path.
 int GM_CDECL DC_gmf_resetFontRenderAttributes(gmThread* a_thread) {
     return DC_RecordOrRun(a_thread, [] {
         DrawContext& ctx = GetDrawContext();
         ctx.fontEdge = 0.5f;
-        ctx.fontWidth = 0.5f;
+        ctx.fontWidth = 0.45f;
+        ctx.distanceTextureEnabled = false;
+        // FUN_0003e0fc writes native ID 2 (aDiscardLevel)=0.5 and
+        // ID 3 (aSmoothLevel)=0.45. Cg paramno is one higher than these
+        // native descriptor-row IDs for the corresponding uniforms.
+        ctx.distanceTextureDiscardLevel = 0.5f;
+        ctx.distanceTextureSmoothLevel = 0.45f;
     });
 }
 
@@ -730,31 +830,24 @@ int PrintArrayImpl(gmThread* a_thread) {
 // print() confirmed real; the distinct printUntranslated() confirmed real
 // localization lookup and printUntranslated() is the explicit opt-out.
 int GM_CDECL DC_gmf_print(gmThread* a_thread) { return PrintImpl(a_thread, true); }
+// Bytecode verified against VMDRAWLIST.printTranslated at EBOOT 0x81b80:
+// it shares FUN_000816c8's argument parser with printUntranslated, then
+// formats through FUN_00010e28 with translated=1 and submits the resulting
+// text via FUN_00040650. This is the same translated path as DrawList.print.
+int GM_CDECL DC_gmf_printTranslated(gmThread* a_thread) { return PrintImpl(a_thread, true); }
 int GM_CDECL DC_gmf_printUntranslated(gmThread* a_thread) { return PrintImpl(a_thread, false); }
 int GM_CDECL DC_gmf_printArray(gmThread* a_thread) { return PrintArrayImpl(a_thread); }
 
-// SOUND SHAPES: takes an OPTIONAL trailing boolean. Confirmed from its own
-// it records FUN_0003e198(list, 0), with 1 it records FUN_0003e198(list,
-// arg != 0), and any other count returns -1. What the flag selects is NOT
-// recoverable from the recorder alone -- it is consumed downstream in the
-// RSX command path (FUN_0004cea0, unanalysed in the committed Ghidra
-// project) -- and all 55 corpus call sites use the bare 0-argument form, so
-// nothing here can currently distinguish the two states. Accepted and
-// ignored rather than guessed at; flagged so the flag is not mistaken for
-// an argument retail does not have.
+// Verification: DrawList.c @ 0x7f874 confirms 0/1 argument arity and direct
+// raw-payload != 0 conversion. PPC FUN_0004cea0 branches on that flag: false
+// skips its axis-angle camera transform; true runs the VMX transform branch.
 int GM_CDECL DC_gmf_setupWorldView(gmThread* a_thread) {
-    // Establishes the world->screen projection for subsequent draws this
-    // frame -- our Renderer recomputes this per-draw-call already (fixed
-    // ortho, see Renderer::kWorldHalfHeight), so this used to be a pure
-    // no-op marker call. Now also flips on camera-relative projection
-    // (Renderer::SetUseCameraView) -- setupWorldView() is real retail's
-    // signal that subsequent draws are camera-relative gameplay content,
-    // as opposed to setupOrthoView()'s screen-fixed UI content, confirmed
-    // by real usage (Platformer/Main.gm's preDraw() calls
-    // Video.setCameraPos(...) then relies on world-space draws tracking
-    // it, while menu screens never move the camera at all).
-    return DC_RecordOrRun(a_thread, [] {
-        GetEngineContext().renderer->SetViewMode(Renderer::ViewMode::WorldPerspective);
+    const int count = a_thread->GetNumParams();
+    if (count < 0 || count > 1) return GM_EXCEPTION;
+    const bool cameraRotationEnabled = count == 1 &&
+        a_thread->Param(0).m_value.m_int != 0;
+    return DC_RecordOrRun(a_thread, [cameraRotationEnabled] {
+        GetEngineContext().renderer->SetWorldView(cameraRotationEnabled);
     });
 }
 
@@ -807,8 +900,11 @@ int GM_CDECL DC_gmf_setupOrthoView(gmThread* a_thread) {
 // (FUN_00421680), gluOrtho2D(-a/2, a/2, -0.5, 0.5). This is the one FoE's
 // own UI actually uses.
 int GM_CDECL DC_gmf_setupAspectRatioOrthoView(gmThread* a_thread) {
-    return DC_RecordOrRun(a_thread, [] {
-        GetEngineContext().renderer->SetViewMode(Renderer::ViewMode::AspectRatioOrtho);
+    // RETAIL PPC: FUN_0003e4a0 reads Video+0x81bc before building the matrix
+    // command. Capture the same value now because DrawList execution is deferred.
+    const float aspect = GetEngineContext().video.aspectRatio;
+    return DC_RecordOrRun(a_thread, [aspect] {
+        GetEngineContext().renderer->SetAspectRatioOrtho(aspect);
     });
 }
 
@@ -996,23 +1092,20 @@ int GM_CDECL gmf_DC_rotate(gmThread* a_thread) {
     });
 }
 
-// scale -- drawList's own candidate body (FUN_00083280) genuinely can't be
-// decompiled with this toolchain: it hits an unrecognized PowerPC opcode
-// (0x7c43340e @ 0x000832d0, confirmed via raw disassembly -- not a
-// disassembly-alignment mistake, a real instruction Ghidra's stock
-// PowerPC processor module doesn't have a constructor for, almost
-// certainly a Cell PPU paired-single/VMX float op the installed processor
-// spec doesn't model; the installed "Ps3GhidraScripts" extension only adds
-// syscall/NID tables, not a fuller Cell processor definition). Confirmed
-// NOT an artifact of -noanalysis: reran with a full targeted analysis
-// pass first (AnalyzeAndDecompile.py) and the same address still fails
-// the same way.
-// Video's OWN scale (FUN_000802d8 @ 0x000802d8, opcode-stream based, see
-// this cluster's other comments for why that storage mechanism itself
-// isn't replicated) DID decompile cleanly, and gives the confirmed
-// argument contract both share: 1 arg = uniform scale (x=y=arg0), 2+ args
-// = non-uniform (x=arg0, y=arg1). Applied here the same way translate/
-// rotateZ are -- composed into this engine's existing affine matrix stack.
+// RETAIL BYTECODE AUDIT: DrawList.scale is FUN_00083280. Raw PPC shows it
+// builds a transform and calls FUN_0031bdb4, the native matrix-compose
+// kernel. That confirms scale participates in matrix composition. The
+// desktop post-multiplies a diagonal 2D matrix, consistent with the
+// verified current*new order used by the neighboring matrix operations.
+// The scale-matrix assembly includes paired-vector instructions at 0x832d0,
+// exact parameter replication (including one- versus two-argument behavior)
+// The separate Video.scale function is not evidence for DrawList.scale's
+// argument contract. Do not change the desktop matrix behavior from a visual
+// guess alone.
+//
+// Runtime note: lenient numeric reads are retained because null arguments
+// occur in live game calls; unlike the retail bytecode path, their fallback
+// semantics have not been verified and remain an API compatibility question.
 // Lenient argument reads, for exactly the reason gmf_DC_translate documents
 // at length: GM_FLOAT_OR_INT_PARAM expands to the vendored gmscript's STRICT
 // variant, which throws a blank-message GM_EXCEPTION the moment a parameter
@@ -1040,71 +1133,40 @@ int GM_CDECL gmf_DC_scale(gmThread* a_thread) {
     });
 }
 
-// Was assumed to be a no-op like Video.clearDepthBuffer/clearColourBuffer
-// confirmed via direct RPCS3 comparison: a script that does
-// `setColour(1,0,1,1); clear(VIDEO_ALLSURFACES);` shows a solid magenta
-// background in real retail, not whatever was drawn before. Clears to the
-// current draw colour, same as every other draw call.
-// Confirmed real dual use: Main.gm's preDraw() calls
-// `COLOURSCHEME_SetColour("clear",drawList); drawList.clear();` once per
-// frame as the opaque background wash (wants a real full overwrite,
-// current alpha always 1), but also mid-frame for fade transitions
-// (`drawList.setColour(0,0,0,this.niceExitData.fadePerc); drawList.
-// clear();`, ScreenTransitionProcess-style code) where alpha is meant to
-// blend translucently over whatever's already drawn. A hardware glClear
-// ignores alpha entirely and always fully overwrites the framebuffer, so
-// every fade-out snapped straight to a solid black screen the instant
-// fadePerc left 0 instead of ramping smoothly -- exactly the "screens of
-// full black" symptom. Below-opaque alpha now draws a blended full-screen
-// quad (Renderer::DrawFullscreenOverlay) instead of clearing; alpha>=1
-// keeps the real hardware clear (fast path, matches the original opaque
-// use unchanged).
-// ENGINE PATCH (FoE compat): FoE's own preDraw() convention passes the
-// colour straight into clear() -- `Video.clear("clear", local0 +
-// this.transitionPerc*(1-local0))` (PekkoAndJon/Main.gm) -- rather than
-// Sound Shapes' separate `COLOURSCHEME_SetColour("clear",drawList);
-// drawList.clear();` two-call idiom this function was originally built
-// for (see header comment above). With 0 args this still reads whatever
-// setColour last left current (Sound Shapes path, unchanged); with 1+
-// args it resolves them the SAME way gmf_DC_setColour_video does (name/
-// COLOUR-object first, falling back to bare r,g,b,[a]) and applies that
-// AS the clear colour, mirroring setColour's own persistent side effect
-// so a later bare clear() still sees it. Without this FoE's title-screen
-// background wash (meant to fade from black to a cream "clear" colour as
-// transitionPerc ramps up) silently no-op'd on its own 2-arg call,
-// leaving every frame cleared to Renderer::BeginFrame's hardcoded black.
+// Retail DrawList.multMatrix (0x00080958) records opcode 0x12 together with
+// the native matrix pointer. Read that matrix when the command is replayed:
+// scripts update a stored pulse matrix without rebuilding the draw list.
+int GM_CDECL gmf_DC_multMatrix(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    Matrix4Handle matrix = GetMatrix4Handle(*a_thread->GetMachine(),
+                                            a_thread->Param(0));
+    if (!matrix) return GM_EXCEPTION;
+    return DC_RecordOrRun(a_thread, [matrix] {
+        DrawContext& ctx = GetDrawContext();
+        ctx.Top() = DC_Multiply(ctx.Top(), *matrix);
+    });
+}
+
+// Retail VMDRAWLIST.clear is wrapper 0x800e0. It appends opcode 4 with mode
+// 9 when called without arguments, or the raw first argument when called
+// with one. Replay draws the prebuilt clear-screen VMSHAPE at GameSystem
+// +0x8154 via FUN_0030a278, then restores render state. This is a draw, not
+// a framebuffer clear: the opaque path must preserve depth/stencil contents.
+// The old alpha>=1 glClear branch ignored the script's explicit depth state
+// around the endpoint effect and erased those buffers. The one-argument
+// bitmask still selects retail state/config variants that this overlay
+// approximation does not yet model.
 int GM_CDECL DC_gmf_clear(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
-    if (n >= 1) {
-        gmVariable arg0 = a_thread->Param(0);
-        float r, g, b, a = 1.0f;
-        bool tryNamedForm = (n < 3);
-        if (tryNamedForm && ResolveColourRGB(a_thread, arg0, r, g, b)) {
-            if (n >= 2) { GM_FLOAT_OR_INT_PARAM(alpha, 1, 1.0f); a = alpha; }
-            return DC_RecordOrRun(a_thread, [r, g, b, a] {
-                GetEngineContext().renderer->SetColour(r, g, b, a);
-                if (a >= 1.0f) GetEngineContext().renderer->ClearScreen();
-                else GetEngineContext().renderer->DrawFullscreenOverlay(GetDrawContext().Top().z);
-            });
-        }
-        if (n >= 3) {
-            GM_FLOAT_OR_INT_PARAM(rr, 0, 1.0f);
-            GM_FLOAT_OR_INT_PARAM(gg, 1, 1.0f);
-            GM_FLOAT_OR_INT_PARAM(bb, 2, 1.0f);
-            GM_FLOAT_OR_INT_PARAM(aa, 3, 1.0f);
-            return DC_RecordOrRun(a_thread, [rr, gg, bb, aa] {
-                GetEngineContext().renderer->SetColour(rr, gg, bb, aa);
-                if (aa >= 1.0f) GetEngineContext().renderer->ClearScreen();
-                else GetEngineContext().renderer->DrawFullscreenOverlay(GetDrawContext().Top().z);
-            });
-        }
-    }
-    return DC_RecordOrRun(a_thread, [] {
-        Renderer* renderer = GetEngineContext().renderer;
-        float r, g, b, a;
-        renderer->GetColour(r, g, b, a);
-        if (a >= 1.0f) renderer->ClearScreen();
-        else renderer->DrawFullscreenOverlay(GetDrawContext().Top().z);
+    if (n > 1) return GM_EXCEPTION;
+    // Retail copies the raw GM value word for the optional mode argument; it
+    // does not interpret it as a colour or alpha value.
+    const uint32_t mode = n == 0 ? 9u :
+        static_cast<uint32_t>(a_thread->Param(0).m_value.m_int);
+    return DC_RecordOrRun(a_thread, [mode] {
+        (void)mode; // Current desktop overlay models the default visual path.
+        if (Renderer* renderer = GetEngineContext().renderer)
+            renderer->DrawFullscreenOverlay(GetDrawContext().Top().z);
     });
 }
 
@@ -1129,7 +1191,28 @@ int GM_CDECL DC_gmf_clear(gmThread* a_thread) {
 int GM_CDECL DC_gmf_setTextureByHandle(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     unsigned int handle = ResolveTextureHandle(*a_thread->GetMachine(), a_thread->Param(0));
-    return DC_RecordOrRun(a_thread, [handle] {
+    auto resourceLease = ResolveTextureResourceLease(*a_thread->GetMachine(), a_thread->Param(0));
+    return DC_RecordOrRun(a_thread, [handle, resourceLease] {
+        GetDrawContext().currentTextureHandle = handle;
+    });
+}
+// Bytecode verified: VMDRAWLIST.setTexture (EBOOT 0x7c2f4) delegates to
+// FUN_0003d83c, which loads from FILEHELPER_AREA_GAMEDATA (area 1), retains
+// the texture in the list's resource vector, and appends the same opcode 0xd
+// used by setTextureByHandle. The desktop closure holds the matching resource
+// lease through deferred replay.
+int GM_CDECL DC_gmf_setTexture(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+    GM_STRING_PARAM(path, 0, "");
+    EngineContext& ctx = GetEngineContext();
+    unsigned int handle = 0;
+    std::shared_ptr<void> resourceLease;
+    auto resolved = ctx.fileHelper ? ctx.fileHelper->Resolve(path) : std::nullopt;
+    if (resolved && ctx.renderer) {
+        handle = ctx.renderer->LoadTexture(*resolved, std::string("1:") + path);
+        resourceLease = MakeTextureResourceLease(handle, 1, path);
+    }
+    return DC_RecordOrRun(a_thread, [handle, resourceLease = std::move(resourceLease)] {
         GetDrawContext().currentTextureHandle = handle;
     });
 }
@@ -1139,41 +1222,81 @@ int GM_CDECL DC_gmf_clearTexture(gmThread* a_thread) {
     });
 }
 
+// Bytecode verified against VMDRAWLIST.drawModTexture (EBOOT 0x7bea4): it
+// retains arg 0 in the list's mod-texture resource vector and appends opcode
+// 0x0a with that vector's index. Retail FUN_00044d4c skips opcode 0x0a without
+// issuing a draw, so replay preserves ordering but has no visual operation.
+// The DrawList root below supplies the lifetime retention that the native
+// list's intrusive reference vector provides.
+int GM_CDECL DC_gmf_drawModTexture(gmThread* a_thread) {
+    DrawListData* target = RecordingTarget(a_thread);
+    if (!target || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+
+    const gmVariable& value = a_thread->Param(0);
+    if (value.m_type != GM_NULL) {
+        // The retail wrapper assumes a native user object and dereferences
+        // its payload directly without checking the GM tag. Avoid treating a
+        // string/table/value payload as that pointer on the desktop.
+        if (value.m_type < GM_USER) return GM_EXCEPTION;
+        gmObject* object = a_thread->GetMachine()->GetObject(value.m_value.m_ref);
+        if (!object) return GM_EXCEPTION;
+        target->commandBuffer->retainedObjects.push_back(object);
+    }
+
+    // The command is intentionally empty: the retail opcode is ignored by
+    // the dispatcher. Recording it preserves its place among list entries.
+    target->commandBuffer->commands.emplace_back([] {});
+    return GM_OK;
+}
+
 // setTextureSubImg(texture, palette) -- confirmed real (Ghidra decompile,
-// from setTextureByHandle's (0xd), taking a texture AND a palette handle --
-// real usage always pairs it immediately before setTextureByHandle for the
-// SAME texture (SafeVine.gm:290-291: `setTextureSubImg(thornTexture,
-// thornPalette); setTextureByHandle(thornTexture);`), suggesting a palette-
-// remap/sub-region bind this renderer's plain whole-texture model has no
-// equivalent for (no texture-atlas or palette-swap support exists here).
-// Approximated as an ordinary whole-texture bind, same as setTextureByHandle
-// (ignoring the palette arg) -- was entirely unbound on drawList instances,
-// a HALTING crash (GE3_STRICT defaults to halt, not survey) reached before
-// setTextureByHandle's own fix even mattered, since this is called first in
-// every real sequence.
+// from setTextureByHandle's (0xd). Retail retains both objects in the
+// drawlist, then dispatcher opcode 0xf assigns palette to image +0x4c via
+// FUN_0030a7e0. This relationship persists beyond the current draw call.
 int GM_CDECL DC_gmf_setTextureSubImg(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     unsigned int handle = ResolveTextureHandle(*a_thread->GetMachine(), a_thread->Param(0));
-    // Real signature takes (texture, palette) -- see texture_bindings.h's
-    // PALETTE comment. COLOURSCHEME_SetGeneratedPaletteColour(palette,...)
-    // can only stash pending fill/outline colours on the palette object
-    // (it has no texture yet); this is the point real usage always pairs
-    // a palette with its texture, so forward the tint on to the real
-    // texture handle now.
+    auto resourceLease = ResolveTextureResourceLease(*a_thread->GetMachine(), a_thread->Param(0));
+    // Real signature takes (texture, palette). COLOURSCHEME_
+    // SetGeneratedPaletteColour(palette,...) can stash pending fill/outline
+    // colours on the palette-backed TEXTURE (which has no GL image handle);
+    // this is where real usage pairs it with the image resource.
+    std::shared_ptr<PaletteData> palette;
     if (handle != 0 && a_thread->GetNumParams() >= 2) {
-        PaletteData* pal = ResolvePaletteData(*a_thread->GetMachine(), a_thread->Param(1));
-        if (pal && pal->hasPendingTint) {
-            GetEngineContext().renderer->SetTextureGeneratedTint(
-                handle, pal->fillR, pal->fillG, pal->fillB, pal->outlineR, pal->outlineG, pal->outlineB);
-        }
+        // Retail draw opcode 0xf retains the palette object and consumes its
+        // current entries during replay. Hold shared palette storage rather
+        // than snapshotting at record time: game scripts commonly set palette
+        // entries after setTextureSubImg() but before drawing.
+        palette = ResolvePaletteDataLease(*a_thread->GetMachine(), a_thread->Param(1));
     }
-    return DC_RecordOrRun(a_thread, [handle] {
+    return DC_RecordOrRun(a_thread, [handle, palette, resourceLease] {
+        BindTextureSubTexture(handle, palette);
+        const bool indexedPaletteApplied = handle != 0 && palette &&
+            GetEngineContext().renderer->SetTexturePalette(handle, palette->rgba.data(), palette->rgba.size());
+        if (handle != 0 && !palette)
+            GetEngineContext().renderer->ResetTexturePalette(handle);
+        if (handle != 0 && palette && palette->hasPendingTint && !indexedPaletteApplied) {
+            GetEngineContext().renderer->SetTextureGeneratedTint(
+                handle, palette->fillR, palette->fillG, palette->fillB,
+                palette->outlineR, palette->outlineG, palette->outlineB);
+        }
         GetDrawContext().currentTextureHandle = handle;
     });
 }
 
+// RETAIL BYTECODE VERIFIED: the Video wrapper at EBOOT 0x7d510 accepts only
+// 9/10/11/13 arguments and forwards the corners to FUN_0003e6f0. That helper
+// submits a texture-backed shape, then clears the texture state with opcode
+// 0x0e. Desktop now mirrors the valid-handle bind/draw/clear lifetime during
+// deferred replay; exact native resource-vector identity remains unmodeled.
 int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(9);
+    // RETAIL PPC: wrapper 0x7d510 dispatches only counts 9, 10, 11 and 13;
+    // every other count returns -1. The 9-arg form is corners+texture, 10
+    // adds Z, 11 adds a caller draw-buffer object, and 13 supplies Z plus UV
+    // scales, texture, and a caller draw-buffer object.
+    const int count = a_thread->GetNumParams();
+    if (count != 9 && count != 10 && count != 11 && count != 13)
+        return GM_EXCEPTION;
     GM_FLOAT_OR_INT_PARAM(x0, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(y0, 1, 0.0f);
     GM_FLOAT_OR_INT_PARAM(x1, 2, 0.0f);
@@ -1182,28 +1305,43 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(y2, 5, 0.0f);
     GM_FLOAT_OR_INT_PARAM(x3, 6, 0.0f);
     GM_FLOAT_OR_INT_PARAM(y3, 7, 0.0f);
-    // Two real call shapes confirmed by corpus usage: the plain 9-arg form
-    // (corners + handle), and an 11-arg form with an extra Z depth and a
-    // trailing "textureQuad" arg between the corners and the handle
-    // (PauseProcessBase.gm's clock/note-coin icons: `drawTextureByHandle(
-    // ...corners..., 0, this.clockTexture, this.parent.textureQuad)`) --
-    // textureQuad is just the same reusable unit-square Shape every other
-    // panel background uses (`VIDEOHELPER_DrawFilledPolygon`), not texture
-    // UV data, so it doesn't affect the draw and is safe to ignore; the
-    // real bug this fixes is that param(8) being treated unconditionally
-    // as the texture handle meant the 11-arg form resolved the literal
-    // int 0 (the Z arg) as a texture handle instead -- always drawing a
-    // solid black quad (a zero/invalid handle) regardless of the real
-    // texture two args later. Detected by type: a real handle is never a
-    // plain number.
     float extraZ = 0.0f;
+    float uvScaleU = 1.0f;
+    float uvScaleV = 1.0f;
     int handleParamIdx = 8;
-    const gmVariable& p8 = a_thread->Param(8);
-    if ((p8.m_type == GM_INT || p8.m_type == GM_FLOAT) && a_thread->GetNumParams() >= 10) {
+    int extraObjectParamIdx = -1;
+    if (count == 10 || count == 11 || count == 13) {
         extraZ = a_thread->ParamFloatOrInt(8, 0.0f);
         handleParamIdx = 9;
     }
+    if (count == 11) {
+        extraObjectParamIdx = 10;
+    } else if (count == 13) {
+        // FUN_0003f1a4 forwards args 9/10 as UV extents. FUN_0003e6f0
+        // multiplies these by TEXTURE +0x34/+0x38 respectively.
+        uvScaleU = a_thread->ParamFloatOrInt(9, 1.0f);
+        uvScaleV = a_thread->ParamFloatOrInt(10, 1.0f);
+        handleParamIdx = 11;
+        extraObjectParamIdx = 12;
+    }
     unsigned int handle = ResolveTextureHandle(*a_thread->GetMachine(), a_thread->Param(handleParamIdx));
+    auto resourceLease = ResolveTextureResourceLease(*a_thread->GetMachine(), a_thread->Param(handleParamIdx));
+    Renderer* renderer = GetEngineContext().renderer;
+    const int textureShaderType = renderer ? renderer->GetTextureShaderType(handle) : 0;
+
+    // The retail wrapper retains this extra native object during recording.
+    // Keep the reference alive through deferred desktop replay as well; the
+    // exact custom draw-buffer interpretation is still under audit.
+    if (extraObjectParamIdx >= 0) {
+        const gmVariable& value = a_thread->Param(extraObjectParamIdx);
+        if (value.m_type >= GM_USER) {
+            gmObject* object = a_thread->GetMachine()->GetObject(value.m_value.m_ref);
+            if (object) {
+                if (DrawListData* target = RecordingTarget(a_thread))
+                    target->commandBuffer->retainedObjects.push_back(object);
+            }
+        }
+    }
 
     // Was passing raw script-space corners straight to the renderer,
     // completely ignoring the current pushMatrix/translate/rotate/scale
@@ -1217,29 +1355,82 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
     // "logo stuck in the bottom-left quadrant" symptom. Transform is
     // resolved at DRAW time (inside the deferred lambda), not here -- same
     // reasoning as PrintImpl's deferred z/matrix read above.
-    return DC_RecordOrRun(a_thread, [x0, y0, x1, y1, x2, y2, x3, y3, handle, extraZ] {
+    return DC_RecordOrRun(a_thread, [x0, y0, x1, y1, x2, y2, x3, y3, handle, extraZ,
+                                     uvScaleU, uvScaleV,
+                                     textureShaderType, resourceLease] {
+        // RETAIL PPC: FUN_0003e6f0 attaches the texture, submits its shape,
+        // then appends clearTexture (opcode 0x0e). A null texture returns
+        // before emitting commands. Mirror that binding lifetime so later
+        // plain drawShape calls cannot inherit an earlier texture.
+        if (handle == 0) return;
+        DrawContext& drawContext = GetDrawContext();
+        drawContext.currentTextureHandle = handle;
         const DrawContext::Mat& m = GetDrawContext().Top();
+        // Opt-in diagnostic for the loading-screen matrix audit: record both
+        // the script-space corners and the matrix active when the deferred
+        // draw command executes. This separates Main.gm's dimension math from
+        // DrawList matrix replay without changing either path.
+        if (std::getenv("GE3_TRACE_UI_QUADS")) {
+            static unsigned int sourceTraceCount = 0;
+            if (sourceTraceCount++ < 160) {
+                std::fprintf(stderr,
+                    "[ui-quad-source] tex=%u raw0=(%.5f,%.5f) raw1=(%.5f,%.5f) "
+                    "mat=(%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f)\n",
+                    handle, x0, y0, x1, y1, m.a, m.b, m.c, m.d, m.e, m.f, m.z);
+            }
+        }
         float tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3;
         DC_TransformPoint(m, x0, y0, tx0, ty0);
         DC_TransformPoint(m, x1, y1, tx1, ty1);
         DC_TransformPoint(m, x2, y2, tx2, ty2);
         DC_TransformPoint(m, x3, y3, tx3, ty3);
-        GetEngineContext().renderer->DrawTexturedQuad(tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3, handle, m.z + extraZ);
+        const DrawContext& ctx = GetDrawContext();
+        Renderer* renderer = GetEngineContext().renderer;
+        // Generated texture palettes and animation palettes already contain
+        // their final RGB. drawAnimation applies white modulation for this
+        // reason; without the same rule static generated sprites inherit a
+        // preceding COLOURSCHEME_SetColour (SwayingTree sets bg_out while
+        // drawing its stem immediately before its head).
+        float pr, pg, pb, pa;
+        const bool generatedPalette = renderer->UsesGeneratedTexturePalette(handle);
+        if (generatedPalette) {
+            renderer->GetColour(pr, pg, pb, pa);
+            renderer->SetColour(1.0f, 1.0f, 1.0f, pa);
+        }
+        renderer->DrawTexturedQuad(
+            tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3, handle, m.z + extraZ,
+            ctx.distanceTextureEnabled, ctx.distanceTextureDiscardLevel,
+            ctx.distanceTextureSmoothLevel, textureShaderType, uvScaleU, uvScaleV);
+        if (generatedPalette) {
+            renderer->SetColour(pr, pg, pb, pa);
+        }
+        drawContext.currentTextureHandle = 0;
     });
 }
 
-// drawTexture(x0,y0,x1,y1,x2,y2,x3,y3,filename,[area]) -- confirmed real,
-// distinct from drawTextureByHandle: takes a raw filename + FILEHELPER_AREA_*
-// instead of a pre-resolved handle (EntityPacks/TutorialGraphicsEntity.gm's
-// in-level tutorial-hint graphics -- the "Welcome to Sound Shapes!"/move-
-// jump-icon overlays confirmed via the real RPCS3 reference screenshots --
-// `this.drawList.drawTexture(-hw,0,hw,0,hw,this.height,-hw,this.height,
-// this.ad.filename,FILEHELPER_AREA_GAMEDATA)`), entirely unregistered.
-// Renderer::LoadTexture already caches by resolved path, so resolving +
-// loading fresh every call is cheap after the first frame (same as
-// Video.getTexture already relies on for its own every-call-site pattern).
+// RETAIL PPC: VMDRAWLIST.drawTexture at 0x7c6d0 accepts counts 10, 11, 12,
+// and 14. PPC/decomp confirm the 11/12-arg paths use corners, optional Z,
+// filename, optional retained native object, and area. The 14-arg path reads
+// scalar slots 8-10, retains slot 12, and calls FUN_0003f24c. LimiterWall.gm's
+// commented 14-arg call labels these as Z, nx, ny, filename, VMSHAPE, area.
+// PPC for FUN_0003f24c copies nx/ny into a 2-float pair passed to
+// FUN_0003e6f0; that helper multiplies the texture width/height by the pair
+// when writing UVs. Thus using nx/ny as UV scales is bytecode-confirmed. The
+// native path queues its texture command and retains the supplied object in
+// the draw-list resource table; desktop currently roots the object through
+// deferred playback, but does not reproduce the retail resource-index record.
+// The 9-argument game-data spelling is a desktop compatibility extension
+// (retail returns -1); checked-in TouchEditProcess.gm uses it.
+// RETAIL BYTECODE VERIFIED: Video.drawTexture at EBOOT 0x7c6d0 accepts
+// 10/11/12/14 arguments; valid calls reach FUN_0003f24c/FUN_0003e6f0, which
+// submits a texture-backed shape and appends clearTexture. The 9-argument
+// game-data form is a documented compatibility extension. Desktop mirrors
+// the valid-handle binding lifetime but retains its direct-quad renderer.
 int GM_CDECL DC_gmf_drawTexture(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(9);
+    const int paramCount = a_thread->GetNumParams();
+    if (paramCount != 9 && paramCount != 10 && paramCount != 11 &&
+        paramCount != 12 && paramCount != 14)
+        return GM_EXCEPTION;
     GM_FLOAT_OR_INT_PARAM(x0, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(y0, 1, 0.0f);
     GM_FLOAT_OR_INT_PARAM(x1, 2, 0.0f);
@@ -1248,22 +1439,83 @@ int GM_CDECL DC_gmf_drawTexture(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(y2, 5, 0.0f);
     GM_FLOAT_OR_INT_PARAM(x3, 6, 0.0f);
     GM_FLOAT_OR_INT_PARAM(y3, 7, 0.0f);
-    GM_STRING_PARAM(path, 8, "");
-    // param 9 (FILEHELPER_AREA_*) -- only GAMEDATA matters for now, same as
-    // Video.getTexture's own area handling.
+    float extraZ = 0.0f;
+    float uvScaleU = 1.0f;
+    float uvScaleV = 1.0f;
+    int pathParamIdx = 8;
+    int areaParamIdx = -1;
+    int extraObjectParamIdx = -1;
+    if (paramCount == 10) {
+        areaParamIdx = 9;
+    } else if (paramCount == 11) {
+        extraZ = a_thread->ParamFloatOrInt(8, 0.0f);
+        pathParamIdx = 9;
+        areaParamIdx = 10;
+    } else if (paramCount == 12) {
+        extraZ = a_thread->ParamFloatOrInt(8, 0.0f);
+        pathParamIdx = 9;
+        extraObjectParamIdx = 10;
+        areaParamIdx = 11;
+    } else if (paramCount == 14) {
+        extraZ = a_thread->ParamFloatOrInt(8, 0.0f);
+        uvScaleU = a_thread->ParamFloatOrInt(9, 1.0f);
+        uvScaleV = a_thread->ParamFloatOrInt(10, 1.0f);
+        pathParamIdx = 11;
+        extraObjectParamIdx = 12;
+        areaParamIdx = 13;
+    }
+    GM_STRING_PARAM(path, pathParamIdx, "");
+    int area = areaParamIdx >= 0
+        ? a_thread->Param(areaParamIdx).m_value.m_int
+        : 1; // Compatibility form defaults to FILEHELPER_AREA_GAMEDATA.
 
     unsigned int handle = 0;
     EngineContext& ctx = GetEngineContext();
-    auto resolved = ctx.fileHelper->Resolve(path);
-    if (resolved) handle = ctx.renderer->LoadTexture(*resolved);
+    auto resolved = ResolveDrawTexturePath(path, area);
+    if (resolved) {
+        const std::string cacheKey = std::to_string(area) + ":" + path;
+        handle = ctx.renderer->LoadTexture(*resolved, cacheKey);
+    }
+    const int textureShaderType = ctx.renderer->GetTextureShaderType(handle);
+    const unsigned int shapePrimitiveMode = extraObjectParamIdx >= 0
+        ? GetShapePrimitiveMode(*a_thread->GetMachine(),
+                                a_thread->Param(extraObjectParamIdx))
+        : 0;
 
-    return DC_RecordOrRun(a_thread, [x0, y0, x1, y1, x2, y2, x3, y3, handle] {
+    // Retail retains the caller object across helper execution. The desktop
+    // textured quad already uses its explicit four corners; root the object
+    // through deferred playback while the exact custom-buffer behavior is
+    // being carried forward.
+    if (extraObjectParamIdx >= 0) {
+        const gmVariable& value = a_thread->Param(extraObjectParamIdx);
+        if (value.m_type >= GM_USER) {
+            gmObject* object = a_thread->GetMachine()->GetObject(value.m_value.m_ref);
+            if (object) {
+                if (DrawListData* target = RecordingTarget(a_thread))
+                    target->commandBuffer->retainedObjects.push_back(object);
+            }
+        }
+    }
+
+    return DC_RecordOrRun(a_thread, [x0, y0, x1, y1, x2, y2, x3, y3, handle,
+                                     extraZ, uvScaleU, uvScaleV, textureShaderType,
+                                     shapePrimitiveMode] {
+        // RETAIL PPC: this overload reaches the same FUN_0003e6f0 path and
+        // clears the texture binding after submitting the quad. Null handles
+        // exit before changing the draw-list state.
+        if (handle == 0) return;
+        DrawContext& drawContext = GetDrawContext();
+        drawContext.currentTextureHandle = handle;
         const DrawContext::Mat& m = GetDrawContext().Top();
         float tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3;
         DC_TransformPoint(m, x0, y0, tx0, ty0);
         DC_TransformPoint(m, x1, y1, tx1, ty1);
         DC_TransformPoint(m, x2, y2, tx2, ty2);
         DC_TransformPoint(m, x3, y3, tx3, ty3);
-        GetEngineContext().renderer->DrawTexturedQuad(tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3, handle, m.z);
+        GetEngineContext().renderer->DrawTexturedQuad(
+            tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3, handle, m.z + extraZ,
+            false, 0.5f, 0.45f, textureShaderType, uvScaleU, uvScaleV,
+            shapePrimitiveMode);
+        drawContext.currentTextureHandle = 0;
     });
 }

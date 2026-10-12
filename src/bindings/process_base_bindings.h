@@ -7,7 +7,7 @@
 // (setupPreDrawList, setupPostDrawList, getPreDrawList, getPostDrawList) are
 // in video_bindings.cpp since they're really "give me a drawList".
 //
-// Also injects the SAME process-handle methods CreateProcessHandle puts on
+// Also fills in the SAME process-handle methods CreateProcessHandle puts on
 // the separate `p` object passed into the factory (isInited/terminate/
 // setIsStealsInputFocus/getObjectID/getTable/etc, process_handle_bindings.cpp)
 // directly onto the factory's own RETURNED table (via the same `__id`
@@ -22,5 +22,6 @@
 // no-op call (see gmThread.cpp's null-call leniency patch) -- e.g.
 // MainMenu5PS3.gm's `this.processes.areInited()` guard for its one-time
 // input setup block (`setupInputPS3MainMenu(this)`, wiring up onKeyPress)
-// never actually passed, so onKeyPress was never registered at all.
+// never actually passed, so onKeyPress was never registered at all. Existing
+// script-authored methods retain precedence over these fallback helpers.
 void InjectProcessBaseMethods(gmMachine& a_machine, gmTableObject* a_table, int a_processId);

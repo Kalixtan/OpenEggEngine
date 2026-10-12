@@ -1,16 +1,19 @@
 #pragma once
 #include "gmThread.h"
 #include "gmMachine.h"
+#include "draw_context.h"
 #include <vector>
 #include <functional>
+#include <memory>
 
 // "Video.* and drawList.* really are (mostly) the same underlying command
 // list"; drawTextureByHandle/print/setColour/pushAttributes/popAttributes/
 // setAttrDepthTest/setupWorldView/reset/setFontRenderAttributes all
 //
-// A real drawList instance now genuinely records (see DrawListData::commands
-// below) rather than drawing immediately -- the earlier milestone's
-// immediate-execution shortcut broke the real "build a sub-list once,
+// A real drawList instance now genuinely records (see
+// DrawListData::CommandBuffer::commands below) rather than drawing
+// immediately -- the earlier milestone's immediate-execution shortcut broke
+// the real "build a sub-list once,
 // callDrawList() it every frame" composition pattern used throughout the
 // corpus (QuadShadowed.gm's drop shadows, EntityMenu_*Cell.gm's nested
 // widget draws, ...): with every drawList call executing immediately at
@@ -25,7 +28,29 @@ gmType GetDrawListType();
 struct DrawListData {
     int width = 0;
     int height = 0;
-    std::vector<std::function<void()>> commands;
+    // Retail draw-list constructor initializes native +0x30 to 0x200000ff.
+    // Order setters replace its pass tier and quantized Z component.
+    unsigned int orderKey = 0x200000ffu;
+    struct CommandBuffer {
+        std::vector<std::function<void()>> commands;
+        // Strong GC roots for objects referenced by recorded native commands
+        // whose retail payload stores a live raw pointer (e.g. opcode 0x0c).
+        std::vector<gmObject*> retainedObjects;
+        // callDrawList retains the called list's buffer independently of its
+        // wrapper reference, matching the retail native refcount contract.
+        std::vector<std::shared_ptr<CommandBuffer>> retainedBuffers;
+    };
+    std::shared_ptr<CommandBuffer> commandBuffer =
+        std::make_shared<CommandBuffer>();
+};
+
+struct DrawListSubmission {
+    std::shared_ptr<DrawListData::CommandBuffer> commandBuffer;
+    unsigned int orderKey = 0x200000ffu;
+    // A narrow desktop renderer override retained for the SpawnPoint route.
+    bool disableDepthTest = false;
+    DrawContext context;
+    float colour[4] = {1, 1, 1, 1};
 };
 
 // Returns the drawList this native call's receiver is, if it was made
@@ -42,6 +67,13 @@ DrawListData* RecordingTarget(gmThread* a_thread);
 // Recursion-safe: a_data's own commands can themselves be a nested
 // callDrawList() replay closure.
 void ReplayDrawList(DrawListData* a_data);
+void ReplayDrawList(const std::shared_ptr<DrawListData::CommandBuffer>& a_buffer);
+DrawListSubmission CaptureDrawListSubmission(DrawListData* a_list,
+                                             bool a_disableDepthTest = false);
+
+// Retail's frame renderer sorts each queued set of native draw-list pointers
+// by the unsigned order key at native DrawList+0x30 before replaying it.
+void ReplayDrawListsInOrder(std::vector<DrawListSubmission>& a_lists);
 
 // Creates a new drawList user object sized a_width x a_height (per
 // this.setupPreDrawList(w,h)'s confirmed call shape). Pushed as the return

@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+class gmThread;
+
 // EntityBase.c -- 81+ functions between them, a whole subsystem far
 // outside this pass's scope) -- just enough to unblock
 // Platformer_Mixer_Init's boot-time data load (ENTITY_GetType,
@@ -10,9 +12,29 @@
 // Not a general Entity implementation.
 void RegisterEntityBindings(gmMachine& a_machine);
 
+// EntityManager.getEntity(objectID) lookup used by native renderer passes.
+// The returned pointer is a borrowed view into the live entity registry.
+gmVariable* FindEntityByObjectID(int a_objectId);
+
+// Use the same ENTITYLISTREFCONTAINER type for EntityManager queries and
+// PhysicsData.getCollidingEntities. With a_reuse, refill and return the
+// caller's container; otherwise allocate a fresh iterator.
+bool PushOrRefillEntityListIterator(gmThread* a_thread,
+    std::vector<gmVariable> a_entities, const gmVariable* a_reuse = nullptr);
+
 // Completes the EntityManager update-event boundary: activate queued
 // creations and process deferred removals after script callbacks have ended.
 void FlushEntityManagerFrameBoundary();
+
+// Entity.deleteAllEntities request issued by the retail
+// ParanoidCleanUpProcess constructor when cleanup-enabled process-list
+// transitions are created. The request is consumed at the manager's normal
+// frame-boundary deletion service.
+void RequestEntityManagerDeleteAll();
+
+// FUN_000c3d0c: committed entities plus entities awaiting promotion from the
+// pending-create array. Used by the native cleanup controller's state 0.
+int GetEntityManagerEntityCount();
 
 // Debug-draw support: one row per live entity in the native EntityManager
 // registry (entity_bindings.cpp's anonymous-namespace EntityRegistry --

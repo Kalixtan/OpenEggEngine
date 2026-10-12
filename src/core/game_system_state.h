@@ -72,21 +72,31 @@ struct GameSystemState {
     // 0x000701e8, real call site TouchEditProcessBase.gm:2733's
     // enforceLimits(): `local tick=GameSystem.getCurrentTick(); if(...||
     // this.lastEnforceLimitsTick==tick){ return; }`) -- a real monotonic
-    // per-frame counter used purely as a "did this already run this
-    // frame" dedupe key, not a wall-clock time. Incremented once per
-    // engine frame in main.cpp's loop (right alongside vm.Tick()).
+    // simulation-update counter used as a "did this already run this
+    // update" dedupe key, not a wall-clock time. Incremented for each
+    // recovered fixed simulation tick in main.cpp.
     int currentTick = 0;
 
     // isShouldUpdateEntities/setIsShouldUpdateEntities -- retail manager
-    // byte +0xda2, checked by the native entity update dispatchers.
+    // byte +0xda2, checked by the native entity update dispatchers. The
+    // PhysicsManager call site does not test this byte; its regular-loop
+    // gates are pause (+0x48), loading (+0xf3c), and a separate +0x350 byte
+    // whose only startup setter branch is dormant in the traced launch path.
     bool shouldUpdateEntities = true;
+    // Retail GameSystem byte +0x350 gates the native fire-ground scalar
+    // callback. The inspected EBOOT startup path initializes it to zero and
+    // has no writer, so desktop keeps the default clear value unless a later
+    // trace identifies a live setter.
+    bool nativeFireGroundUpdateSuppressed = false;
 
     // setALevelLoaded -- confirmed real setter, no matching getter in this
     // class (either write-only/notification-only, or the getter lives
     // elsewhere e.g. on a level-manager type we haven't bound yet).
     bool isALevelLoaded = false;
 
-    // isLoading/setIsLoading -- confirmed real getter/setter pair.
+    // isLoading/setIsLoading -- confirmed real getter/setter pair over
+    // retail GameSystem byte +0xf3c. The main loop forces exactly one fixed
+    // simulation update per outer frame while it is set, and skips the
     bool isLoadingFlag = false;
 
     // debug_setStop/debug_isStopped -- confirmed real getter/setter pair.
@@ -101,9 +111,8 @@ struct GameSystemState {
     bool isInputEnabled = true;
 
     // getSimulationSpeed/setSimulationSpeed -- confirmed real float
-    // getter/setter. Not yet wired into the actual tick scaling in main.cpp
-    // (GmVm::Tick always uses real elapsed ms) -- stored/reported correctly,
-    // applying it to the simulation clock is a follow-up.
+    // getter/setter. The retail game manager scales elapsed wall time by this
+    // value before deciding how many fixed simulation ticks to dispatch.
     float simulationSpeed = 1.0f;
 
     // isAutoLoadLevel/getAutoLoadLevel/getAutoLoadPath/getAutoLoadMode/

@@ -18,6 +18,8 @@ struct EngineContext {
     FileHelper* fileHelper = nullptr;
     BitmapFont* normalFont = nullptr; // Video.setNormalFont() -- HelveticaNeueLTCom-Lt
     BitmapFont* heavyFont = nullptr;  // Video.setHeavyFont()   -- HelveticaNeueLTCom-Hv
+    BitmapFont* courierFont = nullptr; // Video.setFont("courierFont") -- console atlas
+    BitmapFont* russianFont = nullptr; // Video.setFont("Helvetica_NeueLTCyrillic55_Russian")
     BitmapFont* currentFont = nullptr;
     ProcessManager* processManager = nullptr; // for GameSystem.startNewProcessList/runProcess
     gmMachine* machine = nullptr; // the one live gmMachine (GmVm::Machine()) -- for debug-draw code that needs table->Get(&m,key) outside a gmThread call

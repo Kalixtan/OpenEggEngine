@@ -1,18 +1,80 @@
 #include "gmThread.h"
 #include "process_handle_bindings.h"
 #include "gmTableObject.h"
+#include "gmUserObject.h"
+#include "gmStringObject.h"
 #include "gmCall.h"
 #include "../core/engine_context.h"
 #include "../core/process_manager.h"
 #include "../core/strict_calls.h"
 #include "../render/draw_list.h"
+#include "../ported_native/ground_renderer.h"
 #include "audio_bindings.h"
+#include "physics_body_bindings.h"
 #include "foe_compat_bindings.h"
 #include "vector2d_bindings.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 
 namespace {
+
+gmType g_shaderType = -1;
+struct ShaderHandleData {
+    int processId;
+    int shaderId;
+    bool isDefaultPostProcess;
+};
+
+// BYTECODE VERIFIED: retail SHADER.getVertexShaderParamIndex selects the
+// wrapped shader's +4 vertex descriptor and calls FUN_000552d8. That helper
+// returns the matching zero-based name index; on a miss it logs and returns 0.
+// These seven names are recovered from the sound-preview Cg reflection. The
+// Process constructor's GM value is {type=GM_INT (1), payload=0}, so the sole
+// SoundPreview entry is selected with shader ID 0. See PROCESS_SHADER_AUDIT.md.
+int GM_CDECL gmf_shader_getVertexShaderParamIndex(gmThread* a_thread) {
+    ShaderHandleData* shader = (ShaderHandleData*)a_thread->ThisUserCheckType(g_shaderType);
+    if (!shader || a_thread->GetNumParams() != 1 || a_thread->Param(0).m_type != GM_STRING)
+        return GM_EXCEPTION;
+    if (shader->isDefaultPostProcess) {
+        GM_EXCEPTION_MSG("SHADER.getVertexShaderParamIndex: default post-process shader is null");
+        return GM_EXCEPTION;
+    }
+    const char* name = a_thread->ParamString(0, "");
+    static const char* params[] = {"aPosition", "aData", "aViewWorldProjection",
+                                   "aColour", "aCurve", "aRMin", "aRMax"};
+    if (shader->shaderId == 0) {
+        for (int i = 0; i < 7; ++i) {
+            if (std::strcmp(name, params[i]) == 0) { a_thread->PushInt(i); return GM_OK; }
+        }
+        // Retail FUN_000552d8 logs "Param <name> not found in shader" and
+        // returns zero, which the native wrapper pushes as the result.
+        a_thread->GetMachine()->GetLog().LogEntry(
+            "Error: Param %s not found in shader (GetShaderParamID)", name);
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    GM_EXCEPTION_MSG("SHADER.getVertexShaderParamIndex: unknown parameter %s on shader %d", name, shader->shaderId);
+    return GM_EXCEPTION;
+}
+
+int GM_CDECL gmf_shader_test(gmThread* a_thread) {
+    // BYTECODE VERIFIED at 0x6b3e0: retain/release the wrapped shader holder;
+    // the ordinary live-handle path has no net state change and pushes no
+    // return value. Userdata lifetime remains owned by the desktop VM.
+    (void)a_thread;
+    return GM_OK;
+}
+
+void GM_CDECL ShaderGCDestruct(gmMachine*, gmUserObject* a_object) {
+    delete (ShaderHandleData*)a_object->m_user;
+}
+
+gmFunctionEntry s_shaderLib[] = {
+    {"test", gmf_shader_test, nullptr},
+    {"getVertexShaderParamIndex", gmf_shader_getVertexShaderParamIndex, nullptr},
+};
 
 gmTableObject* ThisHandleTable(gmThread* a_thread) { return a_thread->ThisTable(); }
 
@@ -23,6 +85,31 @@ Process* LookupProcess(gmThread* a_thread, gmTableObject* a_self) {
     gmVariable idVar = a_self->Get(a_thread->GetMachine(), "__id");
     if (idVar.m_type != GM_INT) return nullptr;
     return GetEngineContext().processManager->Get(idVar.m_value.m_int);
+}
+
+// PROCESS.getShader(index), retail 0x0019f6bc. Native Process constructor
+// 0x19e850 actively writes SOUNDPREVIEW_SHADERID as a GM_INT with payload 0.
+// It appends the sole SoundPreview shader at index 0, which the retail selector
+// resolves directly.
+int GM_CDECL gmf_process_getShader(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* process = self ? LookupProcess(a_thread, self) : nullptr;
+    // Retail PROCESS.getShader reads the first argument's raw 32-bit value
+    // word and passes it to the unsigned shader-array selector. It does not
+    // validate the GM type tag or reject trailing arguments. Keep the
+    // one-or-more desktop boundary explicit; the no-argument native read is
+    // outside the supported call contract.
+    if (!process || a_thread->GetNumParams() < 1)
+        return GM_EXCEPTION;
+    const uint32_t shaderIndex = static_cast<uint32_t>(
+        a_thread->Param(0).m_value.m_int);
+    if (process->name != "Platformer_Main" || shaderIndex != 0u) {
+        GM_EXCEPTION_MSG("PROCESS.getShader: unsupported process shader %s:%u",
+                         process->name.c_str(), shaderIndex);
+        return GM_EXCEPTION;
+    }
+    a_thread->PushNewUser(new ShaderHandleData{process->id, 0, false}, g_shaderType);
+    return GM_OK;
 }
 
 // callMethod(name, ...args) -- confirmed real (Ghidra: retail FUN_0043e1f0,
@@ -82,15 +169,13 @@ int GM_CDECL gmf_process_isBeingEdited(gmThread* a_thread) {
 
 // classes/EntityRegistration.c 0x001d0520), real call site Main.gm:4424
 // `this.groundProcess.drawGrounds(drawList);` on the GroundProcessNEW
-// process handle. A genuine no-op here: ground-piece rendering is already
-// done natively and unconditionally every frame by DrawGroundsNative()
-// (engine/src/ported_native/ground_renderer.cpp, wired into main.cpp's
-// render loop directly, not through any script draw hook) -- see that
-// file's header comment on why GroundProcessNEW's own real script-level
-// drawGrounds is dead weight ported out to C++ in retail too. Calling the
-// real drawList param again here would double-draw every ground piece.
+// process handle. Record the native ground pass into the supplied list at
+// this call site, preserving the graphics -> grounds -> sticky-ground order.
+// Retail implementation: FUN_001d0520 -> FUN_001ce4a0.
 int GM_CDECL gmf_process_drawGrounds(gmThread* a_thread) {
-    (void)a_thread;
+    gmUserObject* object = a_thread->ParamUserObject(0);
+    if (!object || object->m_userType != GetDrawListType()) return GM_EXCEPTION;
+    RecordGroundsNative(static_cast<DrawListData*>(object->m_user));
     return GM_OK;
 }
 // Main.gm invokes onMusicTrigger on every process without testing whether
@@ -109,41 +194,107 @@ int GM_CDECL gmf_process_refreshFunctionCache(gmThread*) { return GM_OK; }
 // process handle (GroundProcessNEW.gm's constructor: `this.Process.
 // setFireThickness(SW*0.2);`; Main.gm:7320-7321: `this.groundProcess.
 // setupDrawLists(); this.groundProcess.setIsRefreshDrawListOnChange(true);`).
-// Same "ground rendering is native and unconditional, nothing here to
-// configure" situation as drawGrounds above -- genuine no-ops, not
-// approximations of missing behavior.
+// Desktop ground geometry currently reads its thickness/style config at
+// render time, so the list-refresh and setup calls have no separate queue to
+// maintain. setFireThickness's native consumer remains unverified.
 int GM_CDECL gmf_process_groundConfigNoop(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;
 }
 
 // EntityRegistration.registerEntity(entity,style,selected)/unregisterEntity
-// 0x001d0430/0x001d04bc), called on the SAME GroundProcessNEW process
-// handle as drawGrounds/setFireThickness above (GroundBase.gm's real
-// destructor()/constructor() call sites: `proc.unregisterEntity(this.
-// Entity,this.Entity.getStyle());` / `proc.registerEntity(this.Entity,
-// this.Entity.getStyle(),selected);`). Same "ground rendering/registration
-// is native and unconditional here, nothing to track" situation as
-// drawGrounds -- DrawGroundsNative() (ground_renderer.cpp) iterates
-// entities directly every frame rather than consulting a registered-ground
-// list, so there's no real registry for these to maintain.
-int GM_CDECL gmf_process_groundRegistrationNoop(gmThread* a_thread) {
-    (void)a_thread;
+// (entity,style) -- real wrappers at EBOOT 0x001d0430/0x001d04bc. GroundBase
+// calls these when a ground enters/leaves the native ground list. Store the
+// entity's stable object ID so the registry does not hold an unrooted GM ref.
+int GM_CDECL gmf_process_registerGround(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(3);
+    gmTableObject* entity = nullptr;
+    if (!a_thread->ParamTable(0, entity) || !entity) return GM_EXCEPTION;
+    gmMachine& machine = *a_thread->GetMachine();
+    gmVariable id = entity->Get(&machine, "__objectID");
+    if (id.m_type != GM_INT) return GM_EXCEPTION;
+    GM_INT_PARAM(style, 1, 0);
+    GM_INT_PARAM(selected, 2, 0);
+    // The script's registerEntity begins with unregisterEntity(e), then
+    // appends the new shape to grounds. Preserve that exact replacement order.
+    const int entityId = id.m_value.m_int;
+    if (style == 2 && !proc->hasNativeGroundFireOwner) {
+        // The native style factory constructs its fire owner when the first
+        // fire ground is registered. Its first update event runs vtable +0x34
+        // (shader setup); the following eligible update runs +0x38.
+        proc->hasNativeGroundFireOwner = true;
+        proc->nativeGroundFireUpdateReady = false;
+        proc->fireAmplitudePhase = 0.0f;
+        proc->fireAmplitudeRate = 1.0f;
+        proc->fireAmplitudeScale = 2.0f / 800.0f;
+        proc->fireColourPhase = 0.0f;
+        proc->fireColourRate = 1.0f;
+        proc->fireColourScale = 2.0f / 600.0f;
+    }
+    proc->groundRegistrations.erase(entityId);
+    auto& drawOrder = proc->groundRegistrationOrder;
+    drawOrder.erase(std::remove(drawOrder.begin(), drawOrder.end(), entityId), drawOrder.end());
+    // RETAIL PPC 0x001cd798 computes the union of the entity's complete
+    // shape list through FUN_000302f8/FUN_00032fe8, converts each edge to a
+    // screen-cell index using reciprocals at 0x001cd778, then inserts the
+    // entity into each inclusive cell. Match the full shape union and
+    // fctiwz truncation plus the explicit decrement for negative positions.
+    gmVariable physicsData = entity->Get(&machine, "PhysicsData");
+    if (physicsData.m_type == GM_NULL)
+        physicsData = entity->Get(&machine, "__physicsData");
+    float minX = 0.0f, minY = 0.0f, maxX = 0.0f, maxY = 0.0f;
+    GetPhysicsDataAllBodiesAABB(machine, physicsData, minX, minY, maxX, maxY);
+    auto cell = [](float position, float reciprocal) {
+        int result = static_cast<int>(position * reciprocal);
+        if (position < 0.0f) --result;
+        return result;
+    };
+    constexpr float kInvScreenCellWidth = 0.025614753365516663f;  // PPC 0x3cd1d608
+    constexpr float kInvScreenCellHeight = 0.04553733766078949f; // PPC 0x3d3a855c
+    proc->groundRegistrations[entityId] =
+        Process::GroundRegistration{style, selected != 0,
+            0.0f, 0.0f,
+            cell(minX, kInvScreenCellWidth), cell(maxX, kInvScreenCellWidth),
+            cell(minY, kInvScreenCellHeight), cell(maxY, kInvScreenCellHeight)};
+    drawOrder.push_back(entityId);
     return GM_OK;
 }
 
-// classes/EntityRegistration.c 0x001d0920), same GroundProcessNEW handle
-// as registerEntity/unregisterEntity above. Real call site (Main.gm's
-// getEntityCostPerc(): `local groundCost=...getGroundCountOnScreen(this.
-// screenX,this.screenY)*ENTITY_COSTS_COSTPERGROUND;`) feeds a per-screen
-// entity-budget/complexity estimate, not gameplay-correctness-critical.
-// Same "no real ground registry exists, rendering is native and
-// unconditional" situation as registerEntity/unregisterEntity -- 0 grounds
-// registered is the honest, consistent answer (matches always returning
-// success from those no-op registration calls).
+int GM_CDECL gmf_process_unregisterGround(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    gmTableObject* entity = nullptr;
+    if (!a_thread->ParamTable(0, entity) || !entity) return GM_EXCEPTION;
+    gmVariable id = entity->Get(a_thread->GetMachine(), "__objectID");
+    if (id.m_type != GM_INT) return GM_EXCEPTION;
+    const int entityId = id.m_value.m_int;
+    proc->groundRegistrations.erase(entityId);
+    auto& drawOrder = proc->groundRegistrationOrder;
+    drawOrder.erase(std::remove(drawOrder.begin(), drawOrder.end(), entityId), drawOrder.end());
+    return GM_OK;
+}
+
+// getGroundCountOnScreen(screenX,screenY) -- wrapper and native nested-map
+// lookup/count are bytecode verified (EntityRegistration.c 0x001d0920 and
+// FUN_001ced4c). The desktop registry counts registered grounds whose
+// cached inclusive screen-cell bounds contain this cell. Those bounds are
+// derived at registration from fixture AABBs; exact parity for multi-body or
+// native entity-bounds cases still depends on matching FUN_000302f8.
 int GM_CDECL gmf_process_getGroundCountOnScreen(gmThread* a_thread) {
-    (void)a_thread;
-    a_thread->PushInt(0);
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(screenX, 0, 0);
+    GM_INT_PARAM(screenY, 1, 0);
+    const int count = GetEngineContext().processManager->GetGroundCountOnScreen(
+        screenX, screenY);
+    a_thread->PushInt(count);
     return GM_OK;
 }
 
@@ -615,82 +766,124 @@ int GM_CDECL gmf_setAsPauseProcess(gmThread* a_thread) {
 
 } // namespace
 
+bool GetShaderStorageId(gmMachine& a_machine, const gmVariable& a_value, int& a_id) {
+    if (a_value.m_type < GM_USER) return false;
+    gmUserObject* object = (gmUserObject*)a_machine.GetObject(a_value.m_value.m_ref);
+    if (!object || object->m_userType != g_shaderType) return false;
+    const ShaderHandleData* shader = (ShaderHandleData*)object->m_user;
+    if (shader->isDefaultPostProcess) return false;
+    // Process IDs are monotonic within the desktop session; the negative
+    // range is reserved for process-owned shader programs.
+    a_id = -1 - shader->processId * 256 - shader->shaderId;
+    return true;
+}
+
+gmVariable CreateDefaultPostProcessShaderHandle(gmMachine& a_machine) {
+    // The Video object's +0x8150 shader pointer is initialized to null by
+    // retail. Represent the distinct non-null SHADER wrapper while keeping
+    // that underlying shader absent; don't give it a process shader identity.
+    return gmVariable(a_machine.AllocUserObject(
+        new ShaderHandleData{-1, -1, true}, g_shaderType));
+}
+
 void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int a_processId) {
     a_table->Set(&a_machine, "__id", gmVariable((gmint)a_processId));
-    a_table->Set(&a_machine, "refreshFunctionCache",
-        gmVariable(a_machine.AllocFunctionObject(gmf_process_refreshFunctionCache)));
+    // Process behavior tables are authored GameMonkey tables. Native process
+    // helpers fill methods that the behavior does not define, but must not
+    // replace an authored method with the same name. Main.gm and
+    // GroundProcessNEW.gm both define entity registration methods; replacing
+    // those with the generic ground-process no-op silently leaves active
+    // screens without entities, which also strands the player's first-spawn
+    // state behind a disabled SpawnPoint.
+    auto setNativeIfMissing = [&](const char* name, gmCFunction function) {
+        if (a_table->Get(&a_machine, name).m_type != GM_FUNCTION) {
+            a_table->Set(&a_machine, name,
+                gmVariable(a_machine.AllocFunctionObject(function)));
+        }
+    };
+    Process* shaderOwner = GetEngineContext().processManager->Get(a_processId);
+    if (shaderOwner && shaderOwner->name == "Platformer_Main") {
+        a_table->Set(&a_machine, "SOUNDPREVIEW_SHADERID", gmVariable((gmint)0));
+        setNativeIfMissing("getShader", gmf_process_getShader);
+    }
+    setNativeIfMissing("refreshFunctionCache",
+        gmf_process_refreshFunctionCache);
     if (a_table->Get(&a_machine, "onMusicTrigger").m_type != GM_FUNCTION) {
         a_table->Set(&a_machine, "onMusicTrigger",
             gmVariable(a_machine.AllocFunctionObject(gmf_process_onMusicTriggerDefault)));
     }
-    a_table->Set(&a_machine, "setIsStealsInputFocus", gmVariable(a_machine.AllocFunctionObject(gmf_setIsStealsInputFocus)));
-    a_table->Set(&a_machine, "terminate", gmVariable(a_machine.AllocFunctionObject(gmf_terminate)));
-    a_table->Set(&a_machine, "callMethod", gmVariable(a_machine.AllocFunctionObject(gmf_process_callMethod)));
-    a_table->Set(&a_machine, "setIsUpdatesEntities", gmVariable(a_machine.AllocFunctionObject(gmf_setIsUpdatesEntities)));
-    a_table->Set(&a_machine, "drawGrounds", gmVariable(a_machine.AllocFunctionObject(gmf_process_drawGrounds)));
-    a_table->Set(&a_machine, "registerEntity", gmVariable(a_machine.AllocFunctionObject(gmf_process_groundRegistrationNoop)));
-    a_table->Set(&a_machine, "unregisterEntity", gmVariable(a_machine.AllocFunctionObject(gmf_process_groundRegistrationNoop)));
-    a_table->Set(&a_machine, "getGroundCountOnScreen", gmVariable(a_machine.AllocFunctionObject(gmf_process_getGroundCountOnScreen)));
+    setNativeIfMissing("setIsStealsInputFocus", gmf_setIsStealsInputFocus);
+    setNativeIfMissing("terminate", gmf_terminate);
+    setNativeIfMissing("callMethod", gmf_process_callMethod);
+    setNativeIfMissing("setIsUpdatesEntities", gmf_setIsUpdatesEntities);
+    setNativeIfMissing("drawGrounds", gmf_process_drawGrounds);
+    setNativeIfMissing("registerEntity", gmf_process_registerGround);
+    setNativeIfMissing("unregisterEntity", gmf_process_unregisterGround);
+    setNativeIfMissing("getGroundCountOnScreen", gmf_process_getGroundCountOnScreen);
     if (a_table->Get(&a_machine, "isLoading").m_type != GM_FUNCTION) {
         a_table->Set(&a_machine, "isLoading", gmVariable(a_machine.AllocFunctionObject(gmf_process_isLoading)));
     }
-    a_table->Set(&a_machine, "setFireThickness", gmVariable(a_machine.AllocFunctionObject(gmf_process_groundConfigNoop)));
-    a_table->Set(&a_machine, "setIsRefreshDrawListOnChange", gmVariable(a_machine.AllocFunctionObject(gmf_process_groundConfigNoop)));
-    a_table->Set(&a_machine, "setupDrawLists", gmVariable(a_machine.AllocFunctionObject(gmf_process_groundConfigNoop)));
+    setNativeIfMissing("setFireThickness", gmf_process_groundConfigNoop);
+    setNativeIfMissing("setIsRefreshDrawListOnChange", gmf_process_groundConfigNoop);
+    setNativeIfMissing("setupDrawLists", gmf_process_groundConfigNoop);
     // Guarded: never stomp ScaleOfTheWorld.gm's own real setScaleIndex when
     // dual-injected onto its returned table -- see gmf_setScaleIndex's
     // header comment above.
     if (a_table->Get(&a_machine, "setScaleIndex").m_type != GM_FUNCTION) {
-        a_table->Set(&a_machine, "setScaleIndex", gmVariable(a_machine.AllocFunctionObject(gmf_setScaleIndex)));
+        setNativeIfMissing("setScaleIndex", gmf_setScaleIndex);
     }
     if (a_table->Get(&a_machine, "getScaleIndex").m_type != GM_FUNCTION) {
-        a_table->Set(&a_machine, "getScaleIndex", gmVariable(a_machine.AllocFunctionObject(gmf_getScaleIndex)));
+        setNativeIfMissing("getScaleIndex", gmf_getScaleIndex);
     }
     if (a_table->Get(&a_machine, "getNoteWithPositionAndOffset").m_type != GM_FUNCTION) {
-        a_table->Set(&a_machine, "getNoteWithPositionAndOffset",
-                     gmVariable(a_machine.AllocFunctionObject(gmf_getNoteWithPositionAndOffset)));
+        setNativeIfMissing("getNoteWithPositionAndOffset",
+            gmf_getNoteWithPositionAndOffset);
     }
     if (a_table->Get(&a_machine, "setTranspose").m_type != GM_FUNCTION) {
-        a_table->Set(&a_machine, "setTranspose", gmVariable(a_machine.AllocFunctionObject(gmf_setTranspose)));
+        setNativeIfMissing("setTranspose", gmf_setTranspose);
     }
     if (a_table->Get(&a_machine, "getTranspose").m_type != GM_FUNCTION) {
-        a_table->Set(&a_machine, "getTranspose", gmVariable(a_machine.AllocFunctionObject(gmf_getTranspose)));
+        setNativeIfMissing("getTranspose", gmf_getTranspose);
     }
-    a_table->Set(&a_machine, "isInited", gmVariable(a_machine.AllocFunctionObject(gmf_isInited)));
-    a_table->Set(&a_machine, "setupPreDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_setupPreDrawList)));
-    a_table->Set(&a_machine, "setupPostDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_setupPostDrawList)));
+    setNativeIfMissing("isInited", gmf_isInited);
+    setNativeIfMissing("setupPreDrawList", gmf_setupPreDrawList);
+    setNativeIfMissing("setupPostDrawList", gmf_setupPostDrawList);
     // setupDrawList -- confirmed real (ScaleOfTheWorld.gm:20's
     // `this.drawList=this.setupDrawList();`), same un-disambiguated-alias
     // convention as getDrawList aliasing getPreDrawList above.
-    a_table->Set(&a_machine, "setupDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_setupPreDrawList)));
-    a_table->Set(&a_machine, "getPreDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_getPreDrawList)));
-    a_table->Set(&a_machine, "getPostDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_getPostDrawList)));
-    a_table->Set(&a_machine, "getDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_getDrawList)));
-    a_table->Set(&a_machine, "getObjectID", gmVariable(a_machine.AllocFunctionObject(gmf_getObjectID)));
-    a_table->Set(&a_machine, "getTable", gmVariable(a_machine.AllocFunctionObject(gmf_getTable)));
-    a_table->Set(&a_machine, "getScreenWidth", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenWidth)));
-    a_table->Set(&a_machine, "getScreenHeight", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenHeight)));
-    a_table->Set(&a_machine, "getScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenX)));
-    a_table->Set(&a_machine, "getScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_getScreenY)));
-    a_table->Set(&a_machine, "setCurrentScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_setCurrentScreenX)));
-    a_table->Set(&a_machine, "setCurrentScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_setCurrentScreenY)));
-    a_table->Set(&a_machine, "getCurrentScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_getCurrentScreenX)));
-    a_table->Set(&a_machine, "getCurrentScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_getCurrentScreenY)));
-    a_table->Set(&a_machine, "setGlobalVolume", gmVariable(a_machine.AllocFunctionObject(gmf_setGlobalVolume)));
-    a_table->Set(&a_machine, "setAsPauseProcess", gmVariable(a_machine.AllocFunctionObject(gmf_setAsPauseProcess)));
-    a_table->Set(&a_machine, "isBeingEdited", gmVariable(a_machine.AllocFunctionObject(gmf_process_isBeingEdited)));
+    setNativeIfMissing("setupDrawList", gmf_setupPreDrawList);
+    setNativeIfMissing("getPreDrawList", gmf_getPreDrawList);
+    setNativeIfMissing("getPostDrawList", gmf_getPostDrawList);
+    setNativeIfMissing("getDrawList", gmf_getDrawList);
+    setNativeIfMissing("getObjectID", gmf_getObjectID);
+    setNativeIfMissing("getTable", gmf_getTable);
+    setNativeIfMissing("getScreenWidth", gmf_getScreenWidth);
+    setNativeIfMissing("getScreenHeight", gmf_getScreenHeight);
+    setNativeIfMissing("getScreenX", gmf_getScreenX);
+    setNativeIfMissing("getScreenY", gmf_getScreenY);
+    setNativeIfMissing("setCurrentScreenX", gmf_setCurrentScreenX);
+    setNativeIfMissing("setCurrentScreenY", gmf_setCurrentScreenY);
+    setNativeIfMissing("getCurrentScreenX", gmf_getCurrentScreenX);
+    setNativeIfMissing("getCurrentScreenY", gmf_getCurrentScreenY);
+    setNativeIfMissing("setGlobalVolume", gmf_setGlobalVolume);
+    setNativeIfMissing("setAsPauseProcess", gmf_setAsPauseProcess);
+    setNativeIfMissing("isBeingEdited", gmf_process_isBeingEdited);
 
     // FoE compatibility methods (alarm/LFO management) -- injected from foe_compat_bindings
-    a_table->Set(&a_machine, "getUniqueAlarmID", gmVariable(a_machine.AllocFunctionObject(gmf_getUniqueAlarmID)));
-    a_table->Set(&a_machine, "addAlarm", gmVariable(a_machine.AllocFunctionObject(gmf_addAlarm)));
-    a_table->Set(&a_machine, "deleteAlarm", gmVariable(a_machine.AllocFunctionObject(gmf_deleteAlarm)));
-    a_table->Set(&a_machine, "getAlarm", gmVariable(a_machine.AllocFunctionObject(gmf_getAlarm)));
-    a_table->Set(&a_machine, "getUniqueLFOID", gmVariable(a_machine.AllocFunctionObject(gmf_getUniqueLFOID)));
-    a_table->Set(&a_machine, "addLFO", gmVariable(a_machine.AllocFunctionObject(gmf_addLFO)));
-    a_table->Set(&a_machine, "deleteLFO", gmVariable(a_machine.AllocFunctionObject(gmf_deleteLFO)));
+    setNativeIfMissing("getUniqueAlarmID", gmf_getUniqueAlarmID);
+    setNativeIfMissing("addAlarm", gmf_addAlarm);
+    setNativeIfMissing("deleteAlarm", gmf_deleteAlarm);
+    setNativeIfMissing("getAlarm", gmf_getAlarm);
+    setNativeIfMissing("getUniqueLFOID", gmf_getUniqueLFOID);
+    setNativeIfMissing("addLFO", gmf_addLFO);
+    setNativeIfMissing("deleteLFO", gmf_deleteLFO);
 }
 
 void RegisterProcessHandleBindings(gmMachine& a_machine) {
+    g_shaderType = a_machine.CreateUserType("SHADER");
+    a_machine.RegisterTypeLibrary(g_shaderType, s_shaderLib,
+        sizeof(s_shaderLib) / sizeof(s_shaderLib[0]));
+    a_machine.RegisterUserCallbacks(g_shaderType, nullptr, ShaderGCDestruct, nullptr);
     // GameSystem.setAsPauseProcess(active, process) -- see gmf_setAsPauseProcess's
     // header comment. GameSystem itself is registered elsewhere
     // (gamesystem_bindings.cpp); appended to the existing table here

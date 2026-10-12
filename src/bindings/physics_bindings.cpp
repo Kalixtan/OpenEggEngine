@@ -2,6 +2,7 @@
 #include "physics_bindings.h"
 #include "vector2d_bindings.h"
 #include "gmTableObject.h"
+#include "../core/retail_polygon_geometry.h"
 #include <box2d/box2d.h>
 #include <vector>
 #include <cstdio>
@@ -72,10 +73,9 @@ int GM_CDECL gmf_addBox(gmThread* a_thread) {
 // so every ground entity's `pb.appendShapes(sd)` silently added ZERO
 // fixtures (confirmed: 230 live bodies but only 47 real fixtures before
 // this fix) -- ground pieces existed as empty, invisible physics bodies.
-// `vertices` is a plain GM table of vector2D (0-indexed, matching every
-// other array-shaped table in this corpus); b2PolygonShape::Set computes
-// the convex hull itself and caps at b2_maxPolygonVertices (8) -- real
-// ground pieces are simple quads/triangles well under that limit.
+// `vertices` is a plain GM table of vector2D (0-indexed). Retail forwards
+// every entry in order to FUN_00154038, which derives edge normals and the
+// shoelace centroid; it does not convex-hull or reorder the list.
 int GM_CDECL gmf_addPolygon(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
@@ -84,45 +84,24 @@ int GM_CDECL gmf_addPolygon(gmThread* a_thread) {
     if (verticesVar.m_type != GM_TABLE) return GM_OK; // honest no-op, matches null-call leniency elsewhere
     gmMachine& m = *a_thread->GetMachine();
     gmTableObject* table = (gmTableObject*)m.GetObject(verticesVar.m_value.m_ref);
-    int count = (a_thread->GetNumParams() >= 2) ? a_thread->ParamInt(1, 0) : 0;
+    if (a_thread->GetNumParams() < 2) return GM_EXCEPTION;
+    const int count = a_thread->ParamInt(1, 0);
+    if (count < 1 || count > b2_maxPolygonVertices) return GM_EXCEPTION;
 
     // addPolygon's own vertex loop): `if (*(int *)(puVar4 + 0x12) != 3)
     // goto LAB_0008c49c;` -- retail hard-checks EVERY fetched table
     // element's type tag against 3 (vector2D) and aborts the ENTIRE call
     // (GM halt) on the first non-vector2D entry, rather than skipping it.
     std::vector<b2Vec2> pts;
-    for (int i = 0; i < count && (int)pts.size() < b2_maxPolygonVertices; ++i) {
+    pts.reserve((size_t)count);
+    for (int i = 0; i < count; ++i) {
         gmVariable v = table->Get(gmVariable((gmint)i));
         float x, y;
         if (!GetVector2D(m, v, x, y)) return GM_EXCEPTION;
         pts.push_back(b2Vec2(x, y));
     }
-    // b2PolygonShape::Set hard-asserts (aborts the whole process, not a
-    // catchable GM exception) on a degenerate point set -- confirmed
-    // crash: real level data can produce near-duplicate or collinear
-    // vertices (e.g. a hairline-thin ground sliver) that Box2D's own
-    // convex-hull computation collapses to fewer than 3 usable points.
-    // De-duplicate near-identical consecutive points and check the
-    // signed area (shoelace formula) is comfortably above zero before
-    // ever handing this to Box2D, same "fail safe rather than crash"
-    // reasoning as addBox/addCircle's degenerate-shape guard above.
-    std::vector<b2Vec2> dedup;
-    for (const b2Vec2& p : pts) {
-        if (dedup.empty() || (p - dedup.back()).LengthSquared() > 1e-8f) dedup.push_back(p);
-    }
-    if (dedup.size() >= 2 && (dedup.front() - dedup.back()).LengthSquared() <= 1e-8f) dedup.pop_back();
-    if (dedup.size() < 3) return GM_OK;
-
-    float area2 = 0.0f;
-    for (size_t i = 0; i < dedup.size(); ++i) {
-        const b2Vec2& p0 = dedup[i];
-        const b2Vec2& p1 = dedup[(i + 1) % dedup.size()];
-        area2 += p0.x * p1.y - p1.x * p0.y;
-    }
-    if (std::fabs(area2) < 1e-6f) return GM_OK;
-
     b2PolygonShape* poly = new b2PolygonShape();
-    poly->Set(dedup.data(), (int32)dedup.size());
+    SetRetailPolygonGeometry(poly, pts);
     c->AddFixture(poly);
     return GM_OK;
 }
@@ -159,10 +138,9 @@ int GM_CDECL gmf_addCircle(gmThread* a_thread) {
 // list). Was entirely unbound -- hard "getdot failed" aborting the vine's
 // constructor before `pb.appendShapes(sd)` ever ran, leaving it with zero
 // collision. Same 0-indexed vertex-table convention as addPolygon above;
-// maps directly to Box2D's own open/closed edge-chain primitive
-// (b2ChainShape::CreateChain for an open strip, CreateLoop when the 3rd
-// arg is true) rather than approximating with addPolygon, since a vine is
-// a thin LINE, not a filled area -- addPolygon's convex-hull/area-based
+// maps to individual Box2D edge fixtures, matching retail's per-segment
+// shape construction rather than approximating with addPolygon, since a vine
+// is a thin LINE, not a filled area -- addPolygon's convex-hull/area-based
 // degenerate guards would collapse a near-zero-width shape like this to
 // nothing.
 int GM_CDECL gmf_addEdges(gmThread* a_thread) {
@@ -182,40 +160,25 @@ int GM_CDECL gmf_addEdges(gmThread* a_thread) {
         float x, y;
         if (GetVector2D(m, v, x, y)) pts.push_back(b2Vec2(x, y));
     }
-    // Stock Box2D aborts the whole process if neighbouring chain vertices
-    // are no farther apart than b2_linearSlop.  Script-generated paths can
-    // contain repeated or nearly repeated points (the captured level-load
-    // crash was b2ChainShape::CreateChain here), so normalise precisely to
-    // the imported library's documented precondition before constructing a
-    // chain.  This is boundary validation, not a Box2D change.
-    std::vector<b2Vec2> usable;
-    const float minDistanceSquared = b2_linearSlop * b2_linearSlop;
-    for (const b2Vec2& point : pts) {
-        if (usable.empty() || b2DistanceSquared(usable.back(), point) > minDistanceSquared)
-            usable.push_back(point);
-    }
-    pts.swap(usable);
     if (pts.size() < (loop ? 3u : 2u)) return GM_OK;
 
     // addEdges, 0x0008c658 -- see its full decompiled body for the exact
     // register-level derivation this comment summarizes):
     //
-    //   loop==false: retail does NOT just build the N forward points and
-    //   stop. It ALWAYS additionally appends the same points again in
-    //   REVERSE order right after the forward N (dropping the very last
-    //   duplicate), giving a final vertex count of 2N-1 -- a "there and
-    //   back" path that traces the polyline forward then immediately
-    //   back along itself. This is the classic trick for faking two-sided
-    //   collision on Box2D's inherently one-sided edge/chain primitive.
+    //   loop==false: retail appends points N-1 down through 1 to the forward
+    //   path, yielding 2N-1 vertices. Each consecutive pair is stored as a
+    //   separate retail edge shape. Preserve that shape granularity because
+    //   it determines global shape IDs and collision-map entries.
     //   Confirmed real, load-bearing case: SafeVine.gm:90's
     //   `sd.addEdges(this.verts,this.verts.size,false)` -- a vine you'd
-    //   expect to be touchable from either side. Was previously a plain
-    //   one-sided CreateChain over just the original N points.
+    //   expect to be touchable from either side. Desktop previously stored
+    //   the path in one chain fixture, merging the retail edge shape IDs.
     //
     //   loop==true: retail computes a shoelace-style signed area over the
     //   closed polygon (including the wrap-around edge) and reverses all N
     //   points when the sum is below DAT_0008c654, which is exactly 0.0f in
-    //   the retail binary. Vertex count stays N either way.
+    //   the retail binary. Each consecutive pair and the closing pair are
+    //   separate edge shapes.
     if (loop) {
         float area2 = 0.0f;
         for (size_t i = 0; i < pts.size(); ++i) {
@@ -224,38 +187,49 @@ int GM_CDECL gmf_addEdges(gmThread* a_thread) {
             area2 += p0.x * p1.y - p1.x * p0.y;
         }
         if (area2 < 0.0f) std::reverse(pts.begin(), pts.end());
-        b2ChainShape* chain = new b2ChainShape();
-        chain->CreateLoop(pts.data(), (int32)pts.size());
-        c->AddFixture(chain);
+        for (size_t i = 0; i < pts.size(); ++i) {
+            const b2Vec2& first = pts[i];
+            const b2Vec2& second = pts[(i + 1) % pts.size()];
+            b2EdgeShape* edge = new b2EdgeShape();
+            edge->SetOneSided(first, first, second, second);
+            c->AddFixture(edge);
+        }
     } else {
-        std::vector<b2Vec2> doubled = pts;
-        // Retail walks back from the final point, but its 2N-1 output count
-        // excludes the last reverse point. Skip the repeated turn vertex too:
-        // Box2D rejects that zero-length edge, and it contributes no geometry.
-        for (int i = (int)pts.size() - 2; i >= 1; --i) doubled.push_back(pts[(size_t)i]);
-        b2ChainShape* chain = new b2ChainShape();
-        // This box2d version requires explicit ghost vertices for an open
-        // chain; reusing the first/last points of the now-doubled list
-        // (zero-length ghost edges) is the standard degenerate-but-safe
-        // stand-in when the caller has no adjacent-chain data to hand it
-        // real ones.
-        chain->CreateChain(doubled.data(), (int32)doubled.size(), doubled.front(), doubled.back());
-        c->AddFixture(chain);
+        std::vector<b2Vec2> retailPath = pts;
+        for (int i = (int)pts.size() - 1; i >= 1; --i)
+            retailPath.push_back(pts[(size_t)i]);
+        for (size_t i = 0; i + 1 < retailPath.size(); ++i) {
+            const b2Vec2& first = retailPath[i];
+            const b2Vec2& second = retailPath[i + 1];
+            // Keep the zero-length turn edge too: retail constructs one
+            // shape for every adjacent pair, and omitting it would shift all
+            // later global shape IDs. Box2D accepts its zero-area edge shape.
+            b2EdgeShape* edge = new b2EdgeShape();
+            edge->SetOneSided(first, first, second, second);
+            c->AddFixture(edge);
+        }
     }
     return GM_OK;
 }
 
-// setIsSensor/setMass/setCollisionCategory/setCategoriesToCollideWith/
-// setFrictionForPlayer: confirmed real call shapes from GoAroundGuy.gm
-// Applied to every fixture currently in the collection -- real scripts
-// always call these immediately after a single addBox/addCircle, so
-// "all" and "most recent" are equivalent in every real usage seen so far.
+// These setters are registered in the retail shape-definition method table.
+// Retail wrappers dereference the collection object at this GM user
+// value's +0x14; they do not select an individual geometry entry.
 int GM_CDECL gmf_setIsSensor(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(isSensor, 0, 0);
-    for (auto& def : c->fixtureDefs) def.isSensor = (isSensor != 0);
+    c->isSensor = (isSensor != 0);
+    for (auto& def : c->fixtureDefs) def.isSensor = c->isSensor;
+    return GM_OK;
+}
+
+int GM_CDECL gmf_isSensor(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    a_thread->PushInt(c->isSensor);
     return GM_OK;
 }
 
@@ -266,7 +240,18 @@ int GM_CDECL gmf_setMass(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(mass, 0, 0.0f);
     // Box2D fixtures carry density, not mass directly; density is the
     // natural mapping (Box2D derives actual body mass = density * area).
+    c->density = mass;
     for (auto& def : c->fixtureDefs) def.density = mass;
+    return GM_OK;
+}
+
+int GM_CDECL gmf_getMass(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    // EBOOT FUN_000380e8 returns the literal float at 0x000380e0 (0.0f).
+    // It does not read the field written by setMass (shape +0x28).
+    a_thread->PushFloat(0.0f);
     return GM_OK;
 }
 
@@ -275,7 +260,8 @@ int GM_CDECL gmf_setCollisionCategory(gmThread* a_thread) {
     if (!c) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(category, 0, 1);
-    for (auto& def : c->fixtureDefs) def.filter.categoryBits = (uint16)category;
+    c->category = (uint16)category;
+    for (auto& def : c->fixtureDefs) def.filter.categoryBits = c->category;
     return GM_OK;
 }
 
@@ -284,7 +270,27 @@ int GM_CDECL gmf_setCategoriesToCollideWith(gmThread* a_thread) {
     if (!c) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(mask, 0, -1);
-    for (auto& def : c->fixtureDefs) def.filter.maskBits = (uint16)mask;
+    c->mask = (uint16)mask;
+    for (auto& def : c->fixtureDefs) def.filter.maskBits = c->mask;
+    return GM_OK;
+}
+
+// The retail PHYSICSSHAPECOLLECTIONDEF table has getters at 0x42195c and
+// 0x421968. Their wrappers read the collection's 16-bit filter fields
+// through FUN_00038620/FUN_00038628.
+int GM_CDECL gmf_getCollisionCategory(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    a_thread->PushInt(c->category);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_getCategoriesToCollideWith(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    a_thread->PushInt(c->mask);
     return GM_OK;
 }
 
@@ -293,7 +299,15 @@ int GM_CDECL gmf_setFrictionForPlayer(gmThread* a_thread) {
     if (!c) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(friction, 0, 0.2f);
-    for (auto& def : c->fixtureDefs) def.friction = friction;
+    c->playerFriction = friction;
+    return GM_OK;
+}
+
+int GM_CDECL gmf_getFriction(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    a_thread->PushFloat(c->friction);
     return GM_OK;
 }
 
@@ -305,7 +319,26 @@ int GM_CDECL gmf_setFriction(gmThread* a_thread) {
     if (!c) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(friction, 0, 0.2f);
+    c->friction = friction;
     for (auto& def : c->fixtureDefs) def.friction = friction;
+    return GM_OK;
+}
+
+int GM_CDECL gmf_getRestitution(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(0);
+    a_thread->PushFloat(c->restitution);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_setRestitution(gmThread* a_thread) {
+    ShapeDefCollection* c = ThisCollection(a_thread);
+    if (!c) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(restitution, 0, 0.0f);
+    c->restitution = restitution;
+    for (auto& def : c->fixtureDefs) def.restitution = restitution;
     return GM_OK;
 }
 
@@ -316,11 +349,18 @@ gmFunctionEntry s_shapeDefLib[] = {
     {"addCircle", gmf_addCircle, nullptr},
     {"addEdges", gmf_addEdges, nullptr},
     {"setIsSensor", gmf_setIsSensor, nullptr},
+    {"isSensor", gmf_isSensor, nullptr},
     {"setMass", gmf_setMass, nullptr},
+    {"getMass", gmf_getMass, nullptr},
     {"setCollisionCategory", gmf_setCollisionCategory, nullptr},
     {"setCategoriesToCollideWith", gmf_setCategoriesToCollideWith, nullptr},
+    {"getCollisionCategory", gmf_getCollisionCategory, nullptr},
+    {"getCategoriesToCollideWith", gmf_getCategoriesToCollideWith, nullptr},
     {"setFrictionForPlayer", gmf_setFrictionForPlayer, nullptr},
     {"setFriction", gmf_setFriction, nullptr},
+    {"getFriction", gmf_getFriction, nullptr},
+    {"setRestitution", gmf_setRestitution, nullptr},
+    {"getRestitution", gmf_getRestitution, nullptr},
 };
 
 void GM_CDECL ShapeDefGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {

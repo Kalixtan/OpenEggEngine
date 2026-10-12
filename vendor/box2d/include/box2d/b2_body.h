@@ -163,6 +163,10 @@ public:
 	/// @param angle the world rotation in radians.
 	void SetTransform(const b2Vec2& position, float angle);
 
+	/// Refresh fixture broad-phase bounds after mutating attached shape geometry
+	/// without changing the body's transform, sweep history, mass, or awake state.
+	void RefreshFixtureProxies();
+
 	/// Get the body transform for the body's origin.
 	/// @return the world transform of the body's origin.
 	const b2Transform& GetTransform() const;

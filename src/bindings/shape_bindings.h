@@ -1,22 +1,12 @@
 #pragma once
 #include "gmMachine.h"
 
-// The VMSHAPE native GM type returned by Video.beginShape/SHAPE() and
-// (previously) drawn via plotVertex()/endShape().
-//
-// beginShape/plotVertex/endShape and the whole 2D matrix stack
-// (pushMatrix/popMatrix/translate/rotate(Z)/scale, draw_context.h) have NO
-// Ghidra cross-reference search this environment doesn't have tool access
-// to run (their NAMES are confirmed real -- found directly in EBOOT.elf's
-// own VIDEO/VMDRAWLIST method registration tables, see draw_context.cpp's
-// header comments -- but a name's presence in that table doesn't hand you
-// the function body it points at). Per explicit direction, these are
-// routed through the strict-call trap (core/strict_calls.h) rather than
-// running on what was previously a corpus-usage-inferred implementation --
-// see gmf_Shape_beginShape/gmf_Shape_plotVertexCurrent/
-// gmf_Shape_endShapeCurrent below, and DrawList/Video's registration of the
-// same trap thunks for the bare `Video.plotVertex(...)`/`drawList.
-// translate(...)` etc. forms.
+// The VMSHAPE native GM type returned by Video.beginShape/SHAPE(). The
+// Video library's beginShape/plotVertex/endShape entries are bytecode-audited
+// separately from VMSHAPE methods: Video.beginShape creates a shape object,
+// Video.plotVertex's helpers are no-ops, and Video.endShape is a no-op.
+// `gmf_Shape_*Current` and the generic beginShape callback remain compatibility
+// handlers for DrawList and are not assumed to match the Video method table.
 //
 // SHAPE()/setAsFilledCircle()/getQuality()/plotVertices()/draw() are NOT
 // part of that -- also no decompiled body, but derived from the SAME
@@ -26,6 +16,12 @@
 // shape_bindings.cpp's gmf_setAsFilledCircle comment for the full
 // reasoning. These stay implemented.
 void RegisterShapeBindings(gmMachine& a_machine);
+
+// Returns the host primitive corresponding to a retained VMSHAPE, or zero
+// when the value is not a live shape object. Used by the textured-quad path
+// that receives the caller's draw-buffer primitive as its final argument.
+unsigned int GetShapePrimitiveMode(gmMachine& a_machine,
+                                  const gmVariable& a_shape);
 
 // DrawList.c) but was entirely unregistered on the drawList type (only an
 // unrelated `Video.drawShape` no-op stub existed), silently no-op'ing every
@@ -45,12 +41,12 @@ int GM_CDECL DC_gmf_drawShapeWithTexture(gmThread* a_thread);
 // -- real scripts only ever reference them symbolically, never as raw
 // numbers, so any consistent assignment is externally equivalent).
 
-// beginShape/plotVertex/endShape trap thunks -- see this header's top
-// comment. Exposed (not static in shape_bindings.cpp) so video_bindings.cpp/
-// draw_list.cpp can register them directly, matching how the real
-// implementations they replaced were shared between `Video` and any
-// `drawList` instance.
+// Compatibility handlers for non-Video callers; their retail ownership and
+// behavior remain under audit.
 int GM_CDECL gmf_Shape_beginShape(gmThread* a_thread);
+int GM_CDECL gmf_Video_beginShape(gmThread* a_thread);
+int GM_CDECL gmf_Video_plotVertex(gmThread* a_thread);
+int GM_CDECL gmf_Video_endShape(gmThread* a_thread);
 int GM_CDECL gmf_Shape_plotVertexCurrent(gmThread* a_thread);
 int GM_CDECL gmf_Shape_endShapeCurrent(gmThread* a_thread);
 
@@ -75,3 +71,22 @@ void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
 // videohelper_bindings.cpp detect retail's leading-SHAPE overload without
 // duplicating the user-type id lookup.
 gmUserObject* AsShapeObject(gmMachine& a_machine, const gmVariable& a_var);
+
+// Animation.setShape retains a VMSHAPE and drawAnimation replays its local
+// vertices with the current animation frame. Returns false for an empty or
+// invalid shape so the caller can use the standard unit quad.
+bool DrawAnimationShapeWithTransform(gmMachine& a_machine, const gmVariable& a_shape,
+                                     unsigned int a_texture, float a_alpha,
+                                     float a_a, float a_b, float a_c, float a_d,
+                                     float a_e, float a_f, float a_z);
+bool DrawAnimationShapeOverlayWithTransform(gmMachine& a_machine, const gmVariable& a_shape,
+                                            unsigned int a_backTexture,
+                                            unsigned int a_frontTexture,
+                                            float a_frontScaleX, float a_frontScaleY,
+                                            float a_alpha,
+                                            float a_a, float a_b, float a_c, float a_d,
+                                            float a_e, float a_f, float a_z);
+
+// Draw-list shader parameter commands update the selected entity shader at
+// replay time; shape rendering reads the resulting values by native object ID.
+void SetEntityShaderFloat(int a_entityId, int a_slot, int a_index, float a_value);

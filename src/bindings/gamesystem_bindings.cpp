@@ -107,6 +107,10 @@ int GM_CDECL gmf_processListRef_isValid(gmThread* a_thread) {
 }
 int GM_CDECL gmf_processListRef_goToNext(gmThread* a_thread) {
     auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
+    // Retail FUN_0031f13c advances cursor = cursor->next when initialized.
+    // The copied list is circular: the last node reaches the sentinel, and a
+    // further call wraps sentinel->next to the first node. Modulo size+1
+    // models the same cursor transitions, including empty/end states.
     if (it) it->index = (it->index + 1) % (it->processes.size() + 1);
     return GM_OK;
 }
@@ -118,7 +122,9 @@ int GM_CDECL gmf_processListRef_get(gmThread* a_thread) {
 }
 int GM_CDECL gmf_processListRef_reset(gmThread* a_thread) {
     auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
-    if (it) it->index = it->processes.size(); // retail reset points at sentinel
+    // Retail FUN_0031f184 sets cursor = sentinel.next, which is the first
+    // item (or the sentinel itself for an empty snapshot).
+    if (it) it->index = 0;
     return GM_OK;
 }
 int GM_CDECL gmf_processListRef_size(gmThread* a_thread) {
@@ -155,7 +161,7 @@ int GM_CDECL gmf_startNewProcessList(gmThread* a_thread) {
     int id = pm ? pm->StartNewProcessList(name, cleanupPrevious) : -1;
     Process* proc = (id >= 0 && pm) ? pm->Get(id) : nullptr;
 
-    if (proc) a_thread->Push(proc->table); else a_thread->PushInt(-1);
+    if (proc) a_thread->Push(proc->table); else a_thread->PushNull();
     return GM_OK;
 }
 
@@ -171,7 +177,7 @@ int GM_CDECL gmf_runProcess(gmThread* a_thread) {
     ProcessManager* pm = GetEngineContext().processManager;
     int id = pm ? pm->RunProcess(name, replaceExisting) : -1;
     Process* proc = (id >= 0 && pm) ? pm->Get(id) : nullptr;
-    if (proc) a_thread->Push(proc->table); else a_thread->PushInt(-1);
+    if (proc) a_thread->Push(proc->table); else a_thread->PushNull();
     return GM_OK;
 }
 
@@ -193,16 +199,16 @@ int GM_CDECL gmf_isProcessRunning(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: accepts EITHER an int (process id) or a string (process
-// name) -- the decompiled body branches on the argument's type tag
-// (GM_NULL/GM_INT vs. the retail string tag) and calls a different native
-// lookup for each.
+// PPC/decomp verified against GameSystem.getProcess at 0x70a24: accepts an
+// int process ID (GM tag 1) or string name (tag 0x25), then calls the
+// corresponding native lookup helper. Other tags, including null, return
 int GM_CDECL gmf_getProcess(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
+    const gmVariable& p = a_thread->Param(0);
+    if (p.m_type != GM_STRING && p.m_type != GM_INT) return GM_EXCEPTION;
     ProcessManager* pm = GetEngineContext().processManager;
     Process* proc = nullptr;
     if (pm) {
-        const gmVariable& p = a_thread->Param(0);
         if (p.m_type == GM_STRING) {
             char buf[256];
             proc = pm->GetByName(p.AsString(a_thread->GetMachine(), buf, sizeof(buf)));
@@ -219,9 +225,9 @@ int GM_CDECL gmf_getProcess(gmThread* a_thread) {
 // first walks the registered process objects and returns the first with
 // byte +9 set. If that search fails, it also examines queued runProcess and
 // startNewProcessList entries. Entity.setIsUpdatesEntities writes that byte,
-// and FUN_0018c558 initializes it to zero. This desktop lookup covers the
-// primary live-process search; the separate native transition queues are
-// still not represented here.
+// and FUN_0018c558 initializes it to zero. The desktop lookup preserves the
+// retail ordering: active processes first, then synchronously constructed
+// processes waiting at the next local activation boundary.
 int GM_CDECL gmf_getEntityUpdateProcess(gmThread* a_thread) {
     ProcessManager* pm = GetEngineContext().processManager;
     Process* proc = pm ? pm->GetEntityUpdateProcess() : nullptr;
@@ -315,7 +321,7 @@ int GM_CDECL gmf_getMSSincePlayStart(gmThread* a_thread) {
 // helper, no traceable formula) but a getter with no args, returning a
 // float, whose real call sites all use it as a fixed per-tick time delta
 // -- the standard PS3-era 60Hz assumption already implicit everywhere
-// else in this engine (SDL_GetTicks-driven deltaMs updates).
+// else in this engine (frontend-clock-driven deltaMs updates).
 int GM_CDECL gmf_getUpdateInterval(gmThread* a_thread) {
     a_thread->PushFloat(1000.0f / 60.0f);
     return GM_OK;
@@ -448,8 +454,14 @@ int GM_CDECL gmf_getSimulationSpeed(gmThread* a_thread) {
 }
 int GM_CDECL gmf_setSimulationSpeed(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(speed, 0, 1.0f);
-    GetEngineContext().gameSystem.simulationSpeed = speed;
+    GM_FLOAT_OR_INT_PARAM(requestedSpeed, 0, 1.0f);
+    // Temporary diagnostic requested while investigating the recurring 0.1
+    // slow-motion setting. Keep the original GM script untouched and make the
+    // native getter report the same forced value the main-loop accumulator
+    // uses. Remove this override once the retail/local speed discrepancy is
+    // understood.
+    (void)requestedSpeed;
+    GetEngineContext().gameSystem.simulationSpeed = 1.0f;
     return GM_OK;
 }
 

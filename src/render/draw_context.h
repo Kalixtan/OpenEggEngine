@@ -42,8 +42,18 @@ struct DrawContext {
     int stencilRef = 0;
     int stencilSfail = 100, stencilDpfail = 100, stencilDppass = 100; // VIDEOPARAMS_KEEP
     int culling = 0; // setAttrCulling: 0 disabled, 1 back/CW, 2 front/CCW
+    // DrawList's retail renderer attributes as stored by FUN_0003e040.
+    // resetFontRenderAttributes initializes them to 0.5 and 0.45.
     float fontEdge = 0.5f;
-    float fontWidth = 0.5f;
+    float fontWidth = 0.45f;
+    // Native render-config IDs differ from Cg paramno: TextureDist ID 2 is
+    // aDiscardLevel and ID 3 is aSmoothLevel. The setters/reset now map these
+    // values directly. ID 4 is aSize; nested replay writes to IDs 5/6 are out
+    // of range for this five-entry config. Full grouped-pass parity remains
+    // open.
+    bool distanceTextureEnabled = false;
+    float distanceTextureDiscardLevel = 0.45f;
+    float distanceTextureSmoothLevel = 0.45f;
 
     // setTextureByHandle/clearTexture -- confirmed real recorded draw-list
     // opcode into the SAME command list drawShape/setColour/etc. push into,
@@ -70,6 +80,9 @@ struct DrawContext {
         bool depthTest, depthWrite, colourMask;
         int stencilFunc, stencilRef, stencilSfail, stencilDpfail, stencilDppass;
         int culling;
+        float fontEdge, fontWidth;
+        bool distanceTextureEnabled;
+        float distanceTextureDiscardLevel, distanceTextureSmoothLevel;
     };
     std::vector<Attrs> attrStack;
 
@@ -131,19 +144,17 @@ int GM_CDECL DC_gmf_setAttrStencil(gmThread* a_thread);
 int GM_CDECL DC_gmf_setAttrDefaultStencil(gmThread* a_thread);
 int GM_CDECL DC_gmf_setAttrCulling(gmThread* a_thread);
 int GM_CDECL DC_gmf_setOrderTransparent(gmThread* a_thread);
+int GM_CDECL DC_gmf_setOrderAlphaTest(gmThread* a_thread);
 int GM_CDECL DC_gmf_setOrderLast(gmThread* a_thread);
 int GM_CDECL DC_gmf_setDistanceTextureRenderAttributes(gmThread* a_thread);
-// setColour/pushMatrix/popMatrix/translate/rotate(Z)/scale: confirmed real
-// names (found directly in EBOOT.elf's VIDEO/VMDRAWLIST method tables) but
-// no decompiled body reachable without live Ghidra cross-reference access
-// -- routed through the strict-call trap (see draw_context.cpp) rather than
-// running on the previous corpus-inferred implementation.
-int GM_CDECL gmf_DC_setColour_video(gmThread* a_thread);
+// The Video setter is bound separately to its audited retail no-op wrapper;
+// drawList.setColour below records its own deferred color-state command.
 int GM_CDECL gmf_DC_setColour_drawList(gmThread* a_thread);
 int GM_CDECL gmf_DC_setColourRef(gmThread* a_thread);
 int GM_CDECL DC_gmf_setFontRenderAttributes(gmThread* a_thread);
 int GM_CDECL DC_gmf_resetFontRenderAttributes(gmThread* a_thread);
 int GM_CDECL DC_gmf_print(gmThread* a_thread);
+int GM_CDECL DC_gmf_printTranslated(gmThread* a_thread);
 int GM_CDECL DC_gmf_printUntranslated(gmThread* a_thread);
 int GM_CDECL DC_gmf_printArray(gmThread* a_thread);
 int GM_CDECL DC_gmf_setupWorldView(gmThread* a_thread);
@@ -155,9 +166,12 @@ int GM_CDECL gmf_DC_popMatrix(gmThread* a_thread);
 int GM_CDECL gmf_DC_translate(gmThread* a_thread);
 int GM_CDECL gmf_DC_rotate(gmThread* a_thread);
 int GM_CDECL gmf_DC_scale(gmThread* a_thread);
+int GM_CDECL gmf_DC_multMatrix(gmThread* a_thread);
 int GM_CDECL DC_gmf_clear(gmThread* a_thread);
+int GM_CDECL DC_gmf_drawModTexture(gmThread* a_thread);
 int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread);
 int GM_CDECL DC_gmf_setTextureByHandle(gmThread* a_thread);
+int GM_CDECL DC_gmf_setTexture(gmThread* a_thread);
 int GM_CDECL DC_gmf_clearTexture(gmThread* a_thread);
 int GM_CDECL DC_gmf_setTextureSubImg(gmThread* a_thread);
 int GM_CDECL DC_gmf_drawTexture(gmThread* a_thread);

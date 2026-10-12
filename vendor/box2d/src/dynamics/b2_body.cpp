@@ -365,13 +365,20 @@ void b2Body::SetMassData(const b2MassData* massData)
 	m_I = 0.0f;
 	m_invI = 0.0f;
 
+	// Sound Shapes' retail Box2D accepts an explicit zero mass for dynamic
+	// bodies (PhysicsBody.setMass(0)). Keep zero inverse mass instead of the
+	// upstream Box2D fallback mass of 1 so those bodies remain immovable while
+	// retaining dynamic-body contact behavior.
 	m_mass = massData->mass;
-	if (m_mass <= 0.0f)
+	if (m_mass > 0.0f)
 	{
-		m_mass = 1.0f;
+		m_invMass = 1.0f / m_mass;
 	}
-
-	m_invMass = 1.0f / m_mass;
+	else
+	{
+		m_mass = 0.0f;
+		m_invMass = 0.0f;
+	}
 
 	if (massData->I > 0.0f && (m_flags & b2Body::e_fixedRotationFlag) == 0)
 	{
@@ -436,6 +443,25 @@ void b2Body::SetTransform(const b2Vec2& position, float angle)
 	}
 
 	// Check for new contacts the next step
+	m_world->m_newContacts = true;
+}
+
+void b2Body::RefreshFixtureProxies()
+{
+	b2Assert(m_world->IsLocked() == false);
+	if (m_world->IsLocked() == true)
+	{
+		return;
+	}
+
+	b2BroadPhase* broadPhase = &m_world->m_contactManager.m_broadPhase;
+	for (b2Fixture* f = m_fixtureList; f; f = f->m_next)
+	{
+		f->Synchronize(broadPhase, m_xf, m_xf);
+	}
+
+	// Shape geometry changed, so discover pairs using the refreshed bounds on
+	// the next step. Preserve sweep, mass, and awake state.
 	m_world->m_newContacts = true;
 }
 

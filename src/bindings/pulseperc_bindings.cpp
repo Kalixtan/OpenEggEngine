@@ -1,29 +1,35 @@
 #include "gmThread.h"
 #include "pulseperc_bindings.h"
+#include "../core/engine_context.h"
 #include <algorithm>
+#include <cmath>
 
 namespace {
 
 gmType g_pulsePercType = -1;
 
-enum class Phase { IDLE, ATTACK, SUSTAIN, DECAY };
-
-// Confirmed real fields (setByRate/setByTime/setSustainTime/setValue/
-// isByRate/getAttackRate/getAttackTime/getDecayRate/getDecayTime/
-// needed for update()/getValue()/isDone()/reset() (confirmed real by
-// usage, no decompiled body -- see header comment).
+// State layout and playback behavior recovered from retail EBOOT.elf:
+// constructor FUN_000161a8; setByRate FUN_000161f0; setByTime
+// FUN_00016218; update FUN_00016284; pulse FUN_000163fc; isDone
+// FUN_00016414; reset FUN_00016500. The public wrappers are in
 struct PulsePercData {
-    bool byRate = false;      // isByRate() / set by setByRate() vs setByTime()
-    float attackRate = 0.0f;  // units/sec when byRate; getAttackRate()
-    float decayRate = 0.0f;   // units/sec when byRate; getDecayRate()
-    float attackTime = 0.0f;  // ms when !byRate; getAttackTime()
-    float decayTime = 0.0f;   // ms when !byRate; getDecayTime()
-    float sustainTime = 0.0f; // ms hold at peak between attack and decay; getSustainTime()/setSustainTime()
-
-    Phase phase = Phase::IDLE;
-    float value = 0.0f;         // current 0..1 value, getValue()/setValue()
+    float attackRate = 171.0f;
+    float attackTime = 131.0f;
+    float decayRate = 171.0f;
+    float decayTime = 131.0f;
+    bool byRate = true;
+    float sustainTime = 0.0f;
+    float phase = -1.0f; // retail field +0x18: -1 decay/idle, +1 attack
+    float value = 0.0f;  // retail field +0x1c
     float phaseElapsedMs = 0.0f;
+    float lastDeltaMs = 0.0f;
 };
+
+float RetailExp(float rate, float deltaMs) {
+    // FUN_000c6988 clamps exp(-rate * dt) to [0,1]. FUN_000c69e8
+    // returns 1 minus that factor.
+    return std::clamp(std::exp(-rate * deltaMs), 0.0f, 1.0f);
+}
 
 PulsePercData* ThisPulsePerc(gmThread* a_thread) {
     return (PulsePercData*)a_thread->ThisUserCheckType(g_pulsePercType);
@@ -37,8 +43,9 @@ int GM_CDECL gmf_PULSEPERC(gmThread* a_thread) {
 
 int GM_CDECL gmf_pulse(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
-    p->phase = Phase::ATTACK;
+    p->phase = 1.0f;
     p->phaseElapsedMs = 0.0f;
+    // Retail pulse() preserves the current value when retriggered.
     return GM_OK;
 }
 
@@ -85,16 +92,14 @@ int GM_CDECL gmf_setSustainTime(gmThread* a_thread) {
     p->sustainTime = v;
     return GM_OK;
 }
-// Confirmed real: 2 args (attackRate, decayRate) -- units/sec, e.g. real
-// usage `setByRate(61,61)` -- a full 0..1 sweep in ~1000/61 ~= 16ms, about
-// one frame at 60fps, matching how these are used for snappy UI pulses.
+// Retail FUN_000161f0 stores the reciprocal of each argument.
 int GM_CDECL gmf_setByRate(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(attack, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(decay, 1, 0.0f);
-    p->attackRate = attack;
-    p->decayRate = decay;
+    p->attackRate = 1.0f / attack;
+    p->decayRate = 1.0f / decay;
     p->byRate = true;
     return GM_OK;
 }
@@ -112,50 +117,31 @@ int GM_CDECL gmf_setByTime(gmThread* a_thread) {
     return GM_OK;
 }
 
-// --- confirmed-real-by-usage, no decompiled body (see header comment) ---
-
 int GM_CDECL gmf_update(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(deltaMs, 0, 0.0f);
 
-    if (p->phase == Phase::ATTACK) {
-        if (p->byRate) {
-            p->value += (p->attackRate / 1000.0f) * deltaMs;
-            if (p->value >= 1.0f) {
-                p->value = 1.0f;
-                p->phase = p->sustainTime > 0.0f ? Phase::SUSTAIN : Phase::DECAY;
-                p->phaseElapsedMs = 0.0f;
+    p->lastDeltaMs = deltaMs;
+    if (p->byRate) {
+        if (p->phase >= 0.0f) {
+            const float change = (1.0f - p->value) *
+                (1.0f - RetailExp(p->attackRate, deltaMs));
+            p->value += change;
+            if (std::fabs(change) < 0.01f) {
+                p->phaseElapsedMs += deltaMs;
+                if (p->phaseElapsedMs >= p->sustainTime) p->phase = -1.0f;
             }
         } else {
+            p->value *= RetailExp(p->decayRate, deltaMs);
+        }
+    } else if (p->phase >= 1.0f) {
+        p->value = std::min(1.0f, p->value + deltaMs / p->attackTime);
+        if (p->value >= 1.0f) {
             p->phaseElapsedMs += deltaMs;
-            p->value = p->attackTime > 0.0f ? std::min(1.0f, p->phaseElapsedMs / p->attackTime) : 1.0f;
-            if (p->phaseElapsedMs >= p->attackTime) {
-                p->value = 1.0f;
-                p->phase = p->sustainTime > 0.0f ? Phase::SUSTAIN : Phase::DECAY;
-                p->phaseElapsedMs = 0.0f;
-            }
+            if (p->phaseElapsedMs >= p->sustainTime) p->phase = -1.0f;
         }
-    } else if (p->phase == Phase::SUSTAIN) {
-        p->phaseElapsedMs += deltaMs;
-        if (p->phaseElapsedMs >= p->sustainTime) {
-            p->phase = Phase::DECAY;
-            p->phaseElapsedMs = 0.0f;
-        }
-    } else if (p->phase == Phase::DECAY) {
-        if (p->byRate) {
-            p->value -= (p->decayRate / 1000.0f) * deltaMs;
-            if (p->value <= 0.0f) {
-                p->value = 0.0f;
-                p->phase = Phase::IDLE;
-            }
-        } else {
-            p->phaseElapsedMs += deltaMs;
-            p->value = p->decayTime > 0.0f ? std::max(0.0f, 1.0f - p->phaseElapsedMs / p->decayTime) : 0.0f;
-            if (p->phaseElapsedMs >= p->decayTime) {
-                p->value = 0.0f;
-                p->phase = Phase::IDLE;
-            }
-        }
+    } else {
+        p->value = std::max(0.0f, p->value - deltaMs / p->decayTime);
     }
     return GM_OK;
 }
@@ -166,36 +152,49 @@ int GM_CDECL gmf_getValue(gmThread* a_thread) {
     return GM_OK;
 }
 
+// Retail method-table entry PULSEPERC.getDir (wrapper 0x0006c3f4) calls
+// FUN_00016264, which loads the object's float at +0x18. That is `phase`:
+// +1 while attacking, -1 while decaying/idle.
+int GM_CDECL gmf_getDir(gmThread* a_thread) {
+    PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
+    a_thread->PushFloat(p->phase);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_isDone(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
-    a_thread->PushInt(p->phase == Phase::IDLE ? 1 : 0);
+    const bool done = p->byRate
+        ? p->phase < 0.0f && p->value * RetailExp(p->decayRate, p->lastDeltaMs) < 0.01f
+        : p->phase < 0.0f && p->value <= 1.0f;
+    a_thread->PushInt(done ? 1 : 0);
     return GM_OK;
 }
 
 int GM_CDECL gmf_reset(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
-    p->phase = Phase::IDLE;
+    p->phase = -1.0f;
     p->value = 0.0f;
-    p->phaseElapsedMs = 0.0f;
+    // Retail reset does not clear the elapsed-time field.
     return GM_OK;
 }
 
 gmFunctionEntry s_pulsePercLib[] = {
+    {"update", gmf_update, nullptr},
+    {"isDone", gmf_isDone, nullptr},
     {"pulse", gmf_pulse, nullptr},
+    {"reset", gmf_reset, nullptr},
+    {"getDir", gmf_getDir, nullptr},
+    {"getValue", gmf_getValue, nullptr},
     {"setValue", gmf_setValue, nullptr},
+    {"setByRate", gmf_setByRate, nullptr},
+    {"setByTime", gmf_setByTime, nullptr},
     {"getAttackRate", gmf_getAttackRate, nullptr},
     {"getAttackTime", gmf_getAttackTime, nullptr},
     {"getDecayRate", gmf_getDecayRate, nullptr},
     {"getDecayTime", gmf_getDecayTime, nullptr},
     {"isByRate", gmf_isByRate, nullptr},
-    {"getSustainTime", gmf_getSustainTime, nullptr},
     {"setSustainTime", gmf_setSustainTime, nullptr},
-    {"setByRate", gmf_setByRate, nullptr},
-    {"setByTime", gmf_setByTime, nullptr},
-    {"update", gmf_update, nullptr},
-    {"getValue", gmf_getValue, nullptr},
-    {"isDone", gmf_isDone, nullptr},
-    {"reset", gmf_reset, nullptr},
+    {"getSustainTime", gmf_getSustainTime, nullptr},
 };
 
 void GM_CDECL PulsePercGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {

@@ -54,5 +54,10 @@ GLint Shader::Uniform(const char* a_name) const {
 }
 
 Shader::~Shader() {
+    Destroy();
+}
+
+void Shader::Destroy() {
     if (m_program) glDeleteProgram(m_program);
+    m_program = 0;
 }

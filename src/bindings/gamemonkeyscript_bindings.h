@@ -14,6 +14,10 @@ void RegisterGameMonkeyScriptBindings(gmMachine& a_machine);
 // update point. Retail consumes one requested pass per frame.
 void ServiceGameMonkeyScriptCleanPass(gmMachine& a_machine);
 
+// Native manager equivalents for GameMonkeyScript.clean/isCollectingGarbage.
+void RequestGameMonkeyScriptCleanPasses(int a_passes);
+int GetGameMonkeyScriptCleanPassesRemaining();
+
 // Exposed for Debug.GameMonkey2JSON/JSON2GameMonkey (system_bindings.cpp) --
 // see GitHub issue #7. Shares the same JSON<->gmVariable mapping
 // saveTableToJsonSaveRequest/loadTableFromJsonSaveRequest already use

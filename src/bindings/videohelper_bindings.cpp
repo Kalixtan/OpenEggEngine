@@ -11,12 +11,12 @@
 
 namespace {
 
-// SHAPETYPE_* numbering, matching shape_bindings.cpp's own ShapeType enum
-// (which is read off retail's beginShape switch, FUN_00421810).
-constexpr int kShapeTypeQuads = 0;
-constexpr int kShapeTypeTriangleFan = 2;
-constexpr int kShapeTypeTriangleStrip = 3;
-constexpr int kShapeTypeLineLoop = 6;
+// Retail shape-mode values verified against VMSHAPE.endShape at 0x7ba38 and
+// its primitive table at 0x3a1384. See shape_bindings.cpp for the full map.
+constexpr int kShapeTypeQuads = 7;
+constexpr int kShapeTypeTriangleFan = 6;
+constexpr int kShapeTypeTriangleStrip = 5;
+constexpr int kShapeTypeLineStrip = 2;
 
 // VIDEOHELPER_DrawFilledRect(x1, y1, x2, y2 [, z])          -> shape
 // VIDEOHELPER_DrawFilledRect(shape, x1, y1, x2, y2 [, z])   -> that shape
@@ -239,9 +239,10 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledCircle(gmThread* a_thread) {
 // VIDEOHELPER_DrawCircle(shape, x, y, z, r [, quality]). The native body is
 // at EBOOT.elf 0x001b3ad4. Disassembly confirms exact arities (4/5 and 5/6),
 // default quality 0x3d (61), start angle 0, and a float 2*pi/quality angle
-// increment. The allocate-new path emits quality points and explicitly adds
-// the first point again to close the outline. Its shape is a line loop; the
-// duplicate closing point is retained to match retail's stored geometry.
+// increment. The allocate-new path constructs VMSHAPE with raw mode 0x102;
+// endShape masks that field to byte 2, selecting RSX line strip. It emits
+// quality points and explicitly adds the first point again to close the
+// outline. Keep the duplicate point and line-strip mode to match retail.
 // The leading-shape path instead updates that shape in place with exactly
 // quality points and preserves its original primitive type. Retail returns
 // a shape only for the allocate-new overload; the reuse overload does not
@@ -285,7 +286,7 @@ int GM_CDECL gmf_VIDEOHELPER_DrawCircle(gmThread* a_thread) {
         xy.push_back((float)y);
     }
 
-    PushShapeFromVerts(a_thread, kShapeTypeLineLoop, xy.data(),
+    PushShapeFromVerts(a_thread, kShapeTypeLineStrip, xy.data(),
                        (int)(xy.size() / 2), (float)z, existing,
                        /*preserve existing primitive*/ existing != nullptr,
                        /*retail pushes only newly created shapes*/ existing == nullptr);

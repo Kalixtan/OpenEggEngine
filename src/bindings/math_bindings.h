@@ -11,7 +11,8 @@
 // addresses/arg-count dispatch/return-type tags) plus float constants
 // pulled directly from the retail EBOOT.elf where the decompile only
 // showed an opaque DAT_ label -- see per-function comments in
-// math_bindings.cpp for what's confirmed vs. still inferred (mainly: the
-// exact libm routine behind each opaque FUN_ call, since none of those
-// bodies are in the decompiled corpus, and the MATH_LN vs. MATH_LOG split).
+// math_bindings.cpp for what's confirmed vs. still inferred. The shared
+// PowerPC power/log/exp helpers are now decompiled and cross-referenced in
+// same natural-log helper. Exact PowerPC-versus-desktop float rounding and
+// exceptional-value behavior remain open for MATH_POW/EXP/LN/LOG.
 void RegisterMathBindings(gmMachine& a_machine);

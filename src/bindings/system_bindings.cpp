@@ -8,12 +8,17 @@
 #include "../core/save_data.h"
 #include "../core/file_helper.h"
 #include "gamemonkeyscript_bindings.h"
+#include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <ctime>
+#include <climits>
 #include <string>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <vector>
+#include <zlib.h>
 
 gmType g_fileType = -1;
 
@@ -38,8 +43,10 @@ int GM_CDECL gmf_FILE_IsExists(gmThread* a_thread) {
 namespace fs = std::filesystem;
 
 // ---------------------------------------------------------------------
-// functions, but none were registered anywhere -- corpus grep confirms
-// real, live (non-commented-out) call sites for GetFileListing,
+// functions are registered as unqualified globals in s_systemLib below.
+// Retail names/descriptors occur in the candidate mixed native-record run
+// at 0x423300..0x423360; its registration caller is not yet traced. The
+// corpus has live (non-commented-out) call sites for GetFileListing,
 // VirtualSpaceLeft, DeleteFile, CopyFile, WriteString, LoadString, and
 // EnsurePathExists (game_data/Platformer/{Main,LoginProcess,Instrument,
 // FileSelectorProcess,DebugMenu,MainMenu5/EditScreenSidePanel}.gm), unlike
@@ -67,13 +74,30 @@ std::optional<std::string> FileHelperAreaRoot(int a_area) {
     }
 }
 bool FileHelperResolvePath(int a_area, const std::string& a_relPath, std::string& a_out) {
-    if (a_area == 2) { a_out = a_relPath; return true; } // AREA_HOST: literal path
+    // Desktop namespace translation. Retail FUN_0016f4e8 formats area 0 as
+    // /savedata/<path> and areas 1/2 as /<path>; whether the PS3 path service
+    // maps those namespaces to these host roots is separate from the bytecode
+    // behavior. This AREA_HOST branch is verbatim, while retail prepends a
+    // slash; an absolute input may normalize equivalently, but that behavior
+    // is unverified. See
+    if (a_area == 2) { a_out = a_relPath; return true; } // desktop AREA_HOST mapping
+    if (a_area == 1) {
+        FileHelper* fh = GetEngineContext().fileHelper;
+        if (!fh) return false;
+        if (fh->PrimaryRoot().empty()) return false;
+        a_out = fh->PrimaryRoot() + "/" + a_relPath;
+        return true;
+    }
     auto root = FileHelperAreaRoot(a_area);
     if (!root) return false;
     a_out = *root + "/" + a_relPath;
     return true;
 }
 bool FileHelperAreaReadFile(int a_area, const std::string& a_relPath, std::string& a_out) {
+    if (a_area == 1) {
+        FileHelper* fh = GetEngineContext().fileHelper;
+        return fh && fh->ReadTextFile(a_relPath, a_out);
+    }
     std::string full;
     if (!FileHelperResolvePath(a_area, a_relPath, full)) return false;
     std::ifstream f(full, std::ios::binary);
@@ -82,32 +106,17 @@ bool FileHelperAreaReadFile(int a_area, const std::string& a_relPath, std::strin
     a_out = ss.str();
     return true;
 }
-bool FileHelperAreaWriteFile(int a_area, const std::string& a_relPath, const std::string& a_content) {
-    std::string full;
-    if (!FileHelperResolvePath(a_area, a_relPath, full)) return false;
-    std::error_code ec;
-    fs::create_directories(fs::path(full).parent_path(), ec);
-    std::ofstream f(full, std::ios::binary | std::ios::trunc);
-    if (!f) return false;
-    f.write(a_content.data(), (std::streamsize)a_content.size());
-    return f.good();
-}
-
-// classes/FileHelper.c @ 0xac0f8). Only real call sites are commented out
-// (EditScreenInfoPopupBase.gm, EditScreen2Base.gm, EditScreenSidePanel.gm
-// all have it behind `//`), matching this engine's "always plenty of
-// space" stance elsewhere (SAVEDATA_getSystemFreeSpaceQuota/Media above).
+// FILEHELPER_VirtualSpaceLeft() -- bytecode-confirmed constant 0x400
+// (FUN_001702f0 @ 0x1702f0), returned as an integer by the native wrapper.
 int GM_CDECL gmf_FILEHELPER_VirtualSpaceLeft(gmThread* a_thread) {
-    a_thread->PushInt(1000000000);
+    a_thread->PushInt(0x400);
     return GM_OK;
 }
 
-// FILEHELPER_GetFileListing(dirPath, area=AREA_GAMEDATA) -- confirmed real
-// (Instrument.gm, FileSelectorProcess.gm, TouchEditProcessNGP.gm's explicit
-// AREA_GAMEDATA, Main.gm's editor level-directory listing) all just
-// foreach/tableCount the result, matching this codebase's existing
-// "plain sequential-int-keyed table" convention for unmodeled ref-container
-// return types (see Audio.getAllVoices).
+// FILEHELPER_GetFileListing(dirPath, area=AREA_GAMEDATA) -- bytecode-
+// Retail assigns entry strings under sequential integer keys and adds an
+// integer `size` field; live scripts iterate to listing.size. Exact OS entry
+// ordering and record filtering remain platform-dependent.
 int GM_CDECL gmf_FILEHELPER_GetFileListing(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(dir, 0, "");
@@ -117,35 +126,45 @@ int GM_CDECL gmf_FILEHELPER_GetFileListing(gmThread* a_thread) {
     gmTableObject* table = m.AllocTableObject();
     std::string full;
     if (FileHelperResolvePath(area, dir, full)) {
-        std::error_code ec;
         int i = 0;
-        for (auto& entry : fs::directory_iterator(full, ec)) {
-            if (ec) break;
-            table->Set(&m, i++, gmVariable(m.AllocStringObject(entry.path().filename().string().c_str())));
+        if (area == 1) {
+            if (FileHelper* fh = GetEngineContext().fileHelper) {
+                for (const auto& name : fh->ListFiles(dir))
+                    table->Set(&m, i++, gmVariable(m.AllocStringObject(name.c_str())));
+            }
+        } else {
+            std::error_code ec;
+            for (auto& entry : fs::directory_iterator(full, ec)) {
+                if (ec) break;
+                table->Set(&m, i++, gmVariable(m.AllocStringObject(entry.path().filename().string().c_str())));
+            }
         }
+        table->Set(&m, "size", gmVariable((gmint)i));
+    } else {
+        table->Set(&m, "size", gmVariable((gmint)0));
     }
     a_thread->PushTable(table);
     return GM_OK;
 }
 
-// FILEHELPER_DeleteFile(path, area=AREA_GAMEDATA) -- confirmed real
-// grep hits (MyLevelsTOC.gm) are commented out, so this is exercised by no
-// live corpus call site, but is cheap and correct to implement properly.
+// FILEHELPER_DeleteFile(path, area=AREA_GAMEDATA) -- bytecode-confirmed
+// 1/2-arg, no script value returned. Retail only dispatches deletion through
+// its SaveData service for area 0; all other areas are no-ops. The desktop
+// SaveData delete approximates that service's file removal.
 int GM_CDECL gmf_FILEHELPER_DeleteFile(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
     int area = 1;
     if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
-    std::string full;
-    bool ok = FileHelperResolvePath(area, path, full);
-    if (ok) { std::error_code ec; ok = fs::remove(full, ec); }
-    a_thread->PushInt(ok ? 1 : 0);
+    if (area == 0) SaveData::DeleteFile(path);
     return GM_OK;
 }
 
-// FILEHELPER_CopyFile(srcPath, srcArea, dstPath, dstArea) -- confirmed real
-// Real call site (EditScreenSidePanel.gm:351-353) copies a level's
-// level/image/loop files between two AREA_SAVEDATA myLevels slots.
+// FILEHELPER_CopyFile(srcPath, srcArea, dstPath, dstArea) -- bytecode-
+// confirmed 4-arg, no return value pushed. Retail opens rb/wb, queries source
+// length, allocates min(length, 1 MiB), then asks fread/fwrite for one full
+// chunk on every iteration and ignores both results. This preserves retail's
+// rounded-up final chunk behavior for files larger than 1 MiB.
 int GM_CDECL gmf_FILEHELPER_CopyFile(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(4);
     GM_STRING_PARAM(srcPath, 0, "");
@@ -153,34 +172,64 @@ int GM_CDECL gmf_FILEHELPER_CopyFile(gmThread* a_thread) {
     GM_STRING_PARAM(dstPath, 2, "");
     GM_INT_PARAM(dstArea, 3, 1);
     std::string srcFull, dstFull;
-    if (FileHelperResolvePath(srcArea, srcPath, srcFull) && FileHelperResolvePath(dstArea, dstPath, dstFull)) {
-        std::error_code ec;
-        fs::create_directories(fs::path(dstFull).parent_path(), ec);
-        fs::copy_file(srcFull, dstFull, fs::copy_options::overwrite_existing, ec);
+    if (srcArea == 1) {
+        FileHelper* fh = GetEngineContext().fileHelper;
+        auto resolved = fh ? fh->Resolve(srcPath) : std::nullopt;
+        if (!resolved) return GM_OK;
+        srcFull = *resolved;
+    } else if (!FileHelperResolvePath(srcArea, srcPath, srcFull)) return GM_OK;
+    if (!FileHelperResolvePath(dstArea, dstPath, dstFull)) return GM_OK;
+
+    std::ifstream src(srcFull, std::ios::binary);
+    if (!src) return GM_OK;
+    std::ofstream dst(dstFull, std::ios::binary | std::ios::trunc);
+    if (!dst) return GM_OK;
+
+    src.seekg(0, std::ios::end);
+    std::streamoff length = src.tellg();
+    src.seekg(0, std::ios::beg);
+    if (length <= 0) return GM_OK;
+
+    // The retail helper stores the queried length in a 32-bit unsigned value,
+    // then tests it as signed in the loop condition.
+    uint32_t retailLength = static_cast<uint32_t>(length);
+    size_t chunkSize = static_cast<size_t>(std::min<uint32_t>(retailLength, 0x100000));
+    std::vector<char> buffer(chunkSize);
+    uint32_t remaining = retailLength;
+    while (static_cast<int32_t>(remaining) > 0) {
+        // Retail requests one item of chunkSize bytes for both calls and does
+        // not inspect fread's item count. A short final read therefore still
+        // writes the entire buffer; its unwritten tail retains prior bytes.
+        src.read(buffer.data(), static_cast<std::streamsize>(chunkSize));
+        dst.write(buffer.data(), static_cast<std::streamsize>(chunkSize));
+        remaining -= static_cast<uint32_t>(chunkSize);
     }
     return GM_OK;
 }
 
-// FILEHELPER_WriteString(path, content, area=AREA_GAMEDATA) /
-// classes/FileHelper.c @ 0xabe3c/0xabbf4). Real call site (LoginProcess.gm)
-// always passes AREA_SAVEDATA explicitly. No public retail compression
-// format to reproduce (same reasoning as SAVEDATA_AddCompressedString,
-// savedata_bindings.cpp), so both write plain text.
+// FILEHELPER_WriteString(path, content, area=AREA_GAMEDATA) and
+// WriteCompressedString -- bytecode-confirmed bool return, but retail's
+// FUN_00170148 is only a permission gate: nonzero areas log that file writing
+// is not permitted and return false; area 0 returns true without writing.
+// Both APIs use this gate, so do not create host files here.
 int GM_CDECL gmf_FILEHELPER_WriteString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_STRING_PARAM(path, 0, "");
     GM_STRING_PARAM(content, 1, "");
     int area = 1;
     if (a_thread->GetNumParams() > 2) { GM_INT_PARAM(a, 2, 1); area = a; }
-    a_thread->PushInt(FileHelperAreaWriteFile(area, path, content) ? 1 : 0);
+    (void)path;
+    (void)content;
+    if (area != 0) {
+        std::fprintf(stderr, "FILEHELPER[ln 457] file writing in retail is not permitted!\n");
+    }
+    a_thread->PushInt(area == 0 ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_FILEHELPER_WriteCompressedString(gmThread* a_thread) { return gmf_FILEHELPER_WriteString(a_thread); }
 
-// FILEHELPER_LoadString(path, area=AREA_GAMEDATA) / LoadCompressedString --
-// @ 0xabf30/0xabce8). Empty string on a missing file/area (no corpus call
-// site checks for null vs. empty, only truthiness of the later
-// FILE_IsExists guard in LoginProcess.gm's real usage).
+// FILEHELPER_LoadString(path, area=AREA_GAMEDATA) -- bytecode-confirmed raw
+// read into a NUL-terminated temporary, then returned as a GM string.
 int GM_CDECL gmf_FILEHELPER_LoadString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
@@ -191,20 +240,59 @@ int GM_CDECL gmf_FILEHELPER_LoadString(gmThread* a_thread) {
     a_thread->PushNewString(content.c_str());
     return GM_OK;
 }
-int GM_CDECL gmf_FILEHELPER_LoadCompressedString(gmThread* a_thread) { return gmf_FILEHELPER_LoadString(a_thread); }
 
-// FILEHELPER_EnsurePathExists(path, area=AREA_GAMEDATA) -- confirmed real
-// site (Main.gm:3886) ensures a backup-file's parent directory exists
-// before writing into it.
-int GM_CDECL gmf_FILEHELPER_EnsurePathExists(gmThread* a_thread) {
+// FILEHELPER_LoadCompressedString uses FUN_00010330, confirmed from PPC as
+// zlib inflateInit_ / inflate(Z_FINISH) / inflateEnd. Retail caps decoded
+// output at 0x4fffff bytes and returns it as a NUL-terminated GM string.
+int GM_CDECL gmf_FILEHELPER_LoadCompressedString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
     int area = 1;
     if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
+
+    std::string compressed;
+    std::string decoded;
+    if (FileHelperAreaReadFile(area, path, compressed) &&
+        !compressed.empty() && compressed.size() <= UINT_MAX) {
+        constexpr size_t kRetailOutputCapacity = 0x4fffff;
+        std::vector<unsigned char> output(kRetailOutputCapacity);
+        z_stream stream{};
+        stream.next_in = reinterpret_cast<Bytef*>(compressed.data());
+        stream.avail_in = static_cast<uInt>(compressed.size());
+        stream.next_out = output.data();
+        stream.avail_out = static_cast<uInt>(output.size());
+        if (inflateInit_(&stream, ZLIB_VERSION, sizeof(stream)) == Z_OK) {
+            int inflateResult = inflate(&stream, Z_FINISH);
+            uLong decodedSize = stream.total_out;
+            int endResult = inflateEnd(&stream);
+            if (inflateResult == Z_STREAM_END && endResult == Z_OK &&
+                decodedSize > 0 && decodedSize <= output.size()) {
+                decoded.assign(reinterpret_cast<const char*>(output.data()),
+                               static_cast<size_t>(decodedSize));
+            }
+        }
+    }
+    a_thread->PushNewString(decoded.c_str());
+    return GM_OK;
+}
+
+// FILEHELPER_EnsurePathExists(path, area) -- bytecode-confirmed two-argument
+// call. Its native wrapper converts the helper's zero return to true; the
+// helper ignores cellFsMkdir results, so retail reports success regardless
+// of individual directory-creation failures.
+int GM_CDECL gmf_FILEHELPER_EnsurePathExists(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    GM_INT_PARAM(area, 1, 1);
     std::string full;
-    bool ok = FileHelperResolvePath(area, path, full);
-    if (ok) { std::error_code ec; fs::create_directories(fs::path(full).parent_path(), ec); ok = !ec; }
-    a_thread->PushInt(ok ? 1 : 0);
+    if (FileHelperResolvePath(area, path, full)) {
+        fs::path parent = fs::path(full).parent_path();
+        if (!parent.empty()) {
+            std::error_code ec;
+            fs::create_directories(parent, ec);
+        }
+    }
+    a_thread->PushInt(1);
     return GM_OK;
 }
 
@@ -653,6 +741,30 @@ int GM_CDECL gmf_SYSTEM_getUNIXTimestamp(gmThread* a_thread) {
     return GM_OK;
 }
 
+// SYSTEM_subtractUNIXTimestringFromServerTimestamp(unixSeconds, serverMs) --
+// matched to retail wrapper 0x000ab3f0 and helper 0x002b69f4. Retail parses
+// both strings with "%lld", returns null if either parse yields 0/-1, then
+// returns the low 32 bits of unixSeconds - trunc(serverMs / 1000). The
+// 0x20c49ba5e353f7cf multiplier in the PPC sequence is the fixed-point
+// divide-by-1000; `system_subtract_timestamp_assembly_20261009.txt` records
+// the operand order, truncation correction, and integer result tag.
+int GM_CDECL gmf_SYSTEM_subtractUNIXTimestringFromServerTimestamp(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(unixText, 0, "");
+    GM_STRING_PARAM(serverText, 1, "");
+    long long unixSeconds = 0;
+    long long serverMilliseconds = 0;
+    if (std::sscanf(unixText, "%lld", &unixSeconds) != 1 ||
+        std::sscanf(serverText, "%lld", &serverMilliseconds) != 1) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    const std::uint32_t resultBits = static_cast<std::uint32_t>(unixSeconds) -
+        static_cast<std::uint32_t>(serverMilliseconds / 1000);
+    a_thread->PushInt(static_cast<gmint>(static_cast<std::int32_t>(resultBits)));
+    return GM_OK;
+}
+
 int GM_CDECL gmf_SYSTEM_Execute(gmThread* a_thread) {
     // Confirmed real signature: takes a command string, matches the stock
     // gmfSystem()/C system() pattern. Deliberately NOT executed -- running
@@ -787,6 +899,7 @@ gmFunctionEntry s_systemLib[] = {
     {"SYSTEM_IsRetailBuild", gmf_SYSTEM_IsRetailBuild, nullptr},
     {"SYSTEM_GetLanguage", gmf_SYSTEM_GetLanguage, nullptr},
     {"SYSTEM_getUNIXTimestamp", gmf_SYSTEM_getUNIXTimestamp, nullptr},
+    {"SYSTEM_subtractUNIXTimestringFromServerTimestamp", gmf_SYSTEM_subtractUNIXTimestringFromServerTimestamp, nullptr},
     {"SYSTEM_ServerTimeStampToDayMonthYear", gmf_SYSTEM_ServerTimeStampToDayMonthYear, nullptr},
     {"SYSTEM_Execute", gmf_SYSTEM_Execute, nullptr},
     {"SPLASHSCREEN_FinalizeSplashScreenAndGetResults", gmf_SPLASHSCREEN_FinalizeSplashScreenAndGetResults, nullptr},
