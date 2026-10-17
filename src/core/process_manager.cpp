@@ -1,5 +1,6 @@
 #include "process_manager.h"
 #include "../bindings/audio_bindings.h"
+#include "../bindings/sequencer_bindings.h"
 #include "../bindings/entity_bindings.h"
 #include "../bindings/gamemonkeyscript_bindings.h"
 #include "../bindings/animation_bindings.h"
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <limits>
 #include <utility>
@@ -32,6 +34,7 @@
 // the list for the NEXT frame's rebuild -- so no clear is needed here,
 // only the replay.
 static void QueueDrawList(gmMachine& a_machine, const gmVariable& a_listVar,
+                          const char* a_debugLabel,
                           std::vector<DrawListSubmission>& a_lists) {
     // Every registered user type (VMDRAWLIST, VMSHAPE, ...) gets its own
     // distinct gmType id counting up FROM GM_USER (gmVariable.h: "User
@@ -41,7 +44,8 @@ static void QueueDrawList(gmMachine& a_machine, const gmVariable& a_listVar,
     if (a_listVar.m_type < GM_USER) return;
     gmUserObject* obj = (gmUserObject*)a_machine.GetObject(a_listVar.m_value.m_ref);
     if (!obj || obj->m_userType != GetDrawListType()) return;
-    a_lists.push_back(CaptureDrawListSubmission((DrawListData*)obj->m_user));
+    a_lists.push_back(CaptureDrawListSubmission(
+        (DrawListData*)obj->m_user, a_debugLabel));
 }
 
 ProcessManager::ProcessManager(gmMachine& a_machine) : m_machine(a_machine) {}
@@ -99,7 +103,7 @@ int ProcessManager::StartInitialProcess(const std::string& a_name) {
 // loaded before it's needed without hardcoding a native-preload list
 // that risks loading things unrelated scenes don't want -- see
 // main.cpp's isFullRetailTree guard, added after exactly that kind of
-// guess broke game_data_min.
+// guess broke diagnostic scene.
 bool ProcessManager::TryAutoLoadScript(const std::string& a_processName) {
     std::string rest = a_processName;
     const std::string prefix = "Platformer_";
@@ -445,11 +449,13 @@ void ProcessManager::ResetProcessList() {
     const bool wasResettingProcessList = m_resettingProcessList;
     m_resettingProcessList = true;
     std::vector<Process> retired;
+    bool retiringPlatformerMain = false;
     for (auto it = m_processes.begin(); it != m_processes.end();) {
         if (!it->constructed || it->activationGeneration > m_dispatchGeneration) {
             ++it;
             continue;
         }
+        retiringPlatformerMain |= it->name == "Platformer_Main";
         retired.push_back(std::move(*it));
         it = m_processes.erase(it);
     }
@@ -459,6 +465,15 @@ void ProcessManager::ResetProcessList() {
         gmTableObject* table = (gmTableObject*)m_machine.GetObject(tableVar.m_value.m_ref);
         gmCall call;
         if (call.BeginTableFunction(&m_machine, "destructor", table, tableVar)) call.End();
+    }
+
+    // Platformer_Main owns the global sequencer and level voices. Its retail
+    // destructor stops both before leaving gameplay. Keep the same cleanup in
+    // the engine lifecycle path so archive-backed stock scripts receive it
+    // even if a script overlay lacks the desktop workaround.
+    if (retiringPlatformerMain) {
+        StopMainSequencerForProcessListReset(m_machine);
+        StopAllVoicesForProcessListReset();
     }
 
     m_pauseExemptProcessId = -1;
@@ -699,6 +714,7 @@ void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_u
             if (call.BeginTableFunction(&m_machine, "update", table, tableVar)) {
                 call.AddParamFloat(a_deltaMs);
                 call.End();
+
             }
         }
 
@@ -866,7 +882,20 @@ void ProcessManager::PreDrawAll() {
         // Re-fetch by id -- preDraw() may have recursively started/reaped
         // processes and reallocated m_processes (same hazard as
         // FinishBringUp), so `proc` itself can no longer be trusted here.
-        if (Process* p = Get(id)) QueueDrawList(m_machine, p->preDrawList, orderedLists);
+        if (Process* p = Get(id)) {
+            const size_t queuedBefore = orderedLists.size();
+            const std::string debugLabel = "pre:" + p->name;
+            QueueDrawList(m_machine, p->preDrawList, debugLabel.c_str(), orderedLists);
+            if (std::getenv("GE3_TRACE_DRAWLISTS") &&
+                orderedLists.size() > queuedBefore) {
+                const DrawListSubmission& submission = orderedLists.back();
+                const size_t commandCount = submission.commandBuffer
+                    ? submission.commandBuffer->commands.size() : 0;
+                std::fprintf(stderr,
+                    "[drawlist-queue] phase=pre id=%d name=%s key=%08x commands=%zu\n",
+                    id, p->name.c_str(), submission.orderKey, commandCount);
+            }
+        }
     }
     ReplayDrawListsInOrder(orderedLists);
 }
@@ -878,13 +907,6 @@ void ProcessManager::PostDrawAll() {
         Process& proc = m_processes[i];
         if (proc.activationGeneration > m_dispatchGeneration) continue;
         if (!proc.initialized) continue;
-        // Each process overlay begins with writable colour. Gameplay lists
-        // use colour masking for stencil setup and can leave it disabled;
-        // a later pause or loading list has no setColourMask call of its
-        // own, so inheriting that state makes its entire overlay invisible.
-        GetDrawContext().colourMask = false;
-        if (Renderer* renderer = GetEngineContext().renderer)
-            renderer->SetColourMask(false);
         gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
         gmVariable tableVar = proc.table;
         int id = proc.id;
@@ -893,7 +915,20 @@ void ProcessManager::PostDrawAll() {
             call.End();
         }
         // See PreDrawAll's identical re-fetch -- same reentrancy hazard.
-        if (Process* p = Get(id)) QueueDrawList(m_machine, p->postDrawList, orderedLists);
+        if (Process* p = Get(id)) {
+            const size_t queuedBefore = orderedLists.size();
+            const std::string debugLabel = "post:" + p->name;
+            QueueDrawList(m_machine, p->postDrawList, debugLabel.c_str(), orderedLists);
+            if (std::getenv("GE3_TRACE_DRAWLISTS") &&
+                orderedLists.size() > queuedBefore) {
+                const DrawListSubmission& submission = orderedLists.back();
+                const size_t commandCount = submission.commandBuffer
+                    ? submission.commandBuffer->commands.size() : 0;
+                std::fprintf(stderr,
+                    "[drawlist-queue] phase=post id=%d name=%s key=%08x commands=%zu\n",
+                    id, p->name.c_str(), submission.orderKey, commandCount);
+            }
+        }
     }
     ReplayDrawListsInOrder(orderedLists);
 }

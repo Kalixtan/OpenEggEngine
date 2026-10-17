@@ -12,7 +12,9 @@
 #include "physics_body_bindings.h"
 #include "vector2d_bindings.h"
 #include "../core/engine_context.h"
+#include "../core/system_config.h"
 #include "../core/strict_calls.h"
+#include "../render/renderer.h"
 #include "../render/draw_list.h"
 #include "../render/draw_context.h"
 #include "../core/save_data.h"
@@ -21,8 +23,26 @@
 #include <filesystem>
 #include <cmath>
 #include <cstdint>
+#include <mutex>
+#include <string>
+#include <unordered_set>
 
 namespace {
+
+void LogTextureFallbackOnce(int a_area, const char* a_path,
+                            const char* a_reason) {
+    static std::unordered_set<std::string> logged;
+    static std::mutex loggedMutex;
+    const std::string requested = a_path ? a_path : "";
+    const std::string key = std::to_string(a_area) + ":" + requested + ":" +
+                            (a_reason ? a_reason : "unknown");
+    std::lock_guard<std::mutex> lock(loggedMutex);
+    if (logged.insert(key).second) {
+        std::fprintf(stderr,
+            "[texture-fallback] area=%d path='%s' reason=%s\n",
+            a_area, requested.c_str(), a_reason ? a_reason : "unknown");
+    }
+}
 
 // BYTECODE VERIFIED: Video construction zeroes a 256-byte buffer, creates
 // `badTexture_Yo` as an 8x8 resource with 32-byte rows (RGBA8), and stores it
@@ -99,7 +119,10 @@ int GM_CDECL gmf_isDrawingPhysics(gmThread* a_thread) {
 }
 // RETAIL BYTECODE: direct float load from graphics-state +0x81bc.
 int GM_CDECL gmf_getAspectRatio(gmThread* a_thread) {
-    a_thread->PushFloat(GetEngineContext().video.aspectRatio);
+    const auto& engine = GetEngineContext();
+    const float aspect = !SystemConfig::Get().letterbox && engine.renderer
+        ? engine.renderer->GetAspect() : engine.video.aspectRatio;
+    a_thread->PushFloat(aspect);
     return GM_OK;
 }
 // RETAIL BYTECODE: converts int arguments to float, then stores +0x81bc;
@@ -530,8 +553,16 @@ int GM_CDECL gmf_setTexturePaletteColour(gmThread* a_thread) {
     if (resolved) {
         Renderer* renderer = GetEngineContext().renderer;
         handle = renderer->LoadTexture(*resolved, "1:" + std::string(path));
-        RetainManagedTextureResource(handle, 1, path);
+        if (handle) {
+            RetainManagedTextureResource(handle, 1, path);
+        } else {
+            LogTextureFallbackOnce(1, path, "decode-or-upload-failed");
+            // Match the failed-resource branch above: retail still applies
+            // the palette update to Video's shared badTexture_Yo object.
+            handle = EnsureBadTextureFallback();
+        }
     } else {
+        LogTextureFallbackOnce(1, path, "resource-not-found");
         // BYTECODE VERIFIED: FUN_0004bd50 returns the shared Video
         // badTexture_Yo resource when the GAMEDATA lookup fails; the wrapper
         // still calls FUN_0031b254 on that returned texture. Preserve that
@@ -679,7 +710,7 @@ static std::optional<std::string> ResolvePlatformResourcePathImpl(const char* a_
     else if (a_area == 2) fullPath = a_path;
     else return std::nullopt;
     std::error_code ec;
-    if (!std::filesystem::is_regular_file(fullPath, ec) || ec) return std::nullopt;
+    if (!std::filesystem::is_regular_file(std::filesystem::u8path(fullPath), ec) || ec) return std::nullopt;
     return fullPath;
 }
 
@@ -716,6 +747,7 @@ int PushTextureForScript(gmThread* a_thread, int a_maxParams) {
     EngineContext& ctx = GetEngineContext();
     auto resolved = ResolveTextureAssetPath(path, area);
     if (!resolved) {
+        LogTextureFallbackOnce(area, path, "resource-not-found");
         // RETAIL BYTECODE: FUN_0004ab18's failed lookup returns the Video
         // object's shared badTexture_Yo at +0x838c, rather than a null TEXTURE.
         a_thread->Push(MakeTextureHandle(*a_thread->GetMachine(),
@@ -725,6 +757,7 @@ int PushTextureForScript(gmThread* a_thread, int a_maxParams) {
     const std::string cacheKey = std::to_string(area) + ":" + path;
     unsigned int handle = ctx.renderer->LoadTexture(*resolved, cacheKey);
     if (handle == 0) {
+        LogTextureFallbackOnce(area, path, "decode-or-upload-failed");
         // FUN_0004ab18 also takes its shared badTexture_Yo branch when the
         // resource exists but cannot be decoded/created as a TEXTURE.
         a_thread->Push(MakeTextureHandle(*a_thread->GetMachine(),
@@ -771,6 +804,9 @@ int GM_CDECL gmf_loadTexture(gmThread* a_thread) {
         const std::string cacheKey = std::to_string(area) + ":" + path;
         handle = GetEngineContext().renderer->LoadTexture(*resolved, cacheKey);
         RetainManagedTextureResource(handle, area, path);
+        if (!handle) LogTextureFallbackOnce(area, path, "decode-or-upload-failed");
+    } else {
+        LogTextureFallbackOnce(area, path, "resource-not-found");
     }
     const float resizeFactor = RetailTextureResizeFactor(area, path);
     if (a_thread->GetNumParams() >= 3 && a_thread->Param(2).m_type == GM_TABLE) {

@@ -170,6 +170,10 @@ public:
   gmMachine();
   virtual ~gmMachine();
 
+  /// True while ResetAndFreeMemory is destructing the heap. User-object
+  /// cleanup must not apply incremental-GC barriers during this pass.
+  inline bool IsResetting() const { return m_isResetting; }
+
   /// \brief ResetAndFreeMemory() will reset the gmMachine.
   void ResetAndFreeMemory();
 
@@ -548,6 +552,7 @@ public:
 
   gmGarbageCollector* m_gc;
 #endif //GM_USE_INCGC
+  bool m_isResetting = false;
 
   inline int GetStatsGCNumFullCollects()          { return m_statsGCFullCollect; }
   inline int GetStatsGCNumIncCollects()           { return m_statsGCIncCollect; }

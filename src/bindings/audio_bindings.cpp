@@ -1,8 +1,12 @@
 #include "gmThread.h"
 #include "audio_bindings.h"
+#include "audio_recorder_signatures.h"
 #include "gmTableObject.h"
+#include "gmStringObject.h"
 #include "../core/engine_context.h"
+#include "../core/save_data.h"
 #include "../core/strict_calls.h"
+#include "../ported_native/ground_math.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -13,9 +17,29 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
+#include <cstdint>
 #include <memory>
 #include <optional>
+#include <set>
+#include <sstream>
 #include <vector>
+#include <chrono>
+#include <filesystem>
+#include <iomanip>
+#include <locale>
+#include <map>
+#include <zlib.h>
+
+#define MINIMP3_ONLY_MP3
+#define MINIMP3_IMPLEMENTATION
+#include "../../vendor/minimp3/minimp3_ex.h"
+#if defined(_WIN32) && defined(GetObject)
+// minimp3_ex.h includes windows.h for its file mapping support. Windows' GDI
+// GetObject macro would rewrite gmMachine::GetObject calls throughout this
+// translation unit, so remove the macro after the third-party include.
+#undef GetObject
+#endif
 
 // ---------------------------------------------------------------------
 // citations on each binding below) plus recovered method-table wrappers for
@@ -30,7 +54,11 @@
 
 namespace {
 
-constexpr int kOutputRate = 44100;
+// Retail's audio backend and Slicker voice state both initialize at 48 kHz
+// (EBOOT FUN_00027878 writes 48000 at +0x3c; the normal sound factory and
+// backend stream constructor also store 48000). Keep decoded samples, voice
+// cursors, mixer timing, and SDL output on that native rate.
+constexpr int kOutputRate = 48000;
 struct DecodedSound {
     std::vector<float> stereo;
 };
@@ -38,41 +66,111 @@ struct DeferredEffectCleanup {
     int voiceId = 0;
     gmVariable object;
 };
+struct RecordedPlaySoundEvent {
+    float timeMs = 0.0f;
+    std::string path;
+    int note = 96;
+    float gate = 0.0f;
+    float pan = 0.0f;
+    float volume = 1.0f;
+    int priority = 0x80;
+    bool chainRoute = false;
+    gmVariable effectChain = gmVariable::s_null;
+    uint32_t effectChainHandle = 0xffffffffu;
+    int startPositionMs = 0;
+};
 PlatformFrontend* g_audioFrontend = nullptr;
 bool g_audioOutputStarted = false;
 double g_fractionalOutputFrames = 0.0;
 std::unordered_map<std::string, std::weak_ptr<DecodedSound>> g_decodedSounds;
+struct TimeStretchCacheEntry {
+    std::shared_ptr<DecodedSound> sample;
+    uint64_t lastUse = 0;
+};
+std::unordered_map<std::string, TimeStretchCacheEntry> g_timeStretchedSounds;
+uint64_t g_timeStretchCacheClock = 0;
+// Audio.loadSound creates a manager-owned sample resource in retail. Keep a
+// strong desktop reference for explicit loads so successful loading actually
+// decodes and retains the sample until unloadSound or shutdown.
 std::unordered_map<std::string, std::shared_ptr<DecodedSound>> g_loadedSoundSamples;
+// Retail FUN_0002679c stores loadSound's optional integer in resource word
+// +0x0c. Its FMOD meaning is not established yet, but preserve it per loaded
+// path so a future backend can consume the same resource mode.
 std::unordered_map<std::string, int> g_loadedSoundModes;
+// FUN_0001bd78 also stores an internal kind in resource word +0x20:
+// default=0, VAG=1, FSB=2. Preserve that classification separately from the
+// script supplied mode at +0x0c.
 std::unordered_map<std::string, int> g_loadedSoundResourceKinds;
 
 struct VoiceState {
     std::string soundFile;
     float volume = 1.0f;
     float pan = 0.0f;
+    // Native playSound forwards this to the backend voice allocator. The
+    // software mixer currently has no voice-stealing policy, but retain the
+    // exact requested priority for diagnostics and future allocation parity.
+    int priority = 0x80;
+    // Keep the selected explicit or manager-default script chain alive and
+    // associated with the voice. The mixer still lacks the retail DSP route.
+    gmVariable effectChain = gmVariable::s_null;
+    uint32_t effectChainHandle = 0xffffffffu;
     int referenceNote = 48;
+    // Normalized source base frequency stored at retail voice payload +0x10.
+    // getVoiceSpeed divides the live backend frequency by this value. Note,
+    // pitch-bend, and setVoiceSpeed targets are also based on this unscaled
+    // value; playSound applies the global multiplier to the initial backend
+    // frequency separately.
+    float sourceBaseSpeed = 1.0f;
     float speed = 1.0f;
     float targetSpeed = 1.0f;
-    double speedRampRemainingMs = 0.0;
+    // spawnSoundSlicker's time factor configures the retail Slicker/Dirac
+    // stretch object. It changes duration while preserving the note pitch;
+    // it must not be folded into `speed`, which is the sample playback rate.
+    // The SDL fallback applies this with a cached WSOLA sample transform;
+    // retail's exact FMOD/Dirac processing remains unported.
+    float timeStretchFactor = 1.0f;
+    float speedRampRate = 0.0f;
     double positionMs = 0.0;
     double gateDurationMs = 0.0;
     double gateElapsedMs = 0.0;
     double fadeRemainingMs = 0.0;
     double fadeDurationMs = 0.0;
+    float fadeGain = 1.0f;
     double stopRemainingMs = 0.0;
     bool stopping = false;
     bool paused = false;
     bool looping = false;
     int loopCount = 0;
+    // Retail increments DAT_004333d0 after a Slicker/Dirac object is created
+    // and decrements it when that object's backing resource is released.
+    // The SDL voice is the local lifetime owner for this partial backend.
+    bool ownsDiracPoolEntry = false;
     std::shared_ptr<DecodedSound> sample;
+    std::shared_ptr<DecodedSound> timeStretchedSample;
     bool sampleLoadAttempted = false;
 };
 
 struct AudioState {
     std::unordered_map<int, VoiceState> voices;
+    size_t diracPoolEntriesUsed = 0;
     std::vector<DeferredEffectCleanup> effectChainsWaitingForVoiceEnd;
     std::vector<DeferredEffectCleanup> effectsWaitingForVoiceEnd;
     std::unordered_set<std::string> loadedSounds;
+    // FunctionObjectRecorderV4's interned voice-resource-name set. Retail
+    // adds names before the playSound enabled gate and resets it when script
+    // recording starts; saveScriptToFile will consume this state later.
+    std::set<std::string> recordedSoundResources;
+    // Retail queues ordinary and 7/8-argument playSound callbacks as
+    // different timed event classes. Keep the raw callback arguments for
+    // the later FunctionObjectRecorderV4 serializer.
+    std::vector<RecordedPlaySoundEvent> recordedPlaySounds;
+    std::chrono::steady_clock::time_point recordingStart{};
+    float recordingStopMs = 0.0f;
+    // The desktop allocator uses ordinary voice IDs; this set mirrors the
+    // reserved-ID range owned by retail script playback.
+    std::unordered_set<int> scriptPlaybackVoiceIds;
+    size_t playbackEventIndex = 0;
+    float playbackElapsedMs = 0.0f;
     std::unordered_map<std::string, int> soundLengthMs;
     int nextVoiceId = 1;
     float masterVolume = 1.0f;
@@ -80,6 +178,10 @@ struct AudioState {
     float sfxVolume = 1.0f;
     bool enabled = true; // Retail gates playback/Slicker paths at manager +0x2c3c
     float frequencyMultiplier = 1.0f; // constructor initializes +0x30f0 to 1.0
+    // Retail FunctionObjectRecorder scheduler mode byte at +0x31.
+    bool playingScript = false;
+    // The adjacent recorder mode byte at scheduler +0x30.
+    bool recordingScript = false;
     gmMachine* machine = nullptr;
 };
 AudioState& State() {
@@ -87,8 +189,86 @@ AudioState& State() {
     return s;
 }
 
+void ReleaseDiracPoolEntry(VoiceState& a_voice) {
+    if (!a_voice.ownsDiracPoolEntry) return;
+    a_voice.ownsDiracPoolEntry = false;
+    if (State().diracPoolEntriesUsed > 0) --State().diracPoolEntriesUsed;
+}
+
+// Retail's chain pool returns a generation-tagged handle:
+//   handle = (generation << 8) | slot
+// The headless Ghidra trace of FUN_002e698c shows an 8-bit slot index and a
+// 20-bit pool generation, with 0xffffffff reserved as invalid. Mirror that
+// identity/lifetime separately from the GM table used to expose chain methods.
+// The table remains the script object; the handle is what native playSound
+// and recorder callback routes carry.
+class EffectChainHandlePool {
+public:
+    EffectChainHandlePool() { Reset(); }
+
+    void Reset() {
+        for (uint32_t slot = 0; slot < kSlotCount; ++slot)
+            m_nextFree[slot] = slot + 1 < kSlotCount ? slot + 1 : kInvalidSlot;
+        m_liveHandle.fill(kInvalidHandle);
+        m_freeHead = 0;
+        m_generation = 0;
+    }
+
+    uint32_t Allocate() {
+        if (m_freeHead == kInvalidSlot) return kInvalidHandle;
+        const uint32_t slot = m_freeHead;
+        m_freeHead = m_nextFree[slot];
+        uint32_t handle = 0;
+        do {
+            handle = ((m_generation & kGenerationMask) << 8) | slot;
+            m_generation = (m_generation + 1) & kGenerationMask;
+        } while (handle == kInvalidHandle);
+        m_liveHandle[slot] = handle;
+        return handle;
+    }
+
+    bool IsLive(uint32_t a_handle) const {
+        if (a_handle == kInvalidHandle) return false;
+        const uint32_t slot = a_handle & 0xffu;
+        return m_liveHandle[slot] == a_handle;
+    }
+
+    bool Release(uint32_t a_handle) {
+        if (!IsLive(a_handle)) return false;
+        const uint32_t slot = a_handle & 0xffu;
+        m_liveHandle[slot] = kInvalidHandle;
+        m_nextFree[slot] = m_freeHead;
+        m_freeHead = slot;
+        return true;
+    }
+
+    static constexpr uint32_t kInvalidHandle = 0xffffffffu;
+
+private:
+    static constexpr uint32_t kSlotCount = 256;
+    static constexpr uint32_t kInvalidSlot = 0xffffffffu;
+    static constexpr uint32_t kGenerationMask = 0x000fffffu;
+    std::array<uint32_t, kSlotCount> m_nextFree{};
+    std::array<uint32_t, kSlotCount> m_liveHandle = [] {
+        std::array<uint32_t, kSlotCount> values{};
+        values.fill(kInvalidHandle);
+        return values;
+    }();
+    uint32_t m_freeHead = 0;
+    uint32_t m_generation = 0;
+};
+EffectChainHandlePool& ChainHandles() {
+    static EffectChainHandlePool pool;
+    return pool;
+}
+gmVariable GetOrCreateMasterEffectChain(gmMachine& a_machine);
+
 struct AudioGMRootState { unsigned uses = 0; bool addedRoot = false; };
 std::unordered_map<gmObject*, AudioGMRootState> g_audioGMRoots;
+// Retail links each backend voice into exactly one channel group. Keep the
+// same one-group membership invariant even though this frontend has no FMOD
+// channel-group object or DSP graph to attach.
+std::unordered_map<gmObject*, std::unordered_set<int>> g_effectChainVoiceIds;
 void RetainAudioGMVariable(gmMachine& a_machine, const gmVariable& a_value) {
     if (!a_value.IsReference()) return;
     gmObject* object = a_machine.GetObject(a_value.m_value.m_ref);
@@ -110,6 +290,98 @@ void ReleaseAudioGMVariable(gmMachine& a_machine, const gmVariable& a_value) {
         g_audioGMRoots.erase(it);
     }
 }
+bool IsLocalEffectChain(gmMachine& a_machine, const gmVariable& a_value) {
+    if (a_value.m_type != GM_TABLE) return false;
+    auto* table = static_cast<gmTableObject*>(
+        a_machine.GetObject(a_value.m_value.m_ref));
+    if (!table || table->Get(&a_machine, "__freed").m_type != GM_NULL ||
+        table->Get(&a_machine, "__name").m_type != GM_STRING ||
+        table->Get(&a_machine, "addEffect").m_type != GM_FUNCTION)
+        return false;
+    const gmVariable handle = table->Get(&a_machine, "__nativeHandle");
+    return handle.m_type == GM_INT &&
+           ChainHandles().IsLive(static_cast<uint32_t>(handle.m_value.m_int));
+}
+std::unordered_map<uint32_t, gmVariable> g_effectChainsByHandle;
+gmVariable FindEffectChainByHandle(gmMachine& a_machine, uint32_t a_handle) {
+    const auto it = g_effectChainsByHandle.find(a_handle);
+    if (it == g_effectChainsByHandle.end() || !ChainHandles().IsLive(a_handle))
+        return gmVariable::s_null;
+    auto* table = static_cast<gmTableObject*>(
+        a_machine.GetObject(it->second.m_value.m_ref));
+    if (!table || !IsLocalEffectChain(a_machine, it->second))
+        return gmVariable::s_null;
+    const gmVariable currentHandle = table->Get(&a_machine, "__nativeHandle");
+    if (currentHandle.m_type != GM_INT ||
+        static_cast<uint32_t>(currentHandle.m_value.m_int) != a_handle)
+        return gmVariable::s_null;
+    return it->second;
+}
+float RecordedAudioElapsedMs() {
+    const auto elapsed = std::chrono::steady_clock::now() - State().recordingStart;
+    return std::chrono::duration<float, std::milli>(elapsed).count();
+}
+void ClearRecordedPlaySounds(gmMachine& a_machine) {
+    for (const auto& event : State().recordedPlaySounds) {
+        if (event.effectChain.IsReference())
+            ReleaseAudioGMVariable(a_machine, event.effectChain);
+    }
+    State().recordedPlaySounds.clear();
+}
+void DetachVoiceFromEffectChain(gmMachine& a_machine, int a_voiceId,
+                                VoiceState& a_voice) {
+    if (a_voice.effectChain.IsReference()) {
+        gmObject* object = a_machine.GetObject(a_voice.effectChain.m_value.m_ref);
+        auto membership = g_effectChainVoiceIds.find(object);
+        if (membership != g_effectChainVoiceIds.end()) {
+            membership->second.erase(a_voiceId);
+            if (membership->second.empty()) g_effectChainVoiceIds.erase(membership);
+        }
+        ReleaseAudioGMVariable(a_machine, a_voice.effectChain);
+    }
+    a_voice.effectChain = gmVariable::s_null;
+    a_voice.effectChainHandle = 0xffffffffu;
+}
+void AttachEffectChainToVoice(gmMachine& a_machine, int a_voiceId,
+                              VoiceState& a_voice, const gmVariable& a_chain) {
+    if (a_voice.effectChain.m_type == a_chain.m_type &&
+        (!a_chain.IsReference() ||
+         a_voice.effectChain.m_value.m_ref == a_chain.m_value.m_ref)) {
+        if (a_chain.IsReference()) {
+            gmObject* object = a_machine.GetObject(a_chain.m_value.m_ref);
+            if (object) g_effectChainVoiceIds[object].insert(a_voiceId);
+        }
+        return;
+    }
+    DetachVoiceFromEffectChain(a_machine, a_voiceId, a_voice);
+    a_voice.effectChain = a_chain;
+    if (a_voice.effectChain.IsReference()) {
+        RetainAudioGMVariable(a_machine, a_voice.effectChain);
+        gmObject* object = a_machine.GetObject(a_voice.effectChain.m_value.m_ref);
+        if (object) g_effectChainVoiceIds[object].insert(a_voiceId);
+        if (a_chain.m_type == GM_TABLE) {
+            auto* table = static_cast<gmTableObject*>(object);
+            const gmVariable handle = table
+                ? table->Get(&a_machine, "__nativeHandle") : gmVariable::s_null;
+            if (handle.m_type == GM_INT)
+                a_voice.effectChainHandle =
+                    static_cast<uint32_t>(handle.m_value.m_int);
+        }
+    }
+}
+void StopRecordedPlaybackVoices() {
+    AudioState& state = State();
+    if (state.machine) {
+        for (const int id : state.scriptPlaybackVoiceIds) {
+            const auto voice = state.voices.find(id);
+            if (voice == state.voices.end()) continue;
+            DetachVoiceFromEffectChain(*state.machine, id, voice->second);
+            ReleaseDiracPoolEntry(voice->second);
+            state.voices.erase(voice);
+        }
+    }
+    state.scriptPlaybackVoiceIds.clear();
+}
 void ProcessDeferredEffectCleanup(gmMachine* a_machine,
                                  std::vector<DeferredEffectCleanup>& a_pending,
                                  bool a_chain);
@@ -125,33 +397,297 @@ float RetailClampAudioVolume(float a_value) {
     return static_cast<float>(result);
 }
 
+// PPC fsel selects the nonnegative operand unless its condition is less than
+// zero. An unordered NaN comparison therefore takes the nonnegative branch.
+float RetailFsel(float a_condition, float a_nonnegative, float a_negative) {
+    return a_condition < 0.0f ? a_negative : a_nonnegative;
+}
+
+// Force an observable binary32 store/load between PPC `fmuls` stages. This
+// prevents the host optimizer from contracting the retail multiply chain into
+// a single fused operation in optimized builds.
+float RetailF32(float a_value) {
+    volatile float rounded = a_value;
+    return rounded;
+}
+
+// PPC fctiwz truncates finite in-range floats toward zero. Invalid and
+// out-of-range conversions produce the integer-indefinite bit pattern.
+int RetailFctiwzToInt(float a_value) {
+    const double value = static_cast<double>(a_value);
+    const double minValue = static_cast<double>(std::numeric_limits<int>::min());
+    const double maxExclusive =
+        static_cast<double>(std::numeric_limits<int>::max()) + 1.0;
+    if (!std::isfinite(value) || value < minValue || value >= maxExclusive)
+        return std::numeric_limits<int>::min();
+    return static_cast<int>(value);
+}
+
 VoiceState* FindVoice(int a_id) {
     auto it = State().voices.find(a_id);
     return it == State().voices.end() ? nullptr : &it->second;
+}
+
+bool CanQueryVoiceBackend(const VoiceState& a_voice) {
+    if (!g_audioOutputStarted || !g_audioFrontend) return false;
+    // Voice construction is synchronous in retail. This mixer defers sample
+    // decoding until its first output tick, so an unattempted decode still
+    // represents a newly-created channel. Once decoding has failed, the
+    // software backend has no channel object corresponding to retail +0x48.
+    return !a_voice.sampleLoadAttempted ||
+        (a_voice.sample && a_voice.sample->stereo.size() >= 2);
 }
 
 void SetVoiceSpeedTarget(VoiceState& a_voice, float a_target,
                          float a_durationMs) {
     if (!std::isfinite(a_target)) return;
     a_voice.targetSpeed = a_target;
-    if (std::isfinite(a_durationMs) && a_durationMs > 0.0f) {
-        a_voice.speedRampRemainingMs = a_durationMs;
+    if (std::isfinite(a_durationMs) && a_durationMs != 0.0f) {
+        // Retail stores one fixed f32 frequency delta per millisecond, then
+        // applies rate * elapsed time on each audio-manager update. A negative
+        // nonzero duration therefore produces the same reverse-direction rate.
+        a_voice.speedRampRate =
+            (a_target - a_voice.speed) / a_durationMs;
     } else {
         a_voice.speed = a_target;
-        a_voice.speedRampRemainingMs = 0.0;
+        a_voice.speedRampRate = 0.0f;
     }
 }
 
 // Integrate the retail speed target's linear ramp through a partial frame.
 // The current voice.speed is the value at this frame's start.
 double PlaybackAdvanceMs(const VoiceState& a_voice, double a_elapsedMs) {
-    if (a_voice.speedRampRemainingMs <= 0.0)
+    if (a_voice.speedRampRate == 0.0f)
         return a_elapsedMs * a_voice.speed;
-    const double rampMs = std::min(a_elapsedMs, a_voice.speedRampRemainingMs);
-    const double slope = (a_voice.targetSpeed - a_voice.speed) /
-                         a_voice.speedRampRemainingMs;
+    const double slope = a_voice.speedRampRate;
+    const double timeToTarget =
+        (a_voice.targetSpeed - a_voice.speed) / slope;
+    const double rampMs = timeToTarget >= 0.0
+        ? std::min(a_elapsedMs, timeToTarget) : a_elapsedMs;
     return rampMs * a_voice.speed + 0.5 * slope * rampMs * rampMs +
            (a_elapsedMs - rampMs) * a_voice.targetSpeed;
+}
+
+// Keep the real-time mixer inexpensive. The prior windowed-sinc implementation
+// did sixteen filtered reads per output frame (two channels x eight taps) for
+// every active voice; on dense music passages this can overrun the frame
+// budget, starve SDL's queue, and present as loud crackle plus game slowdown.
+// This is the same linear interpolation used before that filter change.
+using ResampleReader = float (*)(const void*, size_t, size_t);
+float ReadStereoFloat(const void* a_samples, size_t a_frame, size_t a_channel) {
+    const auto* samples = static_cast<const float*>(a_samples);
+    return samples[a_frame * 2 + a_channel];
+}
+struct Pcm16Source {
+    const int16_t* samples = nullptr;
+    size_t channels = 1;
+};
+float ReadPcm16(const void* a_source, size_t a_frame, size_t a_channel) {
+    const auto* source = static_cast<const Pcm16Source*>(a_source);
+    const size_t channel = source->channels == 1 ? 0 : a_channel;
+    return source->samples[a_frame * source->channels + channel] / 32768.0f;
+}
+
+float InterpolatedSample(const void* a_source, ResampleReader a_read,
+                        size_t a_frameCount, size_t a_channel,
+                        double a_sourceFrame, double a_sourceStep,
+                        bool a_loop = false) {
+    if (!a_source || !a_read || a_frameCount == 0) return 0.0f;
+    (void)a_sourceStep;
+    const double integral = std::floor(a_sourceFrame);
+    const int64_t base = static_cast<int64_t>(integral);
+    const double fraction = std::clamp(a_sourceFrame - integral, 0.0, 1.0);
+    auto resolveIndex = [a_frameCount, a_loop](int64_t index) {
+        if (a_loop) {
+            const int64_t length = static_cast<int64_t>(a_frameCount);
+            index %= length;
+            if (index < 0) index += length;
+            return static_cast<size_t>(index);
+        }
+        return static_cast<size_t>(std::clamp<int64_t>(
+            index, 0, static_cast<int64_t>(a_frameCount - 1)));
+    };
+    const float first = a_read(a_source, resolveIndex(base), a_channel);
+    const float second = a_read(a_source, resolveIndex(base + 1), a_channel);
+    return static_cast<float>(first + (second - first) * fraction);
+}
+
+// Retail Slicker stores tempo and pitch as independent controls and feeds the
+// tempo value to its Dirac processor. The desktop SDL backend has no Dirac
+// plugin, so use WSOLA to change clip duration without changing its pitch.
+// This operates once when a Slicker voice is created; the real-time mixer then
+// treats the result as an ordinary 48 kHz sample and applies note pitch via
+// playback rate, as the retail path does after time stretching.
+std::shared_ptr<DecodedSound> BuildTimeStretchedSample(
+        const std::string& a_path, const std::shared_ptr<DecodedSound>& a_source,
+        float a_factor) {
+    if (!a_source || a_source->stereo.size() < 2 ||
+        !std::isfinite(a_factor) || a_factor <= 0.0f ||
+        std::fabs(a_factor - 1.0f) < 1.0e-6f)
+        return {};
+
+    std::ostringstream keyBuilder;
+    keyBuilder.imbue(std::locale::classic());
+    keyBuilder << a_path << '\n' << std::setprecision(9) << a_factor;
+    const std::string key = keyBuilder.str();
+    if (auto found = g_timeStretchedSounds.find(key);
+        found != g_timeStretchedSounds.end()) {
+        found->second.lastUse = ++g_timeStretchCacheClock;
+        return found->second.sample;
+    }
+
+    const size_t sourceFrames = a_source->stereo.size() / 2;
+    // The shipped scripts derive this factor from source BPM / sequencer BPM;
+    // ordinary values stay close to 1. Avoid pathological allocations for
+    // malformed external calls and leave those voices on their source sample.
+    if (a_factor < 0.125f || a_factor > 8.0f) return {};
+    const long double wantedFrames =
+        static_cast<long double>(sourceFrames) * a_factor;
+    if (wantedFrames < 1.0L || wantedFrames > 48000000.0L) return {};
+    const size_t outputFrames = static_cast<size_t>(std::llround(wantedFrames));
+    if (outputFrames == 0 || outputFrames >
+        std::numeric_limits<size_t>::max() / (2 * sizeof(float))) return {};
+
+    const size_t window = std::min<size_t>(2048, sourceFrames);
+    if (window < 128) return {};
+    const size_t inputHop = std::max<size_t>(32, window / 4);
+    const size_t outputHop = std::max<size_t>(1,
+        static_cast<size_t>(std::llround(inputHop * a_factor)));
+    if (outputHop >= window) return {};
+    const size_t overlap = window - outputHop;
+    const size_t search = std::max<size_t>(8, window / 16);
+    const size_t maxSourceStart = sourceFrames - window;
+
+    auto stretched = std::make_shared<DecodedSound>();
+    stretched->stereo.assign(outputFrames * 2, 0.0f);
+    const size_t firstCopy = std::min(window, outputFrames);
+    std::copy_n(a_source->stereo.begin(), firstCopy * 2,
+                stretched->stereo.begin());
+    size_t previousSourceStart = 0;
+
+    for (size_t outputStart = outputHop; outputStart < outputFrames;
+         outputStart += outputHop) {
+        const size_t compareFrames = std::min(overlap, outputFrames - outputStart);
+        if (compareFrames == 0) break;
+        const size_t expected = std::min(maxSourceStart,
+                                         previousSourceStart + inputHop);
+        const size_t low = expected > search ? expected - search : 0;
+        const size_t high = std::min(maxSourceStart, expected + search);
+        auto alignmentScore = [&](size_t candidate, size_t sampleCount) {
+            double dot = 0.0;
+            double outputEnergy = 0.0;
+            double sourceEnergy = 0.0;
+            for (size_t sample = 0; sample < sampleCount; ++sample) {
+                const size_t offset = sampleCount <= 1 ? 0 :
+                    sample * (compareFrames - 1) / (sampleCount - 1);
+                const size_t outputIndex = (outputStart + offset) * 2;
+                const size_t sourceIndex = (candidate + offset) * 2;
+                const double outMono = (stretched->stereo[outputIndex] +
+                                        stretched->stereo[outputIndex + 1]) * 0.5;
+                const double inMono = (a_source->stereo[sourceIndex] +
+                                       a_source->stereo[sourceIndex + 1]) * 0.5;
+                dot += outMono * inMono;
+                outputEnergy += outMono * outMono;
+                sourceEnergy += inMono * inMono;
+            }
+            const double denominator = std::sqrt(outputEnergy * sourceEnergy);
+            return denominator > 1.0e-18 ? dot / denominator :
+                -std::fabs(static_cast<double>(candidate) - expected);
+        };
+
+        // Long musical loops can contain hundreds of thousands of frames.
+        // Exhaustively evaluating up to 257 offsets with 192 sample pairs for
+        // every overlap made the first transform stall the simulation thread.
+        // Search every second frame with half as many distributed samples,
+        // then score the five neighboring offsets at full resolution. This
+        // keeps the same correlation criterion and final full-resolution
+        // alignment while reducing the dominant work by roughly 4x.
+        constexpr size_t kCoarseCandidateStride = 2;
+        const size_t coarseSampleCount = std::min<size_t>(96, compareFrames);
+        size_t bestSourceStart = low;
+        double bestScore = -std::numeric_limits<double>::infinity();
+        for (size_t candidate = low; candidate <= high;) {
+            const double score = alignmentScore(candidate, coarseSampleCount);
+            if (score > bestScore) {
+                bestScore = score;
+                bestSourceStart = candidate;
+            }
+            if (high - candidate < kCoarseCandidateStride) break;
+            candidate += kCoarseCandidateStride;
+        }
+        if (bestSourceStart != high && (high - low) % kCoarseCandidateStride != 0) {
+            const double score = alignmentScore(high, coarseSampleCount);
+            if (score > bestScore) {
+                bestScore = score;
+                bestSourceStart = high;
+            }
+        }
+        const size_t refineLow = bestSourceStart > low + kCoarseCandidateStride
+            ? bestSourceStart - kCoarseCandidateStride : low;
+        const size_t refineHigh = std::min(high,
+            bestSourceStart + kCoarseCandidateStride);
+        const size_t fullSampleCount = std::min<size_t>(192, compareFrames);
+        bestScore = -std::numeric_limits<double>::infinity();
+        for (size_t candidate = refineLow; candidate <= refineHigh; ++candidate) {
+            const double score = alignmentScore(candidate, fullSampleCount);
+            if (score > bestScore) {
+                bestScore = score;
+                bestSourceStart = candidate;
+            }
+        }
+
+        const size_t blendFrames = std::min(overlap, outputFrames - outputStart);
+        for (size_t frame = 0; frame < blendFrames; ++frame) {
+            const double t = static_cast<double>(frame + 1) /
+                             static_cast<double>(blendFrames + 1);
+            const float incoming = static_cast<float>(
+                0.5 - 0.5 * std::cos(3.14159265358979323846 * t));
+            const float outgoing = 1.0f - incoming;
+            const size_t outIndex = (outputStart + frame) * 2;
+            const size_t inIndex = (bestSourceStart + frame) * 2;
+            for (size_t channel = 0; channel < 2; ++channel) {
+                stretched->stereo[outIndex + channel] =
+                    stretched->stereo[outIndex + channel] * outgoing +
+                    a_source->stereo[inIndex + channel] * incoming;
+            }
+        }
+        const size_t tailCount = std::min(outputHop,
+            outputFrames - (outputStart + blendFrames));
+        if (tailCount != 0) {
+            const size_t sourceTail = bestSourceStart + blendFrames;
+            const size_t destTail = outputStart + blendFrames;
+            std::copy_n(a_source->stereo.begin() + sourceTail * 2,
+                        tailCount * 2,
+                        stretched->stereo.begin() + destTail * 2);
+        }
+        previousSourceStart = bestSourceStart;
+    }
+
+    g_timeStretchedSounds[key] = {stretched, ++g_timeStretchCacheClock};
+    constexpr size_t kMaxCachedTimeStretches = 32;
+    constexpr size_t kMaxCachedTimeStretchBytes = 128u * 1024u * 1024u;
+    auto cachedBytes = [&]() {
+        size_t bytes = 0;
+        for (const auto& entry : g_timeStretchedSounds) {
+            const size_t samples = entry.second.sample
+                ? entry.second.sample->stereo.size() : 0;
+            if (samples > (std::numeric_limits<size_t>::max() - bytes) /
+                              sizeof(float))
+                return std::numeric_limits<size_t>::max();
+            bytes += samples * sizeof(float);
+        }
+        return bytes;
+    };
+    while (g_timeStretchedSounds.size() > kMaxCachedTimeStretches ||
+           cachedBytes() > kMaxCachedTimeStretchBytes) {
+        auto oldest = std::min_element(g_timeStretchedSounds.begin(),
+            g_timeStretchedSounds.end(), [](const auto& lhs, const auto& rhs) {
+                return lhs.second.lastUse < rhs.second.lastUse;
+            });
+        if (oldest == g_timeStretchedSounds.end()) break;
+        g_timeStretchedSounds.erase(oldest);
+    }
+    return stretched;
 }
 
 uint32_t ReadU32LE(const unsigned char* a_bytes) {
@@ -172,7 +708,7 @@ int ReadSoundLengthMs(const std::string& a_path) {
     if (!files) return 0;
     auto resolved = files->Resolve(a_path);
     if (!resolved) return 0;
-    std::ifstream stream(*resolved, std::ios::binary);
+    std::ifstream stream(std::filesystem::u8path(*resolved), std::ios::binary);
     if (!stream) return 0;
     std::array<unsigned char, 12> header{};
     if (!stream.read((char*)header.data(), header.size())) return 0;
@@ -220,6 +756,140 @@ int SoundLengthMs(const std::string& a_path) {
     return cache.emplace(a_path, ReadSoundLengthMs(a_path)).first->second;
 }
 
+bool DecodeVagFile(const std::string& a_filePath, std::vector<float>& a_stereo) {
+    std::ifstream stream(std::filesystem::u8path(a_filePath), std::ios::binary);
+    if (!stream) return false;
+    std::array<unsigned char, 48> header{};
+    if (!stream.read(reinterpret_cast<char*>(header.data()), header.size()) ||
+        std::memcmp(header.data(), "VAG", 3) != 0) return false;
+
+    const uint32_t payloadBytes = ReadU32BE(header.data() + 12);
+    const uint32_t sourceRate = ReadU32BE(header.data() + 16);
+    if (!sourceRate || sourceRate > 384000 || payloadBytes == 0 ||
+        payloadBytes % 16 != 0) return false;
+    stream.seekg(0, std::ios::end);
+    const std::streamoff fileSize = stream.tellg();
+    if (fileSize < 48 || payloadBytes > static_cast<uint64_t>(fileSize - 48)) return false;
+    stream.seekg(48, std::ios::beg);
+
+    const size_t blockCount = payloadBytes / 16;
+    const size_t frameCount = blockCount * 28;
+    if (!frameCount || frameCount > std::numeric_limits<size_t>::max() / 2) return false;
+    std::vector<unsigned char> payload(payloadBytes);
+    if (!stream.read(reinterpret_cast<char*>(payload.data()), payload.size())) return false;
+
+    // Exact 16-entry lookup as indexed by the VAG nibble in retail's
+    // `lfsx` sequence at 0x00254618. Indices 5-15 point into adjacent
+    // constants in the retail image; retain their raw bits as well because
+    // those nibble values occur in shipped VAG blocks.
+    static constexpr uint32_t coefficientBits[16][2] = {
+        {0x00000000, 0x00000000}, {0x3f700000, 0x00000000},
+        {0x3fe60000, 0xbf500000}, {0x3fc40000, 0xbf5c0000},
+        {0x3ff40000, 0xbf700000}, {0x00000001, 0x00000010},
+        {0x800000aa, 0x00389b71}, {0x00000003, 0x00000010},
+        {0x800000aa, 0x00389b71}, {0x00000000, 0x00000000},
+        {0x00070008, 0x0009000a}, {0x000b000c, 0x000d000e},
+        {0x00100011, 0x00130015}, {0x00170019, 0x001c001f},
+        {0x00220025, 0x0029002d}, {0x00320037, 0x003c0042}
+    };
+    float previous1 = 0.0f;
+    float previous2 = 0.0f;
+    std::vector<int16_t> decoded(frameCount);
+    for (size_t blockIndex = 0; blockIndex < blockCount; ++blockIndex) {
+        const unsigned char* block = payload.data() + blockIndex * 16;
+        const int shift = block[0] & 0x0f;
+        const int filter = block[0] >> 4;
+        float filter0, filter1;
+        std::memcpy(&filter0, &coefficientBits[filter][0], sizeof(filter0));
+        std::memcpy(&filter1, &coefficientBits[filter][1], sizeof(filter1));
+        for (size_t sampleIndex = 0; sampleIndex < 28; ++sampleIndex) {
+            const unsigned char packed = block[2 + sampleIndex / 2];
+            int nibble = (sampleIndex & 1) ? (packed >> 4) : (packed & 0x0f);
+            if (nibble >= 8) nibble -= 16;
+            const int32_t unshifted = nibble * 4096;
+            const int32_t divisor = 1 << shift;
+            const int32_t residual = unshifted >= 0
+                ? unshifted / divisor
+                : -((-unshifted + divisor - 1) / divisor);
+            // Retail uses two fused `fmadds` instructions for its predictor,
+            // then a single-precision `fadds` of 0.5 followed by `fctiwz`.
+            const float firstPredict = std::fma(previous1, filter0,
+                                                static_cast<float>(residual));
+            const float prediction = std::fma(previous2, filter1, firstPredict);
+            const float rounded = RetailF32(prediction + 0.5f);
+            const int32_t quantized = static_cast<int32_t>(rounded);
+            const uint16_t wrapped = static_cast<uint16_t>(quantized);
+            int16_t pcm;
+            std::memcpy(&pcm, &wrapped, sizeof(pcm));
+            decoded[blockIndex * 28 + sampleIndex] = pcm;
+            previous2 = previous1;
+            previous1 = prediction;
+        }
+    }
+
+    const size_t outputFrames = sourceRate == kOutputRate ? frameCount :
+        std::max<size_t>(1, static_cast<size_t>(
+            (static_cast<uint64_t>(frameCount) * kOutputRate + sourceRate / 2) / sourceRate));
+    a_stereo.resize(outputFrames * 2);
+    const Pcm16Source source{decoded.data(), 1};
+    const double sourceStep = static_cast<double>(sourceRate) / kOutputRate;
+    for (size_t frame = 0; frame < outputFrames; ++frame) {
+        const double sourcePosition = static_cast<double>(frame) * sourceRate / kOutputRate;
+        const float mono = InterpolatedSample(&source, ReadPcm16, frameCount, 0,
+                                             sourcePosition, sourceStep);
+        a_stereo[frame * 2] = mono;
+        a_stereo[frame * 2 + 1] = mono;
+    }
+    return true;
+}
+
+bool DecodeMp3File(const std::string& a_filePath, std::vector<float>& a_stereo) {
+    mp3dec_t decoder{};
+    mp3dec_init(&decoder);
+    mp3dec_file_info_t info{};
+    if (mp3dec_load(&decoder, a_filePath.c_str(), &info, nullptr, nullptr) != 0 ||
+        !info.buffer || info.channels < 1 || info.channels > 2 || info.hz <= 0 ||
+        info.samples < static_cast<size_t>(info.channels)) {
+        std::free(info.buffer);
+        return false;
+    }
+
+    const size_t sourceFrames = info.samples / static_cast<size_t>(info.channels);
+    if (!sourceFrames || sourceFrames >
+        std::numeric_limits<size_t>::max() / 2) {
+        std::free(info.buffer);
+        return false;
+    }
+    const size_t outputFrames = info.hz == kOutputRate ? sourceFrames :
+        std::max<size_t>(1, static_cast<size_t>(
+            (static_cast<uint64_t>(sourceFrames) * kOutputRate + info.hz / 2) / info.hz));
+    if (outputFrames > std::numeric_limits<size_t>::max() / 2) {
+        std::free(info.buffer);
+        return false;
+    }
+
+    a_stereo.resize(outputFrames * 2);
+    const Pcm16Source source{
+        static_cast<const int16_t*>(info.buffer), static_cast<size_t>(info.channels)};
+    const double sourceStep = static_cast<double>(info.hz) / kOutputRate;
+    for (size_t frame = 0; frame < outputFrames; ++frame) {
+        const double sourcePosition = static_cast<double>(frame) * info.hz / kOutputRate;
+        for (size_t channel = 0; channel < 2; ++channel) {
+            a_stereo[frame * 2 + channel] = InterpolatedSample(
+                &source, ReadPcm16, sourceFrames, channel, sourcePosition,
+                sourceStep);
+        }
+    }
+    std::free(info.buffer);
+    return true;
+}
+
+int RetailSoundResourceKind(const std::string& a_path) {
+    int kind = a_path.find(".vag") != std::string::npos ? 1 : 0;
+    if (a_path.find(".fsb") != std::string::npos) kind = 2;
+    return kind;
+}
+
 std::shared_ptr<DecodedSound> DecodeSound(const std::string& a_path) {
     auto cached = g_decodedSounds.find(a_path);
     if (cached != g_decodedSounds.end()) {
@@ -227,19 +897,29 @@ std::shared_ptr<DecodedSound> DecodeSound(const std::string& a_path) {
     }
     FileHelper* files = GetEngineContext().fileHelper;
     if (!files) return {};
-    std::optional<std::string> resolved;
-    if (a_path.size() > 4 &&
-        a_path.compare(a_path.size() - 4, 4, ".vag") == 0) {
-        // Most shipped Sony VAG assets also have a RIFF sibling. The active
-        // frontend decodes that sibling without a second ADPCM decoder.
-        std::string wavePath = a_path.substr(0, a_path.size() - 4) + ".wav";
-        resolved = files->Resolve(wavePath);
-    }
-    if (!resolved) resolved = files->Resolve(a_path);
+    std::optional<std::string> resolved = files->Resolve(a_path);
     if (!resolved) return {};
     auto sample = std::make_shared<DecodedSound>();
-    if (!g_audioFrontend || !g_audioFrontend->DecodeWave(*resolved, kOutputRate, sample->stereo))
+    const bool isVag = a_path.size() >= 4 &&
+        a_path.compare(a_path.size() - 4, 4, ".vag") == 0 &&
+        resolved->size() >= 4 && resolved->compare(resolved->size() - 4, 4, ".vag") == 0;
+    const bool isMp3 = a_path.size() >= 4 &&
+        a_path.compare(a_path.size() - 4, 4, ".mp3") == 0 &&
+        resolved->size() >= 4 && resolved->compare(resolved->size() - 4, 4, ".mp3") == 0;
+    const bool isFsb = a_path.size() >= 4 &&
+        a_path.compare(a_path.size() - 4, 4, ".fsb") == 0;
+    if (isVag) {
+        if (!DecodeVagFile(*resolved, sample->stereo)) return {};
+    } else if (isMp3) {
+        if (!DecodeMp3File(*resolved, sample->stereo)) return {};
+    } else if (isFsb) {
+        // Retail has a distinct FSB loader path; do not pass an unsupported
+        // bank to the WAV decoder and accidentally treat it as a default sample.
         return {};
+    } else if (!g_audioFrontend ||
+               !g_audioFrontend->DecodeWave(*resolved, kOutputRate, sample->stereo)) {
+        return {};
+    }
     g_decodedSounds[a_path] = sample;
     return sample;
 }
@@ -256,18 +936,21 @@ void QueueMixedVoices(float a_deltaMs) {
     // it as a global mute. The binding-side creation gate remains under audit.
     // FUN_0001b050 sends requested voice gain multiplied by manager SFX and
     // master volumes to the backend.
-    const float voiceGainScale = State().masterVolume * State().sfxVolume;
+    const float voiceGainScale = RetailF32(
+        State().masterVolume * State().sfxVolume);
     for (auto& entry : State().voices) {
         VoiceState& voice = entry.second;
         if (voice.paused ||
-            (voice.speed == 0.0f && voice.speedRampRemainingMs <= 0.0) ||
+            (voice.speed == 0.0f && voice.speedRampRate == 0.0f) ||
             !std::isfinite(voice.speed)) continue;
         if (!voice.sampleLoadAttempted) {
             voice.sample = DecodeSound(voice.soundFile);
             voice.sampleLoadAttempted = true;
         }
-        if (!voice.sample || voice.sample->stereo.size() < 2) continue;
-        const size_t soundFrames = voice.sample->stereo.size() / 2;
+        const std::shared_ptr<DecodedSound>& playbackSample =
+            voice.timeStretchedSample ? voice.timeStretchedSample : voice.sample;
+        if (!playbackSample || playbackSample->stereo.size() < 2) continue;
+        const size_t soundFrames = playbackSample->stereo.size() / 2;
         const float pan = std::clamp(voice.pan, -1.0f, 1.0f);
         const float gain = std::max(0.0f, voice.volume * voiceGainScale);
         const float leftPan = pan > 0.0f ? 1.0f - pan : 1.0f;
@@ -278,10 +961,13 @@ void QueueMixedVoices(float a_deltaMs) {
                 voice.fadeRemainingMs <= frameMs) continue;
             if (voice.stopping && voice.stopRemainingMs > 0.0 &&
                 voice.stopRemainingMs <= frameMs) continue;
-            float fade = voice.fadeDurationMs > 0.0
-                ? (float)std::clamp((voice.fadeRemainingMs - frameMs) /
-                                    voice.fadeDurationMs, 0.0, 1.0)
-                : 1.0f;
+            float fade = voice.stopping ? voice.fadeGain : 1.0f;
+            if (voice.stopping && voice.fadeDurationMs > 0.0) {
+                fade = static_cast<float>(std::clamp(
+                    static_cast<double>(voice.fadeGain) -
+                        frameMs / voice.fadeDurationMs,
+                    0.0, 1.0));
+            }
             if (!voice.stopping && voice.gateDurationMs > 0.0 &&
                 voice.gateElapsedMs + frameMs >= voice.gateDurationMs) {
                 const double sinceGateMs = voice.gateElapsedMs + frameMs -
@@ -297,40 +983,54 @@ void QueueMixedVoices(float a_deltaMs) {
                 if (sourceFrame < 0.0) sourceFrame += soundFrames;
             }
             if (sourceFrame < 0.0 || sourceFrame >= soundFrames) continue;
-            const size_t i = (size_t)sourceFrame;
-            const size_t next = i + 1 < soundFrames ? i + 1 : i;
-            const float blend = (float)(sourceFrame - i);
-            mix[(size_t)frame * 2] +=
-                (voice.sample->stereo[i * 2] * (1.0f - blend) +
-                 voice.sample->stereo[next * 2] * blend) * gain * fade * leftPan;
-            mix[(size_t)frame * 2 + 1] +=
-                (voice.sample->stereo[i * 2 + 1] * (1.0f - blend) +
-                 voice.sample->stereo[next * 2 + 1] * blend) * gain * fade * rightPan;
+            const double sourceStep = std::fabs(voice.speed +
+                static_cast<double>(voice.speedRampRate) * frameMs);
+            const float leftSample = InterpolatedSample(
+                playbackSample->stereo.data(), ReadStereoFloat,
+                soundFrames, 0, sourceFrame, sourceStep,
+                voice.looping || voice.loopCount > 1);
+            const float rightSample = InterpolatedSample(
+                playbackSample->stereo.data(), ReadStereoFloat,
+                soundFrames, 1, sourceFrame, sourceStep,
+                voice.looping || voice.loopCount > 1);
+            mix[(size_t)frame * 2] += leftSample * gain * fade * leftPan;
+            mix[(size_t)frame * 2 + 1] += rightSample * gain * fade * rightPan;
         }
     }
     for (float& sample : mix) sample = std::clamp(sample, -1.0f, 1.0f);
-    const size_t maxQueuedBytes = (size_t)(kOutputRate * 2 * sizeof(float) / 4);
-    if (g_audioFrontend->QueuedAudioBytes() > maxQueuedBytes)
-        g_audioFrontend->ClearAudioQueue();
     g_audioFrontend->QueueAudioSamples(mix.data(), mix.size());
 }
 
 int CreateVoiceState(const std::string& a_path, float a_pan, float a_volume,
-                     int a_note = 96, bool a_applyFrequencyMultiplier = false) {
+                     int a_note = 96, bool a_applyFrequencyMultiplier = false,
+                     int a_referenceNote = 48) {
+    // FUN_0001fb98 first checks the loaded resource map, then runs the retail
+    // resource-load path for a missing entry and retries the lookup. Match the
+    // final factory result: a path that resolves but cannot be decoded must
+    // not create a synthetic live voice handle. DecodeSound uses FileHelper's
+    // mounted-resource precedence and shares samples with explicit loadSound.
+    auto sample = DecodeSound(a_path);
+    if (!sample || sample->stereo.empty()) return 0;
+
     const int id = State().nextVoiceId++;
     VoiceState voice;
     voice.soundFile = a_path;
+    voice.sample = std::move(sample);
+    voice.sampleLoadAttempted = true;
     voice.volume = a_volume;
     voice.pan = a_pan;
+    voice.referenceNote = a_referenceNote;
     // Retail audio-manager constructor at 0x00022528 initializes its
     // default base note (+0x24) to C4=48. FUN_000236bc then calls
     // FUN_0001ad48 with the requested note when starting a voice;
     // 96 is its special "play at the sample's base speed" value.
-    voice.speed = a_note == 96 ? 1.0f :
-        std::pow(2.0f, (float)(a_note - voice.referenceNote) / 12.0f);
-    // Retail FUN_000236bc multiplies the newly-created backend voice's base
-    // frequency by Audio manager +0x30f0. Every accepted playSound overload
-    // reaches this helper directly or through FUN_0001a878/1a958/1cdd0.
+    const float noteRatio = a_note == 96 ? 1.0f :
+        GroundRenderMath::RetailAudioNotePitchRatio(a_note, voice.referenceNote);
+    // Retail FUN_000236bc applies manager +0x30f0 to the backend frequency
+    // after setting the requested note. The voice payload's base frequency
+    // remains unscaled, so later explicit note/speed changes can replace the
+    // creation-time multiplier just as the retail helpers do.
+    voice.speed = voice.sourceBaseSpeed * noteRatio;
     if (a_applyFrequencyMultiplier)
         voice.speed *= State().frequencyMultiplier;
     voice.targetSpeed = voice.speed;
@@ -347,11 +1047,34 @@ int GM_CDECL gmf_loadSound(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 2) return GM_EXCEPTION;
     GM_STRING_PARAM(path, 0, "");
-    if (count == 2) { GM_INT_PARAM(area, 1, 0); (void)area; }
-    FileHelper* files = GetEngineContext().fileHelper;
-    const bool found = files && files->Resolve(path).has_value();
-    if (found) State().loadedSounds.insert(path);
-    a_thread->PushInt(found ? 1 : 0);
+    int mode = 0;
+    if (count == 2) {
+        const gmVariable& modeArg = a_thread->Param(1);
+        mode = modeArg.IsFloat()
+            ? static_cast<int>(modeArg.GetFloat())
+            : modeArg.m_value.m_int;
+    }
+    // FUN_0001bd78 returns failure before it resolves the path when the
+    // retail Audio manager's enabled byte (+0x2c3c) is clear.
+    if (!State().enabled) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    // FUN_0001bd78 does more than test whether the path exists: it opens the
+    // resource and asks the audio backend to create a sample. Use the same
+    // decoder as playSound so malformed/unsupported files fail here instead
+    // of being reported as loaded. Retail's integer mode is carried into its
+    // FMOD resource constructor; this backend currently has no equivalent
+    // sample-mode setting (tracked in the API audit).
+    auto sample = DecodeSound(path);
+    const bool loaded = sample && !sample->stereo.empty();
+    if (loaded) {
+        State().loadedSounds.insert(path);
+        g_loadedSoundSamples[path] = std::move(sample);
+        g_loadedSoundModes.try_emplace(path, mode);
+        g_loadedSoundResourceKinds.try_emplace(path, RetailSoundResourceKind(path));
+    }
+    a_thread->PushInt(loaded ? 1 : 0);
     return GM_OK;
 }
 // Audio.unloadSound(path) -- confirmed real, 0x00084ac4: 1 arg (path
@@ -360,20 +1083,47 @@ int GM_CDECL gmf_unloadSound(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
     State().loadedSounds.erase(path);
+    State().soundLengthMs.erase(path);
+    g_loadedSoundSamples.erase(path);
+    g_loadedSoundModes.erase(path);
+    g_loadedSoundResourceKinds.erase(path);
+    // The weak cache owns no decoded sample by itself. Erasing its entry
+    // releases the cached decode once active VoiceState references are gone.
+    g_decodedSounds.erase(path);
     return GM_OK;
 }
-// Audio.unloadAllSounds() -- confirmed real body is a NO-OP in retail
-// itself: the decompiled function contains the literal string "WARNING:
-// disabled Audio.unloadAllSounds for now because it may crash dirac" and
-// skips the actual unload, only doing unrelated bookkeeping around it
-// (0x00084be8). A genuine "shipped disabled" retail function, not a gap.
+// Audio.unloadAllSounds() -- retail 0x84be8 only routes the warning
+// "disabled Audio.unloadAllSounds for now because it may crash dirac" through
+// FUN_00186a7c; it does not unload sounds. Keep the disabled behavior. The
+// desktop currently suppresses the diagnostic, so exact logging parity is
+// still open (see FUNCTION_AUDIT_PROGRESS.tsv).
 int GM_CDECL gmf_unloadAllSounds(gmThread* a_thread) { return GM_OK; }
-// Audio.loadSampleList(path) -- confirmed real, 0x00084b28: 1 arg, returns
-// a value typed the same way loadSound's success flag is (type=1/INT).
+// FUN_0001cb08 ignores the wrapper's path argument and opens the fixed
+// FILEHELPER_AREA_GAMEDATA resource "sampleList.txt". The retail %s\n scan
+// extracts whitespace-delimited names, each passed to the ordinary enabled
+// loadSound path; the return is the number of successful loads.
 int GM_CDECL gmf_loadSampleList(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1);
-    GM_STRING_PARAM(path, 0, ""); (void)path;
-    a_thread->PushInt(1);
+    FileHelper* files = GetEngineContext().fileHelper;
+    std::string contents;
+    if (!files || !files->ReadTextFile("sampleList.txt", contents)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+
+    int loadedCount = 0;
+    std::istringstream entries(contents);
+    std::string path;
+    while (entries >> path) {
+        if (!State().enabled) continue;
+        auto sample = DecodeSound(path);
+        if (!sample || sample->stereo.empty()) continue;
+        State().loadedSounds.insert(path);
+        g_loadedSoundSamples[path] = std::move(sample);
+        g_loadedSoundModes.try_emplace(path, 0);
+        g_loadedSoundResourceKinds.try_emplace(path, RetailSoundResourceKind(path));
+        ++loadedCount;
+    }
+    a_thread->PushInt(loadedCount);
     return GM_OK;
 }
 
@@ -390,9 +1140,15 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 3 && (count < 5 || count > 8)) return GM_EXCEPTION;
     GM_STRING_PARAM(path, 0, "");
+    // The retail 1-argument route supplies gate=0, pan=0, volume=1 from
+    // constants at 0x1a870/0x1a874 and note=0x60. The 3-argument route uses
+    // gate=0 from 0x1a950, then forwards its two numeric values as pan/volume;
+    // both defaults are therefore represented before the arity overrides.
     float pan = 0.0f, vol = 1.0f;
     float gate = 0.0f;
     int note = 96;
+    int priority = 0x80;
+    int positionMs = 0;
     if (count == 3) {
         pan = a_thread->ParamFloatOrInt(1, 0.0f);
         vol = a_thread->ParamFloatOrInt(2, 1.0f);
@@ -401,6 +1157,64 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
         gate = a_thread->ParamFloatOrInt(2, 0.0f);
         pan = a_thread->ParamFloatOrInt(3, 0.0f);
         vol = a_thread->ParamFloatOrInt(4, 1.0f);
+        if (count >= 6) {
+            // The retail wrapper sign-extends this payload without a
+            // GM_FLOAT conversion before forwarding backend priority. The
+            // backend rejects values above 0x100 without changing its
+            // creation default, which is 0x80 on the ordinary play route.
+            const int requestedPriority = a_thread->Param(5).m_value.m_int;
+            if (requestedPriority >= 0 && requestedPriority <= 0x100)
+                priority = requestedPriority;
+        }
+        if (count == 8) {
+            // PPC fctiwz conversion in the retail wrapper truncates a float
+            // start position toward zero; other payloads are raw GM_INT.
+            const gmVariable& positionArg = a_thread->Param(7);
+            positionMs = positionArg.IsFloat()
+                ? RetailFctiwzToInt(positionArg.GetFloat())
+                : positionArg.m_value.m_int;
+        }
+    }
+
+    // FUN_000236bc records the requested path and queues the ordinary event
+    // before checking Audio's enabled byte, so disabled playback still
+    // contributes to a script recording. The seven/eight-argument overload
+    // uses the separate chain-route callback class captured by FUN_0001cdd0.
+    if (State().recordingScript) {
+        State().recordedSoundResources.insert(path);
+        const bool chainCallback = count >= 7 &&
+            IsLocalEffectChain(*a_thread->GetMachine(), a_thread->Param(6));
+        // FUN_0001cdd0 records the 7/8 argument event only when its final
+        // handle is a high-bit SOUNDEFFECTCHAIN. The desktop object model uses
+        // a chain table instead of that native handle; arbitrary/null seventh
+        // arguments therefore must not create a replay callback.
+        if (count < 7 || chainCallback) {
+            RecordedPlaySoundEvent event;
+            event.timeMs = RecordedAudioElapsedMs();
+            event.path = path;
+            event.note = note;
+            event.gate = gate;
+            event.pan = pan;
+            event.volume = vol;
+            event.priority = count >= 6
+                ? a_thread->Param(5).m_value.m_int : 0x80;
+            event.chainRoute = count >= 7;
+            event.startPositionMs = positionMs;
+            if (event.chainRoute) {
+                event.effectChain = a_thread->Param(6);
+                gmTableObject* chain = static_cast<gmTableObject*>(
+                    a_thread->GetMachine()->GetObject(
+                        event.effectChain.m_value.m_ref));
+                const gmVariable handle = chain
+                    ? chain->Get(a_thread->GetMachine(), "__nativeHandle")
+                    : gmVariable::s_null;
+                if (handle.m_type == GM_INT)
+                    event.effectChainHandle =
+                        static_cast<uint32_t>(handle.m_value.m_int);
+                RetainAudioGMVariable(*a_thread->GetMachine(), event.effectChain);
+            }
+            State().recordedPlaySounds.push_back(std::move(event));
+        }
     }
 
     // FUN_000236bc checks manager +0x2c3c before completing voice creation.
@@ -410,49 +1224,263 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
         return GM_OK;
     }
     const int id = CreateVoiceState(path, pan, vol, note, true);
-    State().voices[id].gateDurationMs = gate;
+    if (id != 0) {
+        VoiceState& voice = State().voices[id];
+        voice.gateDurationMs = gate;
+        voice.priority = priority;
+        voice.positionMs = positionMs;
+        gmMachine* machine = a_thread->GetMachine();
+        gmVariable chain = GetOrCreateMasterEffectChain(*machine);
+        if (count >= 7 && IsLocalEffectChain(*machine, a_thread->Param(6))) {
+            const gmVariable& requested = a_thread->Param(6);
+            gmTableObject* requestedTable = (gmTableObject*)machine->GetObject(
+                requested.m_value.m_ref);
+            if (requestedTable &&
+                requestedTable->Get(machine, "__freed").m_type == GM_NULL)
+                chain = requested;
+        }
+        // FUN_000236bc resolves an omitted/zero chain handle through manager
+        // +0x30f8, which the retail manager initializes to its master group.
+        // Keep that selected group on the live voice, just as the explicit
+        // chain route is retained until voice removal. The software mixer
+        // still does not execute the chain's DSP graph.
+        AttachEffectChainToVoice(*machine, id, voice, chain);
+    }
     a_thread->PushInt(id);
     return GM_OK;
 }
-// Verification: bytecode checked against Audio.c at EBOOT 0x84dc8. Retail
-// accepts exactly five arguments; its native resource/backend path through
-// FUN_002b6af4, FUN_002d2de8, and FUN_00024928 is not ported, so valid calls
-// are surfaced by StrictCalls instead of fabricating a silent voice handle.
+
+// The retail Audio manager advances the recorder scheduler once per manager
+// update with DAT_00017de8 (16.666000366 ms), then dispatches every callback
+// whose timestamp is at or before that accumulated time. Keep that timer
+// separate from the simulation delta passed to the voice mixer.
+void DispatchRecordedPlaySounds() {
+    AudioState& state = State();
+    if (!state.playingScript) return;
+    constexpr float kRetailSchedulerStepMs = 16.6660003662109375f;
+    state.playbackElapsedMs += kRetailSchedulerStepMs;
+    while (state.playbackEventIndex < state.recordedPlaySounds.size() &&
+           state.recordedPlaySounds[state.playbackEventIndex].timeMs <=
+               state.playbackElapsedMs) {
+        const RecordedPlaySoundEvent& event =
+            state.recordedPlaySounds[state.playbackEventIndex++];
+        const int id = CreateVoiceState(event.path, event.pan, event.volume,
+                                        event.note, true);
+        if (id == 0) continue;
+        state.scriptPlaybackVoiceIds.insert(id);
+
+        VoiceState& voice = state.voices[id];
+        voice.gateDurationMs = event.gate;
+        voice.priority = event.priority >= 0 && event.priority <= 0x100
+            ? event.priority : 0x80;
+        voice.positionMs = event.startPositionMs;
+        if (state.machine) {
+            gmVariable chain = GetOrCreateMasterEffectChain(*state.machine);
+            if (event.chainRoute) {
+                gmVariable requestedChain = IsLocalEffectChain(
+                    *state.machine, event.effectChain)
+                    ? event.effectChain
+                    : FindEffectChainByHandle(*state.machine,
+                                              event.effectChainHandle);
+                gmTableObject* requested = requestedChain.m_type == GM_TABLE
+                    ? static_cast<gmTableObject*>(state.machine->GetObject(
+                          requestedChain.m_value.m_ref))
+                    : nullptr;
+                if (requested &&
+                    requested->Get(state.machine, "__freed").m_type == GM_NULL)
+                    chain = requestedChain;
+            }
+            AttachEffectChainToVoice(*state.machine, id, voice, chain);
+        }
+    }
+    if (state.recordingStopMs <= state.playbackElapsedMs) {
+        state.playingScript = false;
+        StopRecordedPlaybackVoices();
+    }
+}
+
+// Audio.spawnSoundSlicker @ EBOOT 0x84dc8. PPC verifies five arguments:
+// (sample, gate ms, note offset, time factor, start position ms), performs
+// the path/resource lookup, then creates and registers a voice via
+// FUN_00024928. The SDL backend cannot reproduce the retail Dirac/FMOD
+// Slicker DSP object, but it can preserve the voice, pitch, gate, and cursor
+// behavior used by EntityBasePS3.gm.
 int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
     if (a_thread->GetNumParams() != 5) return GM_EXCEPTION;
-    return StrictCalls::Report(a_thread, "Audio.spawnSoundSlicker");
+    GM_STRING_PARAM(path, 0, "");
+    const float gateMs = a_thread->ParamFloatOrInt(1, 0.0f);
+    const float noteOffset = a_thread->ParamFloatOrInt(2, 0.0f);
+    const float timeFactor = a_thread->ParamFloatOrInt(3, 1.0f);
+    const gmVariable& positionArg = a_thread->Param(4);
+    const int startPositionMs = positionArg.IsFloat()
+        ? RetailFctiwzToInt(positionArg.GetFloat())
+        : positionArg.m_value.m_int;
+
+    if (!State().enabled || !std::isfinite(timeFactor)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    // Slicker voices are created muted and made audible on the next sequencer
+    // step through playSoundSlicker. Preserve the wrapper's float note-offset
+    // conversion here; unlike Audio.setVoiceNote, this argument reaches the
+    // Slicker helper as a float/double rather than an integer note.
+    const float pitchExponent = noteOffset *
+        GroundRenderMath::FloatFromBits(0x3daaaaabu);
+    const float pitchRatio = GroundRenderMath::RetailGroundPow(2.0f, pitchExponent);
+    // Retail FUN_00024928 does not route this voice through
+    // FUN_000236bc/FUN_0001b050, the path that applies manager +0x30f0.
+    // FUN_00027878 applies its own note-offset pitch ratio instead.
+    const int id = CreateVoiceState(path, 0.0f, 0.0f, 96, false);
+    if (id != 0) {
+        VoiceState& voice = State().voices[id];
+        voice.ownsDiracPoolEntry = true;
+        ++State().diracPoolEntriesUsed;
+        // FUN_00024928 builds a distinct Slicker/Dirac playback object from
+        // the time-factor argument (EBOOT 0x84dc8 -> 0x24928 -> 0x27878).
+        // Retail's object performs time stretching, while the note-offset
+        // argument controls pitch. Multiplying both into the desktop resample
+        // rate conflated those independent controls and made notes go sharp or
+        // flat whenever the sequencer BPM differed from the source BPM.
+        voice.timeStretchFactor = timeFactor;
+        voice.timeStretchedSample = BuildTimeStretchedSample(
+            path, voice.sample, timeFactor);
+        if (!voice.timeStretchedSample) voice.timeStretchFactor = 1.0f;
+        voice.speed *= pitchRatio;
+        voice.targetSpeed = voice.speed;
+        voice.gateDurationMs = gateMs;
+        // The PS3 script deliberately supplies `position + milliPerStep`.
+        // For one-shots it first sets position to `soundLength - milliPerStep`,
+        // so the actual Slicker cursor is exactly soundLength at the target
+        // sequencer step. Retail's Slicker path treats this as a wrapped sample
+        // cursor. The local mixer previously treated it as an absolute EOF and
+        // skipped every frame, which silenced checkpoint beeps and other
+        // one-shots that start on this boundary.
+        // Retail FUN_00027878 queries the resource's integer length in
+        // milliseconds, then uses divwu/mullw/subc on the raw 32-bit cursor.
+        // Use the same length contract as Audio.getSoundLength; a duration
+        // reconstructed from 48 kHz resampled frames can differ for source
+        // rates such as 44.1 kHz, and signed fmod does not match divwu for a
+        // negative script cursor.
+        const int sampleLengthMs = SoundLengthMs(path);
+        uint32_t wrappedStartMs = static_cast<uint32_t>(startPositionMs);
+        if (sampleLengthMs > 0) {
+            wrappedStartMs %= static_cast<uint32_t>(sampleLengthMs);
+        }
+        // The retail cursor is wrapped in source milliseconds first. WSOLA's
+        // output timeline is then stretched by the same tempo factor.
+        voice.positionMs = static_cast<double>(wrappedStartMs) *
+                           voice.timeStretchFactor;
+    }
+    a_thread->PushInt(id);
+    return GM_OK;
 }
 
-// Verification: bytecode checked against Audio.c at EBOOT 0x85008. Retail
-// accepts exactly four arguments and operates on the existing voice handle
-// in argument 0 through FUN_000244b8; it does not create a new voice. That
-// existing-handle/backend operation is not ported yet, so report valid calls.
+// Audio.playSoundSlicker @ EBOOT 0x85008. FUN_000244b8 looks up the existing
+// voice, then applies arg 3 as volume, arg 2 as pan, and arg 1 as gate via
+// the same helpers used by the direct Audio setters. It does not create a
+// voice. The local voice has no Dirac DSP chain, so only those traced voice
+// parameters are applied here.
 int GM_CDECL gmf_playSoundSlicker(gmThread* a_thread) {
     if (a_thread->GetNumParams() != 4) return GM_EXCEPTION;
-    return StrictCalls::Report(a_thread, "Audio.playSoundSlicker");
+    const int voiceId = a_thread->Param(0).m_value.m_int;
+    const float gateMs = a_thread->ParamFloatOrInt(1, 0.0f);
+    const float pan = a_thread->ParamFloatOrInt(2, 0.0f);
+    const float volume = a_thread->ParamFloatOrInt(3, 1.0f);
+    if (!State().enabled) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    VoiceState* voice = FindVoice(voiceId);
+    if (!voice) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    voice->gateDurationMs = gateMs;
+    voice->pan = pan;
+    if (voice->gateDurationMs <= 0.0 ||
+        !(voice->gateElapsedMs >= voice->gateDurationMs))
+        voice->volume = volume;
+    voice->paused = false;
+    a_thread->PushInt(voiceId);
+    return GM_OK;
 }
 
-// Verification: bytecode checked against Audio.c at EBOOT 0x85940. Retail
-// dispatches 1, 3, and 6 argument overloads to distinct stream helpers and
-// returns an exception for every other arity. The resource/stream backend is
-// not ported yet, so accepted calls are logged as a known missing function.
+// Audio.playStream @ EBOOT 0x85940. The accepted overloads converge on
+// FUN_0001b398, which loads a resource, registers a voice, applies its
+// playback parameters, and returns that voice handle. Native FMOD/Dirac
+// resource ownership and the six-argument mode field remain partial.
 int GM_CDECL gmf_playStream(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 3 && count != 6) return GM_EXCEPTION;
-    return StrictCalls::Report(a_thread, "Audio.playStream");
+    std::string path;
+    float gate = 0.0f;
+    float pan = 0.0f;
+    float volume = 1.0f;
+    int note = 96;
+    int referenceNote = 48;
+
+    if (count == 1) {
+        // FUN_0001b618 supplies gate=0, pan=0, volume=1 and note=96.
+        GM_STRING_PARAM(resource, 0, "");
+        path = resource;
+    } else if (count == 3) {
+        // FUN_0001b660 takes pan, volume, resource in that order.
+        pan = a_thread->ParamFloatOrInt(0, 0.0f);
+        volume = a_thread->ParamFloatOrInt(1, 1.0f);
+        GM_STRING_PARAM(resource, 2, "");
+        path = resource;
+    } else {
+        // The six-argument wrapper truncates float note values with PPC
+        // fctiwz and passes non-floats through as raw integer payloads.
+        const gmVariable& referenceNoteArg = a_thread->Param(0);
+        referenceNote = referenceNoteArg.IsFloat()
+            ? RetailFctiwzToInt(referenceNoteArg.GetFloat())
+            : referenceNoteArg.m_value.m_int;
+        const gmVariable& noteArg = a_thread->Param(1);
+        note = noteArg.IsFloat()
+            ? RetailFctiwzToInt(noteArg.GetFloat())
+            : noteArg.m_value.m_int;
+        gate = a_thread->ParamFloatOrInt(2, 0.0f);
+        pan = a_thread->ParamFloatOrInt(3, 0.0f);
+        volume = a_thread->ParamFloatOrInt(4, 1.0f);
+        GM_STRING_PARAM(resource, 5, "");
+        path = resource;
+    }
+
+    // FUN_0001b398 returns the native voice handle on success and zero when
+    // sample resolution or registration fails. Retail passes the first value
+    // through FUN_0002679c (+0x0c in its temporary record); FUN_00025fb0 copies
+    // it to voice +0x44, which FUN_0001ad48 uses as the pitch reference.
+    // Native middleware resource ownership and DSP routing remain open.
+    if (!State().enabled) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const int id = CreateVoiceState(path, pan, volume, note, false,
+                                    referenceNote);
+    if (id != 0) State().voices[id].gateDurationMs = gate;
+    a_thread->PushInt(id);
+    return GM_OK;
 }
-// Audio.loadSoundSlicker() -- confirmed real body is LITERALLY `loadSound();
-// return;` in retail (0x00084da8) -- forwards to loadSound with NO
-// arguments (hits loadSound's own 0-arg exception branch and does
-// nothing useful), a genuine retail no-op/dead-code call, not a gap here.
-int GM_CDECL gmf_loadSoundSlicker(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+// Audio.loadSoundSlicker() forwards the same gmThread to the retail
+// Audio.loadSound wrapper at 0x84984 (PPC 0x84db4 is a direct `bl`, with r3
+// preserved). Preserve the caller's existing arguments and return behavior;
+// path/resource work remains the same as the ordinary loadSound binding.
+int GM_CDECL gmf_loadSoundSlicker(gmThread* a_thread) {
+    return gmf_loadSound(a_thread);
+}
 
 // --- voice control -------------------------------------------------------
 
 void StartVoiceFade(VoiceState& a_voice, double a_durationMs) {
+    // Retail FUN_0001d59c stores the double argument into a binary32 field.
+    // Keep that rounding here so integer inputs and large durations reach the
+    // manager update with the same stored value.
+    const float retailDurationMs = static_cast<float>(a_durationMs);
     a_voice.stopping = true;
-    a_voice.fadeDurationMs = a_durationMs;
-    a_voice.fadeRemainingMs = a_durationMs;
+    a_voice.fadeDurationMs = static_cast<double>(retailDurationMs);
+    a_voice.fadeRemainingMs = a_voice.fadeDurationMs;
+    a_voice.fadeGain = 1.0f;
     a_voice.stopRemainingMs = 0.0;
 }
 
@@ -462,13 +1490,24 @@ void StartVoiceFade(VoiceState& a_voice, double a_durationMs) {
 int GM_CDECL gmf_stopVoice(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 2) return GM_EXCEPTION;
-    const int voice = (int)a_thread->ParamFloatOrInt(0, 0.0f);
-    const float timeMs = count == 2 ? a_thread->ParamFloatOrInt(1, 0.0f) : 0.0f;
+    const gmVariable& voiceArg = a_thread->Param(0);
+    const int voice = voiceArg.IsFloat()
+        ? static_cast<int>(voiceArg.GetFloat())
+        : (voiceArg.IsInt() ? static_cast<int>(voiceArg.GetInt()) : 0);
+    double timeMs = 0.0;
+    if (count == 2) {
+        const gmVariable& durationArg = a_thread->Param(1);
+        if (durationArg.IsFloat())
+            timeMs = static_cast<double>(durationArg.GetFloat());
+        else if (durationArg.IsInt())
+            timeMs = static_cast<double>(durationArg.GetInt());
+    }
     if (VoiceState* v = FindVoice(voice)) {
-        if (std::isfinite(timeMs) && timeMs > 0.0f) {
+        if (timeMs > 0.0) {
             v->stopping = true;
             v->stopRemainingMs = timeMs;
             v->fadeRemainingMs = v->fadeDurationMs = 0.0;
+            v->fadeGain = 1.0f;
         } else {
             StartVoiceFade(*v, 60.0);
         }
@@ -481,44 +1520,47 @@ int GM_CDECL gmf_stopVoice(gmThread* a_thread) {
 // (60 ms), so voices fade out and remain valid until their fade completes.
 int GM_CDECL gmf_stopAllVoices(gmThread* a_thread) {
     (void)a_thread;
-    for (auto& entry : State().voices)
-        StartVoiceFade(entry.second, 60.0);
+    StopAllVoicesForProcessListReset();
     return GM_OK;
 }
 // Audio.fadeOutVoice(voice, fadeMs) forwards the duration to FUN_0001d59c
 // (retail wrapper 0x00086994). Keep the voice live while its gain falls.
 int GM_CDECL gmf_fadeOutVoice(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    const float fadeMs = a_thread->ParamFloatOrInt(1, 0.0f);
-    if (VoiceState* v = FindVoice(voice)) {
-        if (std::isfinite(fadeMs) && fadeMs > 0.0f)
-            StartVoiceFade(*v, fadeMs);
-        else {
-            State().voices.erase(voice);
-        }
-    }
+    // The retail wrapper forwards voice-ID payload bits directly. Duration
+    // dispatches only on GM_FLOAT; every other tag is read as signed GM_INT,
+    // widened to double, then FUN_0001d59c stores it as binary32.
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const gmVariable& durationArg = a_thread->Param(1);
+    const double fadeMs = durationArg.IsFloat()
+        ? static_cast<double>(durationArg.GetFloat())
+        : static_cast<double>(durationArg.m_value.m_int);
+    if (VoiceState* v = FindVoice(voice))
+        StartVoiceFade(*v, fadeMs);
     return GM_OK;
 }
 // Audio.isVoiceValid(voice) -- confirmed real, 0x00085bc4.
 int GM_CDECL gmf_isVoiceValid(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(voice, 0, 0);
+    // Retail forwards the supplied GM payload raw to the manager's voice map.
+    const int voice = a_thread->Param(0).m_value.m_int;
     a_thread->PushInt(FindVoice(voice) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_isVoicePaused(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(voice, 0, 0);
+    // Retail forwards the argument payload raw. Its helper returns false when
+    // either voice lookup or the backend pause query fails.
+    const int voice = a_thread->Param(0).m_value.m_int;
     VoiceState* v = FindVoice(voice);
-    a_thread->PushInt((v && v->paused) ? 1 : 0);
+    a_thread->PushInt((v && CanQueryVoiceBackend(*v) && v->paused) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_setVoicePause(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    GM_INT_PARAM(pause, 1, 0);
-    if (VoiceState* v = FindVoice(voice)) v->paused = (pause != 0);
+    // The retail wrapper passes the voice ID payload and tests the pause
+    // payload for nonzero without checking either GM type tag.
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const bool pause = a_thread->Param(1).m_value.m_int != 0;
+    if (VoiceState* v = FindVoice(voice)) v->paused = pause;
     return GM_OK;
 }
 // Audio.setVoiceVolume(voice, volume) -- retail wrapper 0x00086124 calls
@@ -538,34 +1580,62 @@ int GM_CDECL gmf_setVoiceVolume(gmThread* a_thread) {
 }
 int GM_CDECL gmf_getVoiceVolume(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(voice, 0, 0);
-    VoiceState* v = FindVoice(voice);
-    // FUN_0001d330 reads raw backend gain (+0xac), divides by master*SFX,
-    // and returns zero when that product is zero. Retail applies fades in the
-    // output path (FUN_00209a3c), separately from this base-gain getter.
-    const float voiceGainScale = State().masterVolume * State().sfxVolume;
-    a_thread->PushFloat(v && voiceGainScale != 0.0f ? v->volume : 0.0f);
+    const gmVariable& voiceArg = a_thread->Param(0);
+    // Retail wrapper converts GM_FLOAT voice IDs by truncating toward zero;
+    // other tags pass their raw payload as the ID.
+    const int voiceId = voiceArg.IsFloat()
+        ? RetailFctiwzToInt(voiceArg.GetFloat())
+        : voiceArg.m_value.m_int;
+    VoiceState* v = FindVoice(voiceId);
+    // FUN_0001d330 reads backend raw gain (+0xac), divides by master*SFX,
+    // and returns zero when that query or scale is unavailable. FUN_00022c78
+    // writes the current fade envelope into that raw gain, so include the
+    // same envelope represented by the local voice state.
+    if (!v || !CanQueryVoiceBackend(*v)) {
+        a_thread->PushFloat(0.0f);
+        return GM_OK;
+    }
+    const float voiceGainScale = RetailF32(
+        State().masterVolume * State().sfxVolume);
+    // Keep the same three binary32 stages as FUN_00022af8:
+    // (SFX*master) * voiceVolume, then * fadeEnvelope. The backend getter
+    // returns this stored raw gain before the wrapper normalizes it.
+    const float scaledVoiceGain = RetailF32(voiceGainScale * v->volume);
+    const float backendBaseGain = RetailF32(scaledVoiceGain * v->fadeGain);
+    const float normalizedGain = RetailF32(backendBaseGain / voiceGainScale);
+    // FUN_0001d330's paired fsel sequence chooses the quotient for positive
+    // and negative scales, and zero for zero or unordered (NaN) scales.
+    const float nonpositiveScale = 0.0f - voiceGainScale;
+    const float nonnegativeScale = voiceGainScale - 0.0f;
+    const float firstSelect = RetailFsel(nonpositiveScale, 0.0f, normalizedGain);
+    a_thread->PushFloat(RetailFsel(nonnegativeScale, firstSelect, normalizedGain));
     return GM_OK;
 }
 int GM_CDECL gmf_setVoicePan(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    GM_FLOAT_OR_INT_PARAM(pan, 1, 0.0f);
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const gmVariable& panArg = a_thread->Param(1);
+    const double panValue = panArg.IsFloat()
+        ? static_cast<double>(panArg.GetFloat())
+        : static_cast<double>(panArg.m_value.m_int);
+    const float pan = static_cast<float>(panValue);
     if (VoiceState* v = FindVoice(voice)) v->pan = pan;
     return GM_OK;
 }
 // Audio.setVoicePitchBend(voice, targetNote, durationMs) -- wrapper
 // 0x00086354 forwards both values to FUN_0001d3d0. That helper targets
-// baseSpeed * pow(2, (targetNote - referenceNote) / 12), then interpolates
+// source base speed * pow(2, (targetNote - referenceNote) / 12), then interpolates
 // playback speed linearly over the supplied duration.
 int GM_CDECL gmf_setVoicePitchBend(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
-    GM_INT_PARAM(voice, 0, 0);
-    const int targetNote = (int)a_thread->ParamFloatOrInt(1, 0.0f);
+    // The wrapper passes the voice and target-note payloads through without
+    // checking or converting their GM type tags.
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const int targetNote = a_thread->Param(1).m_value.m_int;
     const float durationMs = a_thread->ParamFloatOrInt(2, 0.0f);
     if (VoiceState* v = FindVoice(voice)) {
-        const float targetSpeed = std::pow(2.0f,
-            (float)(targetNote - v->referenceNote) / 12.0f);
+        const float targetSpeed = v->sourceBaseSpeed *
+            GroundRenderMath::RetailAudioNotePitchRatio(targetNote, v->referenceNote);
         SetVoiceSpeedTarget(*v, targetSpeed, durationMs);
     }
     return GM_OK;
@@ -574,8 +1644,12 @@ int GM_CDECL gmf_setVoicePitchBend(gmThread* a_thread) {
 // timer. The update at 0x00022e0c schedules a default stop when it expires.
 int GM_CDECL gmf_setVoiceGateTime(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    const float gateMs = a_thread->ParamFloatOrInt(1, 0.0f);
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const gmVariable& gateArg = a_thread->Param(1);
+    const double gateValue = gateArg.IsFloat()
+        ? static_cast<double>(gateArg.GetFloat())
+        : static_cast<double>(gateArg.m_value.m_int);
+    const float gateMs = static_cast<float>(gateValue);
     if (VoiceState* v = FindVoice(voice)) v->gateDurationMs = gateMs;
     return GM_OK;
 }
@@ -584,34 +1658,46 @@ int GM_CDECL gmf_setVoiceGateTime(gmThread* a_thread) {
 // ratio as pitch bend, relative to the voice's reference note.
 int GM_CDECL gmf_setVoiceNote(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    const int note = (int)a_thread->ParamFloatOrInt(1, 0.0f);
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const gmVariable& noteArg = a_thread->Param(1);
+    const int note = noteArg.IsFloat()
+        ? static_cast<int>(noteArg.GetFloat())
+        : static_cast<int>(noteArg.m_value.m_int);
     if (VoiceState* v = FindVoice(voice)) {
-        const float speed = note == 96 ? 1.0f :
-            std::pow(2.0f, (float)(note - v->referenceNote) / 12.0f);
+        const float speed = v->sourceBaseSpeed * (note == 96 ? 1.0f :
+            GroundRenderMath::RetailAudioNotePitchRatio(note, v->referenceNote));
         SetVoiceSpeedTarget(*v, speed, 0.0f);
     }
     return GM_OK;
 }
 // FUN_0001d8c8 uses zero duration for an immediate set and otherwise
-// interpolates toward baseSpeed * requested multiplier. The getter at
+// interpolates toward sourceBaseSpeed * requested multiplier. The getter at
 // 0x00086620 returns the current multiplier (or zero for a missing voice).
 int GM_CDECL gmf_setVoiceSpeed(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
-    if (count != 2 && count != 3) return GM_EXCEPTION;
-    GM_INT_PARAM(voice, 0, 0);
-    GM_FLOAT_OR_INT_PARAM(speed, 1, 1.0f);
-    const float durationMs = count == 3
-        ? a_thread->ParamFloatOrInt(2, 0.0f) : 0.0f;
+    if (count < 2) return GM_EXCEPTION;
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const gmVariable& speedArg = a_thread->Param(1);
+    const float speed = speedArg.IsFloat()
+        ? speedArg.GetFloat()
+        : static_cast<float>(speedArg.m_value.m_int);
+    // Retail's wrapper uses DAT_00086548 (0.0f) unless argument 2 is a
+    // GM_FLOAT. Integer and other payload types are ignored for duration.
+    float durationMs = 0.0f;
+    if (count > 2) {
+        const gmVariable& durationArg = a_thread->Param(2);
+        if (durationArg.IsFloat()) durationMs = durationArg.GetFloat();
+    }
     if (VoiceState* v = FindVoice(voice))
-        SetVoiceSpeedTarget(*v, speed, durationMs);
+        SetVoiceSpeedTarget(*v, v->sourceBaseSpeed * speed, durationMs);
     return GM_OK;
 }
 int GM_CDECL gmf_getVoiceSpeed(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(voice, 0, 0);
+    const int voice = a_thread->Param(0).m_value.m_int;
     VoiceState* v = FindVoice(voice);
-    a_thread->PushFloat(v ? v->speed : 0.0f);
+    a_thread->PushFloat(v && v->sourceBaseSpeed != 0.0f
+        ? v->speed / v->sourceBaseSpeed : 0.0f);
     return GM_OK;
 }
 // Audio.setVoicePosition(voice, msPosition)/getVoicePosition(voice) --
@@ -622,20 +1708,21 @@ int GM_CDECL gmf_getVoiceSpeed(gmThread* a_thread) {
 // step*msPerStep)`), not a stereo/3D position despite the name.
 int GM_CDECL gmf_setVoicePosition(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    // Lenient, not GM_INT_PARAM: real call sites compute this as
-    // `step*MainSequencer.getMSPerStep()` (Platformer/MainMenu5/
-    // HomeScreenBase.gm:278/292/315 etc.) -- msPerStep is a float, so this
-    // is a GM_FLOAT the overwhelming majority of the time, and the strict
-    // int-only macro threw a blank-message exception on every single one
-    // of those real calls.
-    int ms = (int)a_thread->ParamFloatOrInt(1, 0.0f);
+    // Retail wrapper 0x866d8 forwards the voice ID's raw payload. The
+    // position is a float truncated toward zero when GM_FLOAT; all other
+    // tags pass their raw 32-bit payload as an int.
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const gmVariable& positionArg = a_thread->Param(1);
+    const int ms = positionArg.IsFloat()
+        ? static_cast<int>(positionArg.GetFloat())
+        : positionArg.m_value.m_int;
     if (VoiceState* v = FindVoice(voice)) v->positionMs = ms;
     return GM_OK;
 }
 int GM_CDECL gmf_getVoicePosition(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(voice, 0, 0);
+    // Retail wrapper 0x86764 passes the voice-ID payload without a type test.
+    const int voice = a_thread->Param(0).m_value.m_int;
     VoiceState* v = FindVoice(voice);
     double position = v ? v->positionMs : 0.0;
     if (position > std::numeric_limits<int>::max()) position = std::numeric_limits<int>::max();
@@ -645,7 +1732,8 @@ int GM_CDECL gmf_getVoicePosition(gmThread* a_thread) {
 }
 int GM_CDECL gmf_getVoiceLength(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(voice, 0, 0);
+    // Retail wrapper forwards the voice-ID payload without checking its type.
+    const int voice = a_thread->Param(0).m_value.m_int;
     VoiceState* v = FindVoice(voice);
     a_thread->PushInt(v ? SoundLengthMs(v->soundFile) : 0);
     return GM_OK;
@@ -675,22 +1763,25 @@ int GM_CDECL gmf_setFrequencyMultiplier(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_hackSetEnabled(gmThread* a_thread) {
-    // RETAIL BYTECODE: stores (raw argument payload != 0) at manager +0x2c3c.
-    State().enabled = a_thread->GetNumParams() > 0 &&
-                      a_thread->Param(0).m_value.m_int != 0;
+    // RETAIL PPC: reads parameter 0's raw payload without validating arity or
+    // type, then stores (payload != 0) at AudioManager +0x2c3c.
+    State().enabled = a_thread->Param(0).m_value.m_int != 0;
     return GM_OK;
 }
 int GM_CDECL gmf_setVoiceLoop(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    GM_INT_PARAM(loop, 1, 0);
-    if (VoiceState* v = FindVoice(voice)) v->looping = (loop != 0);
+    // Retail forwards both raw gmVariable payloads to FUN_0001dbac; its
+    // boolean argument is payload != 0, regardless of the script type tag.
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const bool loop = a_thread->Param(1).m_value.m_int != 0;
+    if (VoiceState* v = FindVoice(voice)) v->looping = loop;
     return GM_OK;
 }
 int GM_CDECL gmf_setVoiceLoopCount(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(voice, 0, 0);
-    GM_INT_PARAM(count, 1, 0);
+    // Retail wrapper passes raw 32-bit payloads into FUN_0001d17c.
+    const int voice = a_thread->Param(0).m_value.m_int;
+    const int count = a_thread->Param(1).m_value.m_int;
     if (VoiceState* v = FindVoice(voice)) v->loopCount = count;
     return GM_OK;
 }
@@ -938,7 +2029,12 @@ void ReleaseEffectChainTable(gmMachine* a_machine, gmTableObject* a_chain) {
     // Retail clears the chain's active byte before recursively releasing its
     // children; mark first so corrupt/cyclic script links cannot recurse forever.
     a_chain->Set(a_machine, "__freed", gmVariable((gmint)1));
+    const gmVariable nativeHandle = a_chain->Get(a_machine, "__nativeHandle");
     char key[24];
+    // FUN_0001a178 recursively releases all sixteen child chains before
+    // touching this chain's effects or backend group. Keep the local pool
+    // handle live until that same point; recycling it early could make a
+    // child-release callback observe a handle that retail still owns here.
     for (int i = 0; i < 16; ++i) {
         snprintf(key, sizeof(key), "__childChainSlot%d", i);
         gmVariable value = a_chain->Get(a_machine, key);
@@ -949,7 +2045,6 @@ void ReleaseEffectChainTable(gmMachine* a_machine, gmTableObject* a_chain) {
         }
         a_chain->Set(a_machine, key, gmVariable::s_null);
     }
-    ReleaseEffectSlots(a_machine, a_chain);
     gmVariable parent = a_chain->Get(a_machine, "__parentChain");
     if (parent.m_type == GM_TABLE) {
         gmTableObject* parentTable = (gmTableObject*)a_machine->GetObject(parent.m_value.m_ref);
@@ -963,6 +2058,34 @@ void ReleaseEffectChainTable(gmMachine* a_machine, gmTableObject* a_chain) {
         }
     }
     a_chain->Set(a_machine, "__parentChain", gmVariable::s_null);
+    ReleaseEffectSlots(a_machine, a_chain);
+
+    // The native backend group release (FUN_00208118) migrates voices to the
+    // manager master group after child groups and effects have been released.
+    // Mirror that ordering in the local membership model.
+    std::vector<int> attachedVoiceIds;
+    if (const auto members = g_effectChainVoiceIds.find(a_chain);
+        members != g_effectChainVoiceIds.end()) {
+        attachedVoiceIds.assign(members->second.begin(), members->second.end());
+    }
+    const gmVariable masterChain = GetOrCreateMasterEffectChain(*a_machine);
+    for (const int voiceId : attachedVoiceIds) {
+        const auto voice = State().voices.find(voiceId);
+        if (voice != State().voices.end()) {
+            AttachEffectChainToVoice(*a_machine, voiceId, voice->second, masterChain);
+        } else {
+            auto members = g_effectChainVoiceIds.find(a_chain);
+            if (members != g_effectChainVoiceIds.end()) members->second.erase(voiceId);
+        }
+    }
+    g_effectChainVoiceIds.erase(a_chain);
+    if (nativeHandle.m_type == GM_INT) {
+        const uint32_t handle = static_cast<uint32_t>(nativeHandle.m_value.m_int);
+        g_effectChainsByHandle.erase(handle);
+        ChainHandles().Release(handle);
+        a_chain->Set(a_machine, "__nativeHandle",
+                     gmVariable(static_cast<gmint>(EffectChainHandlePool::kInvalidHandle)));
+    }
 }
 void ProcessDeferredEffectCleanup(gmMachine* a_machine,
                                   std::vector<DeferredEffectCleanup>& a_pending,
@@ -1053,7 +2176,15 @@ int GM_CDECL gmf_chain_addEffectChain(gmThread* a_thread) {
 int GM_CDECL gmf_chain_addVoice(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    (void)self;
+    const gmVariable& voiceIdValue = a_thread->Param(0);
+    if (voiceIdValue.m_type != GM_INT) return GM_OK;
+    auto voice = State().voices.find(voiceIdValue.m_value.m_int);
+    if (voice == State().voices.end()) return GM_OK;
+    gmMachine* machine = a_thread->GetMachine();
+    gmVariable chain(self);
+    if (self->Get(machine, "__freed").m_type != GM_NULL)
+        chain = GetOrCreateMasterEffectChain(*machine);
+    AttachEffectChainToVoice(*machine, voice->first, voice->second, chain);
     return GM_OK;
 }
 
@@ -1096,8 +2227,12 @@ int GM_CDECL gmf_onVoiceEndFreeSoundEffect(gmThread* a_thread) {
 }
 gmVariable MakeEffectChainTable(gmMachine& a_machine, const std::string& a_name,
                                 const gmVariable* a_source = nullptr) {
+    const uint32_t nativeHandle = ChainHandles().Allocate();
+    if (nativeHandle == EffectChainHandlePool::kInvalidHandle)
+        return gmVariable::s_null;
     gmTableObject* t = a_machine.AllocTableObject();
     t->Set(&a_machine, "__name", gmVariable(a_machine.AllocStringObject(a_name.c_str())));
+    t->Set(&a_machine, "__nativeHandle", gmVariable(static_cast<gmint>(nativeHandle)));
     t->Set(&a_machine, "__freed", gmVariable::s_null);
     if (a_source) t->Set(&a_machine, "__source", *a_source);
     t->Set(&a_machine, "addEffect", gmVariable(a_machine.AllocFunctionObject(gmf_chain_addEffect)));
@@ -1105,7 +2240,26 @@ gmVariable MakeEffectChainTable(gmMachine& a_machine, const std::string& a_name,
     t->Set(&a_machine, "freeAllChildEffectChains", gmVariable(a_machine.AllocFunctionObject(gmf_chain_freeAllChildEffectChains)));
     t->Set(&a_machine, "addEffectChain", gmVariable(a_machine.AllocFunctionObject(gmf_chain_addEffectChain)));
     t->Set(&a_machine, "addVoice", gmVariable(a_machine.AllocFunctionObject(gmf_chain_addVoice)));
-    return gmVariable(t);
+    gmVariable chain(t);
+    g_effectChainsByHandle[nativeHandle] = chain;
+    return chain;
+}
+gmVariable GetOrCreateMasterEffectChain(gmMachine& a_machine) {
+    static gmVariable master = gmVariable::s_null;
+    static gmMachine* owner = nullptr;
+    if (owner != &a_machine) {
+        master = gmVariable::s_null;
+        owner = &a_machine;
+    }
+    if (master.m_type != GM_TABLE) {
+        master = MakeEffectChainTable(a_machine, "master");
+        gmTableObject* table = (gmTableObject*)a_machine.GetObject(master.m_value.m_ref);
+        if (table) {
+            table->Set(&a_machine, "__protected", gmVariable((gmint)1));
+            RetainAudioGMVariable(a_machine, master);
+        }
+    }
+    return master;
 }
 int GM_CDECL gmf_createEffectChain(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
@@ -1124,24 +2278,49 @@ int GM_CDECL gmf_createEffectChain(gmThread* a_thread) {
         return GM_OK;
     }
     const gmVariable* source = count == 2 ? &a_thread->Param(1) : nullptr;
-    if (source && source->m_type != GM_TABLE && source->m_type != GM_USER) {
+    if (source && !IsLocalEffectChain(*a_thread->GetMachine(), *source)) {
         a_thread->PushNull();
         return GM_OK;
     }
-    a_thread->Push(MakeEffectChainTable(*a_thread->GetMachine(), name, source));
+    gmMachine* machine = a_thread->GetMachine();
+    // FUN_0001deec passes a null parent to FUN_00019d90 for the one-argument
+    // overload. The factory resolves that null to manager +0x30f8 (the master
+    // channel group) before attaching the new group. Mirror the same hierarchy
+    // for the local chain table; the master's own parent remains unset.
+    gmVariable parentChain = source
+        ? *source : GetOrCreateMasterEffectChain(*machine);
+    if (parentChain.m_type != GM_TABLE) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    gmVariable chain = MakeEffectChainTable(*machine, name, source);
+    if (chain.m_type == GM_TABLE) {
+        gmTableObject* parent = static_cast<gmTableObject*>(
+            machine->GetObject(parentChain.m_value.m_ref));
+        gmTableObject* child = static_cast<gmTableObject*>(
+            machine->GetObject(chain.m_value.m_ref));
+        if (parent && child) {
+            gmVariable parentVar(parent);
+            child->Set(machine, "__parentChain", parentVar);
+            // Reuse the same slot/link rules as EffectChain.addEffectChain.
+            for (int slot = 0; slot < 16; ++slot) {
+                char key[24];
+                snprintf(key, sizeof(key), "__childChainSlot%d", slot);
+                if (parent->Get(machine, key).m_type == GM_NULL) {
+                    parent->Set(machine, key, chain);
+                    break;
+                }
+            }
+        }
+    }
+    a_thread->Push(chain);
     return GM_OK;
 }
 // Confirmed real: 0 args, returns the same kind of object createEffectChain
 // does (same DAT_0043c3e0 type tag) -- a single persistent master chain,
 // not a fresh one per call.
 int GM_CDECL gmf_getMasterEffectChain(gmThread* a_thread) {
-    static gmVariable s_master = gmVariable::s_null;
-    if (s_master.m_type != GM_TABLE) {
-        s_master = MakeEffectChainTable(*a_thread->GetMachine(), "master");
-        gmTableObject* master = (gmTableObject*)a_thread->GetMachine()->GetObject(s_master.m_value.m_ref);
-        master->Set(a_thread->GetMachine(), "__protected", gmVariable((gmint)1));
-    }
-    a_thread->Push(s_master);
+    a_thread->Push(GetOrCreateMasterEffectChain(*a_thread->GetMachine()));
     return GM_OK;
 }
 int GM_CDECL gmf_freeEffectChain(gmThread* a_thread) {
@@ -1156,6 +2335,382 @@ int GM_CDECL gmf_freeEffectChain(gmThread* a_thread) {
 }
 int GM_CDECL gmf_noop(gmThread* a_thread) { (void)a_thread; return GM_OK; }
 int GM_CDECL gmf_falseBool(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+int GM_CDECL gmf_startPlayingScript(gmThread* a_thread) {
+    (void)a_thread;
+    State().playbackEventIndex = 0;
+    State().playbackElapsedMs = 0.0f;
+    // FUN_00017c9c resets the retail reserved voice-ID sentinels; it does not
+    // stop voices that were active before playback starts.
+    State().scriptPlaybackVoiceIds.clear();
+    State().playingScript = true;
+    return GM_OK;
+}
+int GM_CDECL gmf_stopPlayingScript(gmThread* a_thread) {
+    (void)a_thread;
+    State().playingScript = false;
+    // FUN_00017d20 stops recorder-owned voice IDs and releases its temporary
+    // "special" group. The local model has no native group, so remove the
+    // voices tracked as playback-owned.
+    StopRecordedPlaybackVoices();
+    return GM_OK;
+}
+int GM_CDECL gmf_isPlayingScript(gmThread* a_thread) {
+    a_thread->PushInt(State().playingScript ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_startRecordingScript(gmThread* a_thread) {
+    ClearRecordedPlaySounds(*a_thread->GetMachine());
+    State().recordedSoundResources.clear();
+    State().recordingStart = std::chrono::steady_clock::now();
+    State().recordingStopMs = 0.0f;
+    State().recordingScript = true;
+    return GM_OK;
+}
+int GM_CDECL gmf_stopRecordingScript(gmThread* a_thread) {
+    (void)a_thread;
+    // FUN_00017c20 clears mode +0x30 and snapshots the resettable timer into
+    // +0x2c unconditionally, including repeated stop calls.
+    State().recordingStopMs = RecordedAudioElapsedMs();
+    State().recordingScript = false;
+    return GM_OK;
+}
+int GM_CDECL gmf_isRecordingScript(gmThread* a_thread) {
+    a_thread->PushInt(State().recordingScript ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_audioSaveRequestGetSize(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    a_thread->PushInt(self ? self->Get(a_thread->GetMachine(), "size").m_value.m_int : 0);
+    return GM_OK;
+}
+
+std::string AudioRecorderNumber(float a_value) {
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << a_value;
+    return out.str();
+}
+
+bool BuildRecordedAudioV4(std::string& a_outText) {
+    const auto& state = State();
+    std::set<std::string> resources = state.recordedSoundResources;
+    std::vector<std::string> localNames(resources.begin(), resources.end());
+    std::unordered_map<std::string, size_t> localIndices;
+    for (size_t i = 0; i < localNames.size(); ++i) localIndices.emplace(localNames[i], i);
+
+    std::ostringstream body;
+    body.imbue(std::locale::classic());
+    body << resources.size() << '\n';
+    for (const auto& path : resources) body << path << '\n' << 48 << '\n';
+
+    for (const auto& event : state.recordedPlaySounds) {
+        const size_t signatureIndex = event.chainRoute ? 2u : 32u;
+        body << AudioRecorderNumber(event.timeMs) << '\n'
+             << kAudioRecorderSignatures[signatureIndex] << '\n'
+             << event.path << '\n'
+             << event.note << '\n'
+             << AudioRecorderNumber(event.gate) << '\n'
+             << AudioRecorderNumber(event.pan) << '\n'
+             << AudioRecorderNumber(event.volume) << '\n'
+             << event.priority << '\n'
+             << static_cast<int32_t>(event.chainRoute
+                    ? event.effectChainHandle : 0u) << '\n'
+             << event.startPositionMs << '\n';
+    }
+
+    // FUN_00017fd0 tokenizes each nonnumeric line. Shared callback signatures
+    // become #indices; resource names use the per-file $ registry.
+    std::string tokenized;
+    const std::string raw = body.str();
+    size_t cursor = 0;
+    while (cursor < raw.size()) {
+        const size_t end = raw.find('\n', cursor);
+        const size_t count = (end == std::string::npos ? raw.size() : end) - cursor;
+        const std::string field = raw.substr(cursor, count);
+        std::string encoded = field;
+        if (!field.empty() && field[0] != '-' && (field[0] < '0' || field[0] > '9')) {
+            const auto shared = std::find(kAudioRecorderSignatures.begin(),
+                                          kAudioRecorderSignatures.end(), field);
+            if (shared != kAudioRecorderSignatures.end()) {
+                encoded = "#" + std::to_string(shared - kAudioRecorderSignatures.begin());
+            } else {
+                auto local = localIndices.find(field);
+                if (local == localIndices.end()) {
+                    const size_t index = localNames.size();
+                    localNames.push_back(field);
+                    local = localIndices.emplace(field, index).first;
+                }
+                encoded = "$" + std::to_string(local->second);
+            }
+        }
+        tokenized += encoded;
+        tokenized.push_back('\n');
+        if (end == std::string::npos) break;
+        cursor = end + 1;
+    }
+
+    std::ostringstream file;
+    file.imbue(std::locale::classic());
+    file << "FunctionObjectRecorderV4\n" << kAudioRecorderSignatures.size() << '\n';
+    for (const auto signature : kAudioRecorderSignatures) file << signature << '\n';
+    file << localNames.size() << '\n';
+    for (const auto& name : localNames) file << name << '\n';
+    file << AudioRecorderNumber(state.recordingStopMs) << '\n' << tokenized;
+    a_outText = file.str();
+    return true;
+}
+
+bool InflateAudioRecorder(const std::string& a_compressed, std::string& a_out) {
+    z_stream stream{};
+    if (inflateInit(&stream) != Z_OK) return false;
+    stream.next_in = reinterpret_cast<Bytef*>(
+        const_cast<char*>(a_compressed.data()));
+    stream.avail_in = static_cast<uInt>(std::min<size_t>(
+        a_compressed.size(), std::numeric_limits<uInt>::max()));
+    std::array<char, 16384> chunk{};
+    int result = Z_OK;
+    a_out.clear();
+    while (result == Z_OK) {
+        stream.next_out = reinterpret_cast<Bytef*>(chunk.data());
+        stream.avail_out = static_cast<uInt>(chunk.size());
+        result = inflate(&stream, Z_NO_FLUSH);
+        const size_t produced = chunk.size() - stream.avail_out;
+        if (a_out.size() + produced > 64u * 1024u * 1024u) {
+            inflateEnd(&stream);
+            return false;
+        }
+        a_out.append(chunk.data(), produced);
+    }
+    inflateEnd(&stream);
+    return result == Z_STREAM_END;
+}
+
+bool ReadAudioRecorderFile(const std::string& a_path, int a_area,
+                           std::string& a_out) {
+    std::string compressed;
+    bool read = false;
+    if (a_area == 0) {
+        read = SaveData::ReadFile(a_path, compressed);
+    } else if (a_area == 1 || a_area == 2) {
+        FileHelper* files = GetEngineContext().fileHelper;
+        read = files && files->ReadTextFile(a_path, compressed);
+    }
+    return read && InflateAudioRecorder(compressed, a_out);
+}
+
+bool ParseAudioRecorderV4(const std::string& a_text,
+                          std::set<std::string>& a_resources,
+                          std::vector<RecordedPlaySoundEvent>& a_events,
+                          float& a_stopMs) {
+    std::vector<std::string> lines;
+    std::istringstream input(a_text);
+    input.imbue(std::locale::classic());
+    for (std::string line; std::getline(input, line);) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        lines.push_back(std::move(line));
+    }
+    size_t cursor = 0;
+    auto next = [&](const std::string*& value) {
+        if (cursor >= lines.size()) return false;
+        value = &lines[cursor++];
+        return true;
+    };
+    auto parseUnsigned = [](const std::string& value, uint32_t& out) {
+        if (value.empty()) return false;
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(value.c_str(), &end, 10);
+        if (!end || *end != '\0' || parsed > UINT32_MAX) return false;
+        out = static_cast<uint32_t>(parsed);
+        return true;
+    };
+    auto parseHandle = [&](const std::string& value, uint32_t& out) {
+        if (value.empty()) return false;
+        char* end = nullptr;
+        const long long parsed = std::strtoll(value.c_str(), &end, 10);
+        if (!end || *end != '\0' || parsed < INT32_MIN || parsed > UINT32_MAX)
+            return false;
+        out = static_cast<uint32_t>(parsed);
+        return true;
+    };
+    auto parseInt = [](const std::string& value, int& out) {
+        if (value.empty()) return false;
+        char* end = nullptr;
+        const long parsed = std::strtol(value.c_str(), &end, 10);
+        if (!end || *end != '\0' || parsed < INT_MIN || parsed > INT_MAX) return false;
+        out = static_cast<int>(parsed);
+        return true;
+    };
+    auto parseFloat = [](const std::string& value, float& out) {
+        std::istringstream number(value);
+        number.imbue(std::locale::classic());
+        number >> out;
+        return number && number.peek() == std::char_traits<char>::eof() &&
+               std::isfinite(out);
+    };
+
+    const std::string* line = nullptr;
+    if (!next(line) || *line != "FunctionObjectRecorderV4") return false;
+    uint32_t sharedCount = 0;
+    if (!next(line) || !parseUnsigned(*line, sharedCount) ||
+        sharedCount != kAudioRecorderSignatures.size()) return false;
+    for (const auto signature : kAudioRecorderSignatures)
+        if (!next(line) || *line != signature) return false;
+
+    uint32_t localCount = 0;
+    if (!next(line) || !parseUnsigned(*line, localCount) || localCount > 100000)
+        return false;
+    std::vector<std::string> localNames;
+    localNames.reserve(localCount);
+    for (uint32_t i = 0; i < localCount; ++i) {
+        if (!next(line)) return false;
+        localNames.push_back(*line);
+    }
+    if (!next(line) || !parseFloat(*line, a_stopMs) || a_stopMs < 0.0f)
+        return false;
+
+    // Retail expands #shared and $file-local tokens across the whole raw
+    // recorder body before it parses the resource list and callback stream.
+    std::vector<std::string> body;
+    for (; cursor < lines.size(); ++cursor) {
+        std::string field = lines[cursor];
+        if (field.size() > 1 && (field[0] == '#' || field[0] == '$')) {
+            uint32_t index = 0;
+            if (!parseUnsigned(field.substr(1), index)) return false;
+            if (field[0] == '#') {
+                if (index >= kAudioRecorderSignatures.size()) return false;
+                field = kAudioRecorderSignatures[index];
+            } else {
+                if (index >= localNames.size()) return false;
+                field = localNames[index];
+            }
+        }
+        body.push_back(std::move(field));
+    }
+
+    size_t bodyCursor = 0;
+    auto take = [&](const std::string*& value) {
+        if (bodyCursor >= body.size()) return false;
+        value = &body[bodyCursor++];
+        return true;
+    };
+    uint32_t resourceCount = 0;
+    if (!take(line) || !parseUnsigned(*line, resourceCount) || resourceCount > 100000)
+        return false;
+    std::set<std::string> resources;
+    for (uint32_t i = 0; i < resourceCount; ++i) {
+        std::string path;
+        int baseNote = 0;
+        if (!take(line) || line->empty()) return false;
+        path = *line;
+        if (!take(line) || !parseInt(*line, baseNote)) return false;
+        resources.insert(std::move(path));
+    }
+
+    std::vector<RecordedPlaySoundEvent> events;
+    while (bodyCursor < body.size()) {
+        RecordedPlaySoundEvent event;
+        const std::string* signature = nullptr;
+        if (!take(line) || !parseFloat(*line, event.timeMs) || event.timeMs < 0.0f ||
+            !take(signature) || !take(line) || line->empty()) return false;
+        const std::string& callbackSignature = *signature;
+        if (callbackSignature == kAudioRecorderSignatures[32]) {
+            event.chainRoute = false;
+        } else if (callbackSignature == kAudioRecorderSignatures[2]) {
+            event.chainRoute = true;
+        } else {
+            // Native V4 supports more callback classes than this port has
+            // modeled. Reject instead of silently shifting their field data.
+            return false;
+        }
+        event.path = *line;
+        if (!take(line) || !parseInt(*line, event.note) ||
+            !take(line) || !parseFloat(*line, event.gate) ||
+            !take(line) || !parseFloat(*line, event.pan) ||
+            !take(line) || !parseFloat(*line, event.volume) ||
+            !take(line) || !parseInt(*line, event.priority) ||
+            !take(line) || !parseHandle(*line, event.effectChainHandle) ||
+            !take(line) || !parseInt(*line, event.startPositionMs)) return false;
+        if (!event.chainRoute && event.effectChainHandle != 0) return false;
+        resources.insert(event.path);
+        events.push_back(std::move(event));
+    }
+
+    a_resources = std::move(resources);
+    a_events = std::move(events);
+    return true;
+}
+
+int GM_CDECL gmf_loadScriptFromFile(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    const int area = a_thread->ParamInt(1, 0);
+    std::string text;
+    std::set<std::string> resources;
+    std::vector<RecordedPlaySoundEvent> events;
+    float stopMs = 0.0f;
+    const bool ok = ReadAudioRecorderFile(path, area, text) &&
+        ParseAudioRecorderV4(text, resources, events, stopMs);
+    gmMachine* machine = a_thread->GetMachine();
+    ClearRecordedPlaySounds(*machine);
+    State().recordedSoundResources.clear();
+    State().playbackEventIndex = 0;
+    State().playbackElapsedMs = 0.0f;
+    // FUN_00017810 flushes the event vectors and resets the stop threshold,
+    // but does not clear playback mode byte +0x31. Preserve that mode on both
+    // successful loads and wrapper-triggered failure flushes.
+    State().recordingStopMs = 0.0f;
+    if (ok) {
+        for (auto& event : events) {
+            if (!event.chainRoute) continue;
+            event.effectChain = FindEffectChainByHandle(
+                *machine, event.effectChainHandle);
+            if (event.effectChain.IsReference())
+                RetainAudioGMVariable(*machine, event.effectChain);
+        }
+        State().recordedSoundResources = std::move(resources);
+        State().recordedPlaySounds = std::move(events);
+        State().recordingStopMs = stopMs;
+    }
+    return GM_OK;
+}
+
+int GM_CDECL gmf_saveScriptToFile(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    const int area = a_thread->ParamInt(1, 0);
+    std::string compressed;
+    long long size = 0;
+    bool ok = false;
+
+    // User generated levels invoke this with FILEHELPER_AREA_SAVEDATA. Other
+    // areas map to platform mount roots which this desktop port does not own.
+    if (area == 0) {
+        std::string serialized;
+        if (BuildRecordedAudioV4(serialized) && serialized.size() <= ULONG_MAX) {
+            uLongf capacity = compressBound(static_cast<uLong>(serialized.size()));
+            compressed.resize(capacity);
+            const int result = compress2(reinterpret_cast<Bytef*>(compressed.data()), &capacity,
+                reinterpret_cast<const Bytef*>(serialized.data()),
+                static_cast<uLong>(serialized.size()), Z_DEFAULT_COMPRESSION);
+            if (result == Z_OK) {
+                compressed.resize(capacity);
+                ok = SaveData::WriteFile(path, compressed);
+                if (ok) size = static_cast<long long>(compressed.size());
+            }
+        }
+    }
+
+    gmMachine* machine = a_thread->GetMachine();
+    gmTableObject* ticket = machine->AllocTableObject();
+    ticket->Set(machine, "size", gmVariable(static_cast<gmint>(size)));
+    ticket->Set(machine, "error", gmVariable(static_cast<gmint>(ok ? 0 : 1)));
+    ticket->Set(machine, "getSize",
+                gmVariable(machine->AllocFunctionObject(gmf_audioSaveRequestGetSize)));
+    a_thread->Push(gmVariable(ticket));
+    return GM_OK;
+}
+
 int GM_CDECL gmf_zeroInt(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 // Audio manager constructor 0x00022528 stores 48 at +0x24; the retail
 // getDefaultBaseNote wrapper 0x00084d28 returns that exact field.
@@ -1163,11 +2718,16 @@ int GM_CDECL gmf_getDefaultBaseNote(gmThread* a_thread) {
     a_thread->PushInt(48);
     return GM_OK;
 }
-// Audio.checkDiracPoolIntegrity() -- confirmed real: pushes type tag 1
-// 0x00087f80), not the plain no-return gmf_noop this was previously mapped
-// to. No real DSP pool exists here to corrupt, so "integrity ok" (true)
-// is the honest default rather than a fabricated failure.
-int GM_CDECL gmf_trueBool(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
+// Audio.checkDiracPoolIntegrity() returns (DAT_004333d0 == 0) in retail.
+// The SDL-backed Slicker voices own the corresponding local lifetime count.
+int GM_CDECL gmf_checkDiracPoolIntegrity(gmThread* a_thread) {
+    a_thread->PushInt(State().diracPoolEntriesUsed == 0 ? 1 : 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_getDiracPoolEntriesUsed(gmThread* a_thread) {
+    a_thread->PushInt(static_cast<gmint>(State().diracPoolEntriesUsed));
+    return GM_OK;
+}
 
 gmFunctionEntry s_audioLib[] = {
     {"loadSound", gmf_loadSound, nullptr},
@@ -1228,20 +2788,23 @@ gmFunctionEntry s_audioLib[] = {
 
     // Script recording and save/load have live shipped callers (Main.gm
     // records audio while saving user levels and calls saveScriptToFile for
-    // the .jef payload). The desktop FunctionObjectRecorder/SAVEREQUEST path
-    // is not implemented yet, so these remain explicit no-op/false stubs;
-    // they are known retail parity gaps, not unused retail APIs.
+    // the .jef payload). The legacy startRecording/stopRecording/isRecording
+    // methods above are separately audited: the first two call retail no-op
+    // helpers and the query always returns false. The script recorder APIs
+    // below implement the captured playSound subset of FunctionObjectRecorder;
+    // other callback classes, native SAVEREQUEST identity, and non-savedata
+    // write areas remain open.
     {"startRecording", gmf_noop, nullptr},
     {"stopRecording", gmf_noop, nullptr},
     {"isRecording", gmf_falseBool, nullptr},
-    {"startRecordingScript", gmf_noop, nullptr},
-    {"stopRecordingScript", gmf_noop, nullptr},
-    {"isRecordingScript", gmf_falseBool, nullptr},
-    {"startPlayingScript", gmf_noop, nullptr},
-    {"stopPlayingScript", gmf_noop, nullptr},
-    {"isPlayingScript", gmf_falseBool, nullptr},
-    {"saveScriptToFile", gmf_noop, nullptr},
-    {"loadScriptFromFile", gmf_noop, nullptr},
+    {"startRecordingScript", gmf_startRecordingScript, nullptr},
+    {"stopRecordingScript", gmf_stopRecordingScript, nullptr},
+    {"isRecordingScript", gmf_isRecordingScript, nullptr},
+    {"startPlayingScript", gmf_startPlayingScript, nullptr},
+    {"stopPlayingScript", gmf_stopPlayingScript, nullptr},
+    {"isPlayingScript", gmf_isPlayingScript, nullptr},
+    {"saveScriptToFile", gmf_saveScriptToFile, nullptr},
+    {"loadScriptFromFile", gmf_loadScriptFromFile, nullptr},
     {"startRetriggering", gmf_noop, nullptr},
     {"stopRetriggering", gmf_noop, nullptr},
     {"isRetriggering", gmf_falseBool, nullptr},
@@ -1255,18 +2818,19 @@ gmFunctionEntry s_audioLib[] = {
     {"getFreeMemory", gmf_zeroInt, nullptr},
     {"getDefaultBaseNote", gmf_getDefaultBaseNote, nullptr},
     {"getNumDiracDSPsFree", gmf_zeroInt, nullptr},
-    {"getNumDiracDSPsUsed", gmf_zeroInt, nullptr},
-    {"getNumDiracDSPChannelsUsed", gmf_zeroInt, nullptr},
+    {"getNumDiracDSPsUsed", gmf_getDiracPoolEntriesUsed, nullptr},
+    {"getNumDiracDSPChannelsUsed", gmf_getDiracPoolEntriesUsed, nullptr},
     {"getNumDiracDSPs", gmf_zeroInt, nullptr},
-    {"checkDiracPoolIntegrity", gmf_trueBool, nullptr},
+    {"checkDiracPoolIntegrity", gmf_checkDiracPoolIntegrity, nullptr},
 };
 
 } // namespace
 
 void CleanupAudioManagerTrackedResources() {
-    // Retail AudioManagerClearTrackedResources releases manager-owned resource
-    // references without stopping active voices. Shared sample references held
-    // by live voices therefore survive this clear.
+    // Retail FUN_00022604 empties AudioManager's named-resource list and
+    // releases its manager-owned backend handles. Voice objects can still
+    // retain their resource independently, so leave State().voices intact;
+    // shared sample references provide that same lifetime split here.
     State().loadedSounds.clear();
     State().soundLengthMs.clear();
     g_loadedSoundSamples.clear();
@@ -1275,12 +2839,22 @@ void CleanupAudioManagerTrackedResources() {
     g_decodedSounds.clear();
 }
 
+void StopAllVoicesForProcessListReset() {
+    for (auto& entry : State().voices)
+        StartVoiceFade(entry.second, 60.0);
+}
+
 int CreateVoiceNative(const std::string& a_path, float a_pan, float a_volume,
                       int a_note) {
     return CreateVoiceState(a_path, a_pan, a_volume, a_note);
 }
 
 void AdvanceAudioVoices(float a_deltaMs) {
+    // Retail AudioManager dispatches its recorder timer before updating the
+    // backend, and the scheduler advances by a fixed 16.666 ms step rather
+    // than using the voice-mixer delta. Do this even when the backend receives
+    // a zero/invalid delta for this frame.
+    DispatchRecordedPlaySounds();
     if (!(a_deltaMs > 0.0f) || !std::isfinite(a_deltaMs)) {
         ProcessDeferredEffectCleanup(State().machine,
                                      State().effectsWaitingForVoiceEnd, false);
@@ -1292,7 +2866,13 @@ void AdvanceAudioVoices(float a_deltaMs) {
     auto& voices = State().voices;
     for (auto it = voices.begin(); it != voices.end();) {
         VoiceState& voice = it->second;
-        if (voice.paused) {
+        // Retail FUN_00022c78 advances its manager-owned stop/fade envelope
+        // independently of the backend channel's pause bit. In particular,
+        // Audio.stopAllVoices() during a process-list reset must still retire
+        // voices that the pause menu had paused. Keep playback position and
+        // ordinary note-gate timing frozen while paused, but let an explicit
+        // timed stop/fade finish below.
+        if (voice.paused && !voice.stopping) {
             ++it;
             continue;
         }
@@ -1300,50 +2880,81 @@ void AdvanceAudioVoices(float a_deltaMs) {
         if (!voice.stopping && voice.gateDurationMs > 0.0) {
             voice.gateElapsedMs += a_deltaMs;
             if (voice.gateElapsedMs >= voice.gateDurationMs) {
-                const double overshootMs = voice.gateElapsedMs -
-                                           voice.gateDurationMs;
                 StartVoiceFade(voice, 60.0);
                 // FUN_00022c78 hard-resets the embedded gate Alarm after
                 // scheduling its zero-duration stop (FUN_000c47e0).
                 voice.gateElapsedMs = 0.0;
-                voice.fadeRemainingMs = 60.0 - overshootMs;
-                if (voice.fadeRemainingMs <= 0.0) {
-                    it = voices.erase(it);
-                    continue;
-                }
+                // Retail skips the remainder of this voice update after the
+                // gate expires; the new fade starts at 1.0 on the next tick.
                 gateTriggered = true;
             }
         }
+        if (gateTriggered) {
+            // Retail branches to the per-voice loop tail after scheduling
+            // the gate stop, so playback/ramp/fade state advances next tick.
+            ++it;
+            continue;
+        }
         if (voice.stopping && !gateTriggered) {
-            if (voice.fadeDurationMs > 0.0) {
-                voice.fadeRemainingMs -= a_deltaMs;
-                if (voice.fadeRemainingMs <= 0.0) {
-                    it = voices.erase(it);
-                    continue;
-                }
-            } else {
+            if (voice.stopRemainingMs > 0.0) {
                 voice.stopRemainingMs -= a_deltaMs;
                 if (voice.stopRemainingMs <= 0.0) {
+                    if (State().machine)
+                        DetachVoiceFromEffectChain(*State().machine, it->first, voice);
+                    ReleaseDiracPoolEntry(voice);
                     it = voices.erase(it);
                     continue;
                 }
+            } else if (voice.fadeDurationMs >= 0.0) {
+                // Retail FUN_00022c78 checks the f32 envelope at the start
+                // of its update. It stops/removes an already-zero voice;
+                // otherwise it subtracts (delta / duration) in double and
+                // stores the result back to the f32 envelope, clamping at 0.
+                if (voice.fadeGain <= 0.0f) {
+                    if (State().machine)
+                        DetachVoiceFromEffectChain(*State().machine, it->first, voice);
+                    ReleaseDiracPoolEntry(voice);
+                    it = voices.erase(it);
+                    continue;
+                }
+                const double fadeStep =
+                    (1.0 / voice.fadeDurationMs) * a_deltaMs;
+                voice.fadeGain = static_cast<float>(
+                    - (fadeStep - static_cast<double>(voice.fadeGain)));
+                if (voice.fadeGain <= 0.0f) voice.fadeGain = 0.0f;
+                voice.fadeRemainingMs =
+                    static_cast<double>(voice.fadeGain) * voice.fadeDurationMs;
             }
+        }
+        if (voice.paused) {
+            ++it;
+            continue;
         }
         if (!std::isfinite(voice.speed)) {
             ++it;
             continue;
         }
         voice.positionMs += PlaybackAdvanceMs(voice, a_deltaMs);
-        if (voice.speedRampRemainingMs > 0.0) {
-            const double rampMs = std::min((double)a_deltaMs,
-                                           voice.speedRampRemainingMs);
-            const double fraction = rampMs / voice.speedRampRemainingMs;
-            voice.speed += (float)((voice.targetSpeed - voice.speed) * fraction);
-            voice.speedRampRemainingMs -= rampMs;
-            if (voice.speedRampRemainingMs <= 0.0)
+        if (voice.speedRampRate != 0.0f) {
+            const float elapsedSpeedDelta = static_cast<float>(
+                static_cast<double>(voice.speedRampRate) * a_deltaMs);
+            const float remainingSpeedDelta =
+                voice.targetSpeed - voice.speed;
+            if (std::fabs(elapsedSpeedDelta) <
+                std::fabs(remainingSpeedDelta)) {
+                voice.speed += elapsedSpeedDelta;
+            } else {
                 voice.speed = voice.targetSpeed;
+                voice.speedRampRate = 0.0f;
+            }
         }
-        const int length = SoundLengthMs(voice.soundFile);
+        double length = SoundLengthMs(voice.soundFile);
+        if (voice.timeStretchedSample &&
+            voice.timeStretchedSample->stereo.size() >= 2) {
+            length = static_cast<double>(
+                voice.timeStretchedSample->stereo.size() / 2) *
+                1000.0 / kOutputRate;
+        }
         // A missing or unsupported asset has no known end marker. Keep its
         // handle available for explicit stop, while still advancing its
         // script-visible cursor.
@@ -1354,10 +2965,13 @@ void AdvanceAudioVoices(float a_deltaMs) {
         }
         if (voice.looping || voice.loopCount > 1) {
             if (voice.loopCount > 1) --voice.loopCount;
-            voice.positionMs = std::fmod(voice.positionMs, (double)length);
+            voice.positionMs = std::fmod(voice.positionMs, length);
             if (voice.positionMs < 0.0) voice.positionMs += length;
             ++it;
         } else {
+            if (State().machine)
+                DetachVoiceFromEffectChain(*State().machine, it->first, voice);
+            ReleaseDiracPoolEntry(voice);
             it = voices.erase(it);
         }
     }
@@ -1376,6 +2990,10 @@ void ShutdownAudioOutput() {
     if (g_audioOutputStarted && g_audioFrontend) g_audioFrontend->StopAudioOutput();
     g_audioOutputStarted = false;
     g_decodedSounds.clear();
+    g_timeStretchedSounds.clear();
+    g_loadedSoundSamples.clear();
+    g_loadedSoundModes.clear();
+    g_loadedSoundResourceKinds.clear();
 }
 
 void SetMasterVolumeNative(float a_vol) { State().masterVolume = a_vol; }
@@ -1389,7 +3007,15 @@ float GetMasterVolumeNative() { return State().masterVolume; }
 int GM_CDECL PlaySoundNative(gmThread* a_thread) { return gmf_playSound(a_thread); }
 
 void RegisterAudioBindings(gmMachine& a_machine, PlatformFrontend& a_frontend) {
+    if (State().machine != &a_machine) {
+        ChainHandles().Reset();
+        g_effectChainsByHandle.clear();
+    }
     g_audioFrontend = &a_frontend;
     State().machine = &a_machine;
+    // The retail scheduler constructor initializes its timer before the first
+    // startRecordingScript call; stopRecordingScript can therefore snapshot
+    // meaningful elapsed time even when called without an active recording.
+    State().recordingStart = std::chrono::steady_clock::now();
     a_machine.RegisterLibrary(s_audioLib, sizeof(s_audioLib) / sizeof(s_audioLib[0]), "Audio");
 }

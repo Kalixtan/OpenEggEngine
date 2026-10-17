@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,8 @@ struct RetailSymbol {
 #include "retail_symbols.inc"
 
 gmMachine* g_machine = nullptr;
+StrictCalls::HaltDialogHandler g_haltDialogHandler = nullptr;
+void* g_haltDialogContext = nullptr;
 
 // ---------------------------------------------------------------------------
 // Native-table marking
@@ -152,42 +155,44 @@ bool RecordSurvey(const std::string& a_name, const std::string& a_callSite) {
 // Reporting
 // ---------------------------------------------------------------------------
 
-void PrintReport(gmThread* a_thread, const std::string& a_name, bool a_unbound,
-                 const std::string& a_file, int a_line, bool a_haveSite) {
-    std::fprintf(stderr,
+std::string FormatReport(gmThread* a_thread, const std::string& a_name, bool a_unbound,
+                         const std::string& a_file, int a_line, bool a_haveSite) {
+    std::ostringstream report;
+    report <<
         "\n"
         "================================================================================\n"
         " GE3 STRICT: script called an engine function that is not implemented 1-1 yet\n"
-        "================================================================================\n");
-    std::fprintf(stderr, "  function     : %s\n", a_name.c_str());
-    std::fprintf(stderr, "  status       : %s\n", a_unbound
-        ? "never bound -- no implementation of any kind exists"
-        : "fabricated implementation removed -- needs porting from the decompiled body");
+        "================================================================================\n"
+        << "  function     : " << a_name << '\n'
+        << "  status       : " << (a_unbound
+            ? "never bound -- no implementation of any kind exists"
+            : "fabricated implementation removed -- needs porting from the decompiled body")
+        << '\n';
 
     if (a_haveSite) {
-        std::fprintf(stderr, "  called from  : %s:%d\n", a_file.c_str(), a_line);
+        report << "  called from  : " << a_file << ':' << a_line << '\n';
     } else {
-        std::fprintf(stderr, "  called from  : <native bootstrap, no script frame>\n");
+        report << "  called from  : <native bootstrap, no script frame>\n";
     }
 
     // Arguments: the real signature is often the thing you most need to know
     // before writing the replacement, and the decompiled body only tells you
     // the arity, not what the values look like in practice.
     int numParams = a_thread->GetNumParams();
-    std::fprintf(stderr, "  arguments    : %d\n", numParams);
+    report << "  arguments    : " << numParams << '\n';
     for (int i = 0; i < numParams; ++i) {
-        std::fprintf(stderr, "      [%d] %s\n", i,
-                     DescribeValue(a_thread->GetMachine(), a_thread->Param(i)).c_str());
+        report << "      [" << i << "] "
+               << DescribeValue(a_thread->GetMachine(), a_thread->Param(i)) << '\n';
     }
 
     if (const RetailSymbol* sym = FindRetailSymbol(a_name)) {
-        std::fprintf(stderr, "  retail body  : %s\n",
-                     sym->source[0] ? sym->source : "(no decompiled body clustered)");
-        std::fprintf(stderr, "  EBOOT.elf    : %s\n", sym->address);
+        report << "  retail body  : "
+               << (sym->source[0] ? sym->source : "(no decompiled body clustered)") << '\n'
+               << "  EBOOT.elf    : " << sym->address << '\n';
     } else {
-        std::fprintf(stderr, "  retail body  : not in the reveng index -- no decompiled body found\n");
-        std::fprintf(stderr, "                 for this name (regenerate with\n");
-        std::fprintf(stderr, "                 reveng/generate_retail_symbol_index.py if reveng/ changed)\n");
+        report << "  retail body  : not in the reveng index -- no decompiled body found\n"
+                  "                 for this name (regenerate with\n"
+                  "                 reveng/generate_retail_symbol_index.py if reveng/ changed)\n";
     }
 
     // The GM-side call stack goes through the machine log rather than stderr,
@@ -196,13 +201,24 @@ void PrintReport(gmThread* a_thread, const std::string& a_name, bool a_unbound,
     if (g_machine) {
         bool first = true;
         const char* entry;
-        std::fprintf(stderr, "  script stack :\n");
+        report << "  script stack :\n";
         while ((entry = g_machine->GetLog().GetEntry(first))) {
-            std::fprintf(stderr, "      %s\n", entry);
+            report << "      " << entry << '\n';
         }
         g_machine->GetLog().Reset();
     }
-    std::fprintf(stderr, "================================================================================\n");
+    report << "================================================================================\n";
+    return report.str();
+}
+
+void PrintReport(const std::string& report) {
+    std::fwrite(report.data(), 1, report.size(), stderr);
+    std::fflush(stderr);
+}
+
+bool AskToContinue(const std::string& report) {
+    return g_haltDialogHandler &&
+           g_haltDialogHandler(g_haltDialogContext, report.c_str());
 }
 
 // A small, hand-curated set of retail functions whose decompiled body is a
@@ -345,13 +361,21 @@ void OnNullCall(gmThread* a_thread, const char* a_symbol) {
         }
         return;
     }
-    PrintReport(a_thread, name, /*unbound=*/true, file, line, haveSite);
+    const std::string report = FormatReport(
+        a_thread, name, /*unbound=*/true, file, line, haveSite);
+    PrintReport(report);
+    if (AskToContinue(report)) return;
     Halt();
 }
 
 } // namespace
 
 namespace StrictCalls {
+
+void SetHaltDialogHandler(HaltDialogHandler handler, void* context) {
+    g_haltDialogHandler = handler;
+    g_haltDialogContext = context;
+}
 
 Mode GetMode() {
     static Mode mode = [] {
@@ -398,7 +422,13 @@ int Report(gmThread* a_thread, const char* a_name) {
         return GM_OK;
     }
 
-    PrintReport(a_thread, name, /*unbound=*/false, file, line, haveSite);
+    const std::string report = FormatReport(
+        a_thread, name, /*unbound=*/false, file, line, haveSite);
+    PrintReport(report);
+    if (AskToContinue(report)) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
     Halt();
 }
 

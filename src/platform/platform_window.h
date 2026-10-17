@@ -77,6 +77,11 @@ constexpr int Count=14;
 
 class PlatformFrontend : public PlatformWindow {
 public:
+    virtual void ShowErrorMessage(const char* title, const char* message) = 0;
+    // Returns true only when the user chooses to continue with the engine's
+    // null fallback after a missing retail API call. False requests shutdown.
+    virtual bool ShowUnimplementedFunctionDialog(const char* title,
+                                                 const char* message) = 0;
     virtual bool PollEvent(PlatformEvent& event) = 0;
     virtual uint32_t Milliseconds() const = 0;
     virtual uint64_t PerformanceCounter() const = 0;
@@ -92,6 +97,7 @@ public:
     virtual bool IsControllerPresent(int index) = 0;
     virtual bool IsControllerButtonDown(int index, int buttonCode) = 0;
     virtual float ControllerAxis(int index, int axis) = 0;
+    virtual void SetActiveControllerSoftRumble(bool enabled) = 0;
     virtual bool DecodeWave(const std::string& path, int outputRate,
                            std::vector<float>& stereoSamples) = 0;
     virtual bool StartAudioOutput(int sampleRate) = 0;

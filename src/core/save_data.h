@@ -20,6 +20,10 @@
 // changed.
 namespace SaveData {
 
+// Directory containing the running executable, independent of the process
+// working directory. Paths returned by the filesystem-facing API use UTF-8.
+const std::string& ExecutableDirectory();
+
 // Absolute path to the save directory (created on first use if missing).
 // Resolved once, relative to the running executable (NOT the current
 // working directory, which SDL/whatever launched this from may have set to
@@ -45,10 +49,5 @@ long long FileSize(const std::string& a_relativePath);
 // SAVEDATA_reqDelete contract of "not an error if already gone" -- retail's
 // file being missing).
 bool DeleteFile(const std::string& a_relativePath);
-
-// Deletes everything under the save directory -- "start a new game, no
-// leftover save data affecting anything" for testing. See main.cpp's
-// GE3_CLEAR_SAVE handling for how this gets triggered at boot.
-void ClearAll();
 
 } // namespace SaveData

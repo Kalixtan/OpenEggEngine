@@ -7,7 +7,7 @@ class FileHelper;
 #include "renderer.h"
 
 // Loads the retail bitmap/SDF font format confirmed from
-// game_data_min/HelveticaNeueLTCom-{Hv,Lt}.json + matching _00.png atlas:
+// diagnostic fixture's HelveticaNeueLTCom-{Hv,Lt}.json + matching _00.png atlas:
 // a single JSON page with pixel-space glyph rects (u0/v0/u1/v1) and
 // em-normalized metrics (width/height/advance/yOfs/bearingX, all fractions
 // notes -- this one's fully known, no guessing involved.

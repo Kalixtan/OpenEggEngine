@@ -1,10 +1,13 @@
 #include "sdl_frontend.h"
 #include "frontend_factory.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <vector>
 
 namespace {
 int NormalizePadButton(Uint8 button) {
@@ -40,6 +43,7 @@ SDL_GameControllerButton NativePadButton(int button) {
     return button >= 0 && button < PlatformPadButton::Count
         ? map[button] : SDL_CONTROLLER_BUTTON_INVALID;
 }
+
 }
 
 std::unique_ptr<PlatformFrontend> CreatePlatformFrontend() {
@@ -48,6 +52,9 @@ std::unique_ptr<PlatformFrontend> CreatePlatformFrontend() {
 
 bool SdlFrontend::Create(int width, int height, const char* title, bool hidden) {
     if (m_window || m_context) Destroy();
+#if defined(_WIN32) && defined(SDL_MAIN_HANDLED)
+    SDL_SetMainReady();
+#endif
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return false;
@@ -59,27 +66,66 @@ bool SdlFrontend::Create(int width, int height, const char* title, bool hidden) 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-
     const Uint32 visibility = hidden ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN;
-    m_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                width, height,
-                                SDL_WINDOW_OPENGL | visibility | SDL_WINDOW_RESIZABLE);
-    if (!m_window) {
-        std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-        Destroy();
-        return false;
+    // Try multisampling first, then lower sample counts, and finally a plain
+    // context. Some drivers cannot provide the requested format at the
+    // desktop's current resolution, so AA must not prevent startup.
+    constexpr int sampleCounts[] = {4, 2, 0};
+    for (int samples : sampleCounts) {
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, samples > 0 ? 1 : 0);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, samples);
+
+        m_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                    width, height,
+                                    SDL_WINDOW_OPENGL | visibility | SDL_WINDOW_RESIZABLE);
+        if (m_window) m_context = SDL_GL_CreateContext(m_window);
+        if (m_window && m_context) break;
+
+        const char* error = SDL_GetError();
+        std::fprintf(stderr, "SDL OpenGL setup with %d samples failed: %s\n",
+                     samples, error ? error : "unknown SDL error");
+        if (m_context) {
+            SDL_GL_DeleteContext(m_context);
+            m_context = nullptr;
+        }
+        if (m_window) {
+            SDL_DestroyWindow(m_window);
+            m_window = nullptr;
+        }
     }
-    m_context = SDL_GL_CreateContext(m_window);
-    if (!m_context) {
-        std::fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+    if (!m_window || !m_context) {
         Destroy();
         return false;
     }
     SDL_GL_SetSwapInterval(1);
     return true;
+}
+
+void SdlFrontend::ShowErrorMessage(const char* title, const char* message) {
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, message, m_window);
+}
+
+bool SdlFrontend::ShowUnimplementedFunctionDialog(const char* title,
+                                                  const char* message) {
+    const SDL_MessageBoxButtonData buttons[] = {
+        {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Continue"},
+        {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Quit"},
+    };
+    const SDL_MessageBoxData dialog = {
+        SDL_MESSAGEBOX_WARNING,
+        m_window,
+        title,
+        message,
+        static_cast<int>(std::size(buttons)),
+        buttons,
+        nullptr,
+    };
+    int selectedButton = 0;
+    if (SDL_ShowMessageBox(&dialog, &selectedButton) != 0) return false;
+    return selectedButton == 1;
 }
 
 void SdlFrontend::Destroy() {
@@ -285,6 +331,21 @@ float SdlFrontend::ControllerAxis(int index, int axis) {
     return value < -1.0f ? -1.0f : value;
 }
 
+void SdlFrontend::SetActiveControllerSoftRumble(bool enabled) {
+    RefreshControllers();
+    for (SDL_GameController* controller : m_controllers) {
+        if (!controller || !SDL_GameControllerGetAttached(controller)) continue;
+
+        // Retail sets CellPadActParam.motor[0] to 0/1 for one input update.
+        // That byte is the PS3 small motor; SDL represents it as the high-
+        // frequency channel. The game input update is 60 Hz (16.67 ms), so
+        // use a 17 ms SDL pulse and stop immediately when disabled.
+        SDL_GameControllerRumble(controller, 0,
+            enabled ? 0xffff : 0, enabled ? 17u : 0u);
+        break;
+    }
+}
+
 bool SdlFrontend::DecodeWave(const std::string& path, int outputRate,
                              std::vector<float>& stereoSamples) {
     stereoSamples.clear();
@@ -292,6 +353,11 @@ bool SdlFrontend::DecodeWave(const std::string& path, int outputRate,
     Uint8* bytes = nullptr;
     Uint32 byteCount = 0;
     if (!SDL_LoadWAV(path.c_str(), &source, &bytes, &byteCount)) return false;
+    if (!bytes || byteCount == 0 || source.freq <= 0 || source.channels == 0 ||
+        source.channels > 8) {
+        SDL_FreeWAV(bytes);
+        return false;
+    }
     SDL_AudioCVT cvt{};
     if (SDL_BuildAudioCVT(&cvt, source.format, source.channels, source.freq,
                           AUDIO_F32SYS, 2, outputRate) < 0) {
@@ -304,19 +370,29 @@ bool SdlFrontend::DecodeWave(const std::string& path, int outputRate,
         return false;
     }
     cvt.len = static_cast<int>(byteCount);
-    cvt.buf = static_cast<Uint8*>(SDL_malloc(static_cast<size_t>(cvt.len) * cvt.len_mult));
+    const size_t convertedCapacity = static_cast<size_t>(cvt.len) *
+                                     static_cast<size_t>(cvt.len_mult);
+    cvt.buf = static_cast<Uint8*>(SDL_malloc(convertedCapacity));
     if (!cvt.buf) {
         SDL_FreeWAV(bytes);
         return false;
     }
     std::memcpy(cvt.buf, bytes, byteCount);
     SDL_FreeWAV(bytes);
-    if (SDL_ConvertAudio(&cvt) != 0) {
+    if (SDL_ConvertAudio(&cvt) != 0 || cvt.len_cvt <= 0 ||
+        static_cast<size_t>(cvt.len_cvt) > convertedCapacity ||
+        cvt.len_cvt % static_cast<int>(sizeof(float) * 2) != 0) {
         SDL_free(cvt.buf);
         return false;
     }
     const size_t floatCount = static_cast<size_t>(cvt.len_cvt) / sizeof(float);
     const float* decoded = reinterpret_cast<const float*>(cvt.buf);
+    for (size_t i = 0; i < floatCount; ++i) {
+        if (!std::isfinite(decoded[i])) {
+            SDL_free(cvt.buf);
+            return false;
+        }
+    }
     stereoSamples.assign(decoded, decoded + floatCount);
     SDL_free(cvt.buf);
     return true;

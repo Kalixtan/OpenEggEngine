@@ -64,19 +64,25 @@ inline float RetailGroundRemainder(float a_value, float a_divisor) {
 
 // Verification: ordinary finite-positive MATH_POW (`0x1dc1c0`) is traced
 // through PPC instructions and constants in
-// ground domain only: 0 <= base <= 1 and 0 <= exponent <= 1. Intermediate
-// float operations round to binary32; the reduced exponential's rational
-// expression is binary64 before `frsp`, matching the PPC sequence. Values
-// outside this domain still use the host library and are not parity-verified.
-inline float RetailGroundPow(float a_base, float a_exponent) {
-    if (!(a_base >= 0.0f && a_base <= 1.0f &&
-          a_exponent >= 0.0f && a_exponent <= 1.0f) ||
-        !std::isfinite(a_base) || !std::isfinite(a_exponent)) {
-        return std::pow(a_base, a_exponent);
+// positive bases through 1; audio note pitch also calls it with base 2. The
+// PPC algorithm is generic for positive finite bases, but only the ground
+// domain has numeric stream evidence. This implementation accepts 0 < base
+// <= 2 and -127 < exponent < 127; the audio base-2 path is instruction traced
+// but not yet runtime-compared. Intermediate float operations round to
+// binary32; the reduced exponential's rational expression is binary64 before
+// `frsp`, matching the PPC sequence. Other inputs use the host library.
+inline float RetailGroundPowScaled(float a_base, float a_exponent,
+                                   float a_multiplier) {
+    if (!(a_base > 0.0f && a_base <= 2.0f &&
+          a_exponent > -127.0f && a_exponent < 127.0f) ||
+        !std::isfinite(a_base) || !std::isfinite(a_exponent) ||
+        !std::isfinite(a_multiplier)) {
+        return static_cast<float>(std::pow(a_base, a_exponent) * a_multiplier);
     }
-    if (a_exponent == 0.0f) return 1.0f;
+    if (a_exponent == 0.0f) return a_multiplier;
     if (a_base == 0.0f) return 0.0f;
-    if (a_base == 1.0f || a_exponent == 1.0f) return a_base;
+    if (a_base == 1.0f) return a_multiplier;
+    if (a_exponent == 1.0f) return a_base * a_multiplier;
 
     const float kSqrtHalf = FloatFromBits(0x3f3504f3u);
     const float kLn2 = FloatFromBits(0x3f317218u);
@@ -112,9 +118,8 @@ inline float RetailGroundPow(float a_base, float a_exponent) {
         float exponentHigh = a_exponent;
         if (splitBits > 23) {
             // FUN_001dcc10 clears both fraction words and preserves only the
-            // sign bit in this branch. Ground callers provide a nonnegative
-            // exponent, so the retained high part is positive zero.
-            exponentHigh = 0.0f;
+            // exponent sign bit in this branch.
+            exponentHigh = FloatFromBits(exponentBits & 0x80000000u);
         } else if (splitBits > 0) {
             exponentHigh = FloatFromBits(exponentBits &
                 ~((uint32_t{1} << splitBits) - 1u));
@@ -139,11 +144,13 @@ inline float RetailGroundPow(float a_base, float a_exponent) {
                                     FloatFromBits(0x3eccae11u));
         polynomial = std::fma(z2, polynomial, FloatFromBits(0x3f2aaac0u));
         const float logCorrection = z * (numerator - z2 * polynomial);
-        const float exponentF = static_cast<float>(baseExponent);
-        const float splitCorrection = std::fma(exponentF, kLn2Low,
-                                               logCorrection);
-        logSignificand = std::fma(exponentF, kLn2High,
-                                  numerator - splitCorrection);
+        // This is log(significand) only. The base-2 exponent contribution is
+        // already represented by `logResidual` and `integerScale` above. The
+        // previous version folded baseExponent*ln(2) into this term too,
+        // counting it twice whenever the input base was below 0.5. That
+        // distorted fractional powers used by rounded-rectangle corners and
+        // the same shared math path used by ground/player rendering.
+        logSignificand = numerator - logCorrection;
     }
     logResidual = std::fma(logSignificand, a_exponent, logResidual);
 
@@ -156,7 +163,7 @@ inline float RetailGroundPow(float a_base, float a_exponent) {
                              logResidual);
     reduced = std::fma(static_cast<float>(expScale), -kLn2Low, reduced);
 
-    float result = 1.0f;
+    double result = 1.0;
     const float kExpTiny = FloatFromBits(0x33000000u); // 2^-25
     if (reduced <= -kExpTiny || reduced >= kExpTiny) {
         const float square = reduced * reduced;
@@ -167,8 +174,12 @@ inline float RetailGroundPow(float a_base, float a_exponent) {
                                  static_cast<double>(numeratorTerm) + 1.0;
         const double denominator = static_cast<double>(denominatorTerm) -
                                    static_cast<double>(numeratorTerm) + 1.0;
-        result = static_cast<float>(numerator / denominator);
+        result = numerator / denominator;
     }
+    // PPC FUN_001dce40 multiplies its reduced rational result by the
+    // integer-power factor before frsp and exponent scaling. Keeping this
+    // product here preserves that ordering for the player's split exponent.
+    result = static_cast<float>(result * static_cast<double>(a_multiplier));
 
     // FUN_002b75a0 changes the binary exponent directly. Its denormal path
     // right-shifts the implicit leading bit without rounding, so ldexp() is
@@ -186,6 +197,56 @@ inline float RetailGroundPow(float a_base, float a_exponent) {
     if (rightShift >= 24) return 0.0f;
     const uint32_t significandBits = (resultBits & 0x7fffffu) | 0x800000u;
     return FloatFromBits(significandBits >> rightShift);
+}
+
+inline float RetailGroundPow(float a_base, float a_exponent) {
+    return RetailGroundPowScaled(a_base, a_exponent, 1.0f);
+}
+
+// Audio.setVoiceNote and the playSound setup path first round the note
+// difference to f32, convert that value to a signed 64-bit integer with PPC
+// fctidz, round it back to f32, multiply by the ELF constant 0x3daaaaab
+// (1/12), and call MATH_POW with base 2.0f (0x40000000). Keeping that sequence
+// avoids host pow and division rounding differences in the rendered pitch.
+inline float RetailAudioNotePitchRatio(int a_note, int a_referenceNote) {
+    const uint32_t differenceBits = static_cast<uint32_t>(a_note) -
+                                    static_cast<uint32_t>(a_referenceNote);
+    int32_t noteDifference;
+    std::memcpy(&noteDifference, &differenceBits, sizeof(noteDifference));
+    const float roundedDifference = static_cast<float>(noteDifference);
+    const int64_t ppcIntegerDifference = static_cast<int64_t>(roundedDifference);
+    const float retailDifference = static_cast<float>(ppcIntegerDifference);
+    const float exponent = retailDifference * FloatFromBits(0x3daaaaabu);
+    return RetailGroundPow(2.0f, exponent);
+}
+
+// Verification: the native MATH_POW branch truncates the exponent, caps the
+// positive integer component at 0xe5 (229), computes it by float-rounded
+// exponentiation by squaring, then passes the fractional exponent and factor
+// to FUN_001dce40. This covers finite [0,1] bases and exponents in
+// (-230,230), including the player's 1.7 and variable [0,7] powers. Negative
+// integer components use the PPC float-rounded reciprocal. Other base domains
+// and exceptional-value classification remain on the host path.
+inline float RetailPlayerPow(float a_base, float a_exponent) {
+    if (!(a_base >= 0.0f && a_base <= 1.0f &&
+          a_exponent > -230.0f && a_exponent < 230.0f &&
+          (a_base > 0.0f || a_exponent >= 0.0f)) ||
+        !std::isfinite(a_base) || !std::isfinite(a_exponent)) {
+        return std::pow(a_base, a_exponent);
+    }
+    const int integerExponent = static_cast<int>(a_exponent); // PPC fctiwz
+    const float fractionalExponent = a_exponent -
+                                     static_cast<float>(integerExponent);
+    float integerPower = 1.0f;
+    float power = a_base;
+    int remaining = integerExponent < 0 ? -integerExponent : integerExponent;
+    while (remaining != 0) {
+        if ((remaining & 1) != 0) integerPower *= power;
+        remaining >>= 1;
+        if (remaining != 0) power *= power;
+    }
+    if (integerExponent < 0) integerPower = 1.0f / integerPower;
+    return RetailGroundPowScaled(a_base, fractionalExponent, integerPower);
 }
 
 // Verification: retail FUN_001dd1ac's PPC range reduction, quadrant selection,

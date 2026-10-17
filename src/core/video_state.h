@@ -60,6 +60,74 @@ struct VideoState {
     // Updated once per main-loop frame from the same elapsed-ms value sent to
     // the VM. Retail Video.getFrameTime reads the timing manager's +0xeb8.
     float frameTimeMs = 0.0f;
+    // State behind GAME_SetSelectionPulseRate/AlphaPerc/IsSelectionPulseEnabled.
+    // Retail's Video update callback advances the ping-pong scalar only while
+    // selection pulsing is enabled; its range is configured to [0.65, 1.0],
+    // contour (0.5, 0.5), and speed 2/rate (initial rate 700).
+    bool selectionPulseEnabled = false;
+    float selectionPulseRate = 700.0f;
+    float selectionPulseScale = 2.0f / 700.0f;
+    float selectionPulsePhase = 0.0f;
+    float selectionPulseDirection = 1.0f;
+    float selectionPulsePerc = 0.0f;
+    float selectionAlphaPerc = 1.0f;
+
+    void SetSelectionPulseRate(double a_rate) {
+        // GE3_Internal_AnimationSetScalarTimeScale (0x15cb0): select 1.0
+        // for rate <= 0, otherwise use rate; divide in double, narrow to f32,
+        // then multiply by the f32 constant 2.0.
+        const double denominator = a_rate > 0.0 ? a_rate : 1.0;
+        const float reciprocal = static_cast<float>(1.0 / denominator);
+        selectionPulseRate = static_cast<float>(a_rate);
+        selectionPulseScale = reciprocal * 2.0f;
+    }
+
+    void SetSelectionAlphaPerc(double a_percentage) {
+        // Retail helper stores the f64 argument as a single-precision global;
+        // it does not clamp the value.
+        selectionAlphaPerc = static_cast<float>(a_percentage);
+    }
+
+    void SetSelectionPulseEnabled(bool a_enabled) {
+        selectionPulseEnabled = a_enabled;
+    }
+
+    void AdvanceSelectionPulse(double a_deltaMs) {
+        if (!selectionPulseEnabled) {
+            // The retail setter only stores its enable byte; the Video update
+            // callback publishes the disabled phase and style row.
+            selectionPulsePerc = 0.75f;
+            return;
+        }
+        // FUN_00015918 narrows delta*scale to f32 and clamps to [0,1].
+        float step = static_cast<float>(a_deltaMs *
+                                       static_cast<double>(selectionPulseScale));
+        if (!(step > 0.0f)) step = 0.0f;
+        if (step > 1.0f) step = 1.0f;
+
+        // FUN_00016810 advances the f32 phase and reflects once at either
+        // endpoint, reversing the signed direction. Its input is clamped to
+        // one, so at most one endpoint can be crossed per callback.
+        float phase = static_cast<float>(static_cast<double>(step) *
+                                         static_cast<double>(selectionPulseDirection) +
+                                         static_cast<double>(selectionPulsePhase));
+        if (phase < 0.0f) {
+            selectionPulseDirection = -selectionPulseDirection;
+            phase = std::fabs(phase);
+        } else if (phase > 1.0f) {
+            selectionPulseDirection = -selectionPulseDirection;
+            phase = 2.0f - phase;
+        }
+        selectionPulsePhase = phase;
+
+        // The configured LFO contour is (0.5,0.5), which is the identity
+        // contour. Its endpoints are 0.65 and 1.0; the shader receives
+        // reference(1.0) minus that value.
+        const float lfoValue = static_cast<float>(
+            static_cast<double>(0.35f) * static_cast<double>(phase) + 0.65);
+        selectionPulsePerc = static_cast<float>(1.0 -
+                                                  static_cast<double>(lfoValue));
+    }
     // FUN_0004e6b8 adds these offsets after the PPC logical-half centering
     // shift. The Video graphics-state constructor initializes both to zero.
     int viewportOffsetX = 0;

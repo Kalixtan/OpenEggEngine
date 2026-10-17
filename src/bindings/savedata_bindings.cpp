@@ -268,6 +268,26 @@ int GM_CDECL gmf_SAVEDATA_reqSaveFromLoadRequest(gmThread* a_thread) {
     return GM_OK;
 }
 
+// SAVEDATA_reqSaveString(filename, content, [requestMode]) -- retail wrapper
+// 0xacb00 converts the first two arguments to strings and returns a typed
+// SAVEREQUEST. A third non-null argument selects an alternate request
+// constructor; it does not replace either string payload. The desktop save
+// API completes requests synchronously, so persist the content now and
+// expose the same filename/byte-count/status methods as other tickets.
+// Retail's native object and asynchronous request-manager lifecycle remain
+// outside this adapter.
+int GM_CDECL gmf_SAVEDATA_reqSaveString(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 2) return GM_EXCEPTION;
+    GM_STRING_PARAM(filename, 0, "");
+    GM_STRING_PARAM(content, 1, "");
+    const bool saved = SaveData::WriteFile(filename, content);
+    const long long byteCount = static_cast<long long>(
+        std::char_traits<char>::length(content));
+    a_thread->Push(MakeSizeTicket(*a_thread->GetMachine(), filename,
+                                  byteCount, true, !saved, true));
+    return GM_OK;
+}
+
 // classes/SaveData.c @ 0xac588). Real call sites (DebugMenuNew.gm, Main.gm's
 // `saveSuccessful = SAVEDATA_SaveAll()`) treat the return as success/fail;
 // this engine's writes (via AddString/AddCompressedString below, and
@@ -372,6 +392,17 @@ int GM_CDECL gmf_SAVEDATA_showOsMsgDialog(gmThread* a_thread) {
     return GM_OK;
 }
 
+// DIALOG_SaveDialogUsrMsg(msg, ...) -- the retail wrapper runs a value
+// formatter, then calls FUN_0017dda0, whose complete PPC body is `li r3,0;
+// blr`. It always returns GM_INT(0); the located game-data calls are all
+// commented out. Keep the global callable with the observed return tag
+// without inventing a desktop dialog. See Dialog.c @ 0xac17c.
+int GM_CDECL gmf_Dialog_SaveDialogUsrMsg(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+    a_thread->PushInt(0);
+    return GM_OK;
+}
+
 } // namespace
 
 void RegisterSaveDataBindings(gmMachine& a_machine) {
@@ -394,6 +425,7 @@ void RegisterSaveDataBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("SAVEDATA_reqLoadFile", gmf_SAVEDATA_reqLoadFile);
     a_machine.RegisterLibraryFunction("SAVEDATA_reqDelete", gmf_SAVEDATA_reqDelete);
     a_machine.RegisterLibraryFunction("SAVEDATA_reqSaveFromLoadRequest", gmf_SAVEDATA_reqSaveFromLoadRequest);
+    a_machine.RegisterLibraryFunction("SAVEDATA_reqSaveString", gmf_SAVEDATA_reqSaveString);
     a_machine.RegisterLibraryFunction("SAVEDATA_SaveAll", gmf_SAVEDATA_SaveAll);
     a_machine.RegisterLibraryFunction("SAVEDATA_AddString", gmf_SAVEDATA_AddString);
     a_machine.RegisterLibraryFunction("SAVEDATA_AddCompressedString", gmf_SAVEDATA_AddCompressedString);
@@ -406,4 +438,5 @@ void RegisterSaveDataBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("SAVEDATA_resetLastRequests", gmf_SAVEDATA_resetLastRequests);
     a_machine.RegisterLibraryFunction("SAVEDATA_showNoSpaceOnMediaDialog", gmf_SAVEDATA_showNoSpaceOnMediaDialog);
     a_machine.RegisterLibraryFunction("SAVEDATA_showOsMsgDialog", gmf_SAVEDATA_showOsMsgDialog);
+    a_machine.RegisterLibraryFunction("DIALOG_SaveDialogUsrMsg", gmf_Dialog_SaveDialogUsrMsg);
 }

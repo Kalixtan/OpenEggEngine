@@ -1,6 +1,8 @@
 #include "draw_context.h"
 #include "draw_list.h"
 #include "../core/engine_context.h"
+#include "../core/system_config.h"
+#include "renderer.h"
 #include "../core/save_data.h"
 #include "../core/strict_calls.h"
 #include "../bindings/colour_bindings.h"
@@ -40,7 +42,7 @@ static std::optional<std::string> ResolveDrawTexturePath(const char* a_path, int
     else if (a_area == 2) fullPath = a_path;
     else return std::nullopt;
     std::error_code ec;
-    if (!std::filesystem::is_regular_file(fullPath, ec) || ec) return std::nullopt;
+    if (!std::filesystem::is_regular_file(std::filesystem::u8path(fullPath), ec) || ec) return std::nullopt;
     return fullPath;
 }
 
@@ -65,10 +67,7 @@ int GM_CDECL DC_gmf_pushAttributes(gmThread* a_thread) {
         ctx.attrStack.push_back({ctx.depthTest, ctx.depthWrite, ctx.colourMask,
                                   ctx.stencilFunc, ctx.stencilRef,
                                   ctx.stencilSfail, ctx.stencilDpfail, ctx.stencilDppass,
-                                  ctx.culling, ctx.fontEdge, ctx.fontWidth,
-                                  ctx.distanceTextureEnabled,
-                                  ctx.distanceTextureDiscardLevel,
-                                  ctx.distanceTextureSmoothLevel});
+                                  ctx.culling});
     });
 }
 
@@ -88,11 +87,6 @@ int GM_CDECL DC_gmf_popAttributes(gmThread* a_thread) {
         ctx.stencilDpfail = a.stencilDpfail;
         ctx.stencilDppass = a.stencilDppass;
         ctx.culling = a.culling;
-        ctx.fontEdge = a.fontEdge;
-        ctx.fontWidth = a.fontWidth;
-        ctx.distanceTextureEnabled = a.distanceTextureEnabled;
-        ctx.distanceTextureDiscardLevel = a.distanceTextureDiscardLevel;
-        ctx.distanceTextureSmoothLevel = a.distanceTextureSmoothLevel;
 
         Renderer* renderer = GetEngineContext().renderer;
         renderer->SetDepthTest(ctx.depthTest);
@@ -573,6 +567,23 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
     int align = (idx < n) ? a_thread->ParamInt(idx++, 0) : 0;
     gmVariable printInfo = (idx < n) ? a_thread->Param(idx++) : gmVariable::s_null;
 
+    // PRINTINFO.shouldDraw=false is the script API's measurement-only mode
+    // (e.g. DrawBubble measures its button caption before positioning it).
+    // Keep text metrics and the PRINTINFO out-parameters below, but do not
+    // enqueue glyphs for this pass. Without this check, the measuring print
+    // leaks a duplicate button icon/text at the current matrix origin.
+    bool shouldDrawText = true;
+    if (printInfo.m_type == GM_TABLE) {
+        gmTableObject* table = static_cast<gmTableObject*>(
+            a_thread->GetMachine()->GetObject(printInfo.m_value.m_ref));
+        const gmVariable drawFlag = table->Get(a_thread->GetMachine(), "shouldDraw");
+        if (drawFlag.m_type == GM_INT && drawFlag.m_value.m_int == 0) {
+            shouldDrawText = false;
+        } else if (drawFlag.m_type == GM_FLOAT && drawFlag.m_value.m_float == 0.0f) {
+            shouldDrawText = false;
+        }
+    }
+
     // Resolve the (left, right, y, z) bounds form into a single anchor x
     // now that align is known -- see this function's leading-numerics
     // comment above. The 2/3-numeric direct (x,[y],[z]) forms already hand
@@ -653,30 +664,32 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
         // once at build time.
         BitmapFont* font = engineCtx.currentFont;
         Renderer* renderer = engineCtx.renderer;
-        DC_RecordOrRun(a_thread, [font, renderer, lines, x, y, localZ, scale, align] {
-            DrawContext& ctx2 = GetDrawContext();
-            const DrawContext::Mat& top = ctx2.Top();
-            float z = top.z + localZ;
-            // GE3_TEXT_DIAG=1 -- report every glyph draw with the world
-            // position it actually lands at. Diagnostic for "no text on
-            // screen": distinguishes "print never runs" from "print runs
-            // but draws off-camera" (e.g. an entity left at the world
-            // origin), which look identical on a screenshot.
-            if (getenv("GE3_TEXT_DIAG")) {
-                float wx, wy;
-                DC_TransformPoint(top, x, y, wx, wy);
-                Renderer* r = GetEngineContext().renderer;
-                std::fprintf(stderr, "[text] '%s' world(%.2f,%.2f) z=%.2f scale=%.3f cam(%.2f,%.2f)\n",
-                             lines.empty() ? "" : lines[0].c_str(), wx, wy, z, scale,
-                             r ? r->GetCameraX() : 0.0f, r ? r->GetCameraY() : 0.0f);
-            }
-            float lineY = y;
-            for (const std::string& line : lines) {
-                font->DrawText(*renderer, line, x, lineY, scale, align, ctx2.fontEdge, ctx2.fontWidth,
-                                top.a, top.b, top.c, top.d, top.e, top.f, z);
-                lineY -= scale * kLineSpacing; // LOCAL space: each subsequent line sits lower before rotation is applied
-            }
-        });
+        if (shouldDrawText) {
+            DC_RecordOrRun(a_thread, [font, renderer, lines, x, y, localZ, scale, align] {
+                DrawContext& ctx2 = GetDrawContext();
+                const DrawContext::Mat& top = ctx2.Top();
+                float z = top.z + localZ;
+                // GE3_TEXT_DIAG=1 -- report every glyph draw with the world
+                // position it actually lands at. Diagnostic for "no text on
+                // screen": distinguishes "print never runs" from "print runs
+                // but draws off-camera" (e.g. an entity left at the world
+                // origin), which look identical on a screenshot.
+                if (getenv("GE3_TEXT_DIAG")) {
+                    float wx, wy;
+                    DC_TransformPoint(top, x, y, wx, wy);
+                    Renderer* r = GetEngineContext().renderer;
+                    std::fprintf(stderr, "[text] '%s' world(%.2f,%.2f) z=%.2f scale=%.3f cam(%.2f,%.2f)\n",
+                                 lines.empty() ? "" : lines[0].c_str(), wx, wy, z, scale,
+                                 r ? r->GetCameraX() : 0.0f, r ? r->GetCameraY() : 0.0f);
+                }
+                float lineY = y;
+                for (const std::string& line : lines) {
+                    font->DrawText(*renderer, line, x, lineY, scale, align, ctx2.fontEdge, ctx2.fontWidth,
+                                    top.a, top.b, top.c, top.d, top.e, top.f, z);
+                    lineY -= scale * kLineSpacing; // LOCAL space: each subsequent line sits lower before rotation is applied
+                }
+            });
+        }
 
         float maxHalfWidth = 0.0f;
         for (const std::string& line : lines) {
@@ -902,7 +915,11 @@ int GM_CDECL DC_gmf_setupOrthoView(gmThread* a_thread) {
 int GM_CDECL DC_gmf_setupAspectRatioOrthoView(gmThread* a_thread) {
     // RETAIL PPC: FUN_0003e4a0 reads Video+0x81bc before building the matrix
     // command. Capture the same value now because DrawList execution is deferred.
-    const float aspect = GetEngineContext().video.aspectRatio;
+    // The desktop full-window option intentionally substitutes the current
+    // viewport ratio so UI and camera helpers adapt to arbitrary window shapes.
+    const auto& engine = GetEngineContext();
+    const float aspect = !SystemConfig::Get().letterbox && engine.renderer
+        ? engine.renderer->GetAspect() : engine.video.aspectRatio;
     return DC_RecordOrRun(a_thread, [aspect] {
         GetEngineContext().renderer->SetAspectRatioOrtho(aspect);
     });
@@ -1151,11 +1168,10 @@ int GM_CDECL gmf_DC_multMatrix(gmThread* a_thread) {
 // 9 when called without arguments, or the raw first argument when called
 // with one. Replay draws the prebuilt clear-screen VMSHAPE at GameSystem
 // +0x8154 via FUN_0030a278, then restores render state. This is a draw, not
-// a framebuffer clear: the opaque path must preserve depth/stencil contents.
-// The old alpha>=1 glClear branch ignored the script's explicit depth state
-// around the endpoint effect and erased those buffers. The one-argument
-// bitmask still selects retail state/config variants that this overlay
-// approximation does not yet model.
+// a framebuffer clear: opcode 4 applies mode-selected color-mask, depth-write,
+// stencil-op, and render-config branches while drawing the clear shape. The
+// old alpha>=1 glClear branch erased depth/stencil buffers without following
+// those branches.
 int GM_CDECL DC_gmf_clear(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     if (n > 1) return GM_EXCEPTION;
@@ -1164,9 +1180,8 @@ int GM_CDECL DC_gmf_clear(gmThread* a_thread) {
     const uint32_t mode = n == 0 ? 9u :
         static_cast<uint32_t>(a_thread->Param(0).m_value.m_int);
     return DC_RecordOrRun(a_thread, [mode] {
-        (void)mode; // Current desktop overlay models the default visual path.
         if (Renderer* renderer = GetEngineContext().renderer)
-            renderer->DrawFullscreenOverlay(GetDrawContext().Top().z);
+            renderer->DrawFullscreenOverlay(GetDrawContext().Top().z, mode);
     });
 }
 
@@ -1328,10 +1343,14 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
     auto resourceLease = ResolveTextureResourceLease(*a_thread->GetMachine(), a_thread->Param(handleParamIdx));
     Renderer* renderer = GetEngineContext().renderer;
     const int textureShaderType = renderer ? renderer->GetTextureShaderType(handle) : 0;
+    const unsigned int shapePrimitiveMode = extraObjectParamIdx >= 0
+        ? GetShapePrimitiveMode(*a_thread->GetMachine(),
+                                a_thread->Param(extraObjectParamIdx))
+        : 0;
 
     // The retail wrapper retains this extra native object during recording.
-    // Keep the reference alive through deferred desktop replay as well; the
-    // exact custom draw-buffer interpretation is still under audit.
+    // Keep it alive through deferred desktop replay as well; its retained
+    // primitive selects the native quad vertex/UV order below.
     if (extraObjectParamIdx >= 0) {
         const gmVariable& value = a_thread->Param(extraObjectParamIdx);
         if (value.m_type >= GM_USER) {
@@ -1357,7 +1376,8 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
     // reasoning as PrintImpl's deferred z/matrix read above.
     return DC_RecordOrRun(a_thread, [x0, y0, x1, y1, x2, y2, x3, y3, handle, extraZ,
                                      uvScaleU, uvScaleV,
-                                     textureShaderType, resourceLease] {
+                                     textureShaderType, shapePrimitiveMode,
+                                     resourceLease] {
         // RETAIL PPC: FUN_0003e6f0 attaches the texture, submits its shape,
         // then appends clearTexture (opcode 0x0e). A null texture returns
         // before emitting commands. Mirror that binding lifetime so later
@@ -1366,17 +1386,22 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
         DrawContext& drawContext = GetDrawContext();
         drawContext.currentTextureHandle = handle;
         const DrawContext::Mat& m = GetDrawContext().Top();
+        Renderer* renderer = GetEngineContext().renderer;
         // Opt-in diagnostic for the loading-screen matrix audit: record both
         // the script-space corners and the matrix active when the deferred
         // draw command executes. This separates Main.gm's dimension math from
         // DrawList matrix replay without changing either path.
         if (std::getenv("GE3_TRACE_UI_QUADS")) {
-            static unsigned int sourceTraceCount = 0;
-            if (sourceTraceCount++ < 160) {
+            const std::string& sourcePath = renderer
+                ? renderer->GetTextureSourcePath(handle) : std::string{};
+            std::string normalizedSourcePath = sourcePath;
+            std::replace(normalizedSourcePath.begin(), normalizedSourcePath.end(), '\\', '/');
+            if (normalizedSourcePath.find("/loadingScreens/") != std::string::npos) {
                 std::fprintf(stderr,
-                    "[ui-quad-source] tex=%u raw0=(%.5f,%.5f) raw1=(%.5f,%.5f) "
+                    "[ui-quad-source] path=%s tex=%u raw0=(%.5f,%.5f) raw1=(%.5f,%.5f) "
                     "mat=(%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f)\n",
-                    handle, x0, y0, x1, y1, m.a, m.b, m.c, m.d, m.e, m.f, m.z);
+                    sourcePath.c_str(), handle, x0, y0, x1, y1,
+                    m.a, m.b, m.c, m.d, m.e, m.f, m.z);
             }
         }
         float tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3;
@@ -1385,7 +1410,6 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
         DC_TransformPoint(m, x2, y2, tx2, ty2);
         DC_TransformPoint(m, x3, y3, tx3, ty3);
         const DrawContext& ctx = GetDrawContext();
-        Renderer* renderer = GetEngineContext().renderer;
         // Generated texture palettes and animation palettes already contain
         // their final RGB. drawAnimation applies white modulation for this
         // reason; without the same rule static generated sprites inherit a
@@ -1400,7 +1424,8 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
         renderer->DrawTexturedQuad(
             tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3, handle, m.z + extraZ,
             ctx.distanceTextureEnabled, ctx.distanceTextureDiscardLevel,
-            ctx.distanceTextureSmoothLevel, textureShaderType, uvScaleU, uvScaleV);
+            ctx.distanceTextureSmoothLevel, textureShaderType, uvScaleU, uvScaleV,
+            shapePrimitiveMode);
         if (generatedPalette) {
             renderer->SetColour(pr, pg, pb, pa);
         }
@@ -1514,8 +1539,10 @@ int GM_CDECL DC_gmf_drawTexture(gmThread* a_thread) {
         DC_TransformPoint(m, x3, y3, tx3, ty3);
         GetEngineContext().renderer->DrawTexturedQuad(
             tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3, handle, m.z + extraZ,
-            false, 0.5f, 0.45f, textureShaderType, uvScaleU, uvScaleV,
-            shapePrimitiveMode);
+            drawContext.distanceTextureEnabled,
+            drawContext.distanceTextureDiscardLevel,
+            drawContext.distanceTextureSmoothLevel,
+            textureShaderType, uvScaleU, uvScaleV, shapePrimitiveMode);
         drawContext.currentTextureHandle = 0;
     });
 }

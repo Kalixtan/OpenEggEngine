@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <string>
 
 // "Video.* and drawList.* really are (mostly) the same underlying command
 // list"; drawTextureByHandle/print/setColour/pushAttributes/popAttributes/
@@ -28,6 +29,11 @@ gmType GetDrawListType();
 struct DrawListData {
     int width = 0;
     int height = 0;
+    // Retail native DrawList+0x10. GAME_SetIsUsingSelectionFragmentProgram
+    // toggles this flag on the Entity's owned drawList; ReplayDrawListCommands
+    // copies it into render context. Alternate-config shader dispatch remains
+    // open in the portable renderer.
+    bool useSelectionFragmentProgram = false;
     // Retail draw-list constructor initializes native +0x30 to 0x200000ff.
     // Order setters replace its pass tier and quantized Z component.
     unsigned int orderKey = 0x200000ffu;
@@ -47,10 +53,8 @@ struct DrawListData {
 struct DrawListSubmission {
     std::shared_ptr<DrawListData::CommandBuffer> commandBuffer;
     unsigned int orderKey = 0x200000ffu;
-    // A narrow desktop renderer override retained for the SpawnPoint route.
-    bool disableDepthTest = false;
-    DrawContext context;
-    float colour[4] = {1, 1, 1, 1};
+    bool useSelectionFragmentProgram = false;
+    std::string debugLabel;
 };
 
 // Returns the drawList this native call's receiver is, if it was made
@@ -69,7 +73,7 @@ DrawListData* RecordingTarget(gmThread* a_thread);
 void ReplayDrawList(DrawListData* a_data);
 void ReplayDrawList(const std::shared_ptr<DrawListData::CommandBuffer>& a_buffer);
 DrawListSubmission CaptureDrawListSubmission(DrawListData* a_list,
-                                             bool a_disableDepthTest = false);
+                                               const char* a_debugLabel = nullptr);
 
 // Retail's frame renderer sorts each queued set of native draw-list pointers
 // by the unsigned order key at native DrawList+0x30 before replaying it.

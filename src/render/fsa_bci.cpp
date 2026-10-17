@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <sstream>
@@ -184,7 +185,7 @@ bool DecodePng(const uint8_t* data, size_t size, BciFrame& out) {
 bool FsaAsset::LoadFromFile(const std::string& a_path) {
     frames.clear();
     customSequence.clear();
-    std::ifstream f(a_path, std::ios::binary);
+    std::ifstream f(std::filesystem::u8path(a_path), std::ios::binary);
     if (!f) return false;
     std::ostringstream ss;
     ss << f.rdbuf();

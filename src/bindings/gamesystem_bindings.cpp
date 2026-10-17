@@ -3,6 +3,7 @@
 #include "../core/engine_context.h"
 #include "../core/process_manager.h"
 #include "gmTableObject.h"
+#include "gmCall.h"
 #include "vector2d_bindings.h"
 #include "../core/strict_calls.h"
 #include <cstdio>
@@ -16,6 +17,124 @@ namespace {
 
 float Random01() {
     return GetEngineContext().gameSystem.NextRandom01();
+}
+
+bool IsUnavailableCommunityProcess(const std::string& a_name) {
+    // The PS3 community screens depend on COMMONCOMMUNITYSTUFF_* providers
+    // supplied by the online service layer. That provider is absent from the
+    // mounted retail archives, and this desktop build intentionally keeps
+    // Network/Watermelon offline. Letting the process constructor run reaches
+    // missing globals during construction and leaves a half-created process.
+    // The offline compatibility path below supplies a ready no-op handle so
+    // stock menu code can keep its process list complete without changing any
+    // retail GameMonkey source.
+    return a_name == "Platformer_MainMenu5PS3_CommunityScreen" ||
+           a_name == "Platformer_MainMenu5_CommunityScreen";
+}
+
+int GM_CDECL OfflineCommunityProcessIsInited(gmThread* a_thread) {
+    a_thread->PushInt(1);
+    return GM_OK;
+}
+
+int GM_CDECL OfflineCommunityProcessNoOp(gmThread*) {
+    return GM_OK;
+}
+
+int GM_CDECL OfflineCommunityProcessZero(gmThread* a_thread) {
+    a_thread->PushInt(0);
+    return GM_OK;
+}
+
+int GM_CDECL OfflineCommunityProcessMinusOne(gmThread* a_thread) {
+    a_thread->PushInt(-1);
+    return GM_OK;
+}
+
+gmVariable MakeOfflineCommunityProcess(gmMachine& a_machine) {
+    // Retail menu scripts retain the returned process in their process list
+    // and wait for every entry's isInited() before completing the menu fade.
+    // A null return leaves a permanent hole; launchCommunity() can also
+    // replace its launcher with the result and terminate the launcher. Keep
+    // the online feature unavailable while giving those retail call paths an
+    // inert, already-ready process handle.
+    gmTableObject* stub = a_machine.AllocTableObject();
+    if (!stub) return gmVariable::s_null;
+    stub->Set(&a_machine, "isInited",
+              gmVariable(a_machine.AllocFunctionObject(&OfflineCommunityProcessIsInited)));
+    static const char* kNoOpMethods[] = {
+        "setOrigin", "refreshFunctionCache", "terminate", "update",
+        "preDraw", "postDraw", "onScroll", "onKeyPress", "onKeyRelease",
+        "onTouchDown", "onTouchUp",
+    };
+    for (const char* method : kNoOpMethods) {
+        stub->Set(&a_machine, method,
+                  gmVariable(a_machine.AllocFunctionObject(&OfflineCommunityProcessNoOp)));
+    }
+
+    // MainMenu5 calls PERSISTENTDATAHELPER_SaveMainMenuState with this
+    // process handle even while all online services are disabled. That helper
+    // reads the profile and online-album state tables before checking the
+    // online flag, so an empty process table raises a null-index exception on
+    // every menu update. Supply the inert shape the serializer expects; no
+    // network request or community UI is enabled by these placeholders.
+    gmTableObject* sidePanel = a_machine.AllocTableObject();
+    gmTableObject* state = a_machine.AllocTableObject();
+    gmTableObject* stateData = a_machine.AllocTableObject();
+    gmTableObject* profileState = a_machine.AllocTableObject();
+    gmTableObject* albumsState = a_machine.AllocTableObject();
+    gmTableObject* internalStates = a_machine.AllocTableObject();
+    gmTableObject* albumListState = a_machine.AllocTableObject();
+    gmTableObject* selectedButton = a_machine.AllocTableObject();
+    if (!sidePanel || !state || !stateData || !profileState || !albumsState ||
+        !internalStates || !albumListState || !selectedButton)
+        return gmVariable::s_null;
+
+    const gmVariable zeroFunction(
+        a_machine.AllocFunctionObject(&OfflineCommunityProcessZero));
+    const gmVariable noOpFunction(
+        a_machine.AllocFunctionObject(&OfflineCommunityProcessNoOp));
+
+    profileState->Set(&a_machine, "getCurrentUserID", zeroFunction);
+    profileState->Set(&a_machine, "getCurrentButton", zeroFunction);
+    stateData->Set(&a_machine, 1, gmVariable(profileState));
+    stateData->Set(&a_machine, 6, gmVariable(albumsState));
+    state->Set(&a_machine, "stateData", gmVariable(stateData));
+    state->Set(&a_machine, "getState",
+               gmVariable(a_machine.AllocFunctionObject(&OfflineCommunityProcessMinusOne)));
+    state->Set(&a_machine, "changeState", noOpFunction);
+
+    albumListState->Set(&a_machine, "persistentData", gmVariable::s_null);
+    albumListState->Set(&a_machine, "scrollOffset", gmVariable((gmint)0));
+    albumListState->Set(&a_machine, "currentSelection", gmVariable((gmint)0));
+    internalStates->Set(&a_machine, 0, gmVariable(albumListState));
+    albumsState->Set(&a_machine, "currentState", gmVariable((gmint)0));
+    albumsState->Set(&a_machine, "albumID", gmVariable::s_null);
+    albumsState->Set(&a_machine, "titleText", gmVariable::s_null);
+    albumsState->Set(&a_machine, "sidePanelURL", gmVariable::s_null);
+    albumsState->Set(&a_machine, "description", gmVariable::s_null);
+    albumsState->Set(&a_machine, "linerNotes", gmVariable::s_null);
+    albumsState->Set(&a_machine, "ALBUMLIST_INTERNALSTATEID", gmVariable((gmint)0));
+    albumsState->Set(&a_machine, "LEVELLIST_INTERNALSTATEID", gmVariable((gmint)-1));
+    albumsState->Set(&a_machine, "internalStates", gmVariable(internalStates));
+
+    selectedButton->Set(&a_machine, "isPanel", zeroFunction);
+    selectedButton->Set(&a_machine, "select", noOpFunction);
+    selectedButton->Set(&a_machine, "deselect", noOpFunction);
+    stub->Set(&a_machine, "sidePanel", gmVariable(sidePanel));
+    stub->Set(&a_machine, "persistentData_popupArguments", gmVariable::s_null);
+    stub->Set(&a_machine, "tabs", gmVariable::s_null);
+    stub->Set(&a_machine, "currentTab", gmVariable((gmint)0));
+    stub->Set(&a_machine, "selectedButton", gmVariable(selectedButton));
+    stub->Set(&a_machine, "moreButton", gmVariable(selectedButton));
+    stub->Set(&a_machine, "DAILY_BUTTON_INDEX", gmVariable((gmint)100));
+    stub->Set(&a_machine, "ONLINEALBUMS_BUTTON_INDEX", gmVariable((gmint)101));
+    stub->Set(&a_machine, "HITS_BUTTON_INDEX", gmVariable((gmint)102));
+    stub->Set(&a_machine, "DOWNLOADS_BUTTON_INDEX", gmVariable((gmint)103));
+    sidePanel->Set(&a_machine, "FRIENDS_STATE_NEW", gmVariable((gmint)1));
+    sidePanel->Set(&a_machine, "ONLINEALBUMS_STATE", gmVariable((gmint)6));
+    sidePanel->Set(&a_machine, "state", gmVariable(state));
+    return gmVariable(stub);
 }
 
 // ---------------------------------------------------------------------
@@ -165,6 +284,68 @@ int GM_CDECL gmf_startNewProcessList(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL OfflineLoginErrorNoOp(gmThread*) { return GM_OK; }
+
+// RunLoginPopup passes its LoginPopup table through PopupProcess.configure.
+// Some stock callers pass `{}` as the error callback, but LoginPopup and the
+// PS3 popup button both invoke `.execute()` unconditionally. Give only that
+// recognized callback table a no-op execute method; this preserves offline
+// behavior without changing GameMonkey sources or making other missing
+// methods silently succeed.
+void EnsureLoginPopupErrorCallback(gmMachine& a_machine,
+                                   const gmVariable& a_configureArgument) {
+    if (a_configureArgument.m_type != GM_TABLE) return;
+    auto* popupList = static_cast<gmTableObject*>(
+        a_machine.GetObject(a_configureArgument.m_value.m_ref));
+    if (!popupList) return;
+    gmVariable popupVar = popupList->Get((gmint)0);
+    if (popupVar.m_type != GM_TABLE) return;
+    auto* popup = static_cast<gmTableObject*>(
+        a_machine.GetObject(popupVar.m_value.m_ref));
+    if (!popup) return;
+    gmVariable bodyVar = popup->Get(&a_machine, "bodyTable");
+    if (bodyVar.m_type != GM_TABLE) return;
+    auto* body = static_cast<gmTableObject*>(
+        a_machine.GetObject(bodyVar.m_value.m_ref));
+    if (!body) return;
+    gmVariable stateRowVar = body->Get((gmint)2);
+    if (stateRowVar.m_type != GM_TABLE) return;
+    auto* stateRow = static_cast<gmTableObject*>(
+        a_machine.GetObject(stateRowVar.m_value.m_ref));
+    if (!stateRow || stateRow->Get(&a_machine, "createStates").m_type != GM_FUNCTION)
+        return;
+    gmVariable errorVar = stateRow->Get(&a_machine, "errorTable");
+    if (errorVar.m_type != GM_TABLE) return;
+    auto* errorTable = static_cast<gmTableObject*>(
+        a_machine.GetObject(errorVar.m_value.m_ref));
+    if (!errorTable || errorTable->Get(&a_machine, "execute").m_type != GM_NULL)
+        return;
+    errorTable->Set(&a_machine, "execute",
+        gmVariable(a_machine.AllocFunctionObject(OfflineLoginErrorNoOp)));
+}
+
+int GM_CDECL gmf_popupProcessConfigureOfflineCompat(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    gmMachine& machine = *a_thread->GetMachine();
+    if (a_thread->GetNumParams() > 0)
+        EnsureLoginPopupErrorCallback(machine, a_thread->Param(0));
+
+    gmCall call;
+    gmVariable result = gmVariable::s_null;
+    bool didReturn = false;
+    if (call.BeginTableFunction(&machine, "__ge3_popupConfigureOriginal",
+                                self, gmVariable(self))) {
+        for (int i = 0; i < a_thread->GetNumParams(); ++i)
+            call.AddParam(a_thread->Param(i));
+        call.End();
+        didReturn = call.DidReturnVariable();
+        if (didReturn) result = call.GetReturnedVariable();
+    }
+    if (didReturn && result.m_type != GM_NULL) a_thread->Push(result);
+    return GM_OK;
+}
+
 // Retail runProcess defaults its replacement flag to false. When true,
 // FUN_00187360 finds and terminates an existing same-name process before
 // constructing a new instance; it never returns that existing instance.
@@ -174,9 +355,39 @@ int GM_CDECL gmf_runProcess(gmThread* a_thread) {
     GM_STRING_PARAM(name, 0, "");
     bool replaceExisting = false;
     if (a_thread->GetNumParams() == 2) replaceExisting = a_thread->Param(1).m_value.m_int != 0;
+    if (IsUnavailableCommunityProcess(name)) {
+        static bool reportedUnavailableCommunity = false;
+        if (!reportedUnavailableCommunity) {
+            std::fprintf(stderr,
+                "[offline] skipped community screen process '%s'; online provider is unavailable\n",
+                name);
+            reportedUnavailableCommunity = true;
+        }
+        a_thread->Push(MakeOfflineCommunityProcess(*a_thread->GetMachine()));
+        return GM_OK;
+    }
     ProcessManager* pm = GetEngineContext().processManager;
     int id = pm ? pm->RunProcess(name, replaceExisting) : -1;
     Process* proc = (id >= 0 && pm) ? pm->Get(id) : nullptr;
+    if (proc && name == "Platformer_PopupProcess") {
+        gmVariable processTable = proc->table;
+        if (processTable.m_type == GM_TABLE) {
+            gmMachine& machine = *a_thread->GetMachine();
+            gmTableObject* table = static_cast<gmTableObject*>(
+                machine.GetObject(processTable.m_value.m_ref));
+            if (table && table->Get(&machine, "__ge3_popupConfigureWrapped").m_type != GM_INT) {
+                gmVariable configure = table->Get(&machine, "configure");
+                if (configure.m_type == GM_FUNCTION) {
+                    table->Set(&machine, "__ge3_popupConfigureOriginal", configure);
+                    table->Set(&machine, "configure",
+                        gmVariable(machine.AllocFunctionObject(
+                            gmf_popupProcessConfigureOfflineCompat)));
+                    table->Set(&machine, "__ge3_popupConfigureWrapped",
+                               gmVariable((gmint)1));
+                }
+            }
+        }
+    }
     if (proc) a_thread->Push(proc->table); else a_thread->PushNull();
     return GM_OK;
 }
@@ -455,13 +666,9 @@ int GM_CDECL gmf_getSimulationSpeed(gmThread* a_thread) {
 int GM_CDECL gmf_setSimulationSpeed(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(requestedSpeed, 0, 1.0f);
-    // Temporary diagnostic requested while investigating the recurring 0.1
-    // slow-motion setting. Keep the original GM script untouched and make the
-    // native getter report the same forced value the main-loop accumulator
-    // uses. Remove this override once the retail/local speed discrepancy is
-    // understood.
-    (void)requestedSpeed;
-    GetEngineContext().gameSystem.simulationSpeed = 1.0f;
+    // Retail GameSystem.setSimulationSpeed stores its argument directly at
+    // GameSystem +0xe68 (PPC setter FUN_0018bb40).
+    GetEngineContext().gameSystem.simulationSpeed = requestedSpeed;
     return GM_OK;
 }
 

@@ -6,17 +6,17 @@
 
 class PsarcArchive;
 
-// Resolves script/data paths across loose roots and mounted PSARC layers.
-// For the retail data layout, the loose game_data directory overlays
-// patch_data001.psarc, which overlays game_data.psarc. A PS3_Platformer copy
-// is only a fallback for missing Platformer assets; separately registered
-// roots follow in registration order (game_data_min supplies shared test
-// assets and scripts).
+// Resolves script/data paths across ordered retail data layers. For the
+// retail data layout, game_data.psarc is the base, loose game_data is pushed
+// over it, then each patch_data001..004 slot is applied in ascending order,
+// using its PSARC and/or raw directory. A PS3_Platformer copy is only a
+// fallback for missing Platformer assets within each layer;
+// separately registered roots follow in registration order.
 class FileHelper {
 public:
     // Verified against the supplied retail archive names/layout. Adding a
     // game_data directory auto-mounts its sibling "game_data packed" folder.
-    void AddRoot(const std::string& root);
+    void AddRoot(const std::string& root, const std::string& archiveRoot = {});
 
     // Returns the resolved absolute path, checking roots in registration
     // order and preferring the requested path over an overlay fallback.
@@ -41,6 +41,13 @@ private:
         std::string root;
         std::shared_ptr<PsarcArchive> archive;
     };
-    std::vector<Source> m_sources;
+    // Layers are recorded in retail application order (base -> loose ->
+    // patch001 archive/folder -> ... -> patch004 archive/folder). Resolution
+    // walks a root's layers backwards because each newly applied overlay has
+    // higher precedence. Separately registered roots retain registration order.
+    struct SourceGroup {
+        std::vector<Source> layers;
+    };
+    std::vector<SourceGroup> m_sourceGroups;
     std::string m_primaryRoot;
 };

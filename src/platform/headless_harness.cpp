@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
 #include <sstream>
 
 namespace {
@@ -22,7 +23,7 @@ bool HeadlessHarness::Init(PlatformFrontend& frontend) {
     const char* path = std::getenv("GE3_HARNESS");
     if (!path || !*path) return false;
 
-    std::ifstream in(path);
+    std::ifstream in(std::filesystem::u8path(path));
     if (!in) {
         std::fprintf(stderr, "[harness] cannot open script '%s'\n", path);
         return false;

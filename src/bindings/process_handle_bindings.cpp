@@ -13,6 +13,7 @@
 #include "physics_body_bindings.h"
 #include "foe_compat_bindings.h"
 #include "vector2d_bindings.h"
+#include "sequencer_bindings.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -178,26 +179,74 @@ int GM_CDECL gmf_process_drawGrounds(gmThread* a_thread) {
     RecordGroundsNative(static_cast<DrawListData*>(object->m_user));
     return GM_OK;
 }
-// Main.gm invokes onMusicTrigger on every process without testing whether
-// the process authored a callback. Retail's base process supplies the empty
-// callback for ControllerConfig, menus, and the native ground process.
-// Script callbacks already present on a returned process table take priority.
-int GM_CDECL gmf_process_onMusicTriggerDefault(gmThread*) { return GM_OK; }
+// EntityRegistration.onMusicTrigger (EBOOT 0x1d065c -> FUN_001ceb88) resets
+// both embedded ping-pong scalars (+0xbc/+0xdc) to 1 on every eighth step,
+// then retimes +0xbc to eight MainSequencer steps. GroundProcessNEW's native
+// fire/danger renderer consumes these values. Script callbacks already
+// present on a returned process table take priority over this native base.
+int GM_CDECL gmf_process_onMusicTriggerDefault(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc || a_thread->GetNumParams() < 1) return GM_OK;
+    const int step = a_thread->Param(0).m_value.m_int;
+    if (step % 8 != 0) return GM_OK;
+
+    proc->fireColourPhase = 1.0f;
+    proc->fireAmplitudePhase = 1.0f;
+    const float eightStepPeriod =
+        GetMainSequencerMsPerStep(*a_thread->GetMachine()) * 8.0f;
+    // FUN_00015cb0 stores 2/max(input, 1) in the scalar's time-scale field.
+    proc->fireAmplitudeScale = 2.0f / std::max(eightStepPeriod, 1.0f);
+    return GM_OK;
+}
 
 // Retail EBOOT also exports refreshFunctionCache on Process. This port's
 // ProcessManager resolves callback fields when dispatching each event, so a
 // changed method is visible immediately without a separate pointer cache.
 int GM_CDECL gmf_process_refreshFunctionCache(gmThread*) { return GM_OK; }
 
-// EntityRegistration.setFireThickness/setIsRefreshDrawListOnChange/
-// 0x001d07cc/0x001d06b4/0x001d0700), all called on the GroundProcessNEW
-// process handle (GroundProcessNEW.gm's constructor: `this.Process.
-// setFireThickness(SW*0.2);`; Main.gm:7320-7321: `this.groundProcess.
-// setupDrawLists(); this.groundProcess.setIsRefreshDrawListOnChange(true);`).
-// Desktop ground geometry currently reads its thickness/style config at
-// render time, so the list-refresh and setup calls have no separate queue to
-// maintain. setFireThickness's native consumer remains unverified.
-int GM_CDECL gmf_process_groundConfigNoop(gmThread* a_thread) {
+// EntityRegistration.setFireThickness(value), retail wrapper 0x1d07cc:
+// GM_FLOAT payload is stored directly; every other GM tag is treated as the
+// signed integer payload and converted to f32. Retail ignores extra args.
+int GM_CDECL gmf_process_setFireThickness(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+    const gmVariable& value = a_thread->Param(0);
+    proc->fireThickness = value.m_type == GM_FLOAT
+        ? value.m_value.m_float : static_cast<float>(value.m_value.m_int);
+    return GM_OK;
+}
+
+// EntityRegistration.getFireThickness(), retail wrapper 0x1d074c, returns
+// the f32 field at owner +0xb8 without additional conversion.
+int GM_CDECL gmf_process_getFireThickness(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc) return GM_EXCEPTION;
+    a_thread->PushFloat(proc->fireThickness);
+    return GM_OK;
+}
+
+// EntityRegistration.setIsRefreshDrawListOnChange(value), retail wrapper
+// 0x1d06b4, stores raw argument payload != 0 at owner +0x198. Interpreting
+// the payload as an integer preserves retail behavior for all GM tags.
+int GM_CDECL gmf_process_setRefreshDrawListsOnChange(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+    proc->refreshGroundDrawListsOnChange =
+        a_thread->Param(0).m_value.m_int != 0;
+    return GM_OK;
+}
+
+// EntityRegistration.setupDrawLists is retail 0x1d0700 -> FUN_001cec38.
+// The desktop currently has no persistent native ground child-draw-list
+// cache: RecordGroundsNative rebuilds the camera-visible batches during each
+// render pass. Keep the call harmless until that cache is ported; replacing
+// this with a guessed cache invalidation would change state without matching
+// the recovered owner/cell batch handoff.
+int GM_CDECL gmf_process_setupDrawLists(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;
 }
@@ -406,6 +455,44 @@ int GM_CDECL gmf_getObjectID(gmThread* a_thread) {
     return GM_OK;
 }
 
+// PROCESS.isHasErrors / getName / rename are entries in the retail PROCESS
+// method table at 0x4228b0. isHasErrors dispatches the object's vtable slot
+// +0x70, whose base Process implementation reads the error byte at +0x38.
+// rename obtains the supplied GM string bytes, computes their C-string
+// length, copies them into native string storage, then replaces the process
+// name. getName converts the stored native name back to GM_STRING.
+int GM_CDECL gmf_process_isHasErrors(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc) return GM_EXCEPTION;
+    a_thread->PushInt(proc->hasErrors ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_process_getName(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc) return GM_EXCEPTION;
+    a_thread->PushString(a_thread->GetMachine()->AllocStringObject(
+        proc->name.c_str()));
+    return GM_OK;
+}
+
+int GM_CDECL gmf_process_rename(gmThread* a_thread) {
+    gmTableObject* self = ThisHandleTable(a_thread);
+    Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
+    if (!proc || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+    const gmVariable& arg = a_thread->Param(0);
+    if (arg.m_type != GM_STRING || !arg.m_value.m_ref) return GM_EXCEPTION;
+    auto* stringObject = static_cast<gmStringObject*>(
+        a_thread->GetMachine()->GetObject(arg.m_value.m_ref));
+    if (!stringObject) return GM_EXCEPTION;
+    // Retail strlen (FUN_002b6af4) and native string assignment
+    // (FUN_0018c83c) both operate on the GM string's NUL-terminated bytes.
+    proc->name.assign(stringObject->GetString());
+    return GM_OK;
+}
+
 // MusicTheory.c 0x001a4d28/0x001a4d9c), real call sites all on
 // `this.worldScaleProcess` (ScaleOfTheWorld.gm's own returned table).
 // NOTE ON WHY THIS ISN'T A CROSS-TABLE DELEGATE: InjectProcessHandleMethods
@@ -476,6 +563,61 @@ int GM_CDECL gmf_getScaleIndex(gmThread* a_thread) {
     if (!self) { a_thread->PushInt(0); return GM_OK; }
     gmVariable v = self->Get(a_thread->GetMachine(), "currentScaleIndex");
     a_thread->Push((v.m_type == GM_INT || v.m_type == GM_FLOAT) ? v : gmVariable((gmint)0));
+    return GM_OK;
+}
+
+// MusicTheory.nextScale/lastScale/getCurrentScaleDescription are retail
+// methods on the ScaleOfTheWorld process table (0x001a4b48, 0x001a4b94,
+// 0x001a4be0). The script copies are explicitly commented out because these
+// are native in retail. Without the description getter, EditorStartMenu's
+// Scale button receives null and its width-measurement print aborts the
+// entire menu draw; without the step methods, selecting that setting fails.
+int GM_CDECL gmf_nextScale(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    gmMachine* machine = a_thread->GetMachine();
+    gmVariable scalesVar = self->Get(machine, "scaleList");
+    gmVariable indexVar = self->Get(machine, "currentScaleIndex");
+    if (scalesVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    auto* scales = static_cast<gmTableObject*>(machine->GetObject(scalesVar.m_value.m_ref));
+    const int count = scales->Count();
+    if (count <= 0) return GM_EXCEPTION;
+    const int index = indexVar.m_type == GM_INT ? indexVar.m_value.m_int : 0;
+    self->Set(machine, "currentScaleIndex", gmVariable((gmint)((index + 1) % count)));
+    return GM_OK;
+}
+
+int GM_CDECL gmf_lastScale(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    gmMachine* machine = a_thread->GetMachine();
+    gmVariable scalesVar = self->Get(machine, "scaleList");
+    gmVariable indexVar = self->Get(machine, "currentScaleIndex");
+    if (scalesVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    auto* scales = static_cast<gmTableObject*>(machine->GetObject(scalesVar.m_value.m_ref));
+    const int count = scales->Count();
+    if (count <= 0) return GM_EXCEPTION;
+    const int index = indexVar.m_type == GM_INT ? indexVar.m_value.m_int : 0;
+    self->Set(machine, "currentScaleIndex",
+        gmVariable((gmint)(index <= 0 ? count - 1 : index - 1)));
+    return GM_OK;
+}
+
+int GM_CDECL gmf_getCurrentScaleDescription(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    gmMachine* machine = a_thread->GetMachine();
+    gmVariable scalesVar = self->Get(machine, "scaleList");
+    gmVariable indexVar = self->Get(machine, "currentScaleIndex");
+    if (scalesVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    auto* scales = static_cast<gmTableObject*>(machine->GetObject(scalesVar.m_value.m_ref));
+    const int index = indexVar.m_type == GM_INT ? indexVar.m_value.m_int : 0;
+    gmVariable scaleVar = scales->Get((gmint)index);
+    if (scaleVar.m_type != GM_TABLE) return GM_EXCEPTION;
+    auto* scale = static_cast<gmTableObject*>(machine->GetObject(scaleVar.m_value.m_ref));
+    gmVariable description = scale->Get(machine, "description");
+    if (description.m_type != GM_STRING) return GM_EXCEPTION;
+    a_thread->Push(description);
     return GM_OK;
 }
 
@@ -823,9 +965,11 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     if (a_table->Get(&a_machine, "isLoading").m_type != GM_FUNCTION) {
         a_table->Set(&a_machine, "isLoading", gmVariable(a_machine.AllocFunctionObject(gmf_process_isLoading)));
     }
-    setNativeIfMissing("setFireThickness", gmf_process_groundConfigNoop);
-    setNativeIfMissing("setIsRefreshDrawListOnChange", gmf_process_groundConfigNoop);
-    setNativeIfMissing("setupDrawLists", gmf_process_groundConfigNoop);
+    setNativeIfMissing("setFireThickness", gmf_process_setFireThickness);
+    setNativeIfMissing("getFireThickness", gmf_process_getFireThickness);
+    setNativeIfMissing("setIsRefreshDrawListOnChange",
+        gmf_process_setRefreshDrawListsOnChange);
+    setNativeIfMissing("setupDrawLists", gmf_process_setupDrawLists);
     // Guarded: never stomp ScaleOfTheWorld.gm's own real setScaleIndex when
     // dual-injected onto its returned table -- see gmf_setScaleIndex's
     // header comment above.
@@ -835,6 +979,9 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     if (a_table->Get(&a_machine, "getScaleIndex").m_type != GM_FUNCTION) {
         setNativeIfMissing("getScaleIndex", gmf_getScaleIndex);
     }
+    setNativeIfMissing("nextScale", gmf_nextScale);
+    setNativeIfMissing("lastScale", gmf_lastScale);
+    setNativeIfMissing("getCurrentScaleDescription", gmf_getCurrentScaleDescription);
     if (a_table->Get(&a_machine, "getNoteWithPositionAndOffset").m_type != GM_FUNCTION) {
         setNativeIfMissing("getNoteWithPositionAndOffset",
             gmf_getNoteWithPositionAndOffset);
@@ -857,6 +1004,9 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     setNativeIfMissing("getDrawList", gmf_getDrawList);
     setNativeIfMissing("getObjectID", gmf_getObjectID);
     setNativeIfMissing("getTable", gmf_getTable);
+    setNativeIfMissing("isHasErrors", gmf_process_isHasErrors);
+    setNativeIfMissing("getName", gmf_process_getName);
+    setNativeIfMissing("rename", gmf_process_rename);
     setNativeIfMissing("getScreenWidth", gmf_getScreenWidth);
     setNativeIfMissing("getScreenHeight", gmf_getScreenHeight);
     setNativeIfMissing("getScreenX", gmf_getScreenX);

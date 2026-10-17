@@ -6,6 +6,8 @@
 #include "../render/renderer.h"
 #include <string>
 #include <cctype>
+#include <cmath>
+#include <limits>
 
 // Frontend-neutral input bindings. Keyboard usage codes and logical pad
 // buttons are translated by the active platform frontend.
@@ -65,10 +67,37 @@ int AliasCode(int a_index) {
 }
 
 int GM_CDECL gmf_falseBool(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+int GM_CDECL gmf_trueBool(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
 int GM_CDECL gmf_zeroFloat(gmThread* a_thread) { a_thread->PushFloat(0.0f); return GM_OK; }
 int GM_CDECL gmf_zeroInt(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_emptyString(gmThread* a_thread) { a_thread->PushNewString(""); return GM_OK; }
 int GM_CDECL gmf_noop(gmThread* a_thread) { return GM_OK; }
+
+// These retail Input methods target the DualShock speaker, which has no
+// desktop equivalent. Preserve the argument contracts used by the shipped
+// scripts while making the unavailable hardware output a no-op.
+int GM_CDECL gmf_loadPadSpeakerSound(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(filename, 0, "");
+    (void)filename;
+    return GM_OK;
+}
+int GM_CDECL gmf_playPadSpeakerSound(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(filename, 0, "");
+    (void)filename;
+    return GM_OK;
+}
+int GM_CDECL gmf_getPadSpeakerVolume(gmThread* a_thread) {
+    a_thread->PushFloat(0.0f);
+    return GM_OK;
+}
+int GM_CDECL gmf_setPadSpeakerVolume(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_FLOAT_OR_INT_PARAM(volume, 0, 0.0f);
+    (void)volume;
+    return GM_OK;
+}
 
 // Virtual key state -- see SetVirtualKeyDown's header comment. File-scope
 // (not in the anonymous namespace) so the setters below can reach it.
@@ -84,6 +113,8 @@ float g_typeDelay = 0.0f;
 float g_joystickDeadzone = 0.0f;
 float g_joystickAsButtonThreshold = 0.0f;
 PlatformFrontend* g_frontend = nullptr;
+
+bool AllInputsReleased();
 
 PlatformFrontend& Frontend() { return *g_frontend; }
 
@@ -102,7 +133,19 @@ int GM_CDECL gmf_float2Int(gmThread* a_thread) {
     // Retail reads the raw value word as a float without checking the GM
     // tag, so use the stack union directly instead of numeric coercion.
     const gmfloat value = a_thread->GetBase()[0].m_value.m_float;
-    a_thread->PushInt((gmint)(value + 0.5f));
+    // Retail executes `fadds value, 0.5f` followed by `fctiwz`. Force the
+    // addition to binary32, then model PPC's signed-word conversion results:
+    // overflows saturate, while NaN produces the indefinite INT_MIN value.
+    volatile float adjusted = value + 0.5f;
+    gmint result;
+    if (std::isnan(adjusted) || adjusted < -2147483648.0f) {
+        result = std::numeric_limits<gmint>::min();
+    } else if (adjusted >= 2147483648.0f) {
+        result = std::numeric_limits<gmint>::max();
+    } else {
+        result = static_cast<gmint>(adjusted); // truncation toward zero
+    }
+    a_thread->PushInt(result);
     return GM_OK;
 }
 int GM_CDECL gmf_setIsInputEnabled(gmThread* a_thread) {
@@ -148,6 +191,17 @@ int GM_CDECL gmf_setJoystickAsButtonThreshold(gmThread* a_thread) {
     g_joystickAsButtonThreshold = value;
     return GM_OK;
 }
+
+int GM_CDECL gmf_setSoftRumble(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    // Retail forwards argument 0 but the concrete PS3 vtable method ignores
+    // it and writes argument 1's boolean value to the currently active pad.
+    // Preserve the raw GM payload comparison used by the retail wrapper.
+    const bool enabled = a_thread->GetBase()[1].m_value.m_int != 0;
+    if (g_frontend) Frontend().SetActiveControllerSoftRumble(enabled);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_getJoystickAsButtonThreshold(gmThread* a_thread) {
     a_thread->PushFloat(g_joystickAsButtonThreshold);
     return GM_OK;
@@ -157,6 +211,11 @@ int GM_CDECL gmf_disableUntilAllKeysUp(gmThread*) {
     return GM_OK;
 }
 int GM_CDECL gmf_isDisabledUntilAllKeysUp(gmThread* a_thread) {
+    // Retail clears this flag in its per-frame Input update once all 155
+    // digital input slots are up. This port has no equivalent shared input
+    // object update, so refresh the same observable state when queried.
+    if (g_disabledUntilAllKeysUp && AllInputsReleased())
+        g_disabledUntilAllKeysUp = false;
     a_thread->PushInt(g_disabledUntilAllKeysUp ? 1 : 0);
     return GM_OK;
 }
@@ -185,6 +244,25 @@ bool KeyDown(int code) {
     if (code <= KeyCode::Unknown || code >= KeyCode::Count) return false;
     if (g_virtualKeys[code]) return true;
     return Frontend().IsKeyDown(code);
+}
+
+bool AllInputsReleased() {
+    for (int code = 0; code < KeyCode::Count; ++code) {
+        if (g_virtualKeys[code]) return false;
+    }
+    if (!g_frontend) return true;
+    for (int code = 0; code < KeyCode::Count; ++code) {
+        if (KeyDown(code)) return false;
+    }
+    for (int button = 0; button < 3; ++button) {
+        if (g_virtualMouseButtons[button] || Frontend().IsMouseButtonDown(button))
+            return false;
+    }
+    for (int i = 0; i < kNumberedButtonCount; ++i) {
+        if (Frontend().IsControllerButtonDown(0, kNumberedButtons[i]))
+            return false;
+    }
+    return true;
 }
 
 // Confirmed real: 1 int param (a KEYBOARD_*/JOYSTICK0_* code), returns
@@ -378,6 +456,11 @@ gmFunctionEntry s_inputLib[] = {
     {"isControllerPresent", gmf_isControllerPresent, nullptr},
     {"getFrontTouchPos", gmf_zeroVec2, nullptr},
     {"getBackTouchPos", gmf_zeroVec2, nullptr},
+    // The retail touch wrappers return integer zero for force/duration and a
+    // zero Vector2D for the initial position. Desktop has no touch surface.
+    {"getTouchForce", gmf_zeroInt, nullptr},
+    {"getTouchDuration", gmf_zeroInt, nullptr},
+    {"getInitialTouchPos", gmf_zeroVec2, nullptr},
     {"getMousePosVec", gmf_getMousePosVec, nullptr},
     {"getMousePos", gmf_getMousePos, nullptr},
     {"getMousePosX", gmf_getMousePosX, nullptr},
@@ -387,16 +470,29 @@ gmFunctionEntry s_inputLib[] = {
     {"getWasTouchTap", gmf_falseBool, nullptr},
     {"getIsTouchMoving", gmf_falseBool, nullptr},
     {"getIsTouchHold", gmf_falseBool, nullptr},
-    {"getIsShaking", gmf_falseBool, nullptr},
+    // The selected retail PS3 input vtable's +0x74 target is a bare `blr`.
+    // The wrapper booleanizes its unchanged non-null `this` pointer, so the
+    // observable result is always true for this concrete retail input type.
+    {"getIsShaking", gmf_trueBool, nullptr},
     {"openIME", gmf_noop, nullptr},
-    {"getIMEResults", gmf_emptyString, nullptr},
+    // Retail getIMEResults is currently a literal integer-zero stub (Input.c
+    // 0x74148), not an empty string. Keep the GM value type identical.
+    {"getIMEResults", gmf_zeroInt, nullptr},
     {"getIMEStatus", gmf_zeroInt, nullptr},
     {"getStringIME", gmf_emptyString, nullptr},
     {"disableShaking", gmf_noop, nullptr},
     {"enableShaking", gmf_noop, nullptr},
     {"enableBackPanel", gmf_noop, nullptr},
     {"disableBackPanel", gmf_noop, nullptr},
-    {"setSoftRumble", gmf_noop, nullptr},
+    {"setSoftRumble", gmf_setSoftRumble, nullptr},
+    {"loadPadSpeakerSound", gmf_loadPadSpeakerSound, nullptr},
+    {"playPadSpeakerSound", gmf_playPadSpeakerSound, nullptr},
+    {"getPadSpeakerVolume", gmf_getPadSpeakerVolume, nullptr},
+    {"setPadSpeakerVolume", gmf_setPadSpeakerVolume, nullptr},
+    // Retail Input.suppressSharing at EBOOT 0x74838 has an empty body and
+    // returns status 0. BaseNotePlant calls it for notes marked as sharing-
+    // suppressed; keep the call registered without inventing desktop policy.
+    {"suppressSharing", gmf_noop, nullptr},
 };
 
 } // namespace

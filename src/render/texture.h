@@ -28,6 +28,9 @@ int NextPowerOfTwo(int a_value);
 // need handles to survive texture-atlas repacking.
 struct Texture {
     GLuint id = 0;
+    // Desktop source identity, used by renderer compatibility paths whose
+    // retail draw contract depends on the loaded resource class/path.
+    std::string sourcePath;
     int width = 0;
     int height = 0;
     int sourceBitsPerPixel = 32; // decoded resource-record +0x10 equivalent

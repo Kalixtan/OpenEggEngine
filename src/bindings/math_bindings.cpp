@@ -1,11 +1,32 @@
 #include "gmThread.h"
 #include "math_bindings.h"
+#include "../ported_native/ground_math.h"
 #include <cmath>
 #include <algorithm>
 
 namespace {
 
 float Sign(float a_v) { return (a_v > 0.0f) ? 1.0f : (a_v < 0.0f ? -1.0f : 0.0f); }
+
+// Verification: retail MATH_COS/MATH_SIN call FUN_001dd1ac with selectors
+// 1/0. The selector meaning and PPC range-reduction/polynomial sequence are
+// documented in SOUND_SHAPES_GROUND_TRUTH.md and implemented by this helper.
+float RetailSinCos(float a_angle, bool a_cosine) {
+    return GroundRenderMath::RetailGroundSinCos(a_angle, a_cosine);
+}
+
+// Verification: the two-argument retail wrappers apply FUN_001dc1c0 to the
+// absolute trig result, then restore its sign. RetailPlayerPow reproduces the
+// audited positive [0,1] base and (-230,230) exponent domain; other bases and
+// exceptional inputs retain the host fallback until those retail
+// classification branches are ported.
+float RetailSinCosPow(float a_value, float a_curve) {
+    const float magnitude = std::fabs(a_value);
+    const float powered = GroundRenderMath::RetailPlayerPow(magnitude, a_curve);
+    // Retail negates only when the raw trig result compares below zero. This
+    // preserves +1 for pow(-0,0) and NaN propagation for unordered compares.
+    return a_value < 0.0f ? -powered : powered;
+}
 
 int GM_CDECL gmf_MATH_ABS(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
@@ -25,14 +46,19 @@ int GM_CDECL gmf_MATH_ACOS(gmThread* a_thread) {
 // MATH_COS_POW/MATH_SIN_POW instead), but the retail dispatch is
 // unambiguous from the decompiled arg-count branch, so it's honored here
 // too rather than silently throwing GM_EXCEPTION on 2 args.
+// Verification: retail MATH_COS(ang,curve) and MATH_COS_POW call the
+// selector-1 trig helper, then FUN_001dc1c0(abs(result),curve), negating the
+// powered value only when the raw cosine is below zero.
 float CosPow(float ang, float curve) {
-    float c = std::cos(ang);
-    return Sign(c) * std::pow(std::fabs(c), curve);
+    return RetailSinCosPow(RetailSinCos(ang, true), curve);
 }
+// Verification: retail MATH_SIN(ang,curve) and MATH_SIN_POW use selector 0
+// and the same absolute-power/sign restoration sequence as MATH_COS_POW.
 float SinPow(float ang, float curve) {
-    float s = std::sin(ang);
-    return Sign(s) * std::pow(std::fabs(s), curve);
+    return RetailSinCosPow(RetailSinCos(ang, false), curve);
 }
+// Verification: retail Math.c @ 0xa6628 dispatches one argument to cosine
+// and two arguments to CosPow; use the PPC-derived trig helper in both cases.
 int GM_CDECL gmf_MATH_COS(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     GM_FLOAT_OR_INT_PARAM(ang, 0, 0.0f);
@@ -40,7 +66,7 @@ int GM_CDECL gmf_MATH_COS(gmThread* a_thread) {
         GM_FLOAT_OR_INT_PARAM(curve, 1, 1.0f);
         a_thread->PushFloat(CosPow(ang, curve));
     } else {
-        a_thread->PushFloat(std::cos(ang));
+        a_thread->PushFloat(RetailSinCos(ang, true));
     }
     return GM_OK;
 }
@@ -94,13 +120,15 @@ int GM_CDECL gmf_MATH_MOD(gmThread* a_thread) {
     a_thread->PushFloat(std::fmod(a, b));
     return GM_OK;
 }
-// both arguments accept float or int and the result is pushed as float. The
-// retail helper 0x1dc1c0 is a custom float-oriented power implementation
-// matches the mathematical operation, but its exact rounding and exceptional
-// cases are not asserted to match the PowerPC helper bit for bit.
+// Verification: retail Math.MATH_POW (0xa61cc) accepts float-or-int inputs,
+// calls FUN_001dc1c0, then pushes a float. Use the PPC-derived power path for
+// its audited positive [0,1] base and (-230,230) exponent domain; that helper
+// includes the integer exponent cap and float-rounded power accumulation.
+// Other bases and exceptional inputs use the host path until the corresponding
+// PPC classification branches are ported.
 int GM_CDECL gmf_MATH_POW(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2); GM_FLOAT_OR_INT_PARAM(a, 0, 0.0f); GM_FLOAT_OR_INT_PARAM(b, 1, 1.0f);
-    a_thread->PushFloat(std::pow(a, b));
+    a_thread->PushFloat(GroundRenderMath::RetailPlayerPow(a, b));
     return GM_OK;
 }
 int GM_CDECL gmf_MATH_REAL(gmThread* a_thread) {
@@ -132,6 +160,8 @@ int GM_CDECL gmf_MATH_SIGN(gmThread* a_thread) {
     return GM_OK;
 }
 // MATH_SIN is arity-overloaded the same way MATH_COS is -- see comment
+// Verification: retail Math.c @ 0xa69c0 dispatches one argument to sine and
+// two arguments to SinPow; use the PPC-derived trig helper in both cases.
 int GM_CDECL gmf_MATH_SIN(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     GM_FLOAT_OR_INT_PARAM(ang, 0, 0.0f);
@@ -139,7 +169,7 @@ int GM_CDECL gmf_MATH_SIN(gmThread* a_thread) {
         GM_FLOAT_OR_INT_PARAM(curve, 1, 1.0f);
         a_thread->PushFloat(SinPow(ang, curve));
     } else {
-        a_thread->PushFloat(std::sin(ang));
+        a_thread->PushFloat(RetailSinCos(ang, false));
     }
     return GM_OK;
 }

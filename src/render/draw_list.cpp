@@ -14,6 +14,7 @@
 #include <box2d/box2d.h>
 #include <GL/glew.h>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -36,7 +37,12 @@ DrawListData* RecordingTarget(gmThread* a_thread) {
 }
 
 void ReplayDrawList(DrawListData* a_data) {
-    if (a_data) ReplayDrawList(a_data->commandBuffer);
+    if (!a_data) return;
+    DrawContext& context = GetDrawContext();
+    const bool previousSelectionProgram = context.selectionFragmentProgram;
+    context.selectionFragmentProgram = a_data->useSelectionFragmentProgram;
+    ReplayDrawList(a_data->commandBuffer);
+    context.selectionFragmentProgram = previousSelectionProgram;
 }
 
 void ReplayDrawList(const std::shared_ptr<DrawListData::CommandBuffer>& a_buffer) {
@@ -45,133 +51,79 @@ void ReplayDrawList(const std::shared_ptr<DrawListData::CommandBuffer>& a_buffer
 }
 
 DrawListSubmission CaptureDrawListSubmission(DrawListData* a_list,
-                                             bool a_disableDepthTest) {
+                                             const char* a_debugLabel) {
     DrawListSubmission submission;
     if (a_list) {
         submission.commandBuffer = a_list->commandBuffer;
         submission.orderKey = a_list->orderKey;
+        submission.useSelectionFragmentProgram =
+            a_list->useSelectionFragmentProgram;
+        if (a_debugLabel) submission.debugLabel = a_debugLabel;
     }
-    submission.disableDepthTest = a_disableDepthTest;
-    submission.context = GetDrawContext();
-    if (Renderer* renderer = GetEngineContext().renderer)
-        renderer->GetColour(submission.colour[0], submission.colour[1],
-                            submission.colour[2], submission.colour[3]);
     return submission;
 }
 
 void ReplayDrawListsInOrder(std::vector<DrawListSubmission>& a_lists) {
     // Retail FUN_00046a34 is the comparator passed to the native
     // FUN_0030d488 sort: unsigned(listA+0x30) < unsigned(listB+0x30).
-    std::sort(a_lists.begin(), a_lists.end(), [](const DrawListSubmission& a,
-                                                  const DrawListSubmission& b) {
+    // Verification: retail FUN_0030d488 uses stable insertion sort for runs
+    // under 33 records and a recursive stable merge for larger runs. Its
+    // comparator returns false for equal keys, so preserve traversal order.
+    std::stable_sort(a_lists.begin(), a_lists.end(), [](const DrawListSubmission& a,
+                                                         const DrawListSubmission& b) {
         if (!a.commandBuffer) return static_cast<bool>(b.commandBuffer);
         if (!b.commandBuffer) return false;
         return a.orderKey < b.orderKey;
     });
-    Renderer* renderer = GetEngineContext().renderer;
+    DrawContext& context = GetDrawContext();
     for (const DrawListSubmission& submission : a_lists) {
         if (!submission.commandBuffer) continue;
-        DrawContext& context = GetDrawContext();
-        context = submission.context;
-        if (renderer) {
-            renderer->SetColour(submission.colour[0], submission.colour[1],
-                                submission.colour[2], submission.colour[3]);
-            renderer->SetDepthTest(context.depthTest);
-            renderer->SetDepthWrite(context.depthWrite);
-            renderer->SetColourMask(context.colourMask);
-            renderer->SetStencilFunc(context.stencilFunc, context.stencilRef);
-            renderer->SetStencilOp(context.stencilSfail, context.stencilDpfail,
-                                   context.stencilDppass);
-            renderer->SetCulling(context.culling);
+        // Retail sorts the native list pointers, then replays their command
+        // streams against one live render-state tuple. Do not restore state
+        // captured while collecting each list: opcode setters and push/pop
+        // commands mutate the state at replay time and later lists inherit it.
+        const bool previousSelectionProgram = context.selectionFragmentProgram;
+        context.selectionFragmentProgram =
+            submission.useSelectionFragmentProgram;
+        Renderer* renderer = GetEngineContext().renderer;
+        if (std::getenv("GE3_TRACE_DRAWLISTS")) {
+            float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
+            if (renderer) renderer->GetColour(r, g, b, a);
+            std::fprintf(stderr,
+                "[drawlist-replay] begin label=%s key=%08x commands=%zu depth=%d/%d mask=%d stencil=%d:%d color=(%.3f,%.3f,%.3f,%.3f)\n",
+                submission.debugLabel.empty() ? "<unnamed>" : submission.debugLabel.c_str(),
+                submission.orderKey, submission.commandBuffer->commands.size(),
+                context.depthTest, context.depthWrite, context.colourMask,
+                context.stencilFunc, context.stencilRef, r, g, b, a);
         }
-        if (submission.disableDepthTest && renderer) renderer->SetDepthTest(false);
         ReplayDrawList(submission.commandBuffer);
-        if (submission.disableDepthTest && renderer) renderer->SetDepthTest(true);
+        if (std::getenv("GE3_TRACE_DRAWLISTS")) {
+            float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
+            if (renderer) renderer->GetColour(r, g, b, a);
+            std::fprintf(stderr,
+                "[drawlist-replay] end label=%s depth=%d/%d mask=%d stencil=%d:%d color=(%.3f,%.3f,%.3f,%.3f)\n",
+                submission.debugLabel.empty() ? "<unnamed>" : submission.debugLabel.c_str(),
+                context.depthTest, context.depthWrite, context.colourMask,
+                context.stencilFunc, context.stencilRef, r, g, b, a);
+        }
+        context.selectionFragmentProgram = previousSelectionProgram;
     }
     a_lists.clear();
 }
 
 namespace {
 
-// Was a pure no-op -- confirmed a real bug, not just an accuracy gap: the
-// matrix/attribute stack in DrawContext (draw_context.h) is a single
-// process-wide shared instance, not scoped per drawList object (see that
-// file's own header comment on why), so ANY unbalanced pushMatrix/
-// pushAttributes left over from one process's preDraw() call carried
-// straight into the next thing that drew that same frame -- including a
-// DIFFERENT process's postDraw(), which starts with its own
-// `drawList.reset()` specifically expecting a clean slate. Real usage
-// confirms every real preDraw()/postDraw() calls reset() as its very first
-// drawList operation (e.g. Platformer/Main.gm's own preDraw()/postDraw(),
-// both of which do exactly this) -- with reset() doing nothing, that
-// leftover state (observed: Platformer/Main.gm's postDraw() "press
-// {ACCEPT} to continue" screen rendering squeezed into a small sub-region
-// of the screen instead of filling it) silently corrupted every later pass
-// in the same frame.
+// Retail reset clears a list's commands and retained references. It leaves
+// shared render state untouched until the sorted command streams replay.
 int GM_CDECL gmf_reset(gmThread* a_thread) {
     DrawListData* d = (DrawListData*)a_thread->ThisUserCheckType(g_drawListType);
     if (!d || !d->commandBuffer) return GM_EXCEPTION;
-    // reset() is the real "clear me, I'm about to be rebuilt from scratch
-    // this frame" signal -- always executes immediately (never itself
-    // deferred/recorded), same as callDrawList's own administrative role.
+    // Retail reset is administrative: clear the owned stream and retained
+    // references. Shared render state changes only when commands replay.
     d->commandBuffer->commands.clear();
     d->commandBuffer->retainedObjects.clear();
     d->commandBuffer->retainedBuffers.clear();
-    DrawContext& ctx = GetDrawContext();
-    ctx.stack.assign(1, DrawContext::Mat{});
-    ctx.attrStack.clear();
-    // A cleared command stream starts from the device's real baseline:
-    // depth comparison enabled (LEQUAL) and writes enabled. Resetting this
-    // shadow state to false made a later balanced pushAttributes/popAttributes
-    // restore GL_ALWAYS, silently disabling Z occlusion for the rest of the
-    // entity pass. That let later background sprites cover nearer geometry
-    // (for example clouds over MarshmallowTree stems).
-    ctx.depthTest = true;
-    ctx.depthWrite = true;
-    // SetColourMask(false) means colour writes are enabled in this renderer.
-    ctx.colourMask = false;
-    ctx.stencilFunc = 8; // VIDEOPARAMS_DISABLE
-    ctx.stencilRef = 0;
-    ctx.stencilSfail = ctx.stencilDpfail = ctx.stencilDppass = 100; // VIDEOPARAMS_KEEP
-    ctx.fontEdge = 0.5f;
-    ctx.fontWidth = 0.45f;
-    // ENGINE PATCH (2026-08-17): reset() never restored the actual draw
-    // COLOUR (Renderer::m_colour) to white, only DrawContext's matrix/
-    // attribute state -- confirmed real, high-impact bug: colour lives on
-    // a single process-wide Renderer instance, not scoped per drawList
-    // (same "shared, not per-list" architecture as DrawContext itself, see
-    // this function's own header comment above), so ANY earlier
-    // setColour(0,0,0,...) left over from a fade-to-black transition or a
-    // background wash (PauseProcessBase.gm's exitData fade, screen-clear
-    // washes, etc.) silently carried into every SUBSEQUENT drawList's
-    // replay for the rest of that frame -- including textured draws
-    // (drawAnimation/drawTextureByHandle), which multiply the sampled
-    // texture by this colour in the shader (`texture(uTexture,vUV) *
-    // uColour`) with no per-call reset of their own. A sprite drawn any
-    // time after a stray black tint, without an intervening explicit
-    // setColour(white) call, rendered as a solid black rectangle --
-    // exactly the "all textures fully black" symptom reported live. Every
-    // real preDraw()/postDraw() calls reset() as its first drawList
-    // operation specifically expecting a clean slate (see this function's
-    // own header comment), and colour is as much a part of that clean
-    // slate as the matrix stack.
-    GetEngineContext().renderer->SetColour(1.0f, 1.0f, 1.0f, 1.0f);
-    // Same bug, same fix, for DrawContext::currentTextureHandle (see its
-    // own header comment, draw_context.h): setTextureByHandle/
-    // setTextureSubImg (SafeVine.gm's thorn-drawing code) bind a texture
-    // that DC_gmf_drawShape then applies to EVERY subsequent plain
-    // drawShape() call process-wide until clearTexture() runs -- but nothing
-    // guarantees clearTexture() actually runs before some OTHER, unrelated
-    // entity's own drawShape() call later in the same frame (its own
-    // reset() call resets everything else, but not this). Confirmed live:
-    // solid black squares appearing where plain flat-colour ground/prop
-    // shapes should be -- a stray leftover vine texture handle being
-    // applied to their bounding box with UV coordinates that don't match,
-    // sampling into transparent/black texture regions. Clearing it here
-    // means every drawList starts governing its own texture-bind state
-    // fresh, matching the same "reset() means truly clean" contract as
-    // colour above.
-    ctx.currentTextureHandle = 0;
+    d->orderKey = 0x200000ffu;
     return GM_OK;
 }
 
@@ -450,11 +402,13 @@ int GM_CDECL gmf_callDrawList(gmThread* a_thread) {
     if (!obj || obj->m_userType != g_drawListType) return GM_OK; // tolerant-null, same convention as drawShape
     DrawListData* target = (DrawListData*)obj->m_user;
     if (DrawListData* rec = RecordingTarget(a_thread)) {
-        auto sourceBuffer = target ? target->commandBuffer : nullptr;
-        if (sourceBuffer) {
-            rec->commandBuffer->retainedBuffers.push_back(sourceBuffer);
+        if (target && target->commandBuffer) {
+            // Keep the target wrapper alive as well as its command buffer:
+            // selector state is read at replay time, as retail reads the
+            // target DrawList+0x10 each time its commands are entered.
+            rec->commandBuffer->retainedObjects.push_back(obj);
             rec->commandBuffer->commands.push_back(
-                [sourceBuffer] { ReplayDrawList(sourceBuffer); });
+                [target] { ReplayDrawList(target); });
         }
     } else {
         ReplayDrawList(target);

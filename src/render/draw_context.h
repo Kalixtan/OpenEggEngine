@@ -52,8 +52,15 @@ struct DrawContext {
     // of range for this five-entry config. Full grouped-pass parity remains
     // open.
     bool distanceTextureEnabled = false;
-    float distanceTextureDiscardLevel = 0.45f;
-    float distanceTextureSmoothLevel = 0.45f;
+    // GE3_Internal_VideoTextureDistParameterRefresh writes 0.5 to native rows
+    // 2/3 (discard/smooth). Keep this live-config baseline distinct from
+    // resetFontRenderAttributes, whose confirmed explicit reset is (0.5,0.45).
+    float distanceTextureDiscardLevel = 0.5f;
+    float distanceTextureSmoothLevel = 0.5f;
+    // Retail ReplayDrawListCommands copies DrawList+0x10 into the render
+    // context before replay. The desktop carries that selector through the
+    // same scope; shader-config selection consumes it in the renderer port.
+    bool selectionFragmentProgram = false;
 
     // setTextureByHandle/clearTexture -- confirmed real recorded draw-list
     // opcode into the SAME command list drawShape/setColour/etc. push into,
@@ -76,13 +83,15 @@ struct DrawContext {
     // afterward -- with popAttributes doing nothing, colourMask(false)
     // stayed off for the rest of the program, hiding everything drawn
     // after that point forever.
+    // TextureDist/font thresholds are intentionally absent: native setters
+    // enqueue shader-parameter opcode 0x27, while pop opcode 0x1b restores the
+    // separate 14-word raster-state tuple through FUN_0030a414. That restore
+    // emits no TextureDist parameter writes, so thresholds persist until a
+    // later setter/reset or render-config change.
     struct Attrs {
         bool depthTest, depthWrite, colourMask;
         int stencilFunc, stencilRef, stencilSfail, stencilDpfail, stencilDppass;
         int culling;
-        float fontEdge, fontWidth;
-        bool distanceTextureEnabled;
-        float distanceTextureDiscardLevel, distanceTextureSmoothLevel;
     };
     std::vector<Attrs> attrStack;
 

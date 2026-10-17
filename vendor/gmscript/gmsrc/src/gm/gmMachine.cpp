@@ -262,6 +262,8 @@ gmMachine::~gmMachine()
 void gmMachine::ResetAndFreeMemory()
 {
 
+  m_isResetting = true;
+
 #if GM_USE_INCGC
 
   m_gc->DestructAll();
@@ -316,7 +318,15 @@ void gmMachine::ResetAndFreeMemory()
   GM_ASSERT(m_blocks.Count() == 0);
 
   // CPP owned gmObjects
-  m_cppOwnedGMObjs.RemoveAll();
+  // User-object destructors normally release each root. Be defensive at heap
+  // reset: any remaining root nodes are bookkeeping only, and RemoveAll()
+  // would orphan their fixed-pool allocations before the allocator check.
+  while(m_cppOwnedGMObjs.Count())
+  {
+    ObjHashNode * node = m_cppOwnedGMObjs.First().Resolve();
+    if(!node) break;
+    RemoveCPPOwnedGMObject(node->m_obj);
+  }
 
   // memory allocators (make sure we arent leaking memory)
 
@@ -359,6 +369,7 @@ void gmMachine::ResetAndFreeMemory()
   m_desiredByteMemoryUsageSoft = GMMACHINE_INITIALGCSOFTLIMIT;
   m_mark = GM_MARK_START;
   m_gcEnabled = true;
+  m_isResetting = false;
 }
 
 
@@ -1883,6 +1894,14 @@ void gmMachine::AddCPPOwnedGMObject(gmObject * a_obj)
   ObjHashNode * newNode = (ObjHashNode *)Sys_Alloc( sizeof(ObjHashNode) );
   newNode->m_obj = a_obj;
   m_cppOwnedGMObjs.Insert(newNode);
+
+  // A new C++ root can be installed while the incremental collector is
+  // already tracing. In that case ScanRootsCallBack has passed, so merely
+  // adding this object to m_cppOwnedGMObjs does not protect it in the active
+  // cycle. Shade it now, just as RemoveCPPOwnedGMObject applies the barrier
+  // when a root is removed. Without this, a cached native view can be
+  // reclaimed while its C++ owner still stores the gmVariable handle.
+  if (m_gc && !m_isResetting) m_gc->WriteBarrier(a_obj);
 }
 
 
@@ -1900,7 +1919,7 @@ void gmMachine::RemoveCPPOwnedGMObject(gmObject * a_obj)
     Sys_Free(foundNode);
 
     // Apply write barrier for this logical LHS
-    m_gc->WriteBarrier(a_obj);
+    if (!m_isResetting) m_gc->WriteBarrier(a_obj);
   }
 }
 

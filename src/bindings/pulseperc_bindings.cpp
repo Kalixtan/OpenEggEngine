@@ -96,10 +96,15 @@ int GM_CDECL gmf_setSustainTime(gmThread* a_thread) {
 int GM_CDECL gmf_setByRate(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
-    GM_FLOAT_OR_INT_PARAM(attack, 0, 0.0f);
-    GM_FLOAT_OR_INT_PARAM(decay, 1, 0.0f);
-    p->attackRate = 1.0f / attack;
-    p->decayRate = 1.0f / decay;
+    const auto asDouble = [](const gmVariable& value) {
+        return value.m_type == GM_FLOAT
+            ? static_cast<double>(value.m_value.m_float)
+            : static_cast<double>(value.m_value.m_int);
+    };
+    // FUN_000161f0 promotes the native 1.0f constant and both GM arguments
+    // to double for division, then rounds each reciprocal to float on store.
+    p->attackRate = static_cast<float>(1.0 / asDouble(a_thread->Param(0)));
+    p->decayRate = static_cast<float>(1.0 / asDouble(a_thread->Param(1)));
     p->byRate = true;
     return GM_OK;
 }
@@ -135,13 +140,23 @@ int GM_CDECL gmf_update(gmThread* a_thread) {
             p->value *= RetailExp(p->decayRate, deltaMs);
         }
     } else if (p->phase >= 1.0f) {
-        p->value = std::min(1.0f, p->value + deltaMs / p->attackTime);
+        // Retail FUN_00016284 computes a single-precision reciprocal first,
+        // then uses `fmadds reciprocal, deltaMs, value`, followed by an
+        // fsel clamp at 1.0. Keep that rounding path for repeatable visual
+        // pulse widths and decay timing.
+        const float attackReciprocal = 1.0f / p->attackTime;
+        const float attackValue = std::fma(attackReciprocal, deltaMs, p->value);
+        p->value = attackValue >= 1.0f ? 1.0f : attackValue;
         if (p->value >= 1.0f) {
             p->phaseElapsedMs += deltaMs;
             if (p->phaseElapsedMs >= p->sustainTime) p->phase = -1.0f;
         }
     } else {
-        p->value = std::max(0.0f, p->value - deltaMs / p->decayTime);
+        // Retail divides 1 by decayTime with `fdivs`, then uses
+        // `fnmsubs reciprocal, deltaMs, value` and fsel-clamps at zero.
+        const float decayReciprocal = 1.0f / p->decayTime;
+        const float decayValue = std::fma(-decayReciprocal, deltaMs, p->value);
+        p->value = decayValue >= 0.0f ? decayValue : 0.0f;
     }
     return GM_OK;
 }
@@ -165,7 +180,11 @@ int GM_CDECL gmf_isDone(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     const bool done = p->byRate
         ? p->phase < 0.0f && p->value * RetailExp(p->decayRate, p->lastDeltaMs) < 0.01f
-        : p->phase < 0.0f && p->value <= 1.0f;
+        // Retail FUN_00016418 compares the time-mode value against the
+        // zero float at DAT_00016410. Its <= 0 test follows the phase < 0
+        // test; using <= 1 here incorrectly reported completion as soon as
+        // decay began, cutting off time-based note/checkpoint animations.
+        : p->phase < 0.0f && p->value <= 0.0f;
     a_thread->PushInt(done ? 1 : 0);
     return GM_OK;
 }

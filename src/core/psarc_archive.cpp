@@ -1,11 +1,21 @@
 #include "psarc_archive.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <limits>
 #include <zlib.h>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 namespace {
 uint32_t ReadU32BE(const unsigned char* p) {
@@ -21,11 +31,97 @@ uint32_t ReadVariableBE(const unsigned char* p, uint32_t width) {
     for (uint32_t i = 0; i < width; ++i) value = (value << 8) | p[i];
     return value;
 }
+
+bool FileCrc32(const std::filesystem::path& path, uint64_t expectedSize,
+               uint32_t& result) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return false;
+    uLong crc = crc32(0L, Z_NULL, 0);
+    char buffer[64 * 1024];
+    uint64_t total = 0;
+    while (file) {
+        file.read(buffer, sizeof(buffer));
+        const std::streamsize count = file.gcount();
+        if (count > 0) {
+            total += static_cast<uint64_t>(count);
+            crc = crc32(crc, reinterpret_cast<const Bytef*>(buffer),
+                        static_cast<uInt>(count));
+        }
+    }
+    if (!file.eof() || total != expectedSize) return false;
+    result = static_cast<uint32_t>(crc);
+    return true;
+}
+
+bool ReplaceFileAtomically(const std::filesystem::path& a_source,
+                           const std::filesystem::path& a_destination,
+                           std::error_code& a_error) {
+#if defined(_WIN32)
+    // std::filesystem::rename does not replace an existing destination on
+    // Windows. Removing it first creates a window where a concurrent texture
+    // load can observe a missing cache entry. MoveFileEx performs the replace
+    // as one filesystem operation, so readers see either the old complete
+    // file or the new complete file.
+    if (MoveFileExW(a_source.c_str(), a_destination.c_str(),
+                    MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        a_error.clear();
+        return true;
+    }
+    a_error = std::error_code(static_cast<int>(GetLastError()),
+                              std::system_category());
+    return false;
+#else
+    std::filesystem::rename(a_source, a_destination, a_error);
+    return !a_error;
+#endif
+}
+
+bool CacheIntegrityMatches(const std::filesystem::path& destination,
+                           uint64_t expectedSize) {
+    uint32_t expectedCrc = 0;
+    uint64_t recordedSize = 0;
+    std::ifstream marker(destination.u8string() + ".integrity");
+    std::string magic;
+    if (!(marker >> magic >> recordedSize >> std::hex >> expectedCrc) ||
+        magic != "GE3CRC1" || recordedSize != expectedSize)
+        return false;
+    uint32_t actualCrc = 0;
+    return FileCrc32(destination, expectedSize, actualCrc) && actualCrc == expectedCrc;
+}
+
+bool PublishIntegrityMarker(const std::filesystem::path& destination,
+                            uint64_t size, uint32_t crc,
+                            uint64_t stamp, uint64_t sequence) {
+    std::filesystem::path marker = destination;
+    marker += ".integrity";
+    std::filesystem::path temporary = marker;
+    temporary += ".tmp-" + std::to_string(stamp) + "-" + std::to_string(sequence);
+    {
+        std::ofstream file(temporary, std::ios::trunc);
+        if (!file) return false;
+        file << "GE3CRC1 " << size << ' ' << std::hex << std::setw(8)
+             << std::setfill('0') << crc << '\n';
+        file.flush();
+        if (!file) {
+            file.close();
+            std::error_code ec;
+            std::filesystem::remove(temporary, ec);
+            return false;
+        }
+    }
+    std::error_code ec;
+    if (!ReplaceFileAtomically(temporary, marker, ec)) {
+        std::filesystem::remove(temporary, ec);
+        return false;
+    }
+    return true;
+}
+
 std::string NormalizeArchivePath(std::string path) {
     std::replace(path.begin(), path.end(), '\\', '/');
     while (!path.empty() && path.front() == '/') path.erase(path.begin());
-    std::filesystem::path normalized = std::filesystem::path(path).lexically_normal();
-    path = normalized.generic_string();
+    std::filesystem::path normalized = std::filesystem::u8path(path).lexically_normal();
+    path = normalized.generic_u8string();
     if (path == ".") return {};
     if (path == ".." || path.rfind("../", 0) == 0 || normalized.is_absolute()) return {};
     return path;
@@ -43,7 +139,8 @@ std::string PsarcArchive::LookupKey(const std::string& path) const {
 }
 
 bool PsarcArchive::Open(const std::string& path) {
-    std::ifstream file(path, std::ios::binary);
+    const std::filesystem::path archivePath = std::filesystem::u8path(path);
+    std::ifstream file(archivePath, std::ios::binary);
     unsigned char header[32]{};
     if (!file.read(reinterpret_cast<char*>(header), sizeof(header)) ||
         ReadU32BE(header) != 0x50534152u || ReadU32BE(header + 4) < 0x00010003u)
@@ -59,7 +156,7 @@ bool PsarcArchive::Open(const std::string& path) {
         return false;
     m_path = path;
 
-    const uint64_t fileSize = std::filesystem::file_size(path);
+    const uint64_t fileSize = std::filesystem::file_size(archivePath);
     uint64_t representableBlockSize = 256;
     m_blockSizeFieldWidth = 1;
     do {
@@ -120,7 +217,7 @@ bool PsarcArchive::ReadEntry(uint32_t index, std::string& output) const {
     output.reserve(static_cast<size_t>(entry.size));
     if (!entry.size) return true;
 
-    std::ifstream file(m_path, std::ios::binary);
+    std::ifstream file(std::filesystem::u8path(m_path), std::ios::binary);
     if (!file) return false;
     uint64_t remaining = entry.size;
     uint64_t offset = entry.offset;
@@ -157,16 +254,63 @@ bool PsarcArchive::Contains(const std::string& relativePath) const {
 bool PsarcArchive::ExtractTo(const std::string& relativePath, const std::string& destination) const {
     auto found = m_pathToEntry.find(LookupKey(relativePath));
     if (found == m_pathToEntry.end()) return false;
+    const Entry& entry = m_entries[found->second];
+    std::filesystem::path dest = std::filesystem::u8path(destination);
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(dest, ec) && !ec) {
+        const auto cachedSize = std::filesystem::file_size(dest, ec);
+        if (!ec && cachedSize == entry.size && CacheIntegrityMatches(dest, entry.size))
+            return true;
+    }
+
     std::string contents;
     if (!ReadEntry(found->second, contents)) return false;
-    std::filesystem::path dest(destination);
-    std::error_code ec;
+    const uint32_t contentCrc = static_cast<uint32_t>(crc32(
+        crc32(0L, Z_NULL, 0), reinterpret_cast<const Bytef*>(contents.data()),
+        static_cast<uInt>(std::min<size_t>(contents.size(), std::numeric_limits<uInt>::max()))));
+    // Files larger than one zlib chunk need incremental CRC updates.
+    uint32_t completeContentCrc = contentCrc;
+    if (contents.size() > std::numeric_limits<uInt>::max()) {
+        uLong crc = crc32(0L, Z_NULL, 0);
+        size_t offset = 0;
+        while (offset < contents.size()) {
+            const size_t count = std::min<size_t>(contents.size() - offset,
+                                                   std::numeric_limits<uInt>::max());
+            crc = crc32(crc, reinterpret_cast<const Bytef*>(contents.data() + offset),
+                        static_cast<uInt>(count));
+            offset += count;
+        }
+        completeContentCrc = static_cast<uint32_t>(crc);
+    }
     std::filesystem::create_directories(dest.parent_path(), ec);
     if (ec) return false;
-    std::ofstream file(destination, std::ios::binary | std::ios::trunc);
-    if (!file) return false;
-    file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
-    return bool(file);
+
+    // Resolve() may encounter a cache file left behind by a crash or an
+    // interrupted copy. Write a unique sibling and publish it only when all
+    // decoded bytes are present, so decoders never consume a partial asset.
+    static std::atomic<uint64_t> s_tempSequence{0};
+    const uint64_t sequence = s_tempSequence.fetch_add(1, std::memory_order_relaxed);
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    std::filesystem::path temporary = dest;
+    temporary += ".tmp-" + std::to_string(stamp) + "-" + std::to_string(sequence);
+    {
+        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
+        if (!file) return false;
+        file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+        file.flush();
+        if (!file || static_cast<uint64_t>(file.tellp()) != contents.size()) {
+            file.close();
+            std::filesystem::remove(temporary, ec);
+            return false;
+        }
+    }
+
+    if (!ReplaceFileAtomically(temporary, dest, ec)) {
+        std::filesystem::remove(temporary, ec);
+        return false;
+    }
+    return PublishIntegrityMarker(dest, entry.size, completeContentCrc,
+                                  static_cast<uint64_t>(stamp), sequence);
 }
 
 std::vector<std::string> PsarcArchive::ListFiles(const std::string& directory) const {

@@ -1,8 +1,10 @@
 #include "renderer.h"
 #include "draw_context.h"
 #include "../core/engine_context.h"
-#include <GL/glu.h>
+#include "../core/system_config.h"
+#include "../bindings/colour_bindings.h"
 #include <cstdio>
+#include <fstream>
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
@@ -121,6 +123,21 @@ void LoadRetailOrthographicMatrix(float a_left, float a_right,
     glLoadMatrixf(matrix);
 }
 
+// Keep the desktop NOTE_BASS silhouette calibration attached to the texture
+// asset rather than to one renderer entry point. A TextureDist asset can
+// reach the same fragment program through a normal textured quad or a
+// textured VMSHAPE/polygon submission; both must see identical uniforms.
+float NoteTextureDistanceBias(const std::string& a_sourcePath,
+                              int a_textureShaderType) {
+    if (a_textureShaderType != 8) return 0.0f;
+    std::string normalizedPath = a_sourcePath;
+    std::replace(normalizedPath.begin(), normalizedPath.end(), '\\', '/');
+    const bool noteDistanceFieldTexture =
+        normalizedPath.find("/images/NOTE_") != std::string::npos ||
+        normalizedPath.find("/images/note_loop") != std::string::npos;
+    return noteDistanceFieldTexture ? 0.15f : 0.0f;
+}
+
 } // namespace
 
 
@@ -142,6 +159,19 @@ bool Renderer::Init(PlatformWindow& a_window, int a_width, int a_height) {
         return false;
     }
     glGetError(); // glew often leaves a spurious GL_INVALID_ENUM on init
+
+    GLint sampleBuffers = 0;
+    GLint samples = 0;
+    glGetIntegerv(GL_SAMPLE_BUFFERS, &sampleBuffers);
+    glGetIntegerv(GL_SAMPLES, &samples);
+    if (sampleBuffers > 0 && samples > 0) {
+        glEnable(GL_MULTISAMPLE);
+        std::fprintf(stderr, "Renderer: multisample antialiasing enabled (%d samples)\n",
+                     samples);
+    } else {
+        glDisable(GL_MULTISAMPLE);
+        std::fprintf(stderr, "Renderer: multisample antialiasing unavailable; using line smoothing\n");
+    }
 
     // Sound Shapes note textures use grayscale distance fields. The fragment
     // Math and discard-level mapping follow the retail TextureDist microcode.
@@ -183,6 +213,31 @@ void main() {
         kDistanceTextureVS, kDistanceTextureFS);
     if (!m_distanceTextureShaderReady)
         std::fprintf(stderr, "Renderer: distance-field texture shader unavailable; note edges will use raw texture alpha\n");
+
+    // Glyphs are textured quads, so polygon MSAA does not smooth their
+    // outlines. Keep their style thresholds, but widen sub-pixel transitions
+    // to the sampled distance field's screen-space footprint.
+    static const char* kGlyphDistanceFS = R"GLSL(#version 120
+uniform sampler2D u_texture;
+uniform float u_discardLevel;
+uniform float u_smoothLevel;
+uniform vec4 u_color;
+varying vec2 v_uv;
+void main() {
+    float distanceValue = texture2D(u_texture, v_uv).a;
+    float low = min(u_discardLevel, u_smoothLevel);
+    float high = max(u_discardLevel, u_smoothLevel);
+    float center = 0.5 * (low + high);
+    float transition = max(high - low, fwidth(distanceValue));
+    // Do not retain TextureDist's hard discard at `low`: normal FontHelper
+    // settings produce equal thresholds (0.5, 0.5), and that discard clips
+    // half of the derivative-sized fringe, causing the visible stair steps.
+    if (distanceValue <= center - 0.5 * transition) discard;
+    float t = clamp(0.5 + (distanceValue - center) / transition, 0.0, 1.0);
+    float coverage = t * t * (3.0 - 2.0 * t);
+    gl_FragColor = vec4(u_color.rgb, u_color.a * coverage);
+}
+)GLSL";
 
     // Verification: retail's selector table maps shader type 0 to
     // TextureTrans (`FUN_00055bb4`). Its static descriptor points directly to
@@ -226,12 +281,92 @@ void main() {
     if (!m_textureTransFastShaderReady)
         std::fprintf(stderr, "Renderer: TextureTransFast shader unavailable; textured shapes use generic texture modulation\n");
 
+    // Static RSX decode of Selection_f: output.rgb = mix(vColor.rgb,
+    // selectColour.rgb, pulsePerc), output.a = vColor.a * alphaPerc.
+    // `edit_selected` is native selector-table row 0x12 (confirmed by the
+    // 0x39d0c8 selector-name table and colours.dat's s{scheme}_edit_selected).
+    static const char* kSelectionFS = R"GLSL(#version 120
+uniform vec4 u_selectColour;
+uniform float u_pulsePerc;
+uniform float u_alphaPerc;
+void main() {
+    gl_FragColor = vec4(mix(gl_Color.rgb, u_selectColour.rgb, u_pulsePerc),
+                        gl_Color.a * u_alphaPerc);
+}
+)GLSL";
+    static const char* kSelectionVS = R"GLSL(#version 120
+varying vec2 v_uv;
+void main() {
+    gl_Position = ftransform();
+    gl_FrontColor = gl_Color;
+    v_uv = gl_MultiTexCoord0.st;
+}
+)GLSL";
+    m_selectionShaderReady = m_selectionShader.Compile(kSelectionVS, kSelectionFS);
+    if (!m_selectionShaderReady)
+        std::fprintf(stderr, "Renderer: Selection_f shader unavailable; selected geometry uses its base config\n");
+
+    // Static RSX decode of TextureSelection_f: discard source texels with
+    // alpha <= 0, multiply output alpha by alphaPerc, and pulse RGB toward
+    // selectColour. Unlike TextureTrans, this selected variant has no vertex
+    // colour modulation in the decoded fragment program.
+    static const char* kTextureSelectionFS = R"GLSL(#version 120
+uniform sampler2D u_texture;
+uniform vec4 u_selectColour;
+uniform float u_pulsePerc;
+uniform float u_alphaPerc;
+varying vec2 v_uv;
+void main() {
+    vec4 texel = texture2D(u_texture, v_uv);
+    if (texel.a <= 0.0) discard;
+    gl_FragColor = vec4(mix(texel.rgb, u_selectColour.rgb, u_pulsePerc),
+                        texel.a * u_alphaPerc);
+}
+)GLSL";
+    m_textureSelectionShaderReady = m_textureSelectionShader.Compile(
+        kSelectionVS, kTextureSelectionFS);
+    if (!m_textureSelectionShaderReady)
+        std::fprintf(stderr, "Renderer: TextureSelection_f shader unavailable; selected textures use their base config\n");
+
+    // TextureDistSelection_f computes its edge width from dFdx(dot(uv,aSize))
+    // scaled by aDiscardLevel, places the threshold at aSmoothLevel-width/4,
+    // smooths across width/2, mixes aColor toward aSelectColour, then applies
+    // alphaPerc. This follows the retail RSX instruction ordering recovered
+    // from the CgBinary at EBOOT VA 0x42c328.
+    static const char* kTextureDistSelectionFS = R"GLSL(#version 120
+uniform sampler2D u_texture;
+uniform vec2 u_size;
+uniform vec4 u_color;
+uniform float u_discardLevel;
+uniform float u_smoothLevel;
+uniform vec4 u_selectColour;
+uniform float u_pulsePerc;
+uniform float u_alphaPerc;
+varying vec2 v_uv;
+void main() {
+    float edgeWidth = abs(dFdx(dot(v_uv, u_size))) * u_discardLevel;
+    float distanceValue = texture2D(u_texture, v_uv).a;
+    float edgeStart = u_smoothLevel - edgeWidth * 0.25;
+    if (distanceValue <= edgeStart) discard;
+    float edgeSpan = edgeWidth * 0.5;
+    float signedSpan = max(abs(edgeSpan), 1.0e-15) * sign(edgeSpan);
+    float t = clamp((distanceValue - edgeStart) / signedSpan, 0.0, 1.0);
+    float coverage = t * t * (3.0 - 2.0 * t);
+    vec3 rgb = mix(u_color.rgb, u_selectColour.rgb, u_pulsePerc);
+    gl_FragColor = vec4(rgb, u_color.a * coverage * u_alphaPerc);
+}
+)GLSL";
+    m_textureDistSelectionShaderReady = m_textureDistSelectionShader.Compile(
+        kSelectionVS, kTextureDistSelectionFS);
+    if (!m_textureDistSelectionShaderReady)
+        std::fprintf(stderr, "Renderer: TextureDistSelection_f unavailable; selected distance fields use their base shader\n");
+
     // FontHelper.gm's atlas is a grayscale distance field stored in the
     // alpha channel by Texture::LoadFromFile (single-channel sources become
     // white RGB + source coverage alpha). Glyph rendering uses the same
     // smooth coverage operation as the note distance-texture path.
     m_glyphMaskShaderReady = m_glyphMaskShader.Compile(
-        kDistanceTextureVS, kDistanceTextureFS);
+        kDistanceTextureVS, kGlyphDistanceFS);
     if (!m_glyphMaskShaderReady)
         std::fprintf(stderr, "Renderer: glyph distance shader unavailable; text uses raw atlas coverage\n");
 
@@ -292,6 +427,29 @@ void main() { gl_FragColor = v_color; }
     m_fireGroundShaderReady = m_fireGroundShader.Compile(kFireGroundVS, kFireGroundFS);
     if (!m_fireGroundShaderReady)
         std::fprintf(stderr, "Renderer: FireGroundShader2 desktop shader unavailable; danger fill will use undisplaced geometry\n");
+
+    // Port the decoded DefaultTrans vertex/fragment operations for retained
+    // player shapes: position.y*matrix[1], then x*matrix[0], z*matrix[2],
+    // matrix[3], with current draw colour passed through unchanged.
+    static const char* kDefaultTransVS = R"GLSL(#version 120
+uniform mat4 uViewWorldProjection;
+varying vec4 vColor;
+void main() {
+    vec4 partial = gl_Vertex.y * uViewWorldProjection[1];
+    partial = gl_Vertex.x * uViewWorldProjection[0] + partial;
+    partial = gl_Vertex.z * uViewWorldProjection[2] + partial;
+    gl_Position = uViewWorldProjection[3] + partial;
+    vColor = gl_Color;
+}
+)GLSL";
+    static const char* kDefaultTransFS = R"GLSL(#version 120
+varying vec4 vColor;
+void main() { gl_FragColor = vColor; }
+)GLSL";
+    m_defaultTransShaderReady = m_defaultTransShader.Compile(
+        kDefaultTransVS, kDefaultTransFS);
+    if (!m_defaultTransShaderReady)
+        std::fprintf(stderr, "Renderer: DefaultTrans player shader unavailable; using fixed-function fallback\n");
 
     m_rawWidth = a_width;
     m_rawHeight = a_height;
@@ -361,6 +519,16 @@ void Renderer::OnWindowResized(int a_width, int a_height) {
 // platform adaptation.
 void Renderer::UpdateLetterboxBars() {
     if (m_rawWidth <= 0 || m_rawHeight <= 0) return;
+    if (!SystemConfig::Get().letterbox) {
+        // The pre-letterbox desktop mode used the complete host viewport.
+        // Keep all logical screen-size and projection consumers in agreement
+        // with the GL viewport when the bars are disabled.
+        m_width = m_rawWidth;
+        m_height = m_rawHeight;
+        m_barX = 0;
+        m_barY = 0;
+        return;
+    }
     const VideoState& video = GetEngineContext().video;
     const float targetAspect = video.aspectRatio;
     const float rawAspect = (float)m_rawWidth / (float)m_rawHeight;
@@ -389,12 +557,22 @@ void Renderer::DrawLetterboxBars() {
     const int topBar = m_rawHeight - (m_barY + m_height);
     if (m_barX == 0 && rightBar == 0 && m_barY == 0 && topBar == 0) return;
 
+    GLint previousMatrixMode = GL_MODELVIEW;
+    glGetIntegerv(GL_MATRIX_MODE, &previousMatrixMode);
     glPushAttrib(GL_CURRENT_BIT | GL_DEPTH_BUFFER_BIT | GL_VIEWPORT_BIT);
+    // Attribute stacks preserve the viewport and depth/current state, but
+    // OpenGL matrix contents have their own stacks. Restore both so the
+    // pixel-space bar projection cannot leak into the next frame's first
+    // draw command.
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
     glDisable(GL_DEPTH_TEST);
     glViewport(0, 0, m_rawWidth, m_rawHeight);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(0.0, (double)(m_rawWidth - 1), 0.0, (double)(m_rawHeight - 1));
+    glOrtho(0.0, (double)(m_rawWidth - 1), 0.0, (double)(m_rawHeight - 1), -1.0, 1.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glDisable(GL_TEXTURE_2D);
@@ -417,7 +595,12 @@ void Renderer::DrawLetterboxBars() {
     }
     glEnd();
 
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
     glPopAttrib();
+    glMatrixMode(static_cast<GLenum>(previousMatrixMode));
 }
 
 void Renderer::Shutdown() {
@@ -427,16 +610,25 @@ void Renderer::Shutdown() {
     m_textureTransShaderReady = false;
     m_textureTransFastShader.Destroy();
     m_textureTransFastShaderReady = false;
+    m_selectionShader.Destroy();
+    m_selectionShaderReady = false;
+    m_textureSelectionShader.Destroy();
+    m_textureSelectionShaderReady = false;
+    m_textureDistSelectionShader.Destroy();
+    m_textureDistSelectionShaderReady = false;
     m_paletteOverlayShader.Destroy();
     m_paletteOverlayShaderReady = false;
     m_glyphMaskShader.Destroy();
     m_glyphMaskShaderReady = false;
     m_fireGroundShader.Destroy();
     m_fireGroundShaderReady = false;
+    m_defaultTransShader.Destroy();
+    m_defaultTransShaderReady = false;
     m_window = nullptr;
 }
 
 void Renderer::BeginFrame() {
+    m_loadingBarProgressShapeExpected = false;
     if (m_window && !m_window->MakeContextCurrent()) return;
     UpdateLetterboxBars();
     // Verification: desktop frame setup; no equivalent PS3 RSX frame-start
@@ -488,18 +680,18 @@ float Renderer::GetWorldHalfWidth() const {
 // Debug-only: dumps the just-rendered frame as a PPM (P6). Reads the full
 // raw window, since the viewport is no longer narrowed -- the letterbox bars
 // are part of the rendered image now, exactly as they are in retail.
-void Renderer::SaveScreenshot(const char* a_path) const {
+void Renderer::SaveScreenshot(const std::filesystem::path& a_path) const {
     std::vector<unsigned char> pixels((size_t)m_rawWidth * m_rawHeight * 3);
     glReadBuffer(GL_BACK);
     glReadPixels(0, 0, m_rawWidth, m_rawHeight, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
-    FILE* f = fopen(a_path, "wb");
+    std::ofstream f(a_path, std::ios::binary | std::ios::trunc);
     if (!f) return;
-    fprintf(f, "P6\n%d %d\n255\n", m_rawWidth, m_rawHeight);
+    f << "P6\n" << m_rawWidth << " " << m_rawHeight << "\n255\n";
     // glReadPixels rows are bottom-to-top; PPM wants top-to-bottom.
     for (int y = m_rawHeight - 1; y >= 0; --y) {
-        fwrite(pixels.data() + (size_t)y * m_rawWidth * 3, 1, (size_t)m_rawWidth * 3, f);
+        f.write(reinterpret_cast<const char*>(pixels.data() + (size_t)y * m_rawWidth * 3),
+                (std::streamsize)m_rawWidth * 3);
     }
-    fclose(f);
 }
 
 unsigned int Renderer::LoadTexture(const std::string& a_path) {
@@ -512,6 +704,7 @@ unsigned int Renderer::LoadTexture(const std::string& a_path, const std::string&
 
     Texture tex;
     if (!Texture::LoadFromFile(a_path, tex)) return 0;
+    tex.sourcePath = a_path;
 
     m_texturesByPath[a_cacheKey] = tex.id;
     m_texturesByHandle[tex.id] = tex;
@@ -742,6 +935,12 @@ int Renderer::GetTextureSourceBitsPerPixel(unsigned int a_handle) const {
     return it == m_texturesByHandle.end() ? 0 : it->second.sourceBitsPerPixel;
 }
 
+const std::string& Renderer::GetTextureSourcePath(unsigned int a_handle) const {
+    static const std::string empty;
+    const auto it = m_texturesByHandle.find(a_handle);
+    return it == m_texturesByHandle.end() ? empty : it->second.sourcePath;
+}
+
 void Renderer::GetTextureUVExtent(unsigned int a_handle, float& a_uMax, float& a_vMax) const {
     a_uMax = 1.0f;
     a_vMax = 1.0f;
@@ -909,7 +1108,8 @@ void Renderer::SetStencilFunc(int a_func, int a_ref, unsigned int a_mask) {
         return;
     }
     glEnable(GL_STENCIL_TEST);
-    glStencilFunc(VideoParamsToGLFunc(a_func), a_ref, a_mask);
+    const GLenum compare = VideoParamsToGLFunc(a_func);
+    glStencilFunc(compare, a_ref, a_mask);
 }
 
 void Renderer::SetStencilOp(int a_sfail, int a_dpfail, int a_dppass) {
@@ -939,9 +1139,9 @@ void Renderer::SetCameraPos(float a_x, float a_y, float a_z) {
 }
 
 // Verification: Sound Shapes bytecode/decompilation confirms the unit and
-// aspect-ratio orthographic setup helpers. WorldPerspective remains an
-// approximation: retail FUN_0004cea0's VMX matrix path is decoded but not yet
-// fully lifted. GL state and matrix conversion are also desktop adaptations.
+// aspect-ratio orthographic setup helpers. The unrotated world-view branch's
+// bounds and depth mapping are traced; the rotated branch and GL state/matrix
+// conversion remain desktop adaptations.
 void Renderer::ApplyProjection() const {
     const float viewportAspect = GetAspect();
 
@@ -1018,8 +1218,8 @@ void Renderer::ApplyProjection() const {
         case ViewMode::WorldOrtho: {
             // Sound Shapes GameBoard bounds; this projection is a desktop
             // interpretation of the retail world-ortho draw-list command.
-            gluOrtho2D((double)kGameBoardMinX, (double)kGameBoardMaxX,
-                       (double)kGameBoardMinY, (double)kGameBoardMaxY);
+            glOrtho((double)kGameBoardMinX, (double)kGameBoardMaxX,
+                    (double)kGameBoardMinY, (double)kGameBoardMaxY, -1.0, 1.0);
             break;
         }
         case ViewMode::UnitOrtho: {
@@ -1031,7 +1231,7 @@ void Renderer::ApplyProjection() const {
             // read 0x00000000 and 0x3f800000 -- 0.0f and 1.0f -- straight
             // out of EBOOT.elf. Same (left, right, bottom, top) order as
             // the 4-argument form below.
-            gluOrtho2D(0.0, 1.0, 0.0, 1.0);
+            glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
             break;
         }
         case ViewMode::CustomOrtho: {
@@ -1040,8 +1240,8 @@ void Renderer::ApplyProjection() const {
             // argument count of exactly 4 it reads four float-or-int
             // arguments and passes them to the same helper the 0-arg form
             // calls with (0,1,0,1). See DC_gmf_setupOrthoView.
-            gluOrtho2D((double)m_orthoLeft, (double)m_orthoRight,
-                       (double)m_orthoBottom, (double)m_orthoTop);
+            glOrtho((double)m_orthoLeft, (double)m_orthoRight,
+                    (double)m_orthoBottom, (double)m_orthoTop, -1.0, 1.0);
             break;
         }
         // RETAIL PPC: DrawList.setupAspectRatioOrthoView (0x814b0) calls
@@ -1059,7 +1259,7 @@ void Renderer::ApplyProjection() const {
             // matrix transform (0x59684..0x59700). The frame-level scale is
             // applied to the completed projection matrix below, matching
             // base * selectedView instead of approximating it in the bounds.
-            gluOrtho2D(-(double)halfW, (double)halfW, -(double)halfH, (double)halfH);
+            glOrtho(-(double)halfW, (double)halfW, -(double)halfH, (double)halfH, -1.0, 1.0);
             break;
         }
     }
@@ -1086,6 +1286,102 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
     // texture render as a solid white quad.
     if (a_textureHandle == 0) return;
 
+    // Retail screen-space texture helpers express positions and dimensions in
+    // logical screen units (derived from texture pixels and
+    // Video.getScreenWidth/Height). The retail render-context matrix converts
+    // those units before TextureTrans consumes them. Desktop's aspect-ortho
+    // projection is already normalized, so apply the same conversion to
+    // screen-space texture quads here. World-space textures use another view
+    // mode and are left untouched. The loading progress bar is a special case:
+    // its X coordinates are already aspect units and its Y coordinates encode
+    // progress, so it keeps its dedicated Y mapping below.
+    const std::string& texturePath = GetTextureSourcePath(a_textureHandle);
+    // Texture paths retain their resolved filesystem spelling. Windows paths
+    // use backslashes, while these renderer classifications use archive-style
+    // forward slashes. Normalize only the local classification copy so the
+    // same loading and distance-field behavior applies on every host.
+    std::string normalizedTexturePath = texturePath;
+    std::replace(normalizedTexturePath.begin(), normalizedTexturePath.end(), '\\', '/');
+    const bool loadingScreenTexture =
+        normalizedTexturePath.find("/loadingScreens/") != std::string::npos;
+    // BitmapFont submits extFont icons after it has already laid them out in
+    // font units and transformed them with the active DrawList matrix. They
+    // are not screen-pixel-sized helper textures, so applying the viewport
+    // texture factor here collapses a 1-em button glyph to sub-pixel size.
+    const bool fontSpecialTexture =
+        normalizedTexturePath.find("/extFont/") != std::string::npos;
+    const bool loadingBarTexture = loadingScreenTexture &&
+        normalizedTexturePath.size() >= std::strlen("/loadingBar.png") &&
+        normalizedTexturePath.compare(
+            normalizedTexturePath.size() - std::strlen("/loadingBar.png"),
+            std::strlen("/loadingBar.png"), "/loadingBar.png") == 0;
+    if (m_viewMode == ViewMode::AspectRatioOrtho && !loadingBarTexture &&
+        !fontSpecialTexture) {
+        const VideoState& video = GetEngineContext().video;
+        const float logicalHeight = VideoState::RetailScreenExtent(video.numCellsY);
+        if (logicalHeight > 0.0001f) {
+            // The 0.45 factor is measured from the retail loading-screen
+            // panel (which occupies about 47-48% of the active viewport),
+            // against the 0.5 half-height of aspect-ortho. This is the best
+            // shared conversion currently supported by the captures; exact
+            // runtime values for retail's retained render context remain an
+            // open parity check.
+            const float screenUnitScale = 0.45f / logicalHeight;
+            // Texture quads are commonly submitted in a local matrix after
+            // their screen position has already been translated. Convert the
+            // quad's extent around its own center so that translation remains
+            // in the script's normalized layout units. Centering also leaves
+            // the centered loading illustration unchanged apart from scale.
+            const float centerX = (a_x0 + a_x1 + a_x2 + a_x3) * 0.25f;
+            const float centerY = (a_y0 + a_y1 + a_y2 + a_y3) * 0.25f;
+            a_x0 = centerX + (a_x0 - centerX) * screenUnitScale;
+            a_x1 = centerX + (a_x1 - centerX) * screenUnitScale;
+            a_x2 = centerX + (a_x2 - centerX) * screenUnitScale;
+            a_x3 = centerX + (a_x3 - centerX) * screenUnitScale;
+            a_y0 = centerY + (a_y0 - centerY) * screenUnitScale;
+            a_y1 = centerY + (a_y1 - centerY) * screenUnitScale;
+            a_y2 = centerY + (a_y2 - centerY) * screenUnitScale;
+            a_y3 = centerY + (a_y3 - centerY) * screenUnitScale;
+            m_loadingBarProgressShapeExpected = false;
+        }
+    } else if (m_viewMode == ViewMode::AspectRatioOrtho && loadingBarTexture) {
+        const VideoState& video = GetEngineContext().video;
+        const float logicalHeight = VideoState::RetailScreenExtent(video.numCellsY);
+        const float minY = std::min(std::min(a_y0, a_y1), std::min(a_y2, a_y3));
+        const float maxY = std::max(std::max(a_y0, a_y1), std::max(a_y2, a_y3));
+        const float spanY = maxY - minY;
+        if (logicalHeight > 0.0001f && spanY > 0.25f) {
+            const float normalizedSpan = spanY / logicalHeight;
+            auto normalizeBarY = [minY, spanY, normalizedSpan](float y) {
+                return -0.5f + ((y - minY) / spanY) * normalizedSpan;
+            };
+            a_y0 = normalizeBarY(a_y0);
+            a_y1 = normalizeBarY(a_y1);
+            a_y2 = normalizeBarY(a_y2);
+            a_y3 = normalizeBarY(a_y3);
+            m_loadingBarProgressShapeExpected = true;
+        } else {
+            m_loadingBarProgressShapeExpected = false;
+        }
+    } else {
+        m_loadingBarProgressShapeExpected = false;
+    }
+
+    // Native textured submission chooses its render config from TEXTURE+0x48.
+    // Direct renderer callers omit the selector, so resolve it from the same
+    // handle instead of silently defaulting every texture to TextureTrans.
+    const int textureShaderType = a_textureShaderType < 0
+        ? GetTextureShaderType(a_textureHandle) : a_textureShaderType;
+    // Retail's script/API thresholds are passed through unchanged for normal
+    // textures. The shipped NOTE_* distance fields render visibly too bold on
+    // the desktop backend at those values, so retain the measured note-only
+    // silhouette calibration. Apply it after selector resolution so both
+    // TextureDist variants receive the same pair.
+    const float textureDistanceBias =
+        NoteTextureDistanceBias(normalizedTexturePath, textureShaderType);
+    const float effectiveDiscardLevel = a_distanceDiscardLevel + textureDistanceBias;
+    const float effectiveSmoothLevel = a_distanceSmoothLevel + textureDistanceBias;
+
     ApplyProjection();
 
     // The retail TextureDist descriptor binds aTexture to native row 0,
@@ -1102,7 +1398,7 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
     // state or requiring script edits.
     if (std::getenv("GE3_TRACE_UI_QUADS")) {
         static unsigned int traceCount = 0;
-        if (traceCount++ < 160) {
+        if (traceCount++ < 100000) {
             int tw = 0, th = 0;
             GetTextureDimensions(a_textureHandle, tw, th);
             GLint viewport[4] = {0, 0, 0, 0};
@@ -1112,9 +1408,16 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
             glGetFloatv(GL_PROJECTION_MATRIX, projection);
             glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
             std::fprintf(stderr,
-                "[ui-quad] tex=%u %dx%d shader=%d dist=%d thresholds=(%.6f,%.6f) view=%d aspect=%.5f scale=%.5f viewport=(%d,%d,%d,%d) projection=(%.6f,%.6f,%.6f,%.6f) modelview=(%.6f,%.6f,%.6f) bounds=(%.4f,%.4f)-(%.4f,%.4f) z=%.6f camz=%.6f depth=%d/%d stencil=%d:%d color=(%.3f,%.3f,%.3f,%.3f)\n",
-                a_textureHandle, tw, th, a_textureShaderType, a_distanceTexture,
+                "[ui-quad] tex=%u %dx%d selector=%d program=%s primitive=%u distAttrs=%d thresholds=(%.6f,%.6f) effective=(%.6f,%.6f) view=%d aspect=%.5f scale=%.5f viewport=(%d,%d,%d,%d) projection=(%.6f,%.6f,%.6f,%.6f) modelview=(%.6f,%.6f,%.6f) bounds=(%.4f,%.4f)-(%.4f,%.4f) z=%.6f camz=%.6f depth=%d/%d stencil=%d:%d color=(%.3f,%.3f,%.3f,%.3f)\n",
+                a_textureHandle, tw, th, textureShaderType,
+                textureShaderType == 8 ? "TextureDist" :
+                    (textureShaderType == 0 ? "TextureTrans" :
+                     (textureShaderType == 1 ? "TextureTransFast" :
+                      (textureShaderType == 2 ? "TextureTransFastNB" : "fallback"))),
+                a_primitiveMode ? a_primitiveMode : (unsigned int)GL_QUADS,
+                a_distanceTexture,
                 a_distanceDiscardLevel, a_distanceSmoothLevel,
+                effectiveDiscardLevel, effectiveSmoothLevel,
                 static_cast<int>(m_viewMode), GetAspect(),
                 GetEngineContext().video.screenViewScale,
                 viewport[0], viewport[1], viewport[2], viewport[3],
@@ -1143,29 +1446,65 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
     glColor4f(m_colour[0], m_colour[1], m_colour[2], m_colour[3]);
 
     GLint previousProgram = 0;
-    const bool useDistanceShader = a_distanceTexture && m_distanceTextureShaderReady;
+    const bool useTextureSelectionShader =
+        GetDrawContext().selectionFragmentProgram && textureShaderType == 0 &&
+        m_textureSelectionShaderReady;
+    const bool useTextureDistSelectionShader =
+        GetDrawContext().selectionFragmentProgram && textureShaderType == 8 &&
+        m_textureDistSelectionShaderReady;
+    const bool useDistanceShader = !useTextureDistSelectionShader &&
+        textureShaderType == 8 && m_distanceTextureShaderReady;
     // Retail texture selectors 0, 1 and 2 map to TextureTrans,
     // TextureTransFast and TextureTransFastNB. Keep unsupported palette/grey
     // selectors on the fixed-function fallback until their programs exist.
-    const bool useTextureTransShader = !useDistanceShader && a_textureShaderType == 0 &&
+    const bool useTextureTransShader = !useDistanceShader &&
+                                       !useTextureSelectionShader && textureShaderType == 0 &&
                                        m_textureTransShaderReady;
     const bool useTextureTransFastShader = !useDistanceShader &&
-        (a_textureShaderType == 1 || a_textureShaderType == 2) &&
+        (textureShaderType == 1 || textureShaderType == 2) &&
         m_textureTransFastShaderReady;
-    const bool knownQuadConfig = a_distanceTexture || a_textureShaderType == 0 ||
-                                 a_textureShaderType == 1 || a_textureShaderType == 2;
-    const bool hasShaderProgram = useDistanceShader || useTextureTransShader ||
+    const bool knownQuadConfig = textureShaderType == 0 || textureShaderType == 1 ||
+                                 textureShaderType == 2 || textureShaderType == 8;
+    const bool hasShaderProgram = useTextureSelectionShader ||
+                                  useTextureDistSelectionShader || useDistanceShader || useTextureTransShader ||
                                   useTextureTransFastShader;
     if (knownQuadConfig) {
-        ApplyRenderConfigBlendState(a_textureShaderType != 2);
+        ApplyRenderConfigBlendState(textureShaderType != 2);
     }
     if (hasShaderProgram) {
         glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
-        if (useDistanceShader) {
+        if (useTextureSelectionShader || useTextureDistSelectionShader) {
+            float selectionColour[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+            const VideoState& video = GetEngineContext().video;
+            const char* colourName = video.selectionPulseEnabled
+                ? "edit_selected" : "screenClear";
+            GetNamedColourRGB(colourName, selectionColour[0],
+                              selectionColour[1], selectionColour[2]);
+            Shader& shader = useTextureSelectionShader
+                ? m_textureSelectionShader : m_textureDistSelectionShader;
+            shader.Use();
+            glUniform1i(shader.Uniform("u_texture"), 0);
+            glUniform4fv(shader.Uniform("u_selectColour"), 1, selectionColour);
+            glUniform1f(shader.Uniform("u_pulsePerc"), video.selectionPulsePerc);
+            glUniform1f(shader.Uniform("u_alphaPerc"), video.selectionAlphaPerc);
+            if (useTextureDistSelectionShader) {
+                float sizeU = 1.0f, sizeV = 1.0f;
+                GetTextureUVExtent(a_textureHandle, sizeU, sizeV);
+                glUniform2f(shader.Uniform("u_size"), sizeU, sizeV);
+                glUniform4fv(shader.Uniform("u_color"), 1, m_colour);
+                    glUniform1f(shader.Uniform("u_discardLevel"),
+                                effectiveDiscardLevel);
+                    glUniform1f(shader.Uniform("u_smoothLevel"),
+                                effectiveSmoothLevel);
+            }
+            glDisable(GL_ALPHA_TEST);
+        } else if (useDistanceShader) {
             m_distanceTextureShader.Use();
             glUniform1i(m_distanceTextureShader.Uniform("u_texture"), 0);
-            glUniform1f(m_distanceTextureShader.Uniform("u_discardLevel"), a_distanceDiscardLevel);
-            glUniform1f(m_distanceTextureShader.Uniform("u_smoothLevel"), a_distanceSmoothLevel);
+            glUniform1f(m_distanceTextureShader.Uniform("u_discardLevel"),
+                        effectiveDiscardLevel);
+            glUniform1f(m_distanceTextureShader.Uniform("u_smoothLevel"),
+                        effectiveSmoothLevel);
             glUniform4fv(m_distanceTextureShader.Uniform("u_color"), 1, m_colour);
         } else if (useTextureTransShader) {
             m_textureTransShader.Use();
@@ -1177,6 +1516,11 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
         }
     }
 
+    // Retail FUN_0003e6f0 writes the caller's VMSHAPE draw buffer. It expands
+    // ordinary quad submissions to six vertices when the target shape is
+    // TRIANGLES; the MarshmallowTree idle crown uses this path. Triangle-strip
+    // shapes instead receive BL, BR, TL, TR so their four vertices form the
+    // same two-triangle quad without adding a diagonal seam.
     if (a_primitiveMode == GL_TRIANGLE_STRIP) {
         glBegin(GL_TRIANGLE_STRIP);
         glTexCoord2f(0.0f, 0.0f);  glVertex3f(a_x0, a_y0, a_z);
@@ -1210,13 +1554,44 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
 void Renderer::DrawPolygon(unsigned int a_glPrimitiveMode, const float* a_xy, int a_count, float a_z) {
     if (a_count <= 0) return;
 
+    std::vector<float> loadingProgressXY;
+    const float* xy = a_xy;
+    if (m_loadingBarProgressShapeExpected) {
+        m_loadingBarProgressShapeExpected = false;
+        if (a_count == 4) {
+            float minY = a_xy[1], maxY = a_xy[1];
+            for (int i = 1; i < a_count; ++i) {
+                minY = std::min(minY, a_xy[i * 2 + 1]); maxY = std::max(maxY, a_xy[i * 2 + 1]);
+            }
+            const float logicalHeight = VideoState::RetailScreenExtent(
+                GetEngineContext().video.numCellsY);
+            // The remaining gray fill narrows and translates horizontally as
+            // loading advances. Its width therefore stops spanning the view
+            // well before its height changes. Keep the loading-bar Y mapping
+            // independent of that animated X extent; coupling them makes the
+            // fill jump back to its unconverted (~0.91 screen-unit) height,
+            // briefly drawing a large gray panel over the loading artwork.
+            if (logicalHeight > 0.0001f && maxY - minY > 0.25f &&
+                minY < -0.35f && maxY > 0.25f) {
+                const float spanY = maxY - minY;
+                const float normalizedSpan = spanY / logicalHeight;
+                loadingProgressXY.assign(a_xy, a_xy + a_count * 2);
+                for (int i = 0; i < a_count; ++i) {
+                    loadingProgressXY[i * 2 + 1] = -0.5f +
+                        ((a_xy[i * 2 + 1] - minY) / spanY) * normalizedSpan;
+                }
+                xy = loadingProgressXY.data();
+            }
+        }
+    }
+
     if (std::getenv("GE3_TRACE_UI_QUADS")) {
         static unsigned int traceCount = 0;
-        if (traceCount++ < 160) {
-            float minX = a_xy[0], maxX = a_xy[0], minY = a_xy[1], maxY = a_xy[1];
+        if (traceCount++ < 100000) {
+            float minX = xy[0], maxX = xy[0], minY = xy[1], maxY = xy[1];
             for (int i = 1; i < a_count; ++i) {
-                minX = std::min(minX, a_xy[i * 2]); maxX = std::max(maxX, a_xy[i * 2]);
-                minY = std::min(minY, a_xy[i * 2 + 1]); maxY = std::max(maxY, a_xy[i * 2 + 1]);
+                minX = std::min(minX, xy[i * 2]); maxX = std::max(maxX, xy[i * 2]);
+                minY = std::min(minY, xy[i * 2 + 1]); maxY = std::max(maxY, xy[i * 2 + 1]);
             }
             std::fprintf(stderr,
                 "[ui-poly] n=%d z=%.3f bounds=(%.4f,%.4f)-(%.4f,%.4f) color=(%.3f,%.3f,%.3f,%.3f)\n",
@@ -1231,9 +1606,45 @@ void Renderer::DrawPolygon(unsigned int a_glPrimitiveMode, const float* a_xy, in
 
     glBegin(a_glPrimitiveMode);
     for (int i = 0; i < a_count; ++i) {
-        glVertex3f(a_xy[i * 2 + 0], a_xy[i * 2 + 1], a_z);
+        glVertex3f(xy[i * 2 + 0], xy[i * 2 + 1], a_z);
     }
     glEnd();
+}
+
+void Renderer::DrawPolygonDefaultTrans(unsigned int a_glPrimitiveMode,
+                                       const float* a_xy, int a_count, float a_z) {
+    if (!m_defaultTransShaderReady || a_count <= 0) {
+        DrawPolygon(a_glPrimitiveMode, a_xy, a_count, a_z);
+        return;
+    }
+
+    ApplyProjection();
+    glDisable(GL_TEXTURE_2D);
+    glColor4f(m_colour[0], m_colour[1], m_colour[2], m_colour[3]);
+
+    GLfloat projection[16] = {}, modelview[16] = {}, matrix[16] = {};
+    glGetFloatv(GL_PROJECTION_MATRIX, projection);
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+    for (int column = 0; column < 4; ++column) {
+        for (int row = 0; row < 4; ++row) {
+            float value = 0.0f;
+            for (int k = 0; k < 4; ++k)
+                value += projection[k * 4 + row] * modelview[column * 4 + k];
+            matrix[column * 4 + row] = value;
+        }
+    }
+    GLint previousProgram = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+    m_defaultTransShader.Use();
+    glUniformMatrix4fv(m_defaultTransShader.Uniform("uViewWorldProjection"),
+                       1, GL_FALSE, matrix);
+
+    glBegin(a_glPrimitiveMode);
+    for (int i = 0; i < a_count; ++i)
+        glVertex3f(a_xy[i * 2], a_xy[i * 2 + 1], a_z);
+    glEnd();
+
+    glUseProgram(static_cast<GLuint>(previousProgram));
 }
 
 void Renderer::DrawFireGroundStrip(const float* a_xy, const float* a_data, int a_count,
@@ -1312,25 +1723,84 @@ void Renderer::DrawPolygonGradient(unsigned int a_glPrimitiveMode, const float* 
     // Grouped native/desktop draw-pass correspondence and depth behavior
     // remain open. Blend state is set from recovered descriptor values below.
     GLint previousProgram = 0;
-    const bool useDistanceShader = textured && a_distanceTexture &&
+    const int textureShaderType = a_textureShaderType < 0
+        ? GetTextureShaderType(a_textureHandle) : a_textureShaderType;
+    const float textureDistanceBias = NoteTextureDistanceBias(
+        GetTextureSourcePath(a_textureHandle), textureShaderType);
+    const float effectiveDiscardLevel =
+        a_distanceDiscardLevel + textureDistanceBias;
+    const float effectiveSmoothLevel =
+        a_distanceSmoothLevel + textureDistanceBias;
+    const bool selectionProgram = GetDrawContext().selectionFragmentProgram;
+    const bool useSelectionShader = !textured && selectionProgram &&
+                                    m_selectionShaderReady;
+    const bool useTextureSelectionShader = textured && selectionProgram &&
+        textureShaderType == 0 && m_textureSelectionShaderReady;
+    const bool useTextureDistSelectionShader = textured && selectionProgram &&
+        textureShaderType == 8 && m_textureDistSelectionShaderReady;
+    const bool useDistanceShader = textured && !useTextureDistSelectionShader &&
+                                   textureShaderType == 8 &&
                                    m_distanceTextureShaderReady;
     const bool useTextureTransShader = textured && !useDistanceShader &&
-                                       a_textureShaderType == 0 &&
+                                       !useTextureSelectionShader &&
+                                       textureShaderType == 0 &&
                                        m_textureTransShaderReady;
+    // Indexed foliage (e.g. SafeVine's selector-5 Palette4bTrans shape)
+    // reaches this backend after its attached palette has already been
+    // expanded into the RGBA texture by BindTextureWithUVScale. Reuse the
+    // texture-only fragment shader: the sampled texel is already the final
+    // palette colour and must not inherit the unrelated current draw colour
+    // left by the preceding solid stem. Retail selects Palette4bTrans for
+    // selector 5; its native Cg program is still awaiting direct decode, so
+    // this is the closest evidence-backed desktop mapping for that route.
     const bool useTextureTransFastShader = textured && !useDistanceShader &&
-                                           (a_textureShaderType == 1 ||
-                                            a_textureShaderType == 2) &&
+                                           (textureShaderType == 1 ||
+                                            textureShaderType == 2 ||
+                                            textureShaderType == 5) &&
                                            m_textureTransFastShaderReady;
-    if (useDistanceShader || useTextureTransShader || useTextureTransFastShader) {
-        ApplyRenderConfigBlendState(a_textureShaderType != 2);
+    if (useSelectionShader || useTextureSelectionShader ||
+        useTextureDistSelectionShader || useDistanceShader ||
+        useTextureTransShader || useTextureTransFastShader) {
+        ApplyRenderConfigBlendState(useSelectionShader || useTextureSelectionShader ||
+                                    textureShaderType != 2);
         glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
-        if (useDistanceShader) {
+        if (useSelectionShader || useTextureSelectionShader ||
+            useTextureDistSelectionShader) {
+            float selectionColour[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+            const VideoState& video = GetEngineContext().video;
+            const char* colourName = video.selectionPulseEnabled
+                ? "edit_selected" : "screenClear";
+            GetNamedColourRGB(colourName, selectionColour[0],
+                              selectionColour[1], selectionColour[2]);
+            Shader& shader = useSelectionShader ? m_selectionShader :
+                (useTextureSelectionShader ? m_textureSelectionShader
+                                           : m_textureDistSelectionShader);
+            shader.Use();
+            if (useTextureSelectionShader || useTextureDistSelectionShader)
+                glUniform1i(shader.Uniform("u_texture"), 0);
+            glUniform4fv(shader.Uniform("u_selectColour"), 1, selectionColour);
+            glUniform1f(shader.Uniform("u_pulsePerc"), video.selectionPulsePerc);
+            glUniform1f(shader.Uniform("u_alphaPerc"), video.selectionAlphaPerc);
+            if (useTextureDistSelectionShader) {
+                float sizeU = 1.0f, sizeV = 1.0f;
+                GetTextureUVExtent(a_textureHandle, sizeU, sizeV);
+                glUniform2f(shader.Uniform("u_size"), sizeU, sizeV);
+                glUniform4fv(shader.Uniform("u_color"), 1, m_colour);
+                glUniform1f(shader.Uniform("u_discardLevel"),
+                            effectiveDiscardLevel);
+                glUniform1f(shader.Uniform("u_smoothLevel"),
+                            effectiveSmoothLevel);
+            }
+            // Selection variants perform their own source-alpha kill in the
+            // fragment program, before alphaPerc is applied.
+            glDisable(GL_ALPHA_TEST);
+        } else if (useDistanceShader) {
             m_distanceTextureShader.Use();
             glUniform1i(m_distanceTextureShader.Uniform("u_texture"), 0);
             glUniform1f(m_distanceTextureShader.Uniform("u_discardLevel"),
-                        a_distanceDiscardLevel);
+                        effectiveDiscardLevel);
             glUniform1f(m_distanceTextureShader.Uniform("u_smoothLevel"),
-                        a_distanceSmoothLevel);
+                        effectiveSmoothLevel);
             glUniform4fv(m_distanceTextureShader.Uniform("u_color"), 1, m_colour);
         } else if (useTextureTransShader) {
             m_textureTransShader.Use();
@@ -1400,7 +1870,9 @@ void Renderer::DrawPolygonGradient(unsigned int a_glPrimitiveMode, const float* 
     }
     glEnd();
 
-    if (useDistanceShader || useTextureTransShader || useTextureTransFastShader)
+    if (useSelectionShader || useTextureSelectionShader ||
+        useTextureDistSelectionShader || useDistanceShader ||
+        useTextureTransShader || useTextureTransFastShader)
         glUseProgram((GLuint)previousProgram);
 
     if (textured) {
@@ -1505,6 +1977,7 @@ void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
 
     GLint previousMatrixMode = GL_MODELVIEW;
     GLint previousProgram = 0;
+    GLint previousActiveTexture = GL_TEXTURE0;
     GLint previousTextureBinding = 0;
     GLint previousDepthFunction = GL_LEQUAL;
     GLint previousStencilFunction = GL_ALWAYS;
@@ -1518,7 +1991,7 @@ void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
     GLboolean previousColourMask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
     GLboolean previousTexture2d = GL_FALSE;
     GLboolean previousCullEnabled = GL_FALSE;
-    GLint previousActiveTexture = GL_TEXTURE0;
+    GLboolean previousStencilEnabled = GL_FALSE;
     glGetIntegerv(GL_MATRIX_MODE, &previousMatrixMode);
     glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
     glGetIntegerv(GL_ACTIVE_TEXTURE, &previousActiveTexture);
@@ -1534,6 +2007,7 @@ void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
     glGetIntegerv(GL_STENCIL_FAIL, &previousStencilFail);
     glGetIntegerv(GL_STENCIL_PASS_DEPTH_FAIL, &previousStencilDepthFail);
     glGetIntegerv(GL_STENCIL_PASS_DEPTH_PASS, &previousStencilDepthPass);
+    previousStencilEnabled = glIsEnabled(GL_STENCIL_TEST);
     previousCullEnabled = glIsEnabled(GL_CULL_FACE);
     glGetIntegerv(GL_CULL_FACE_MODE, &previousCullFace);
 
@@ -1553,6 +2027,13 @@ void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
     glDisable(GL_TEXTURE_2D);
+    // The retained clear shape is a single oversized CCW triangle. The
+    // desktop renderer can enter this path with GL_FRONT culling left by a
+    // preceding draw-list attribute state; that would cull the only primitive
+    // and leave the freshly-cleared frame black (including fade transitions).
+    // Retail submits this built-in clear shape through its own render config,
+    // independent of an arbitrary caller's face-culling selection.
+    glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_ALWAYS);
     glDepthMask((a_mode & 2u) ? GL_TRUE : GL_FALSE);
@@ -1581,15 +2062,20 @@ void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 
-    // FUN_0030a414 restores the saved retail tuple after opcode 4. It enables
-    // depth and stencil testing, reapplies the tuple's compare/write/color and
-    // stencil state, and forces CCW front faces. It does not restore blending,
-    // draw colour, or texture state. Avoid GL attrib-stack restoration here:
-    // that would roll back more state than retail does.
+    // FUN_0030a414 restores the saved retail tuple after opcode 4. Depth is
+    // always enabled by the helper; stencil enable follows whether the saved
+    // state is the null/default tuple. The GL adapter preserves that enable
+    // bit because the function/reference values may be stale while stencil is
+    // disabled (e.g. EQUAL/ref 8 left by a prior masked pass). It also reapplies
+    // the saved compare/write/color and stencil state and forces CCW front
+    // faces. It does not restore blending, draw colour, or texture state.
+    // Avoid GL attrib-stack restoration here: that would roll back more state
+    // than retail does.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(static_cast<GLenum>(previousDepthFunction));
     glDepthMask(previousDepthWrite);
-    glEnable(GL_STENCIL_TEST);
+    if (previousStencilEnabled) glEnable(GL_STENCIL_TEST);
+    else glDisable(GL_STENCIL_TEST);
     glStencilFunc(static_cast<GLenum>(previousStencilFunction),
                   previousStencilReference,
                   static_cast<GLuint>(previousStencilValueMask));
@@ -1634,11 +2120,14 @@ void Renderer::DrawGlyphQuad(float a_x0, float a_y0, float a_x1, float a_y1,
         glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
         m_glyphMaskShader.Use();
         glUniform1i(m_glyphMaskShader.Uniform("u_texture"), 0);
-        // Retail's TextureDist program consumes the two font attributes in
-        // their recorded order. In particular, do not sort them here: the
-        // native shader performs a signed divide when smooth < discard.
-        glUniform1f(m_glyphMaskShader.Uniform("u_discardLevel"), a_edge);
-        glUniform1f(m_glyphMaskShader.Uniform("u_smoothLevel"), a_width);
+        // The bitmap-font path takes two style thresholds. Heavy/bold
+        // FontHelper presets produce them in descending order after the
+        // retail setter conversion; feeding that pair directly to this
+        // host glyph shader makes its signed coverage span erase every
+        // glyph. Normalize only the glyph mask inputs to a valid distance
+        // interval. Generic TextureDist quads retain their recorded order.
+        glUniform1f(m_glyphMaskShader.Uniform("u_discardLevel"), std::min(a_edge, a_width));
+        glUniform1f(m_glyphMaskShader.Uniform("u_smoothLevel"), std::max(a_edge, a_width));
         glUniform4fv(m_glyphMaskShader.Uniform("u_color"), 1, m_colour);
     }
 

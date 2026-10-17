@@ -55,10 +55,14 @@ int g_numFramesToIgnoreCollisions = 0;
 // -> FUN_00036f48 removes matching contact-map records without invoking the
 // script trampoline. Mark Entity-owned bodies before DestroyBody so Box2D's
 // synthetic EndContact during that cleanup cannot fabricate onEntitySeparate.
-// One-step marks for disableRestitutionThisFrame / disableContact. Mirrors
-// retail's per-contact flag bytes (see physics_world.h); cleared after each
-// world step so a mark lasts exactly one step, as the retail name says.
+// disableRestitutionThisFrame is step-scoped. disableContact is retained per
+// contact until EndContact and reapplied from PreSolve because Box2D resets
+// SetEnabled(false) at the start of each step.
 static std::set<b2Body*> g_restitutionDisabledBodies;
+// Retail disableContact ORs a bit into the native contact object. Keep the
+// local equivalent for the lifetime of that contact; Box2D resets its own
+// enabled flag at each step, so PreSolve reapplies suppression until
+// EndContact removes the contact from the native contact map.
 static std::set<b2Contact*> g_disabledContacts;
 static std::set<b2Body*> g_entityPhysicsBodiesBeingDestroyed;
 
@@ -74,6 +78,28 @@ bool IsPlayerBody(gmMachine& a_machine, b2Body* a_body) {
     if (!table) return false;
     gmVariable flag = table->Get(&a_machine, "__isPlayer");
     return flag.m_type == GM_INT && flag.m_value.m_int != 0;
+}
+
+bool IsCreatureDebugEntity(gmMachine* a_machine, const gmVariable& a_entity,
+                           int& a_id) {
+    if (!a_machine || a_entity.m_type != GM_TABLE) return false;
+    auto* table = (gmTableObject*)a_machine->GetObject(a_entity.m_value.m_ref);
+    if (!table) return false;
+    const gmVariable type = table->Get(a_machine, "__typeName");
+    if (type.m_type != GM_STRING || !type.m_value.m_ref) return false;
+    auto* name = (gmStringObject*)a_machine->GetObject(type.m_value.m_ref);
+    if (!name || (std::strcmp(name->GetString(),
+            "Platformer_EntityPacks_GoombaCritterGuitar3") != 0 &&
+        std::strcmp(name->GetString(),
+            "Platformer_EntityPacks_SlimeEyes") != 0)) return false;
+    const gmVariable id = table->Get(a_machine, "__objectID");
+    a_id = id.m_type == GM_INT ? id.m_value.m_int : -1;
+    return true;
+}
+
+bool CreatureDebugEnabled() {
+    static const bool enabled = std::getenv("GE3_CREATURE_DEBUG") != nullptr;
+    return enabled;
 }
 
 int EntityCollisionId(gmMachine* a_machine, const gmVariable& a_entity) {
@@ -467,6 +493,30 @@ public:
         const gmVariable ownerB = FindOwnerEntityForB2Body(
             a_contact->GetFixtureB()->GetBody());
         if (ownerA.m_type != GM_TABLE || ownerB.m_type != GM_TABLE) return;
+        if (CreatureDebugEnabled()) {
+            int idA = -1, idB = -1;
+            const bool creatureA = IsCreatureDebugEntity(m, ownerA, idA);
+            const bool creatureB = IsCreatureDebugEntity(m, ownerB, idB);
+            if (creatureA || creatureB) {
+                b2Body* bodyA = a_contact->GetFixtureA()->GetBody();
+                b2Body* bodyB = a_contact->GetFixtureB()->GetBody();
+                std::fprintf(stderr,
+                    "[creature-begin] tick=%u entities=%d/%d shapes=%u/%u "
+                    "sensor=%d/%d pos=(%.5f,%.5f)/(%.5f,%.5f) "
+                    "velMs=(%.7f,%.7f)/(%.7f,%.7f)\n",
+                    GetEngineContext().gameSystem.currentTick, idA, idB,
+                    (unsigned)a_contact->GetFixtureA()->GetUserData().pointer,
+                    (unsigned)a_contact->GetFixtureB()->GetUserData().pointer,
+                    a_contact->GetFixtureA()->IsSensor() ? 1 : 0,
+                    a_contact->GetFixtureB()->IsSensor() ? 1 : 0,
+                    bodyA->GetPosition().x, bodyA->GetPosition().y,
+                    bodyB->GetPosition().x, bodyB->GetPosition().y,
+                    bodyA->GetLinearVelocity().x * 0.001f,
+                    bodyA->GetLinearVelocity().y * 0.001f,
+                    bodyB->GetLinearVelocity().x * 0.001f,
+                    bodyB->GetLinearVelocity().y * 0.001f);
+            }
+        }
         if (EntityCollisionId(m, ownerA) == EntityCollisionId(m, ownerB)) return;
 
         // Retail's contact-add listener mutates each side in order: add that
@@ -480,6 +530,7 @@ public:
             DispatchNow(m, ownerB, ownerA, "onEntityCollidePreSolve");
     }
     void EndContact(b2Contact* a_contact) override {
+        g_disabledContacts.erase(a_contact);
         std::vector<SeparateContactEvent> separateEvents;
         RemovePairContact(a_contact, separateEvents);
         // Retail's entity destructor removes the corresponding contact-map
@@ -533,11 +584,10 @@ public:
             else if (IsPlayerBody(*m, a->GetBody())) fb = GetFixturePlayerFriction(b);
             a_contact->SetFriction(std::sqrt(fa * fb));
         }
-        // Apply this step's disableRestitutionThisFrame/disableContact
-        // marks. PreSolve is the only place Box2D honours either: its
-        // SetEnabled(false) is documented as lasting for the current step
-        // only, and restitution set here is used by the solver for this
-        // step's impulse. See physics_world.h for the retail bodies.
+        // Apply the step-scoped restitution mark and the contact-scoped
+        // disableContact mark. Box2D honors SetEnabled(false) for one step,
+        // so the latter is reapplied until EndContact removes the native
+        // contact record. See physics_world.h for the retail evidence.
         if (!g_restitutionDisabledBodies.empty()) {
             b2Body* a = a_contact->GetFixtureA()->GetBody();
             b2Body* b = a_contact->GetFixtureB()->GetBody();
@@ -612,6 +662,62 @@ public:
                     g_disabledContacts.count(a_contact) ? 1 : 0);
             }
         }
+    }
+    void PostSolve(b2Contact* a_contact,
+                   const b2ContactImpulse* a_impulse) override {
+        if (!CreatureDebugEnabled() || !a_impulse) return;
+        gmMachine* m = GetEngineContext().machine;
+        if (!m) return;
+        b2Fixture* fixtureA = a_contact->GetFixtureA();
+        b2Fixture* fixtureB = a_contact->GetFixtureB();
+        b2Body* bodyA = fixtureA->GetBody();
+        b2Body* bodyB = fixtureB->GetBody();
+        const gmVariable ownerA = FindOwnerEntityForB2Body(bodyA);
+        const gmVariable ownerB = FindOwnerEntityForB2Body(bodyB);
+        int idA = -1, idB = -1;
+        const bool creatureA = IsCreatureDebugEntity(m, ownerA, idA);
+        const bool creatureB = IsCreatureDebugEntity(m, ownerB, idB);
+        if (!creatureA && !creatureB) return;
+        b2WorldManifold manifold{};
+        a_contact->GetWorldManifold(&manifold);
+        const b2Vec2 velA = bodyA->GetLinearVelocity();
+        const b2Vec2 velB = bodyB->GetLinearVelocity();
+        const int count = std::min(a_impulse->count, b2_maxManifoldPoints);
+        float normalImpulse = 0.0f, tangentImpulse = 0.0f;
+        for (int i = 0; i < count; ++i) {
+            normalImpulse += a_impulse->normalImpulses[i];
+            tangentImpulse += a_impulse->tangentImpulses[i];
+        }
+        const int ownerTypeA = (int)ownerA.m_type;
+        const int ownerTypeB = (int)ownerB.m_type;
+        const uintptr_t ownerRefA = ownerA.m_type == GM_TABLE ? ownerA.m_value.m_ref : 0;
+        const uintptr_t ownerRefB = ownerB.m_type == GM_TABLE ? ownerB.m_value.m_ref : 0;
+        auto ownerLabel = [m](const gmVariable& owner) -> const char* {
+            if (owner.m_type != GM_TABLE) return "<null>";
+            auto* table = (gmTableObject*)m->GetObject(owner.m_value.m_ref);
+            const gmVariable type = table ? table->Get(m, "__typeName") : gmVariable::s_null;
+            if (type.m_type != GM_STRING) return "<no-type>";
+            auto* name = (gmStringObject*)m->GetObject(type.m_value.m_ref);
+            return name ? name->GetString() : "<bad-type>";
+        };
+        const char* ownerNameA = ownerLabel(ownerA);
+        const char* ownerNameB = ownerLabel(ownerB);
+        std::fprintf(stderr,
+            "[creature-postsolve] tick=%u entities=%d/%d shapes=%u/%u "
+            "pd=%p/%p ownerType=%d/%d ownerRef=%llu/%llu ownerName=%s/%s "
+            "normal=(%.5f,%.5f) points=%d impulse=(%.7g,%.7g) "
+            "velMs=(%.7f,%.7f)/(%.7f,%.7f)\n",
+            GetEngineContext().gameSystem.currentTick, idA, idB,
+            (unsigned)fixtureA->GetUserData().pointer,
+            (unsigned)fixtureB->GetUserData().pointer,
+            (void*)bodyA->GetUserData().pointer,
+            (void*)bodyB->GetUserData().pointer,
+            ownerTypeA, ownerTypeB,
+            (unsigned long long)ownerRefA, (unsigned long long)ownerRefB,
+            ownerNameA, ownerNameB,
+            manifold.normal.x, manifold.normal.y, count,
+            normalImpulse, tangentImpulse, velA.x * 0.001f,
+            velA.y * 0.001f, velB.x * 0.001f, velB.y * 0.001f);
     }
 
 private:
@@ -780,6 +886,27 @@ void StepPhysicsWorld(float a_dt) {
         }
     }
     GetPhysicsWorld().Step(a_dt * 0.001f, 2, 2);
+    if (CreatureDebugEnabled() && machine) {
+        for (b2Body* body = GetPhysicsWorld().GetBodyList(); body;
+             body = body->GetNext()) {
+            int entityId = -1;
+            if (!IsCreatureDebugEntity(machine,
+                    FindOwnerEntityForB2Body(body), entityId)) continue;
+            const b2Vec2 pos = body->GetPosition();
+            const b2Vec2 vel = body->GetLinearVelocity();
+            int fixtureCount = 0;
+            for (b2Fixture* fixture = body->GetFixtureList(); fixture;
+                 fixture = fixture->GetNext()) ++fixtureCount;
+            std::fprintf(stderr,
+                "[creature-world] tick=%u dtMs=%.6f entity=%d pos=(%.5f,%.5f) "
+                "velMs=(%.7f,%.7f) angle=%.6f omegaMs=%.7f fixtures=%d "
+                "mass=%.6g awake=%d\n",
+                GetEngineContext().gameSystem.currentTick, a_dt, entityId,
+                pos.x, pos.y, vel.x * 0.001f, vel.y * 0.001f,
+                body->GetAngle(), body->GetAngularVelocity() * 0.001f,
+                fixtureCount, body->GetMass(), body->IsAwake() ? 1 : 0);
+        }
+    }
 
     // Retail FUN_00035d28 always performs the world step, then traverses the
     // persistent contact records only when PhysicsManager +0x5c is below one
@@ -822,7 +949,6 @@ void StepPhysicsWorld(float a_dt) {
         DispatchContactPair(machine, event);
 
     g_restitutionDisabledBodies.clear();
-    g_disabledContacts.clear();
     FlushDeferredPhysicsBodyDestructions();
 }
 
@@ -830,17 +956,14 @@ void DisableRestitutionThisFrameForBody(b2Body* a_body) {
     if (a_body) g_restitutionDisabledBodies.insert(a_body);
 }
 
-void DisableContactThisFrame(b2Contact* a_contact) {
+void MarkContactDisabled(b2Contact* a_contact) {
     if (!a_contact || g_physicsDataPairsByContact.find(a_contact) ==
                           g_physicsDataPairsByContact.end())
         return;
-    // Retail disableContact marks the native contact record immediately and
-    // the world solver consumes that flag after the contact callbacks. A
-    // ShapeCollisionInfo can represent several Box2D contacts, including one
-    // whose PreSolve callback already ran earlier in this same Collide pass.
-    // SetEnabled(false) now covers that earlier contact; retain the set entry
-    // so PreSolve re-applies the disable if Box2D reaches a later contact and
-    // resets its enabled bit before invoking its callback.
+    // Retail disableContact marks the native contact object immediately. Its
+    // bit remains part of that contact until the native EndContact path erases
+    // the record. Box2D resets SetEnabled(false) each step, so preserve this
+    // contact-scoped mark and reapply it in PreSolve until EndContact.
     a_contact->SetEnabled(false);
     g_disabledContacts.insert(a_contact);
 }

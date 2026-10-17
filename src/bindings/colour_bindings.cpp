@@ -522,25 +522,7 @@ int GM_CDECL gmf_CM_makeInterpolatedColour(gmThread* a_thread) {
         GM_EXCEPTION_MSG("ColourManager.makeInterpolatedColour: param 1/2 isn't a resolvable colour");
         return GM_EXCEPTION;
     }
-    float t = Clamp01(perc);
-
-    float ha, sa, la, hb, sb, lb;
-    RgbToHsl(a, ha, sa, la);
-    RgbToHsl(b, hb, sb, lb);
-
-    float resultH;
-    if (std::fabs(hb - ha) >= 0.5f) {
-        float adjustedHa = (ha < 0.5f) ? ha + 1.0f : ha - 1.0f; // shortest-path wraparound
-        resultH = (adjustedHa - hb) * t + hb;
-        resultH -= std::floor(resultH); // wrap into [0,1)
-    } else {
-        resultH = (ha - hb) * t + hb;
-    }
-    float resultS = (sa - sb) * t + sb;
-    float resultL = (la - lb) * t + lb;
-
-    ColourData result;
-    HslToRgb(resultH, resultS, resultL, result);
+    ColourData result = InterpolateHsl(a, b, perc);
 
     if (n == 4 && a_thread->Param(3).m_type == g_colourType) {
         ColourData* out = (ColourData*)((gmUserObject*)a_thread->GetMachine()->GetObject(a_thread->Param(3).m_value.m_ref))->m_user;
@@ -555,9 +537,10 @@ int GM_CDECL gmf_CM_makeInterpolatedColour(gmThread* a_thread) {
 int GM_CDECL gmf_CM_getColourID(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_STRING_PARAM(name, 0, "");
     ColourManagerState& state = GetColourManagerState();
-    auto it = state.nameToIndex.find(name);
-    if (it == state.nameToIndex.end()) { a_thread->PushInt(-1); return GM_OK; }
-    a_thread->PushInt(it->second);
+    // Retail FUN_000b25e4 inserts an unknown name into the scheme's ID map,
+    // assigning the next colour slot, then returns that stable index.
+    // Mirror that behavior instead of returning -1 for an unseen name.
+    a_thread->PushInt(FindOrAddIndex(name));
     return GM_OK;
 }
 
@@ -880,19 +863,49 @@ int GM_CDECL gmf_COLOURSCHEME_SetColour(gmThread* a_thread) {
     // real call site, but a safe default).
     float alpha = 1.0f;
     DrawListData* target = nullptr;
+    auto readTarget = [a_thread](int index) -> DrawListData* {
+        const gmVariable& value = a_thread->Param(index);
+        if (value.m_type != GetDrawListType()) return nullptr;
+        gmUserObject* object = static_cast<gmUserObject*>(
+            a_thread->GetMachine()->GetObject(value.m_value.m_ref));
+        return object ? static_cast<DrawListData*>(object->m_user) : nullptr;
+    };
+
+    // Retail call sites use both (name, drawList) and
+    // (name, alpha, drawList). The latter is used by Main.gm's win flash and
+    // several level fades. Treating arg 2 as alpha when it is a drawList
+    // object both leaks a bogus alpha into the renderer and fails to record
+    // the colour command; the later deferred clear then replays with the
+    // colour left by an unrelated draw list. Resolve the optional destination
+    // first, and only read numeric alpha from the other optional argument.
     if (a_thread->GetNumParams() >= 2) {
-        gmVariable p1 = a_thread->Param(1);
-        if (p1.m_type == GetDrawListType()) {
-            gmUserObject* obj = (gmUserObject*)a_thread->GetMachine()->GetObject(p1.m_value.m_ref);
-            if (obj) target = (DrawListData*)obj->m_user;
-        } else {
-            alpha = a_thread->ParamFloatOrInt(1, 1.0f);
+        target = readTarget(1);
+        if (!target) alpha = a_thread->ParamFloatOrInt(1, 1.0f);
+    }
+    if (a_thread->GetNumParams() >= 3) {
+        DrawListData* trailingTarget = readTarget(2);
+        if (trailingTarget) target = trailingTarget;
+        else alpha = a_thread->ParamFloatOrInt(2, 1.0f);
+    }
+
+    // Paired with GE3_TRACE_SWAYING_TREE_COLOUR in shape_bindings.cpp: this
+    // records which scheme and resolved bg_out value were queued for the
+    // stem, without modifying the deferred draw-list state.
+    if (std::strcmp(name, "bg_out") == 0 &&
+        std::getenv("GE3_TRACE_SWAYING_TREE_COLOUR")) {
+        static unsigned int traceCount = 0;
+        if (traceCount++ < 64) {
+            std::fprintf(stderr,
+                "[sway-tree-colour] record scheme=%d rgb=(%.4f,%.4f,%.4f) alpha=%.4f target=%d commands=%zu\n",
+                g_currentColourSchemeID, r, g, b, alpha, target != nullptr,
+                target && target->commandBuffer
+                    ? target->commandBuffer->commands.size() : 0u);
         }
     }
-    if (a_thread->GetNumParams() >= 3) alpha = a_thread->ParamFloatOrInt(2, 1.0f);
 
     if (target) {
-        target->commandBuffer->commands.push_back([r, g, b, alpha] { GetEngineContext().renderer->SetColour(r, g, b, alpha); });
+        target->commandBuffer->commands.push_back(
+            [r, g, b, alpha] { GetEngineContext().renderer->SetColour(r, g, b, alpha); });
     } else {
         GetEngineContext().renderer->SetColour(r, g, b, alpha);
     }
@@ -930,21 +943,7 @@ int GM_CDECL gmf_COLOURSCHEME_SetInterpolatedColour(gmThread* a_thread) {
     resolveName(1, a);
     resolveName(2, b);
 
-    float ha, sa, la, hb, sb, lb;
-    RgbToHsl(a, ha, sa, la);
-    RgbToHsl(b, hb, sb, lb);
-    float resultH;
-    if (std::fabs(hb - ha) >= 0.5f) {
-        float adjustedHa = (ha < 0.5f) ? ha + 1.0f : ha - 1.0f;
-        resultH = (adjustedHa - hb) * t + hb;
-        resultH -= std::floor(resultH);
-    } else {
-        resultH = (ha - hb) * t + hb;
-    }
-    float resultS = (sa - sb) * t + sb;
-    float resultL = (la - lb) * t + lb;
-    ColourData result;
-    HslToRgb(resultH, resultS, resultL, result);
+    const ColourData result = InterpolateHsl(a, b, t);
 
     DrawListData* target = nullptr;
     if (a_thread->GetNumParams() >= 4) {

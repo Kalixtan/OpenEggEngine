@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 
 // back to scripts.
 //
@@ -7,7 +8,7 @@
 // now runs Flowers of Error, whose retail binary IS a real PC (WIN32) exe
 // (`flowers of error.exe`) -- confirmed via Ghidra (reveng_pc/) against
 // that actual binary, not inferred -- so osId defaults to WIN32 now. No
-// FoE script (game_data_min/) reads System.getOS()/OSID_* directly, but
+// FoE script in the diagnostic scene reads System.getOS()/OSID_* directly, but
 // getting this right matters for anything that keys off it going forward
 // (e.g. keyboard input semantics -- FoE's Player.gm uses
 // Input.isKeyPressed(KEYBOARD_*) extensively, which only makes sense on a
@@ -15,7 +16,7 @@
 // Deliberately kept as one small, easy-to-edit struct so region/language/OS
 // can be changed without hunting through binding code.
 enum class OsId {
-    WIN32 = 0,
+    WINDOWS = 0,
     OSX = 1, // Unused/unreleased
     PS3 = 2,
     PS4 = 3, // Is this used?
@@ -52,6 +53,20 @@ struct SystemConfig {
 
     bool isBetaBuild = false;    // SYSTEM_IsBeta always returns false in the confirmed decompiled body
     bool isRetailBuild = true;
+    // Development convenience: report the fifteen known DLC pack IDs as
+    // available to scripts. This does not add content or emulate Sony DRM.
+    bool debugAllDlcAvailable = false;
+
+    // Desktop presentation option. When enabled, preserve the configured
+    // game aspect ratio and draw black bars in the unused window area.
+    // Disable to use the full host window, matching the pre-letterbox port.
+    bool letterbox = true;
+
+    // Reads optional settings from OpenEgg.ini beside the executable.
+    // Missing or invalid values leave the retail-compatible defaults above.
+    bool LoadFromIni(const std::string& path);
+
+    const char* OsIdName() const;
 
     static SystemConfig& Get() {
         static SystemConfig instance;

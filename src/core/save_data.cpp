@@ -9,6 +9,9 @@
 #include <limits.h>
 #elif defined(_WIN32)
 #include <windows.h>
+#ifdef DeleteFile
+#undef DeleteFile // Win32's encoding alias collides with SaveData::DeleteFile.
+#endif
 #endif
 
 namespace fs = std::filesystem;
@@ -30,9 +33,10 @@ fs::path ExeDir() {
         return fs::path(buf).parent_path();
     }
 #elif defined(_WIN32)
-    char buf[MAX_PATH];
-    DWORD n = GetModuleFileNameA(nullptr, buf, MAX_PATH);
-    if (n > 0 && n < MAX_PATH) {
+    std::wstring buf(32768, L'\0');
+    DWORD n = GetModuleFileNameW(nullptr, buf.data(), (DWORD)buf.size());
+    if (n > 0 && n < buf.size()) {
+        buf.resize(n);
         return fs::path(buf).parent_path();
     }
 #endif
@@ -47,6 +51,11 @@ fs::path ExeDir() {
 
 namespace SaveData {
 
+const std::string& ExecutableDirectory() {
+    static const std::string directory = ExeDir().u8string();
+    return directory;
+}
+
 const std::string& Dir() {
     static std::string dir = [] {
         fs::path p = ExeDir() / "savedata";
@@ -56,13 +65,13 @@ const std::string& Dir() {
             std::fprintf(stderr, "SaveData::Dir: could not create '%s': %s\n",
                          p.string().c_str(), ec.message().c_str());
         }
-        return p.string();
+        return p.u8string();
     }();
     return dir;
 }
 
 bool ReadFile(const std::string& a_relativePath, std::string& a_outContent) {
-    fs::path full = fs::path(Dir()) / a_relativePath;
+    fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::ifstream in(full, std::ios::binary);
     if (!in) return false;
     std::ostringstream ss;
@@ -72,7 +81,7 @@ bool ReadFile(const std::string& a_relativePath, std::string& a_outContent) {
 }
 
 bool WriteFile(const std::string& a_relativePath, const std::string& a_content) {
-    fs::path full = fs::path(Dir()) / a_relativePath;
+    fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::error_code ec;
     fs::create_directories(full.parent_path(), ec);
     std::ofstream out(full, std::ios::binary | std::ios::trunc);
@@ -82,31 +91,23 @@ bool WriteFile(const std::string& a_relativePath, const std::string& a_content) 
 }
 
 bool FileExists(const std::string& a_relativePath) {
-    fs::path full = fs::path(Dir()) / a_relativePath;
+    fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::error_code ec;
     return fs::exists(full, ec) && fs::is_regular_file(full, ec);
 }
 
 long long FileSize(const std::string& a_relativePath) {
-    fs::path full = fs::path(Dir()) / a_relativePath;
+    fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::error_code ec;
     auto sz = fs::file_size(full, ec);
     return ec ? -1 : (long long)sz;
 }
 
 bool DeleteFile(const std::string& a_relativePath) {
-    fs::path full = fs::path(Dir()) / a_relativePath;
+    fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::error_code ec;
     fs::remove(full, ec);
     return !ec;
-}
-
-void ClearAll() {
-    std::error_code ec;
-    for (auto& entry : fs::directory_iterator(Dir(), ec)) {
-        fs::remove_all(entry.path(), ec);
-    }
-    std::fprintf(stderr, "SaveData::ClearAll: wiped '%s'\n", Dir().c_str());
 }
 
 } // namespace SaveData

@@ -100,7 +100,7 @@ bool FileHelperAreaReadFile(int a_area, const std::string& a_relPath, std::strin
     }
     std::string full;
     if (!FileHelperResolvePath(a_area, a_relPath, full)) return false;
-    std::ifstream f(full, std::ios::binary);
+    std::ifstream f(std::filesystem::u8path(full), std::ios::binary);
     if (!f) return false;
     std::ostringstream ss; ss << f.rdbuf();
     a_out = ss.str();
@@ -134,9 +134,10 @@ int GM_CDECL gmf_FILEHELPER_GetFileListing(gmThread* a_thread) {
             }
         } else {
             std::error_code ec;
-            for (auto& entry : fs::directory_iterator(full, ec)) {
+            for (auto& entry : fs::directory_iterator(fs::u8path(full), ec)) {
                 if (ec) break;
-                table->Set(&m, i++, gmVariable(m.AllocStringObject(entry.path().filename().string().c_str())));
+                const std::string name = entry.path().filename().u8string();
+                table->Set(&m, i++, gmVariable(m.AllocStringObject(name.c_str())));
             }
         }
         table->Set(&m, "size", gmVariable((gmint)i));
@@ -180,9 +181,9 @@ int GM_CDECL gmf_FILEHELPER_CopyFile(gmThread* a_thread) {
     } else if (!FileHelperResolvePath(srcArea, srcPath, srcFull)) return GM_OK;
     if (!FileHelperResolvePath(dstArea, dstPath, dstFull)) return GM_OK;
 
-    std::ifstream src(srcFull, std::ios::binary);
+    std::ifstream src(std::filesystem::u8path(srcFull), std::ios::binary);
     if (!src) return GM_OK;
-    std::ofstream dst(dstFull, std::ios::binary | std::ios::trunc);
+    std::ofstream dst(std::filesystem::u8path(dstFull), std::ios::binary | std::ios::trunc);
     if (!dst) return GM_OK;
 
     src.seekg(0, std::ios::end);
@@ -286,7 +287,7 @@ int GM_CDECL gmf_FILEHELPER_EnsurePathExists(gmThread* a_thread) {
     GM_INT_PARAM(area, 1, 1);
     std::string full;
     if (FileHelperResolvePath(area, path, full)) {
-        fs::path parent = fs::path(full).parent_path();
+        fs::path parent = fs::u8path(full).parent_path();
         if (!parent.empty()) {
             std::error_code ec;
             fs::create_directories(parent, ec);
@@ -339,7 +340,7 @@ FileData* ThisFile(gmThread* a_thread) {
 }
 
 std::string FileResolvePath(const std::string& a_relPath) {
-    if (!a_relPath.empty() && a_relPath[0] == '/') return a_relPath; // already absolute
+    if (fs::u8path(a_relPath).is_absolute()) return a_relPath;
     FileHelper* fh = GetEngineContext().fileHelper;
     if (fh && !fh->PrimaryRoot().empty()) return fh->PrimaryRoot() + "/" + a_relPath;
     return a_relPath;
@@ -360,9 +361,9 @@ int GM_CDECL gmf_File_openForWrite(gmThread* a_thread) {
     GM_STRING_PARAM(path, 0, "");
     std::string full = FileResolvePath(path);
     std::error_code ec;
-    fs::create_directories(fs::path(full).parent_path(), ec);
+    fs::create_directories(fs::u8path(full).parent_path(), ec);
     f->stream.close(); f->stream.clear();
-    f->stream.open(full, std::ios::out | std::ios::trunc);
+    f->stream.open(fs::u8path(full), std::ios::out | std::ios::trunc);
     f->isOpen = f->stream.is_open();
     a_thread->PushInt(f->isOpen ? 1 : 0);
     return GM_OK;
@@ -375,7 +376,7 @@ int GM_CDECL gmf_File_openForRead(gmThread* a_thread) {
     if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(t, 1, 1); textMode = (t != 0); }
     std::string full = FileResolvePath(path);
     f->stream.close(); f->stream.clear();
-    f->stream.open(full, textMode ? std::ios::in : (std::ios::in | std::ios::binary));
+    f->stream.open(fs::u8path(full), textMode ? std::ios::in : (std::ios::in | std::ios::binary));
     f->isOpen = f->stream.is_open();
     a_thread->PushInt(f->isOpen ? 1 : 0);
     return GM_OK;
@@ -386,9 +387,9 @@ int GM_CDECL gmf_File_openForAppend(gmThread* a_thread) {
     GM_STRING_PARAM(path, 0, "");
     std::string full = FileResolvePath(path);
     std::error_code ec;
-    fs::create_directories(fs::path(full).parent_path(), ec);
+    fs::create_directories(fs::u8path(full).parent_path(), ec);
     f->stream.close(); f->stream.clear();
-    f->stream.open(full, std::ios::out | std::ios::app);
+    f->stream.open(fs::u8path(full), std::ios::out | std::ios::app);
     f->isOpen = f->stream.is_open();
     a_thread->PushInt(f->isOpen ? 1 : 0);
     return GM_OK;
@@ -441,8 +442,8 @@ int GM_CDECL gmf_FILE_Write(gmThread* a_thread) {
     GM_STRING_PARAM(content, 1, "");
     std::string full = FileResolvePath(path);
     std::error_code ec;
-    fs::create_directories(fs::path(full).parent_path(), ec);
-    std::ofstream f(full, std::ios::out | std::ios::trunc);
+    fs::create_directories(fs::u8path(full).parent_path(), ec);
+    std::ofstream f(std::filesystem::u8path(full), std::ios::out | std::ios::trunc);
     bool ok = f.is_open();
     if (ok) { f << content; ok = f.good(); }
     a_thread->PushInt(ok ? 1 : 0);
@@ -454,8 +455,8 @@ int GM_CDECL gmf_FILE_Append(gmThread* a_thread) {
     GM_STRING_PARAM(content, 1, "");
     std::string full = FileResolvePath(path);
     std::error_code ec;
-    fs::create_directories(fs::path(full).parent_path(), ec);
-    std::ofstream f(full, std::ios::out | std::ios::app);
+    fs::create_directories(fs::u8path(full).parent_path(), ec);
+    std::ofstream f(std::filesystem::u8path(full), std::ios::out | std::ios::app);
     bool ok = f.is_open();
     if (ok) { f << content << "\n"; ok = f.good(); }
     a_thread->PushInt(ok ? 1 : 0);
@@ -679,7 +680,17 @@ int GM_CDECL gmf_SYSTEM_GetOSID(gmThread* a_thread) {
 // this project's PS3 target: the PC variant expects a completely different
 // (mouse/keyboard-driven) input scheme.
 int GM_CDECL gmf_SYSTEM_GetOSDescription(gmThread* a_thread) {
-    const char* desc = (SystemConfig::Get().osId == OsId::PS3) ? "PS3" : "NGP";
+    // The scripts compare these short names directly (notably "Win32" and
+    // "OS X" for desktop helpers, plus "PS3" and "NGP" in platform UI code).
+    const char* desc = "NGP";
+    switch (SystemConfig::Get().osId) {
+        case OsId::WINDOWS: desc = "Win32"; break;
+        case OsId::OSX: desc = "OS X"; break;
+        case OsId::PS3: desc = "PS3"; break;
+        case OsId::PS4: desc = "PS4"; break;
+        case OsId::NGP: desc = "NGP"; break;
+        case OsId::VITATV: desc = "Vita TV"; break;
+    }
     a_thread->PushNewString(desc);
     return GM_OK;
 }
@@ -871,7 +882,7 @@ int GM_CDECL gmf_SPLASHSCREEN_FinalizeSplashScreenAndGetResults(gmThread* a_thre
     gmVariable saveTicket = gmVariable::s_null;
     gmVariable tocTicket = gmVariable::s_null;
     if (!haveSave) {
-        // First-ever boot (or GE3_CLEAR_SAVE just wiped it, see main.cpp) --
+        // First-ever boot --
         // NEWSAVE takes the "start from scratch" branch in Main.gm, which
         // builds a fresh SAVE_DATA and writes save.json itself, so no ticket
         // is needed here.
@@ -954,7 +965,7 @@ void RegisterSystemBindings(gmMachine& a_machine) {
 
     // OsId enum
     gmTableObject* g = a_machine.GetGlobals();
-    g->Set(&a_machine, "OSID_WIN32", gmVariable((gmint)OsId::WIN32));
+    g->Set(&a_machine, "OSID_WIN32", gmVariable((gmint)OsId::WINDOWS));
     g->Set(&a_machine, "OSID_OSX", gmVariable((gmint)OsId::OSX));
     g->Set(&a_machine, "OSID_PS3", gmVariable((gmint)OsId::PS3));
     g->Set(&a_machine, "OSID_PS4", gmVariable((gmint)OsId::PS4));

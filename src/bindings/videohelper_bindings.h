@@ -1,7 +1,7 @@
 #pragma once
 #include "gmMachine.h"
 
-// VIDEOHELPER_* -- the subset that retail implements as REAL NATIVE CODE
+// VIDEOHELPER_* -- helpers implemented natively in the retail engine
 // rather than in game_data/VideoHelper.gm.
 //
 // This distinction is easy to get wrong and matters a lot. VideoHelper.gm
@@ -22,6 +22,12 @@
 // endShape). It must not be read as evidence of a script-provided binding,
 // and a missing one of these must be fixed here rather than by touching
 // game_data (retail ground truth).
+//
+// Rounded-rectangle helpers are native retail wrappers at EBOOT 0x001b72dc
+// and 0x001b77ec. Their geometry builders (0x001acd00 and 0x001acfa8) are
+// ported here from the EBOOT control flow, including the raw 0x102 line-strip
+// mode and the paired curve vertices. Their only apparent script versions
+// are commented out in VideoHelper.gm's inactive reference block.
 //
 // Confirmed native helpers registered here have decompiled retail bodies in
 // DrawFilledRect during boot/menu setup, then reaches DrawCircle from

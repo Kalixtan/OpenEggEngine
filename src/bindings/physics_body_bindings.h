@@ -108,6 +108,12 @@ void SetPhysicsDataAwake(gmMachine& a_machine, const gmVariable& a_physicsDataVa
 bool GetPhysicsDataPos(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
                        float& a_x, float& a_y);
 
+// Reads the first PhysicsBody's native direction vector, including its cached
+// direction when rotation is locked. Used by Entity.getRadiansToFace.
+bool GetPhysicsDataFacingDirection(gmMachine& a_machine,
+                                   const gmVariable& a_physicsDataVar,
+                                   float& a_x, float& a_y);
+
 // For entity_bindings.cpp's CreateEntityFromFactory: real factories build
 // their returned entity table via `PhysicsData=_entity.getPhysicsData()`
 // inside the object literal, i.e. BEFORE that literal (the final,

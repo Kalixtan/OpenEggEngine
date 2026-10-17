@@ -1,5 +1,6 @@
 #pragma once
 #include "gmMachine.h"
+#include <memory>
 
 // The VMSHAPE native GM type returned by Video.beginShape/SHAPE(). The
 // Video library's beginShape/plotVertex/endShape entries are bytecode-audited
@@ -67,10 +68,38 @@ void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
                         bool a_preserveExistingMode = false,
                         bool a_pushExisting = true);
 
+// Allocates a retained VMSHAPE from native geometry with explicit per-vertex
+// UVs. Used by AnimationModule's retail FSA default-layout shape builder.
+gmVariable CreateShapeFromVertsAndUVs(gmMachine& a_machine, int a_shapeType,
+                                      const float* a_xy, const float* a_uv,
+                                      int a_count, float a_z = 0.0f);
+
+// Rebuilds a retained native shape owned by a GM table. Used by native
+// renderer ports whose retail classes keep mutable VMSHAPE buffers between
+// frames. The returned variable is stored on a_owner under a_fieldName, so
+// it remains rooted for the lifetime of that native entity.
+gmVariable UpdateNativeOwnedShape(gmMachine& a_machine, gmTableObject* a_owner,
+                                  const char* a_fieldName, int a_shapeType,
+                                  const float* a_xy, int a_count, float a_z,
+                                  int a_nativeCapacity = -1,
+                                  int a_nativeAllocationStride = 12);
+
+// Keeps a VMSHAPE alive while an order-sorted native draw command is pending.
+std::shared_ptr<void> RetainNativeShapeForDeferredDraw(gmMachine& a_machine,
+                                                       const gmVariable& a_shape);
+
 // Returns a_var as a VMSHAPE user object, or null if it isn't one -- lets
 // videohelper_bindings.cpp detect retail's leading-SHAPE overload without
 // duplicating the user-type id lookup.
 gmUserObject* AsShapeObject(gmMachine& a_machine, const gmVariable& a_var);
+
+// Draws an existing VMSHAPE through the normal shape submission path under
+// an explicit affine transform. Used by native renderer ports whose retail
+// command stream submits a live shape object after changing the matrix stack.
+bool DrawShapeObjectWithTransform(gmMachine& a_machine, const gmVariable& a_shape,
+                                  float a_a, float a_b, float a_c, float a_d,
+                                  float a_e, float a_f, float a_z,
+                                  bool a_retailPpcMatrixMath = false);
 
 // Animation.setShape retains a VMSHAPE and drawAnimation replays its local
 // vertices with the current animation frame. Returns false for an empty or

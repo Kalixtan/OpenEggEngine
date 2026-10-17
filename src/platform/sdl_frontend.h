@@ -13,6 +13,9 @@ public:
 
     bool Create(int width, int height, const char* title, bool hidden) override;
     void Destroy() override;
+    void ShowErrorMessage(const char* title, const char* message) override;
+    bool ShowUnimplementedFunctionDialog(const char* title,
+                                         const char* message) override;
     void Resize(int width, int height) override;
     bool SetFullscreen(bool fullscreen) override;
     bool IsFullscreen() const override { return m_fullscreen; }
@@ -34,6 +37,7 @@ public:
     bool IsControllerPresent(int index) override;
     bool IsControllerButtonDown(int index, int buttonCode) override;
     float ControllerAxis(int index, int axis) override;
+    void SetActiveControllerSoftRumble(bool enabled) override;
     bool DecodeWave(const std::string& path, int outputRate,
                     std::vector<float>& stereoSamples) override;
     bool StartAudioOutput(int sampleRate) override;

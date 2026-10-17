@@ -24,7 +24,8 @@ std::size_t GetLiveAnimationResourceCount();
 // Animation with zero frames rather than failing, same "honest empty
 // stand-in" leniency as every other asset-load gap in this engine).
 void PushNewAnimation(gmThread* a_thread, const std::string& a_resolvedPath,
-                      bool a_attachToManager = true);
+                      bool a_attachToManager = true,
+                      int a_fsaShapeLayout = -1);
 // Releases an entity-owned animation's decoded frames and GPU textures after
 // any retained drawList.drawAnimation commands have released their leases.
 void UnloadAnimation(gmMachine& a_machine, const gmVariable& a_animVar);

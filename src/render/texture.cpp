@@ -4,7 +4,9 @@
 #include <cstdio>
 #include <climits>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
+#include <limits>
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
@@ -34,7 +36,7 @@ bool DecodeIndexedPng(const std::string& path, int expectedW, int expectedH,
                       bool& outIndexedSource, int& outSourceBitsPerPixel) {
     outIndexedSource = false;
     outSourceBitsPerPixel = 0;
-    std::ifstream in(path, std::ios::binary);
+    std::ifstream in(std::filesystem::u8path(path), std::ios::binary);
     if (!in) return false;
     std::vector<unsigned char> file((std::istreambuf_iterator<char>(in)), {});
     static const unsigned char signature[8] = {137, 80, 78, 71, 13, 10, 26, 10};
@@ -146,6 +148,65 @@ GLint RetailTextureFilterForSource(int channels, int sourceBitsPerPixel, bool in
 
 constexpr GLint kRetailTextureWrap = GL_CLAMP_TO_EDGE;
 
+void DrainTextureGlErrors(const char* a_path, const char* a_stage) {
+    for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {
+        std::fprintf(stderr,
+            "[texture-gl] pre-existing error=0x%04x before %s for '%s'\n",
+            static_cast<unsigned>(error), a_stage, a_path);
+    }
+}
+
+bool UploadRgbaTexture(const char* a_path, int a_width, int a_height,
+                       const unsigned char* a_pixels, GLint a_filter,
+                       GLuint& a_textureId) {
+    DrainTextureGlErrors(a_path, "upload");
+    a_textureId = 0;
+    glGenTextures(1, &a_textureId);
+    if (!a_textureId) {
+        const GLenum error = glGetError();
+        std::fprintf(stderr,
+            "[texture-gl] glGenTextures failed error=0x%04x size=%dx%d path='%s'\n",
+            static_cast<unsigned>(error), a_width, a_height, a_path);
+        return false;
+    }
+
+    GLint previousBinding = 0;
+    GLint previousUnpackAlignment = 4;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousBinding);
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousUnpackAlignment);
+    glBindTexture(GL_TEXTURE_2D, a_textureId);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, a_width, a_height, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, a_pixels);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, a_filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, a_filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, kRetailTextureWrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, kRetailTextureWrap);
+
+    bool succeeded = true;
+    for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {
+        std::fprintf(stderr,
+            "[texture-gl] upload error=0x%04x size=%dx%d path='%s'\n",
+            static_cast<unsigned>(error), a_width, a_height, a_path);
+        succeeded = false;
+    }
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, previousUnpackAlignment);
+    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(previousBinding));
+    for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {
+        std::fprintf(stderr,
+            "[texture-gl] state-restore error=0x%04x path='%s'\n",
+            static_cast<unsigned>(error), a_path);
+        succeeded = false;
+    }
+
+    if (!succeeded) {
+        glDeleteTextures(1, &a_textureId);
+        a_textureId = 0;
+    }
+    return succeeded;
+}
+
 } // namespace
 
 // OpenGL backend helper: pad dimensions for the current desktop texture
@@ -159,8 +220,13 @@ int NextPowerOfTwo(int a_v) {
 
 bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
     stbi_set_flip_vertically_on_load(true); // matches GL's bottom-left-origin UV convention
-    int w, h, channels;
-    unsigned char* data = stbi_load(a_path.c_str(), &w, &h, &channels, 0);
+    std::ifstream input(std::filesystem::u8path(a_path), std::ios::binary);
+    const bool inputOpened = input.is_open();
+    std::vector<unsigned char> encoded((std::istreambuf_iterator<char>(input)), {});
+    int w = 0, h = 0, channels = 0;
+    unsigned char* data = inputOpened && encoded.size() <= (size_t)std::numeric_limits<int>::max()
+        ? stbi_load_from_memory(encoded.data(), (int)encoded.size(), &w, &h, &channels, 0)
+        : nullptr;
     if (!data) {
         std::fprintf(stderr, "Texture::LoadFromFile: failed to load '%s'\n", a_path.c_str());
         return false;
@@ -173,6 +239,18 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
     const bool hasIndexedPixels = DecodeIndexedPng(a_path, w, h, indexedPixels, sourcePalette,
         sourcePaletteEntries, indexedSource, sourceBitsPerPixel);
     if (sourceBitsPerPixel <= 0) sourceBitsPerPixel = channels * 8;
+
+    // RETAIL PPC: FUN_000581a0 assigns texture selector 8 (TextureDist) to
+    // the decoded 8-bit grayscale class. The other 8-bit class gets selector
+    // 3; indexed formats use selector 5 in their separate constructor path.
+    // NOTE_BASS/NOTE_DRUM/NOTE_SYNTH are non-indexed 8-bit grayscale PNGs.
+    // Keeping the default selector 0 here silently routes direct draws of
+    // these distance fields through TextureTrans unless a script-side flag
+    // happens to force the desktop shader.
+    const int retailShaderType = sourceBitsPerPixel == 8 && channels == 1 && !indexedSource
+        ? 8
+        : (sourceBitsPerPixel == 8 && !indexedSource ? 3
+           : (indexedSource ? 5 : 0));
 
     GLenum format = GL_RGBA;
     GLenum internalFormat = GL_RGBA8;
@@ -307,22 +385,17 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
         }
     }
 
-    GLuint id;
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, potW, potH, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
     // The retail texture constructor selects NEAREST for indexed and low-bit
     // depth sources, LINEAR for 24/32-bit sources and its 8-bit grayscale
     // class, and CLAMP_TO_EDGE wrapping.
     // Keep this per uploaded texture so shader changes cannot inherit another
     // resource's sampler state.
     const GLint filter = RetailTextureFilterForSource(channels, sourceBitsPerPixel, indexedSource);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, kRetailTextureWrap);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, kRetailTextureWrap);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    GLuint id = 0;
+    if (!UploadRgbaTexture(a_path.c_str(), potW, potH, rgba.data(), filter, id)) {
+        stbi_image_free(data);
+        return false;
+    }
 
     stbi_image_free(data);
 
@@ -330,6 +403,7 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
     a_out.width = w;
     a_out.height = h;
     a_out.sourceBitsPerPixel = sourceBitsPerPixel;
+    a_out.shaderType = retailShaderType;
     a_out.potWidth = potW;
     a_out.potHeight = potH;
     a_out.uMax = 1.0f;
@@ -398,17 +472,10 @@ bool Texture::LoadFromMemoryRGBA(const unsigned char* a_rgba, int a_width, int a
         std::memcpy(&rgba[(size_t)y * potW * 4], &flipped[(size_t)y * rowBytes], rowBytes);
     }
 
-    GLuint id;
-    glGenTextures(1, &id);
-    glBindTexture(GL_TEXTURE_2D, id);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, potW, potH, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
     const GLint filter = a_nearestFilter ? GL_NEAREST : GL_LINEAR;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, kRetailTextureWrap);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, kRetailTextureWrap);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    GLuint id = 0;
+    if (!UploadRgbaTexture("<memory texture>", potW, potH, rgba.data(), filter, id))
+        return false;
 
     a_out.id = id;
     a_out.width = a_width;

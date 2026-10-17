@@ -1,4 +1,5 @@
 #include "localization.h"
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <cstdint>
@@ -10,7 +11,7 @@ constexpr uint32_t kMoMagicLE = 0x950412de;
 }
 
 bool Localization::LoadMoFile(const std::string& a_path) {
-    std::ifstream f(a_path, std::ios::binary);
+    std::ifstream f(std::filesystem::u8path(a_path), std::ios::binary);
     if (!f) {
         std::fprintf(stderr, "Localization::LoadMoFile: could not open '%s'\n", a_path.c_str());
         return false;
@@ -52,7 +53,7 @@ bool Localization::LoadMoFile(const std::string& a_path) {
 }
 
 bool Localization::LoadExtraStringsFile(const std::string& a_path) {
-    std::ifstream f(a_path, std::ios::binary);
+    std::ifstream f(std::filesystem::u8path(a_path), std::ios::binary);
     if (!f) {
         std::fprintf(stderr, "Localization::LoadExtraStringsFile: could not open '%s'\n", a_path.c_str());
         return false;

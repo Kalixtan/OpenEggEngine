@@ -1,4 +1,5 @@
 #include "gmThread.h"
+#include "gmStringObject.h"
 #include "physics_body_bindings.h"
 #include "physics_joint_bindings.h"
 #include "entity_bindings.h"
@@ -11,6 +12,7 @@
 #include "../core/retail_polygon_geometry.h"
 #include "../core/strict_calls.h"
 #include "../core/process_manager.h" // RootGmVariable/UnrootGmVariable
+#include "../ported_native/ground_math.h"
 #include <box2d/box2d.h>
 #include <vector>
 #include <unordered_map>
@@ -19,12 +21,20 @@
 #include <type_traits>
 #include <utility>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 namespace {
 
 gmType g_physicsBodyType = -1;
 gmType g_physicsDataType = -1;
 gmType g_physicsShapeType = -1;
+gmType g_collisionInfoType = -1;
+// GM's incremental collector destroys user objects in arbitrary order during
+// machine teardown. Keep shared-root bookkeeping outside CollisionInfoData so
+// a ShapeCollisionInfo destructor never touches an already-destroyed parent.
+std::unordered_map<gmMachine*, std::unordered_map<int, size_t>>
+    g_collisionInfoRootLeases;
 
 // Game scripts express velocity and angular velocity per millisecond. Stock
 // Box2D expresses both per second, so keep the unit conversion at this
@@ -42,6 +52,31 @@ inline float ScriptAngularVelocity(float a_velocity) {
 }
 inline float Box2DAngularVelocity(float a_velocity) {
     return a_velocity * kPhysicsMillisecondsPerSecond;
+}
+
+// Opt-in trace for the Sparkle Darkle ground-walking creatures. This lets a
+// runtime capture distinguish script velocity writes from the following
+// Box2D step for both GoombaCritterGuitar3 and SlimeEyes.
+bool GetCreatureDebugEntityId(gmMachine& a_machine, b2Body* a_body, int& a_id) {
+    const gmVariable owner = FindOwnerEntityForB2Body(a_body);
+    if (owner.m_type != GM_TABLE) return false;
+    auto* table = (gmTableObject*)a_machine.GetObject(owner.m_value.m_ref);
+    if (!table) return false;
+    const gmVariable type = table->Get(&a_machine, "__typeName");
+    if (type.m_type != GM_STRING || !type.m_value.m_ref) return false;
+    auto* name = (gmStringObject*)a_machine.GetObject(type.m_value.m_ref);
+    if (!name || (std::strcmp(name->GetString(),
+            "Platformer_EntityPacks_GoombaCritterGuitar3") != 0 &&
+        std::strcmp(name->GetString(),
+            "Platformer_EntityPacks_SlimeEyes") != 0)) return false;
+    const gmVariable objectId = table->Get(&a_machine, "__objectID");
+    a_id = objectId.m_type == GM_INT ? objectId.m_value.m_int : -1;
+    return true;
+}
+
+bool CreatureDebugEnabled() {
+    static const bool enabled = std::getenv("GE3_CREATURE_DEBUG") != nullptr;
+    return enabled;
 }
 
 // setPos/setVel/setDir all take EITHER (x,y) as two numbers OR a single
@@ -220,10 +255,14 @@ PhysicsBodyData* ThisBody(gmThread* a_thread) {
 }
 b2Fixture* FixtureAtShapeIndex(b2Body* a_body, int a_index);
 
+// Verification: retail PhysicsBody.getDir/getDirRef route through
+// FUN_00031e94 (0x31ec8, 0x31ee0): angle-to-facing uses the retail PPC
+// sine/cosine helper selectors 1/0. Use the instruction-derived shared port.
 b2Vec2 BodyFacingDirection(const PhysicsBodyData& a_body) {
     if (a_body.body->IsFixedRotation()) return b2Vec2(a_body.dirX, a_body.dirY);
     const float angle = a_body.body->GetAngle();
-    return b2Vec2(std::cos(angle), std::sin(angle));
+    return b2Vec2(GroundRenderMath::RetailGroundSinCos(angle, true),
+                  GroundRenderMath::RetailGroundSinCos(angle, false));
 }
 
 // Retail createBody creates dynamic bodies and has no body-type setter.
@@ -650,6 +689,54 @@ int GM_CDECL gmf_pb_setVel(gmThread* a_thread) {
     float x, y;
     if (!ReadVec2Args(a_thread, *a_thread->GetMachine(), x, y)) return GM_EXCEPTION;
     b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(x, y)));
+    if (CreatureDebugEnabled()) {
+        int entityId = -1;
+        gmMachine& machine = *a_thread->GetMachine();
+        if (GetCreatureDebugEntityId(machine, b->body, entityId)) {
+            const b2Vec2 pos = b->body->GetPosition();
+            const gmVariable owner = FindOwnerEntityForB2Body(b->body);
+            auto* ownerTable = owner.m_type == GM_TABLE
+                ? (gmTableObject*)machine.GetObject(owner.m_value.m_ref) : nullptr;
+            const gmVariable scriptMax = ownerTable
+                ? ownerTable->Get(&machine, "maxSpeed") : gmVariable::s_null;
+            const gmVariable scriptDirSign = ownerTable
+                ? ownerTable->Get(&machine, "dirSign") : gmVariable::s_null;
+            const gmVariable gravityDirVar = ownerTable
+                ? ownerTable->Get(&machine, "gravityDir") : gmVariable::s_null;
+            const gmVariable stateVar = ownerTable
+                ? ownerTable->Get(&machine, "state") : gmVariable::s_null;
+            auto* stateTable = stateVar.m_type == GM_TABLE
+                ? (gmTableObject*)machine.GetObject(stateVar.m_value.m_ref) : nullptr;
+            const gmVariable stateIdVar = stateTable
+                ? stateTable->Get(&machine, "id") : gmVariable::s_null;
+            const gmVariable fallStateVar = ownerTable
+                ? ownerTable->Get(&machine, "FALL_STATEID") : gmVariable::s_null;
+            const float scriptMaxSpeed = scriptMax.m_type == GM_FLOAT
+                ? scriptMax.m_value.m_float
+                : (scriptMax.m_type == GM_INT ? (float)scriptMax.m_value.m_int : -1.0f);
+            const int dirSign = scriptDirSign.m_type == GM_INT
+                ? scriptDirSign.m_value.m_int : 0;
+            float gravityX = 0.0f, gravityY = 0.0f;
+            const bool haveGravity = GetVector2D(machine, gravityDirVar, gravityX, gravityY);
+            const float forwardX = haveGravity ? -gravityY * dirSign : 0.0f;
+            const float forwardY = haveGravity ? gravityX * dirSign : 0.0f;
+            const float forwardProjection = x * forwardX + y * forwardY;
+            const int stateId = stateIdVar.m_type == GM_INT ? stateIdVar.m_value.m_int : -1;
+            const int fallStateId = fallStateVar.m_type == GM_INT ? fallStateVar.m_value.m_int : -1;
+            std::fprintf(stderr,
+                "[creature-setvel] tick=%u entity=%d body=%d pos=(%.5f,%.5f) "
+                "requestedMs=(%.7f,%.7f) scriptMax=%.7f dirSign=%d "
+                "gravity=(%.5f,%.5f) forward=(%.5f,%.5f) proj=%.7f "
+                "state=%d fallState=%d "
+                "mass=%.6g awake=%d\n",
+                GetEngineContext().gameSystem.currentTick, entityId,
+                b->objectId, pos.x, pos.y, x, y, scriptMaxSpeed, dirSign,
+                gravityX, gravityY, forwardX, forwardY, forwardProjection,
+                stateId, fallStateId,
+                b->body->GetMass(),
+                b->body->IsAwake() ? 1 : 0);
+        }
+    }
     return GM_OK;
 }
 // getVelRef -- confirmed real (Player.gm's DECISION_STATEID dead-fall
@@ -726,12 +813,14 @@ int GM_CDECL gmf_pb_getDir(gmThread* a_thread) {
 // native offsets +0x1c/+0x20. That helper refreshes the stored direction
 // from the body angle only when rotation response is enabled. Subsequent
 // component writes through the reference update those stored floats.
+// Verification: FUN_00031e94 uses PPC helper selectors 1 (cosine) and 0
+// (sine); this uses RetailGroundSinCos for those exact selector meanings.
 int GM_CDECL gmf_pb_getDirRef(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     if (!b->body->IsFixedRotation()) {
         const float angle = b->body->GetAngle();
-        b->dirX = std::cos(angle);
-        b->dirY = std::sin(angle);
+        b->dirX = GroundRenderMath::RetailGroundSinCos(angle, true);
+        b->dirY = GroundRenderMath::RetailGroundSinCos(angle, false);
     }
     a_thread->Push(MakeVector2DRef(*a_thread->GetMachine(), b->selfVar, b,
                                    [](void* ctx, float& x, float& y) {
@@ -1112,22 +1201,11 @@ int GM_CDECL gmf_pb_getCategoriesToCollideWith(gmThread* a_thread) {
     a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).maskBits : -1);
     return GM_OK;
 }
-// setCollisionGroup(group)/getCollisionGroup() -- confirmed real and
-// (0x00090394, `FUN_00032470(self, 0)` -- the hardcoded literal 0 second
-// arg means this always resolves the body's first/only fixture, matching
-// the "apply to every fixture uniformly" pattern setCollisionCategory/
-// setCategoriesToCollideWith already use). No decompiled setter exists in
-// this corpus, but game_data/Platformer/EntityBase.gm:914 -- part of
-// EVERY entity's configure() step, live and uncommented -- calls
-// `this.PhysicsData.setCollisionGroup((this.configureData.uid +
-// RESERVED_UIDS)*-1);`. The value is forced negative, which is exactly
-// Box2D's b2Filter::groupIndex semantic (nonzero group index: negative =
-// never collide with same group, positive = always collide, independent
-// of and orthogonal to categoryBits/maskBits) -- a THIRD filter field,
-// distinct from setCollisionCategory/setCategoriesToCollideWith, so this
-// must not be aliased onto those. Was entirely missing (grepped, zero
-// matches anywhere in the corpus of binding files), meaning every entity
-// hit "getdot failed" during configure() before this fix.
+// RETAIL PPC VERIFIED: PHYSICSBODY.setCollisionGroup (0x910f4) calls
+// FUN_000333d0, which stores a 32-bit value on the body and applies the
+// category/mask/group record to every existing shape. Desktop mirrors the
+// fixture traversal, but Box2D groupIndex is only int16; full-width parity
+// remains open pending the native contact-filter comparison audit.
 int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1140,6 +1218,9 @@ int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getCollisionGroup(gmThread* a_thread) {
+    // RETAIL PPC VERIFIED: PHYSICSBODY.getCollisionGroup (0x90394) resolves
+    // shape index 0 and returns its 32-bit field at +0x40. This adapter reads
+    // the first fixture's groupIndex; its narrowed width is documented above.
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
     a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).groupIndex : 0);
@@ -1359,12 +1440,24 @@ int GM_CDECL gmf_pb_getCenterOfMass(gmThread* a_thread) {
 // origin inertia. Retail bytecode passes zero through unchanged; the vendored
 // Box2D SetMassData path has been adjusted to preserve its zero inverse mass.
 void SetRetailBodyMass(b2Body* a_body, float a_mass) {
-    if (!a_body || a_body->GetMass() == a_mass) return;
-    b2MassData data;
-    a_body->GetMassData(&data);
-    data.mass = a_mass;
-    data.I = a_mass + b2Dot(data.center, data.center);
-    a_body->SetMassData(&data);
+    if (!a_body) return;
+    if (a_body->GetMass() != a_mass) {
+        b2MassData data;
+        a_body->GetMassData(&data);
+        data.mass = a_mass;
+        data.I = a_mass + b2Dot(data.center, data.center);
+        a_body->SetMassData(&data);
+    }
+    // Retail game scripts use setMass(0) to park dynamic bodies while
+    // preserving their contacts (for example ControlledPlatform's STOP
+    // state). Box2D still integrates a dynamic body's retained velocity when
+    // its inverse mass is zero, so explicitly clear stale motion at this
+    // adapter boundary. Otherwise a mover coasts away after setPos()+setMass(0)
+    // and its next trip starts from the wrong location.
+    if (a_mass <= 0.0f) {
+        a_body->SetLinearVelocity(b2Vec2_zero);
+        a_body->SetAngularVelocity(0.0f);
+    }
 }
 int GM_CDECL gmf_pb_setMass(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
@@ -2591,6 +2684,76 @@ int GM_CDECL gmf_pd_getCollidingEntities(gmThread* a_thread) {
     std::vector<gmVariable> found;
     GetPhysicsCollidingEntitiesForPhysicsData(
         reinterpret_cast<uintptr_t>(d), found);
+    if (CreatureDebugEnabled() && d->ownerEntity.m_type == GM_TABLE) {
+        int creatureId = -1;
+        gmMachine& machine = *a_thread->GetMachine();
+        auto* ownerTable = (gmTableObject*)machine.GetObject(d->ownerEntity.m_value.m_ref);
+        const gmVariable typeVar = ownerTable ? ownerTable->Get(&machine, "__typeName") : gmVariable::s_null;
+        auto* typeName = typeVar.m_type == GM_STRING
+            ? (gmStringObject*)machine.GetObject(typeVar.m_value.m_ref) : nullptr;
+        const gmVariable ownerId = ownerTable ? ownerTable->Get(&machine, "__objectID") : gmVariable::s_null;
+        if (typeName && (std::strcmp(typeName->GetString(), "Platformer_EntityPacks_GoombaCritterGuitar3") == 0 ||
+                         std::strcmp(typeName->GetString(), "Platformer_EntityPacks_SlimeEyes") == 0)) {
+            if (ownerId.m_type == GM_INT) creatureId = ownerId.m_value.m_int;
+            std::fprintf(stderr, "[creature-colliding] tick=%u entity=%d results=%zu",
+                GetEngineContext().gameSystem.currentTick, creatureId, found.size());
+            for (const gmVariable& other : found) {
+                int otherId = -1;
+                if (other.m_type == GM_TABLE) {
+                    auto* t = (gmTableObject*)a_thread->GetMachine()->GetObject(other.m_value.m_ref);
+                    const gmVariable id = t ? t->Get(a_thread->GetMachine(), "__objectID") : gmVariable::s_null;
+                    if (id.m_type == GM_INT) otherId = id.m_value.m_int;
+                    const gmVariable otherType = t ? t->Get(a_thread->GetMachine(), "__typeName") : gmVariable::s_null;
+                    auto* otherName = otherType.m_type == GM_STRING
+                        ? (gmStringObject*)a_thread->GetMachine()->GetObject(otherType.m_value.m_ref) : nullptr;
+                    std::fprintf(stderr, " %d:%s", otherId, otherName ? otherName->GetString() : "?");
+                } else {
+                    std::fprintf(stderr, " %d:<non-table>", otherId);
+                }
+            }
+            std::fprintf(stderr, "\n");
+            const gmVariable mainBodyVar = ownerTable
+                ? ownerTable->Get(&machine, "mainpb") : gmVariable::s_null;
+            PhysicsBodyData* mainBody = GetBodyData(machine, mainBodyVar);
+            b2Fixture* mainShape0 = mainBody && mainBody->body
+                ? FixtureAtShapeIndex(mainBody->body, 0) : nullptr;
+            const int mainShapeId = mainShape0
+                ? (int)mainShape0->GetUserData().pointer : -1;
+            std::fprintf(stderr, "[creature-contact-detail] tick=%u entity=%d main0=%d",
+                GetEngineContext().gameSystem.currentTick, creatureId, mainShapeId);
+            for (const gmVariable& other : found) {
+                int otherId = -1;
+                uintptr_t otherData = 0;
+                if (other.m_type == GM_TABLE) {
+                    auto* t = (gmTableObject*)machine.GetObject(other.m_value.m_ref);
+                    const gmVariable id = t ? t->Get(&machine, "__objectID") : gmVariable::s_null;
+                    if (id.m_type == GM_INT) otherId = id.m_value.m_int;
+                    const gmVariable pdVar = t ? t->Get(&machine, "PhysicsData") : gmVariable::s_null;
+                    gmObject* pdObject = pdVar.m_type == g_physicsDataType
+                        ? machine.GetObject(pdVar.m_value.m_ref) : nullptr;
+                    if (pdObject)
+                        otherData = (uintptr_t)((gmUserObject*)pdObject)->m_user;
+                }
+                std::vector<PhysicsContactRecordView> records;
+                if (otherId >= 0 && otherData != 0 && GetPhysicsContactRecordsForPhysicsData(
+                        reinterpret_cast<uintptr_t>(d), (uint32_t)otherId, records)) {
+                    for (const PhysicsContactRecordView& contact : records) {
+                        b2Vec2 normal(0.0f, 0.0f);
+                        if (contact.contact) {
+                            b2WorldManifold manifold{};
+                            contact.contact->GetWorldManifold(&manifold);
+                            normal = contact.normalSign * manifold.normal;
+                        }
+                        std::fprintf(stderr,
+                            " {%d:%d->%d,n=(%.3f,%.3f)}", otherId,
+                            contact.myShapeId, contact.otherShapeId,
+                            normal.x, normal.y);
+                    }
+                }
+            }
+            std::fprintf(stderr, "\n");
+        }
+    }
     const gmVariable* reuse = a_thread->GetNumParams() > 0 ? &a_thread->Param(0) : nullptr;
     if (!PushOrRefillEntityListIterator(a_thread, std::move(found), reuse))
         return GM_EXCEPTION;
@@ -2630,7 +2793,6 @@ int GM_CDECL gmf_pd_getJointsOnMe(gmThread* a_thread) {
 // fixture list) -- computed here by walking GetFixtureList(). The
 // getCollidingShapeIDList() accepts the reusable IntListRefContainer
 // created by INTLISTREFCONTAINER() and repopulates it with shape IDs.
-gmType g_collisionInfoType = -1;
 gmType g_shapeCollisionInfoType = -1;
 gmType g_intIterType = -1;
 
@@ -2649,7 +2811,8 @@ struct ShapeContactEntry {
     std::vector<float> normalSigns; // live-contact orientation from retail record +4
     std::vector<ContactPoints> points;
     // The live b2Contact each record came from, so disableContact can mark
-    // contacts in the selected SCI when its otherShapeId is retail's ID 4.
+    // contacts in the selected SCI when its otherShapeId matches the raw ID
+    // argument passed by the script.
     std::vector<b2Contact*> contacts;
 };
 struct CollisionInfoData {
@@ -2665,10 +2828,15 @@ struct CollisionInfoData {
     uintptr_t physicsDataKey = 0;
     uint32_t otherEntityId = 0;
     bool invalidated = false;
+    gmMachine* machine = nullptr;
+    // Retail keeps one ShapeCollisionInfo value per outer shape key inside
+    // the CollisionInfo map. Cache the GM views here so repeated lookup of
+    // that key returns the same script-visible object while the pair lives.
+    std::unordered_map<int, gmVariable> shapeCollisionInfoViews;
 };
 struct ShapeCollisionInfoData {
     // Retail records are grouped by their outer other-shape ID; record[3]
-    // (tested against literal 4 by disableContact) stores this same ID.
+    // (compared with disableContact's raw argument) stores this same ID.
     int otherShapeId = -1;
     std::vector<int> myShapeIds;
     std::vector<b2Vec2> normals;
@@ -2686,6 +2854,55 @@ struct IntIterData {
     size_t index = 0;
 };
 
+void AcquireCollisionInfoRoot(gmMachine& a_machine, const gmVariable& a_view) {
+    if (a_view.m_type != g_collisionInfoType) return;
+    auto& leases = g_collisionInfoRootLeases[&a_machine];
+    size_t& count = leases[a_view.m_value.m_ref];
+    if (count++ == 0) RootGmVariable(a_machine, a_view);
+}
+
+void ReleaseCollisionInfoRoot(gmMachine& a_machine, const gmVariable& a_view) {
+    if (a_view.m_type != g_collisionInfoType) return;
+    auto machineIt = g_collisionInfoRootLeases.find(&a_machine);
+    if (machineIt == g_collisionInfoRootLeases.end()) return;
+    auto& leases = machineIt->second;
+    auto viewIt = leases.find(a_view.m_value.m_ref);
+    if (viewIt == leases.end() || viewIt->second == 0) return;
+    if (--viewIt->second == 0) {
+        UnrootGmVariable(a_machine, a_view);
+        leases.erase(viewIt);
+        if (leases.empty()) g_collisionInfoRootLeases.erase(machineIt);
+    }
+}
+
+void ReleaseShapeCollisionInfoViews(CollisionInfoData* a_info) {
+    if (!a_info || !a_info->machine) return;
+    gmMachine& machine = *a_info->machine;
+    if (machine.IsResetting()) {
+        // The GM collector destroys payloads in arbitrary order while
+        // resetting; its reset pass owns all remaining C++ roots.
+        a_info->shapeCollisionInfoViews.clear();
+        return;
+    }
+    for (const auto& view : a_info->shapeCollisionInfoViews) {
+        if (view.second.m_type == g_shapeCollisionInfoType) {
+            gmObject* object = machine.GetObject(view.second.m_value.m_ref);
+            auto* user = object ? static_cast<gmUserObject*>(object) : nullptr;
+            auto* shape = user
+                ? static_cast<ShapeCollisionInfoData*>(user->m_user) : nullptr;
+            if (shape) {
+                shape->myShapeIds.clear();
+                shape->normals.clear();
+                shape->normalSigns.clear();
+                shape->points.clear();
+                shape->contacts.clear();
+            }
+        }
+        UnrootGmVariable(machine, view.second);
+    }
+    a_info->shapeCollisionInfoViews.clear();
+}
+
 int GM_CDECL gmf_INTLISTREFCONTAINER(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmUserObject* obj = m.AllocUserObject(new IntIterData(), g_intIterType);
@@ -2699,6 +2916,7 @@ int GM_CDECL gmf_INTLISTREFCONTAINER(gmThread* a_thread) {
 // records in contact-add order, then sort only outer signed shape-ID groups.
 CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_myData, const gmVariable& a_otherEntityVar) {
     CollisionInfoData* info = new CollisionInfoData();
+    info->machine = &a_machine;
     if (a_otherEntityVar.m_type != GM_TABLE) return info;
     gmTableObject* otherTable = (gmTableObject*)a_machine.GetObject(a_otherEntityVar.m_value.m_ref);
     if (!otherTable) return info;
@@ -2773,6 +2991,40 @@ CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_my
     return info;
 }
 
+gmVariable GetShapeCollisionInfoView(gmMachine& a_machine,
+                                     CollisionInfoData* a_info,
+                                     ShapeContactEntry& a_entry,
+                                     const gmVariable& a_owner) {
+    auto cached = a_info->shapeCollisionInfoViews.find(a_entry.otherShapeId);
+    if (cached != a_info->shapeCollisionInfoViews.end()) {
+        gmObject* object = cached->second.m_type == g_shapeCollisionInfoType
+            ? a_machine.GetObject(cached->second.m_value.m_ref) : nullptr;
+        auto* user = object ? static_cast<gmUserObject*>(object) : nullptr;
+        auto* sci = user ? static_cast<ShapeCollisionInfoData*>(user->m_user) : nullptr;
+        if (sci) {
+            sci->myShapeIds = a_entry.myShapeIds;
+            sci->normals = a_entry.normals;
+            sci->normalSigns = a_entry.normalSigns;
+            sci->points = a_entry.points;
+            sci->contacts = a_entry.contacts;
+            return cached->second;
+        }
+        UnrootGmVariable(a_machine, cached->second);
+        a_info->shapeCollisionInfoViews.erase(cached);
+    }
+
+    auto* sci = new ShapeCollisionInfoData{
+        a_entry.otherShapeId, a_entry.myShapeIds, a_entry.normals,
+        a_entry.normalSigns, a_entry.points, a_entry.contacts};
+    sci->machine = &a_machine;
+    sci->ownerCollisionInfo = a_owner;
+    AcquireCollisionInfoRoot(a_machine, a_owner);
+    gmVariable view(a_machine.AllocUserObject(sci, g_shapeCollisionInfoType));
+    RootGmVariable(a_machine, view); // CollisionInfo owns this mapped value.
+    a_info->shapeCollisionInfoViews.emplace(a_entry.otherShapeId, view);
+    return view;
+}
+
 namespace {
 void CopyCollisionInfoContents(CollisionInfoData* a_destination,
                                CollisionInfoData* a_source) {
@@ -2783,6 +3035,22 @@ void CopyCollisionInfoContents(CollisionInfoData* a_destination,
     a_destination->physicsDataKey = a_source->physicsDataKey;
     a_destination->otherEntityId = a_source->otherEntityId;
     a_destination->invalidated = a_source->invalidated;
+    for (auto it = a_destination->shapeCollisionInfoViews.begin();
+         it != a_destination->shapeCollisionInfoViews.end();) {
+        const bool keyStillPresent = std::any_of(
+            a_destination->contacts.begin(), a_destination->contacts.end(),
+            [it](const ShapeContactEntry& entry) {
+                return entry.otherShapeId == it->first;
+            });
+        if (!keyStillPresent) {
+            if (a_destination->machine &&
+                !a_destination->machine->IsResetting())
+                UnrootGmVariable(*a_destination->machine, it->second);
+            it = a_destination->shapeCollisionInfoViews.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 bool RefreshCollisionInfoData(gmMachine& a_machine, CollisionInfoData* a_info) {
@@ -2804,6 +3072,7 @@ bool RefreshCollisionInfoData(gmMachine& a_machine, CollisionInfoData* a_info) {
     if (stillActive) {
         CopyCollisionInfoContents(a_info, fresh);
     } else {
+        ReleaseShapeCollisionInfoViews(a_info);
         a_info->contacts.clear();
         a_info->pairExists = false;
         a_info->invalidated = true;
@@ -2863,18 +3132,26 @@ void InvalidatePhysicsCollisionInfoViewImpl(uintptr_t a_physicsData,
     gmVariable view = viewIt->second;
     gmMachine* machine = GetEngineContext().machine;
     if (machine && view.m_type == g_collisionInfoType) {
-        gmObject* object = machine->GetObject(view.m_value.m_ref);
-        if (object) {
-            auto* info = static_cast<CollisionInfoData*>(
-                static_cast<gmUserObject*>(object)->m_user);
-            if (info) {
-                info->contacts.clear();
-                info->pairExists = false;
-                info->invalidated = true;
-                info->physicsDataKey = 0;
+        // During ResetAndFreeMemory the collector calls native destructors
+        // in arbitrary object order. The cached GM object's payload may
+        // already have been destroyed, and the machine is discarding every
+        // view anyway, so only perform live-view invalidation during normal
+        // runtime teardown.
+        if (!machine->IsResetting()) {
+            gmObject* object = machine->GetObject(view.m_value.m_ref);
+            if (object) {
+                auto* info = static_cast<CollisionInfoData*>(
+                    static_cast<gmUserObject*>(object)->m_user);
+                if (info) {
+                    ReleaseShapeCollisionInfoViews(info);
+                    info->contacts.clear();
+                    info->pairExists = false;
+                    info->invalidated = true;
+                    info->physicsDataKey = 0;
+                }
             }
         }
-        UnrootGmVariable(*machine, view);
+        ReleaseCollisionInfoRoot(*machine, view);
     }
     owner->collisionInfoViews.erase(viewIt);
 }
@@ -2915,12 +3192,12 @@ int GM_CDECL gmf_pd_getCollisionInfo(gmThread* a_thread) {
             a_thread->Push(cached->second);
             return GM_OK;
         }
-        UnrootGmVariable(m, cached->second);
+        ReleaseCollisionInfoRoot(m, cached->second);
         d->collisionInfoViews.erase(cached);
     }
     gmUserObject* obj = m.AllocUserObject(info, g_collisionInfoType);
     gmVariable view(obj);
-    RootGmVariable(m, view);
+    AcquireCollisionInfoRoot(m, view);
     d->collisionInfoViews.emplace(info->otherEntityId, view);
     a_thread->Push(view);
     return GM_OK;
@@ -3111,8 +3388,8 @@ int GM_CDECL gmf_ci_getCollidingShapeIDList(gmThread* a_thread) {
 // Retail PPC verified: Physics.getShapeCollisionInfo (0x974cc) sign-extends
 // the raw argument payload, searches by signed key through 0x2db88/0x2f52d0,
 // and returns null on a miss. A hit is the stored ShapeCollisionInfo pointer
-// at tree-node +0x10. Desktop currently materializes a copied user object, so
-// pointer identity/aliasing is not yet equivalent; see the CollisionInfo audit.
+// at tree-node +0x10. Cache one rooted proxy per parent/key so repeated lookup
+// returns the same GM object and its fields refresh from the live contact group.
 int GM_CDECL gmf_ci_getShapeCollisionInfo(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
@@ -3121,14 +3398,11 @@ int GM_CDECL gmf_ci_getShapeCollisionInfo(gmThread* a_thread) {
     const int sid = a_thread->Param(0).m_value.m_int;
     for (auto& e : info->contacts) {
         if (e.otherShapeId == sid) {
-            ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.otherShapeId, e.myShapeIds, e.normals, e.normalSigns, e.points, e.contacts};
-            sci->machine = a_thread->GetMachine();
-            if (const gmVariable* owner = a_thread->GetThis()) {
-                sci->ownerCollisionInfo = *owner;
-                RootGmVariable(*sci->machine, sci->ownerCollisionInfo);
-            }
-            gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(sci, g_shapeCollisionInfoType);
-            a_thread->Push(gmVariable(obj));
+            const gmVariable owner = a_thread->GetThis()
+                ? *a_thread->GetThis() : gmVariable::s_null;
+            gmVariable view = GetShapeCollisionInfoView(
+                *a_thread->GetMachine(), info, e, owner);
+            a_thread->Push(view);
             return GM_OK;
         }
     }
@@ -3137,38 +3411,35 @@ int GM_CDECL gmf_ci_getShapeCollisionInfo(gmThread* a_thread) {
 }
 // Retail wrapper 0x975d4 delegates to 0x2dbec, which returns null for an
 // empty map or the stored ShapeCollisionInfo pointer from the leftmost entry.
-// Desktop sorts outer groups to preserve signed-key order, but currently copies
-// the group into a new user object; pointer alias/identity is a known mismatch.
+// Desktop sorts outer groups to preserve signed-key order; use the same cached
+// view as getShapeCollisionInfo so both retail accessors alias one map value.
 int GM_CDECL gmf_ci_getFirstShapeCollisionInfo(gmThread* a_thread) {
     CollisionInfoData* info = (CollisionInfoData*)a_thread->ThisUserCheckType(g_collisionInfoType);
     if (!info) return GM_EXCEPTION;
     RefreshCollisionInfoData(*a_thread->GetMachine(), info);
     if (info->contacts.empty()) { a_thread->PushNull(); return GM_OK; }
     ShapeContactEntry& e = info->contacts.front();
-    ShapeCollisionInfoData* sci = new ShapeCollisionInfoData{e.otherShapeId, e.myShapeIds, e.normals, e.normalSigns, e.points, e.contacts};
-    sci->machine = a_thread->GetMachine();
-    if (const gmVariable* owner = a_thread->GetThis()) {
-        sci->ownerCollisionInfo = *owner;
-        RootGmVariable(*sci->machine, sci->ownerCollisionInfo);
-    }
-    gmUserObject* obj = a_thread->GetMachine()->AllocUserObject(sci, g_shapeCollisionInfoType);
-    a_thread->Push(gmVariable(obj));
+    const gmVariable owner = a_thread->GetThis()
+        ? *a_thread->GetThis() : gmVariable::s_null;
+    gmVariable view = GetShapeCollisionInfoView(
+        *a_thread->GetMachine(), info, e, owner);
+    a_thread->Push(view);
     return GM_OK;
 }
 // RETAIL PPC VERIFIED FROM INSTRUCTIONS: ShapeCollisionInfo.disableContact
 // (0x982f4 -> 0x2d7fc) walks 16-byte records and sets contact flag bit 0
-// when record[3] equals constant 4. The 0x30f28 insertion helper stores the
-// record's param_4 shape-object ID there, which is also this SCI's outer key.
-// The second argument is unused; Ghidra's decompiler incorrectly renders the
-// literal comparison as record[3] == param_2.
+// when record[3] equals the raw ID argument passed by the script. The wrapper
+// forwards that argument in r4 and the helper compares it directly at 0x2d838.
+// The decompiler's param_2 is correct; the prior local literal-4 check was not.
 int GM_CDECL gmf_sci_disableContact(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
     RefreshShapeCollisionInfoData(sci);
     GM_CHECK_NUM_PARAMS(1);
-    if (sci->otherShapeId == 4) {
+    const int32_t otherShapeId = a_thread->Param(0).m_value.m_int;
+    if (sci->otherShapeId == otherShapeId) {
         for (b2Contact* contact : sci->contacts)
-            DisableContactThisFrame(contact);
+            MarkContactDisabled(contact);
     }
     return GM_OK;
 }
@@ -3802,17 +4073,22 @@ int GM_CDECL gmf_pd_setCategoriesToCollideWith(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// setCollisionGroup/getCollisionGroup/isSleeping -- see the gmf_pb_ versions
-// above for the full decompiled/live-call-site justification (this is the
-// SAME real method, real scripts call it directly on PhysicsData, e.g.
-// EntityBase.gm:914's `this.PhysicsData.setCollisionGroup(...)` -- the
-// exact "delegate to body 0" pattern every other pd_/pb_ pair here uses).
+// MULTIBODYPHYSICSDATA.setCollisionGroup -- bytecode verified from the
+// retail wrapper at 0x94bd8 and helper 0x2f284. The helper walks the entire
+// PhysicsData body array (+0x50 to +0x54) and calls 0x333d0 for every body;
+// that helper stores the group on the body and applies it to every shape.
+// EntityBase.gm:914 calls this once per entity, so all of an entity's
+// PhysicsData bodies must receive the same negative group. Earlier desktop
+// code only updated body 0, leaving auxiliary bodies at group 0 and allowing
+// contacts between bodies owned by the same entity.
 int GM_CDECL gmf_pd_setCollisionGroup(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(group, 0, 0);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) {
+    gmMachine& m = *a_thread->GetMachine();
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(m, bodyVar);
+        if (!b || !b->body) continue;
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
             b2Filter filter = DesiredFixtureFilter(b, f);
             filter.groupIndex = (int16)group;
@@ -4239,6 +4515,18 @@ bool GetPhysicsDataPos(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
     return true;
 }
 
+bool GetPhysicsDataFacingDirection(gmMachine& a_machine,
+                                   const gmVariable& a_physicsDataVar,
+                                   float& a_x, float& a_y) {
+    PhysicsBodyData* body = GetBodyData(a_machine,
+        GetPhysicsDataMainBodyVar(a_machine, a_physicsDataVar));
+    if (!body || !body->body) return false;
+    const b2Vec2 direction = BodyFacingDirection(*body);
+    a_x = direction.x;
+    a_y = direction.y;
+    return true;
+}
+
 bool GetPhysicsDataAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
                          float& a_minX, float& a_minY, float& a_maxX, float& a_maxY) {
     a_minX = a_minY = a_maxX = a_maxY = 0.0f;
@@ -4348,21 +4636,31 @@ b2Body* GetB2BodyFromVar(gmMachine& a_machine, const gmVariable& a_var) {
     return bd ? bd->body : nullptr;
 }
 
+// Verification: mirrors retail getDirRef / FUN_00031e94, including its
+// angle-derived direction refresh and retail PPC sine/cosine helper.
 // For entity_bindings.cpp's native SauceBase draw (see that function's
-// header comment): mirrors gmf_pb_getPos + gmf_pb_getDir without needing a
+// header comment): mirrors gmf_pb_getPos + gmf_pb_getDirRef without needing a
 // gmThread, so the native draw hook can read an entity's mainpb position/
 // facing the same way its own commented-out real draw() would have via
-// `this.mainpb.getPos()`/`getDir()`.
+// `this.mainpb.getPos()`/`getDirRef()`. The reference form refreshes the
+// stored direction when rotation response is enabled.
 bool GetPhysicsBodyPosAndDir(gmMachine& a_machine, const gmVariable& a_var,
                               float& a_x, float& a_y, float& a_dirX, float& a_dirY) {
     PhysicsBodyData* bd = GetBodyData(a_machine, a_var);
     if (!bd || !bd->body) return false;
     b2Vec2 p = bd->body->GetPosition();
     a_x = p.x; a_y = p.y;
-    b2Vec2 v = bd->body->GetLinearVelocity();
-    float len = v.Length();
-    if (len > 0.0001f) { a_dirX = v.x / len; a_dirY = v.y / len; }
-    else { a_dirX = bd->dirX; a_dirY = bd->dirY; }
+    // RETAIL PPC VERIFIED: PhysicsBody.getDirRef (0x8f4e4) calls
+    // FUN_00031e94, which refreshes +0x1c/+0x20 from body angle when
+    // rotation response is enabled; it never derives facing from velocity.
+    // Match the helper's mutation as well as its returned direction.
+    if (!bd->body->IsFixedRotation()) {
+        const float angle = bd->body->GetAngle();
+        bd->dirX = GroundRenderMath::RetailGroundSinCos(angle, true);
+        bd->dirY = GroundRenderMath::RetailGroundSinCos(angle, false);
+    }
+    a_dirX = bd->dirX;
+    a_dirY = bd->dirY;
     return true;
 }
 
@@ -4447,6 +4745,9 @@ float RetailDirectionAngle(float a_x, float a_y) {
 // world step; no separate 16.666 ms movement tick is applied here. Values
 // remain in script millisecond units; the stock-Box2D conversion is confined
 // to the body/world adapter boundary.
+// Verification: retail angle-to-direction calls FUN_001dd1ac selectors 1/0;
+// this movement path uses the same instruction-derived math port as
+// getDirRef. The surrounding movement integration retains its separate audit.
 void StepPhysicsBodyMovement(float a_dt) {
     gmMachine* machine = GetEngineContext().machine;
     if (!machine) return;
@@ -4503,8 +4804,8 @@ void StepPhysicsBodyMovement(float a_dt) {
             const bool rotationResponse = !b->body->IsFixedRotation();
             if (rotationResponse) {
                 const float angle = b->body->GetAngle();
-                b->dirX = std::cos(angle);
-                b->dirY = std::sin(angle);
+                b->dirX = GroundRenderMath::RetailGroundSinCos(angle, true);
+                b->dirY = GroundRenderMath::RetailGroundSinCos(angle, false);
             }
 
             // Retain PPC fmadds' single-rounding behavior for the velocity
@@ -4531,6 +4832,21 @@ void StepPhysicsBodyMovement(float a_dt) {
                 velocityY = (velocityY / speed) * adjustedSpeed;
             }
             b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(velocityX, velocityY)));
+            if (CreatureDebugEnabled()) {
+                int entityId = -1;
+                if (GetCreatureDebugEntityId(*machine, b->body, entityId)) {
+                    const b2Vec2 pos = b->body->GetPosition();
+                    std::fprintf(stderr,
+                        "[creature-integrate] tick=%u dtMs=%.6f entity=%d body=%d "
+                        "pos=(%.5f,%.5f) beforeMs=(%.7f,%.7f) "
+                        "afterMs=(%.7f,%.7f) dir=(%.5f,%.5f) "
+                        "maxSpeed=%.7f mass=%.6g\n",
+                        GetEngineContext().gameSystem.currentTick, a_dt,
+                        entityId, b->objectId, pos.x, pos.y,
+                        oldVelocity.x, oldVelocity.y, velocityX, velocityY,
+                        b->dirX, b->dirY, b->maxSpeed, b->body->GetMass());
+                }
+            }
 
             if (b->rotateToActive) {
                 const float currentAngle = RetailDirectionAngle(b->dirX, b->dirY);
@@ -4575,8 +4891,8 @@ void StepPhysicsBodyMovement(float a_dt) {
                     *b, b->fixedRotationVel, a_dt);
                 const float angle = RetailDirectionAngle(b->dirX, b->dirY) +
                                     b->fixedRotationVel * a_dt;
-                b->dirX = std::cos(angle);
-                b->dirY = std::sin(angle);
+                b->dirX = GroundRenderMath::RetailGroundSinCos(angle, true);
+                b->dirY = GroundRenderMath::RetailGroundSinCos(angle, false);
             }
 
             // GE3_MOVE_DEBUG=1: dump the real per-tick movement state for any
@@ -4625,7 +4941,11 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
     a_machine.RegisterTypeLibrary(g_collisionInfoType, s_collisionInfoLib,
                                    sizeof(s_collisionInfoLib) / sizeof(s_collisionInfoLib[0]));
     a_machine.RegisterUserCallbacks(g_collisionInfoType, nullptr,
-        [](gmMachine*, gmUserObject* a_object) { delete (CollisionInfoData*)a_object->m_user; }, nullptr);
+        [](gmMachine*, gmUserObject* a_object) {
+            auto* info = static_cast<CollisionInfoData*>(a_object->m_user);
+            ReleaseShapeCollisionInfoViews(info);
+            delete info;
+        }, nullptr);
 
     g_shapeCollisionInfoType = a_machine.CreateUserType("ShapeCollisionInfo");
     a_machine.RegisterTypeLibrary(g_shapeCollisionInfoType, s_shapeCollisionInfoLib,
@@ -4634,7 +4954,7 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         [](gmMachine*, gmUserObject* a_object) {
             auto* sci = static_cast<ShapeCollisionInfoData*>(a_object->m_user);
             if (sci && sci->machine)
-                UnrootGmVariable(*sci->machine, sci->ownerCollisionInfo);
+                ReleaseCollisionInfoRoot(*sci->machine, sci->ownerCollisionInfo);
             delete sci;
         }, nullptr);
 
@@ -4723,7 +5043,9 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
         {"getShapeRadius", gmf_pd_getShapeRadius, nullptr},
         {"isPointWithin", gmf_pd_isPointWithin, nullptr},
     };
-    g_physicsDataType = a_machine.CreateUserType("PhysicsData");
+    // Retail registers this user type as MULTIBODYPHYSICSDATA. Preserve the
+    // native type name for GM type inspection as well as its method library.
+    g_physicsDataType = a_machine.CreateUserType("MULTIBODYPHYSICSDATA");
     a_machine.RegisterTypeLibrary(g_physicsDataType, physicsDataLib,
                                    sizeof(physicsDataLib) / sizeof(physicsDataLib[0]));
     a_machine.RegisterUserCallbacks(g_physicsDataType, nullptr,
@@ -4747,13 +5069,14 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
                     auto* info = user
                         ? static_cast<CollisionInfoData*>(user->m_user) : nullptr;
                     if (info) {
+                        ReleaseShapeCollisionInfoViews(info);
                         info->contacts.clear();
                         info->pairExists = false;
                         info->invalidated = true;
                         info->physicsDataKey = 0;
                     }
                 }
-                UnrootGmVariable(*a_m, view);
+                ReleaseCollisionInfoRoot(*a_m, view);
             }
             d->collisionInfoViews.clear();
             for (gmVariable& bv : d->bodies) {

@@ -1,6 +1,7 @@
 #pragma once
 #include <GL/glew.h>
 #include <cstddef>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include "shader.h"
@@ -19,9 +20,9 @@
 // The frontend owns the native window and OpenGL context. Nothing from a
 // windowing library draws or manages the renderer's GL state.
 //
-// Projection evidence: retail unit/aspect ortho entry points are decoded;
-// world projection is still an approximation of FUN_0004cea0. No FoE
-// FUN_00421xxx OpenGL address is evidence for the Sound Shapes PS3 binary.
+// Projection evidence: retail unit/aspect ortho and the unrotated world-view
+// bounds/depth mapping are traced. The rotated world-view branch remains under
+// audit. No FoE FUN_00421xxx OpenGL address is evidence for this PS3 binary.
 class Renderer {
 public:
     // FUN_00052568 computes the retail world-view width from camera Z using
@@ -104,7 +105,7 @@ public:
     float GetWorldHalfWidth() const;
 
     // Debug: capture the current framebuffer to a PPM file.
-    void SaveScreenshot(const char* a_path) const;
+    void SaveScreenshot(const std::filesystem::path& a_path) const;
 
     // Returns a texture "handle" (GL texture id) for a_path, caching loads.
     unsigned int LoadTexture(const std::string& a_path);
@@ -136,6 +137,7 @@ public:
     // 0,0 if a_handle is unknown. Reports the decoded logical dimensions.
     void GetTextureDimensions(unsigned int a_handle, int& a_outWidth, int& a_outHeight) const;
     int GetTextureSourceBitsPerPixel(unsigned int a_handle) const;
+    const std::string& GetTextureSourcePath(unsigned int a_handle) const;
     // Retail TEXTURE +0x34/+0x38 extent, or (1,1) for an unknown handle.
     void GetTextureUVExtent(unsigned int a_handle, float& a_uMax, float& a_vMax) const;
     void SetTextureShaderType(unsigned int a_handle, int a_shaderType);
@@ -257,6 +259,10 @@ public:
     // tinted by the current colour and untextured. a_z is the Z depth the
     // whole primitive draws at.
     void DrawPolygon(unsigned int a_glPrimitiveMode, const float* a_xy, int a_count, float a_z = 0.0f);
+    // Execute the statically decoded retail DefaultTrans vertex/color path for
+    // untextured retained player shapes. The host matrix remains an adapter.
+    void DrawPolygonDefaultTrans(unsigned int a_glPrimitiveMode, const float* a_xy,
+                                 int a_count, float a_z = 0.0f);
 
     // FireGroundShader2's recovered vertex operation: position.xy += data.xy * amp.
     // The source of retail TEXCOORD0/index 8 is unresolved; callers mark any
@@ -302,10 +308,8 @@ public:
                                    float a_frontScaleX, float a_frontScaleY,
                                    float a_alpha, float a_z = 0.0f);
 
-    // drawList.clear()'s translucent-alpha path -- a quad spanning the
-    // currently-visible extent, alpha-blended rather than a hardware clear,
-    // so "fade to black" (setColour(0,0,0,perc); clear();) actually blends.
-    void DrawFullscreenOverlay(float a_z = 0.0f);
+    // Desktop approximation of the retail DrawList.clear opcode-4 triangle.
+    void DrawFullscreenOverlay(float a_z = 0.0f, unsigned int a_mode = 9u);
 
     // drawList.drawTextureByHandle(x0,y0,...,x3,y3,handle) -- four
     // world-space corners, tinted by the current colour.
@@ -315,7 +319,7 @@ public:
                            bool a_distanceTexture = false,
                            float a_distanceDiscardLevel = 0.5f,
                            float a_distanceSmoothLevel = 0.45f,
-                           int a_textureShaderType = 0,
+                           int a_textureShaderType = -1,
                            float a_uvScaleU = 1.0f,
                            float a_uvScaleV = 1.0f,
                            unsigned int a_primitiveMode = GL_QUADS);
@@ -350,7 +354,7 @@ private:
     // at the eye plane, which is degenerate for gluPerspective's projection
     // (eye.z=0 -> clip.w=0 -> the perspective divide produces NDC (0,0,0)
     // for every vertex, collapsing every triangle to a point regardless of
-    // its x/y). Any scene that never calls setCameraPos (game_data_min's
+    // its x/y). Any scene that never calls setCameraPos (diagnostic scene's
     // hello-world Main.gm included) rendered nothing at all until this was
     // fixed -- confirmed by instrumenting DrawTexturedQuad's own clip-space
     // math, not a guess.
@@ -372,12 +376,22 @@ private:
     bool m_textureTransShaderReady = false;
     Shader m_textureTransFastShader;
     bool m_textureTransFastShaderReady = false;
+    // Retail Selection_f and TextureSelection_f alternate configs. The
+    Shader m_selectionShader;
+    bool m_selectionShaderReady = false;
+    Shader m_textureSelectionShader;
+    bool m_textureSelectionShaderReady = false;
+    Shader m_textureDistSelectionShader;
+    bool m_textureDistSelectionShaderReady = false;
     Shader m_paletteOverlayShader;
     bool m_paletteOverlayShaderReady = false;
     Shader m_glyphMaskShader;
     bool m_glyphMaskShaderReady = false;
     Shader m_fireGroundShader;
     bool m_fireGroundShaderReady = false;
+    Shader m_defaultTransShader;
+    bool m_defaultTransShaderReady = false;
+    bool m_loadingBarProgressShapeExpected = false;
     ViewMode m_viewMode = ViewMode::AspectRatioOrtho;
 
     std::unordered_map<std::string, unsigned int> m_texturesByPath;

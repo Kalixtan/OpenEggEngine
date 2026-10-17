@@ -20,6 +20,7 @@
 #include "animation_bindings.h" // PushNewAnimation, RegisterAnimationBindings, for Entity.loadAnimation
 #include "colour_bindings.h" // GetNamedColourRGB, for DrawPlayerNative
 #include "audio_bindings.h" // PlaySoundNative, for Entity.playSound
+#include "../ported_native/player_renderer.h" // native player draw lifecycle
 #include <GL/glew.h> // GL_TRIANGLE_FAN, for DrawPlayerNative
 #include <map>
 #include <memory>
@@ -36,6 +37,31 @@
 #include <filesystem>
 
 namespace {
+
+// GAME_GetPreDrawList/GAME_GetPostDrawList return the two retained native
+// GameSystem DrawLists (Game.c 0x1ae784/0x1ae7f8 load GameSystem+0x8310 and
+// +0x8314, then return that same pointer on every call). Keep one GM wrapper
+// for each singleton and root it while the machine lives, so repeated native
+// calls preserve object identity and cannot be collected between calls.
+gmMachine* s_gameDrawListsMachine = nullptr;
+gmVariable s_gamePreDrawList = gmVariable::s_null;
+gmVariable s_gamePostDrawList = gmVariable::s_null;
+
+void PushPersistentGameDrawList(gmThread* a_thread, gmVariable& a_list) {
+    gmMachine& machine = *a_thread->GetMachine();
+    if (s_gameDrawListsMachine != &machine) {
+        s_gameDrawListsMachine = &machine;
+        s_gamePreDrawList = gmVariable::s_null;
+        s_gamePostDrawList = gmVariable::s_null;
+    }
+    if (a_list.m_type == GM_NULL) {
+        PushNewDrawList(a_thread, 0, 0);
+        a_list = *(a_thread->GetTop() - 1);
+        RootGmVariable(machine, a_list);
+    } else {
+        a_thread->Push(a_list);
+    }
+}
 
 int GM_CDECL gmf_EM_zeroInt(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_EM_zeroFloat(gmThread* a_thread) { a_thread->PushFloat(0.0f); return GM_OK; }
@@ -129,6 +155,34 @@ int GM_CDECL gmf_ENTITY_GetType(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(name, 0, "");
     a_thread->PushInt(InternTypeId(name));
+    return GM_OK;
+}
+
+// Retail ENTITY_GetTypeName (0x000aa0ec) maps a native entity type ID back
+// through the same intern table used by ENTITY_GetType. FUN_000bf8ec falls
+// back to entry zero for an out-of-range ID; keep that behavior when the
+// local registry has at least one entry.
+int GM_CDECL gmf_ENTITY_GetTypeName(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    const uint32_t typeId = static_cast<uint32_t>(a_thread->Param(0).m_value.m_int);
+    std::string name;
+    bool found = false;
+    for (const auto& entry : TypeIdRegistry()) {
+        if (static_cast<uint32_t>(entry.second) == typeId) {
+            name = entry.first;
+            found = true;
+            break;
+        }
+    }
+    if (!found && !TypeIdRegistry().empty()) {
+        for (const auto& entry : TypeIdRegistry()) {
+            if (entry.second == 0) {
+                name = entry.first;
+                break;
+            }
+        }
+    }
+    a_thread->PushString(a_thread->GetMachine()->AllocStringObject(name.c_str()));
     return GM_OK;
 }
 
@@ -310,16 +364,15 @@ int GM_CDECL gmf_entity_getMixerParams(gmThread* a_thread) {
     return GM_OK;
 }
 
-// ENTITY_GetMixerIDFromType(typeId) -- retail 0x000aa1b0. Mixer.gm loads
-// entity-name channels under MIXER_AUTO_ID_START + ENTITY_GetType(name),
-// then BaseNotePlant.gm passes this function's result to
-// ENTITYBASE_GetMixerParams. Return the same key used during loading.
+// ENTITY_GetMixerIDFromType(typeId) -- retail 0x000aa1b0 calls
+// FUN_000bf9a0, which adds the fixed signed 32-bit constant 1,000,000.
 int GM_CDECL gmf_ENTITY_GetMixerIDFromType(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(typeId, 0, 0);
-    gmVariable start = a_thread->GetMachine()->GetGlobals()->Get(a_thread->GetMachine(), "MIXER_AUTO_ID_START");
-    if (start.m_type != GM_INT) return GM_EXCEPTION;
-    a_thread->PushInt(start.m_value.m_int + typeId);
+    const uint32_t payload = static_cast<uint32_t>(a_thread->Param(0).m_value.m_int);
+    const uint32_t sum = payload + 1000000u;
+    int32_t result;
+    std::memcpy(&result, &sum, sizeof(result)); // retail addc followed by extsw
+    a_thread->PushInt(result);
     return GM_OK;
 }
 
@@ -690,7 +743,12 @@ struct EntityRegistry {
     gmVariable dummyEntity = gmVariable::s_null;
     // EntityManager stores this as an untyped 32-bit word; its retail getter
     // always pushes the word as GM_INT (FUN_000c3abc / Entity.c:1045).
-    gmint perfMaxCost = 0;
+    // Main.gm's createNewScreenData contains a 100-point fallback beside
+    // getEntityPerfMaxCost(). Use that fallback for the desktop manager's
+    // initial state: otherwise ground-only screens divide a positive ground
+    // cost by zero and are immediately classified as over budget. The exact
+    // retail constructor default remains under Ghidra audit.
+    gmint perfMaxCost = 100;
     bool deleteAllInProgress = false;
     bool deleteAllPending = false;
     // Visibility snapshots are rebuilt only when an entity is added/removed,
@@ -1272,6 +1330,9 @@ int GM_CDECL gmf_entity_delegate_drawExplosionIfGot(gmThread* a_thread) {
 int GM_CDECL gmf_entity_delegate_updateExplosionIfGot(gmThread* a_thread) {
     return DelegateToBehaviorOwner(a_thread, "updateExplosionIfGot");
 }
+int GM_CDECL gmf_entity_delegate_giveBackToBulletCache(gmThread* a_thread) {
+    return DelegateToBehaviorOwner(a_thread, "giveBackToBulletCache");
+}
 int GM_CDECL gmf_entity_delegate_onMusicTrigger(gmThread* a_thread) {
     // Optional trace for the Craig room recovery audit: these scripts count
     // music-trigger callbacks before standing up after a knockdown. This is
@@ -1329,11 +1390,9 @@ int GM_CDECL gmf_entity_getMainBody(gmThread* a_thread) {
     a_thread->Push(GetPhysicsDataMainBodyVar(m, pd));
     return GM_OK;
 }
-// Shared position lookup for the getVectorTo/getDistanceTo/-Normalized
-// family below -- same PhysicsData-AABB-centre-with-configureData-point-
-// fallback approach gmf_entity_isInView/isInGameBoard/EntityOverlapsBox
-// (further down this file) already use, so an entity with no physics body
-// (a spawn point, a trigger) still participates as a real point.
+// Script-space position lookup used by visibility/overlap helpers below.
+// Entity vector and distance getters use the primary PhysicsBody position
+// directly, as their retail helpers do.
 bool GetEntityWorldPos(gmMachine& a_machine, gmTableObject* a_entity, float& a_outX, float& a_outY) {
     if (!a_entity) return false;
     float minX, minY, maxX, maxY;
@@ -1356,30 +1415,180 @@ bool GetEntityWorldPos(gmMachine& a_machine, gmTableObject* a_entity, float& a_o
     a_outY = tofloat(yv);
     return true;
 }
-// 0x0009ba1c: reads self and `other`'s own native position fields, calls
-// FUN_000c0c40, returns a vector2D). Real, live call sites (EntityBase.gm:
-// 1897/5896's death/knockback logic: `dirToFling=killerThing.
-// getVectorToNormalized(player);`, feeding the direction the player flies
-// off in when killed) -- was entirely unbound, so `dirToFling` silently
-// stayed null every time a kill didn't already supply an explicit fling
-// direction, on top of aborting checkDeath()'s caller outright under
-// GE3_STRICT=halt. Implemented as a real self->other normalized direction
-// using the same position source getMainBody/isInView/isInGameBoard
-// already established for this file's entity handles.
+// getVectorToNormalized(other) -- retail helper 0xc0c40 normalizes the raw
+// difference returned by 0xc0be4, which uses each entity's first PhysicsBody
+// position. The PPC fsel sequence reduces to dx/length and dy/length for every
+// nonzero length; a zero length preserves the native 0/0 NaN result.
+// Retail Entity.getDistanceTo (0x9b964 / FUN_000c0dd8) measures the
+// Euclidean distance between the two entities' primary PhysicsBody position
+// fields. It does not use fixture/AABB centers or configureData positions.
+int GM_CDECL gmf_entity_getDistanceTo(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    gmMachine& machine = *a_thread->GetMachine();
+    gmVariable otherVar = a_thread->Param(0);
+    gmTableObject* other = otherVar.m_type == GM_TABLE
+        ? (gmTableObject*)machine.GetObject(otherVar.m_value.m_ref) : nullptr;
+    if (!other) return GM_EXCEPTION;
+
+    gmVariable selfPhysics = self->Get(&machine, "PhysicsData");
+    if (selfPhysics.m_type == GM_NULL) selfPhysics = self->Get(&machine, "__physicsData");
+    gmVariable otherPhysics = other->Get(&machine, "PhysicsData");
+    if (otherPhysics.m_type == GM_NULL) otherPhysics = other->Get(&machine, "__physicsData");
+    float sx = 0.0f, sy = 0.0f, ox = 0.0f, oy = 0.0f;
+    if (!GetPhysicsDataPos(machine, selfPhysics, sx, sy) ||
+        !GetPhysicsDataPos(machine, otherPhysics, ox, oy))
+        return GM_EXCEPTION;
+
+    const float dx = ox - sx;
+    const float dy = oy - sy;
+    a_thread->PushFloat(std::sqrt(dx * dx + dy * dy));
+    return GM_OK;
+}
+
+// Retail Entity.getVectorTo (0x9b890 -> FUN_000c0be4) returns the raw
+// self-to-other difference between each entity's first PhysicsBody position.
+// This intentionally does not normalize the result or substitute bounds / script
+// configureData when either entity has no main body.
+int GM_CDECL gmf_entity_getVectorTo(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    gmMachine& machine = *a_thread->GetMachine();
+    const gmVariable otherVar = a_thread->Param(0);
+    gmTableObject* other = otherVar.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(machine.GetObject(otherVar.m_value.m_ref))
+        : nullptr;
+    if (!other) return GM_EXCEPTION;
+
+    gmVariable selfPhysics = self->Get(&machine, "PhysicsData");
+    if (selfPhysics.m_type == GM_NULL)
+        selfPhysics = self->Get(&machine, "__physicsData");
+    gmVariable otherPhysics = other->Get(&machine, "PhysicsData");
+    if (otherPhysics.m_type == GM_NULL)
+        otherPhysics = other->Get(&machine, "__physicsData");
+
+    float selfX = 0.0f, selfY = 0.0f, otherX = 0.0f, otherY = 0.0f;
+    if (!GetPhysicsDataPos(machine, selfPhysics, selfX, selfY) ||
+        !GetPhysicsDataPos(machine, otherPhysics, otherX, otherY))
+        return GM_EXCEPTION;
+
+    a_thread->Push(MakeVector2D(machine, otherX - selfX, otherY - selfY));
+    return GM_OK;
+}
+
+int GM_CDECL gmf_entity_getRadiansToFace(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    gmMachine& machine = *a_thread->GetMachine();
+    const gmVariable otherVar = a_thread->Param(0);
+    gmTableObject* other = otherVar.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(machine.GetObject(otherVar.m_value.m_ref))
+        : nullptr;
+    if (!other) return GM_EXCEPTION;
+
+    gmVariable selfPhysics = self->Get(&machine, "PhysicsData");
+    if (selfPhysics.m_type == GM_NULL)
+        selfPhysics = self->Get(&machine, "__physicsData");
+    gmVariable otherPhysics = other->Get(&machine, "PhysicsData");
+    if (otherPhysics.m_type == GM_NULL)
+        otherPhysics = other->Get(&machine, "__physicsData");
+
+    float selfX = 0.0f, selfY = 0.0f, otherX = 0.0f, otherY = 0.0f;
+    float facingX = 0.0f, facingY = 0.0f;
+    if (!GetPhysicsDataPos(machine, selfPhysics, selfX, selfY) ||
+        !GetPhysicsDataPos(machine, otherPhysics, otherX, otherY) ||
+        !GetPhysicsDataFacingDirection(machine, selfPhysics, facingX, facingY))
+        return GM_EXCEPTION;
+
+    const float targetAngle = RetailAtan2(otherY - selfY, otherX - selfX);
+    const float facingAngle = RetailAtan2(facingY, facingX);
+    float difference = std::fabs(targetAngle - facingAngle);
+    constexpr float kPi = 3.141592741f;
+    constexpr float kTwoPi = 6.283185482f;
+    if (kPi - difference < 0.0f)
+        difference = kTwoPi - difference;
+    a_thread->PushFloat(difference);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_entity_getVectorToNormalized(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    gmMachine& m = *a_thread->GetMachine();
-    gmVariable otherVar = a_thread->Param(0);
-    gmTableObject* other = (otherVar.m_type == GM_TABLE) ? (gmTableObject*)m.GetObject(otherVar.m_value.m_ref) : nullptr;
-    float sx = 0, sy = 0, ox = 0, oy = 0;
-    GetEntityWorldPos(m, self, sx, sy);
-    GetEntityWorldPos(m, other, ox, oy);
-    float dx = ox - sx, dy = oy - sy;
-    float len = std::sqrt(dx * dx + dy * dy);
-    if (len > 0.0001f) { dx /= len; dy /= len; } else { dx = 0.0f; dy = 0.0f; }
-    a_thread->Push(MakeVector2D(m, dx, dy));
+    gmMachine& machine = *a_thread->GetMachine();
+    const gmVariable otherVar = a_thread->Param(0);
+    gmTableObject* other = otherVar.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(machine.GetObject(otherVar.m_value.m_ref))
+        : nullptr;
+    if (!other) return GM_EXCEPTION;
+
+    gmVariable selfPhysics = self->Get(&machine, "PhysicsData");
+    if (selfPhysics.m_type == GM_NULL)
+        selfPhysics = self->Get(&machine, "__physicsData");
+    gmVariable otherPhysics = other->Get(&machine, "PhysicsData");
+    if (otherPhysics.m_type == GM_NULL)
+        otherPhysics = other->Get(&machine, "__physicsData");
+
+    float selfX = 0.0f, selfY = 0.0f, otherX = 0.0f, otherY = 0.0f;
+    if (!GetPhysicsDataPos(machine, selfPhysics, selfX, selfY) ||
+        !GetPhysicsDataPos(machine, otherPhysics, otherX, otherY))
+        return GM_EXCEPTION;
+
+    const float dx = otherX - selfX;
+    const float dy = otherY - selfY;
+    const float length = std::sqrt(dx * dx + dy * dy);
+    a_thread->Push(MakeVector2D(machine, dx / length, dy / length));
+    return GM_OK;
+}
+
+// Retail getWhichSide compares argument 1's facing direction with the vector
+// from argument 1 to argument 2. Positive wrapped angle means the second
+// entity is on the positive side; the native receiver itself is unused.
+int GM_CDECL gmf_entity_getWhichSide(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 2) return GM_EXCEPTION;
+    gmMachine& machine = *a_thread->GetMachine();
+    const gmVariable sourceVar = a_thread->Param(0);
+    const gmVariable targetVar = a_thread->Param(1);
+    gmTableObject* source = sourceVar.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(machine.GetObject(sourceVar.m_value.m_ref))
+        : nullptr;
+    gmTableObject* target = targetVar.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(machine.GetObject(targetVar.m_value.m_ref))
+        : nullptr;
+    if (!source || !target) return GM_EXCEPTION;
+
+    auto physicsData = [&machine](gmTableObject* entity) {
+        gmVariable value = entity->Get(&machine, "PhysicsData");
+        if (value.m_type == GM_NULL)
+            value = entity->Get(&machine, "__physicsData");
+        return value;
+    };
+    const gmVariable sourcePhysics = physicsData(source);
+    const gmVariable targetPhysics = physicsData(target);
+    float sourceX = 0.0f, sourceY = 0.0f, targetX = 0.0f, targetY = 0.0f;
+    float facingX = 0.0f, facingY = 0.0f;
+    if (!GetPhysicsDataPos(machine, sourcePhysics, sourceX, sourceY) ||
+        !GetPhysicsDataPos(machine, targetPhysics, targetX, targetY) ||
+        !GetPhysicsDataFacingDirection(machine, sourcePhysics, facingX, facingY))
+        return GM_EXCEPTION;
+
+    const float dx = targetX - sourceX;
+    const float dy = targetY - sourceY;
+    const float length = std::sqrt(dx * dx + dy * dy);
+    const float directionX = length > 0.0f ? dx / length : 0.0f;
+    const float directionY = length > 0.0f ? dy / length : 0.0f;
+    float angle = RetailAtan2(directionY, directionX) -
+                  RetailAtan2(facingY, facingX);
+    constexpr float kPi = 3.141592741f;
+    constexpr float kTwoPi = 6.283185482f;
+    if (angle > kPi)
+        angle -= kTwoPi;
+    else if (angle < -kPi)
+        angle += kTwoPi;
+    a_thread->PushInt(angle > 0.0f ? 1 : 0);
     return GM_OK;
 }
 // setIsAutoRemove/setIsAutoRemoveStranded/setIsInvisible: confirmed real
@@ -1554,6 +1763,31 @@ int GM_CDECL gmf_entity_getMaxCY(gmThread* a_thread) {
 // ever advance `progress.startIndex`/`.done`, silently reprocessing (and
 // re-creating) the same entities forever). Stored as a plain `__descBits`
 // int field on the handle, defaulting to 0 (no flags set).
+// Retail stores entity creation position as two floats at native offsets
+// +0xd0/+0xd4. The script bridge stores the same pair as a copied vector2D.
+int GM_CDECL gmf_entity_setEntityCreationPos(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    float x = 0.0f, y = 0.0f;
+    if (!GetVector2D(*a_thread->GetMachine(), a_thread->Param(0), x, y))
+        return GM_EXCEPTION;
+    self->Set(a_thread->GetMachine(), "__entityCreationPos",
+              MakeVector2D(*a_thread->GetMachine(), x, y));
+    return GM_OK;
+}
+int GM_CDECL gmf_entity_getEntityCreationPos(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    gmMachine& machine = *a_thread->GetMachine();
+    float x = 0.0f, y = 0.0f;
+    gmVariable pos = self->Get(&machine, "__entityCreationPos");
+    if (pos.m_type != GM_NULL && !GetVector2D(machine, pos, x, y))
+        return GM_EXCEPTION;
+    // Retail allocates a fresh Vector2D for each getter call.
+    a_thread->Push(MakeVector2D(machine, x, y));
+    return GM_OK;
+}
 int GM_CDECL gmf_entity_getDescriptionBits(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
@@ -1756,6 +1990,11 @@ int GM_CDECL gmf_entity_recordScreenExtents(gmThread* a_thread) {
         WorldToScreenCell(minY, kScreenCellHeight), WorldToScreenCell(maxY, kScreenCellHeight));
     return GM_OK;
 }
+namespace {
+bool CurrentVisibilityProcess(gmMachine& machine, gmVariable& processVar,
+                              int& screenX, int& screenY);
+}
+
 bool EntityIsOnCurrentScreen(gmMachine& machine, gmTableObject* self,
                              bool unboundedVisible = false) {
     if (!self) return true;
@@ -1791,16 +2030,27 @@ bool EntityIsOnCurrentScreen(gmMachine& machine, gmTableObject* self,
         return value.m_type == GM_INT ? value.m_value.m_int
             : value.m_type == GM_FLOAT ? (int)value.m_value.m_float : 0;
     };
+    // Retail EntityBase.isOnCurrentScreen reads +0xcc/+0xd0 from the active
+    // Platformer_Main process singleton (DAT_00424e70), not VideoState and
+    // not an entity-specific gameProcess pointer. GameSystem's
+    // getEntityUpdateProcess selects that same process in the desktop port.
+    // The entity's gameProcess is only a fallback for startup/teardown when
+    // no update process has been installed yet.
     int currentX = GetEngineContext().video.currentScreenX;
     int currentY = GetEngineContext().video.currentScreenY;
-    gmVariable processVar = behavior ? behavior->Get(&machine, "gameProcess") : gmVariable::s_null;
-    if (processVar.m_type == GM_TABLE) {
-        gmTableObject* process = (gmTableObject*)machine.GetObject(processVar.m_value.m_ref);
-        if (process) {
-            gmVariable x = process->Get(&machine, "currentScreenX");
-            gmVariable y = process->Get(&machine, "currentScreenY");
-            if (x.m_type == GM_INT) currentX = x.m_value.m_int;
-            if (y.m_type == GM_INT) currentY = y.m_value.m_int;
+    gmVariable processVar = gmVariable::s_null;
+    if (!CurrentVisibilityProcess(machine, processVar, currentX, currentY)) {
+        gmVariable entityProcess = behavior
+            ? behavior->Get(&machine, "gameProcess") : gmVariable::s_null;
+        if (entityProcess.m_type == GM_TABLE) {
+            gmTableObject* process = (gmTableObject*)machine.GetObject(
+                entityProcess.m_value.m_ref);
+            if (process) {
+                gmVariable x = process->Get(&machine, "currentScreenX");
+                gmVariable y = process->Get(&machine, "currentScreenY");
+                if (x.m_type == GM_INT) currentX = x.m_value.m_int;
+                if (y.m_type == GM_INT) currentY = y.m_value.m_int;
+            }
         }
     }
     // EBOOT 0x1c7af4 uses inclusive comparisons on both axes.
@@ -1873,6 +2123,16 @@ bool GetCachedVisibleEntityIds(gmMachine& machine, bool a_unboundedVisible,
         snapshot.processY == processY && snapshot.videoX == video.currentScreenX &&
         snapshot.videoY == video.currentScreenY;
     if (!keyMatches) {
+        const bool traceCull = std::getenv("GE3_TRACE_ENTITY_CULL") != nullptr;
+        const bool traceScreenChange = traceCull && snapshot.initialized &&
+            (snapshot.processX != processX ||
+            snapshot.processY != processY || snapshot.videoX != video.currentScreenX ||
+            snapshot.videoY != video.currentScreenY);
+        const bool traceVisibilityChanges = traceCull && snapshot.initialized;
+        const int previousX = snapshot.processX;
+        const int previousY = snapshot.processY;
+        const std::vector<int> previousBoundedVisible = traceVisibilityChanges
+            ? snapshot.boundedVisible : std::vector<int>{};
         snapshot.unboundedVisible.clear();
         snapshot.boundedVisible.clear();
         snapshot.revision = Entities().visibilityRevision;
@@ -1882,6 +2142,8 @@ bool GetCachedVisibleEntityIds(gmMachine& machine, bool a_unboundedVisible,
         snapshot.videoX = video.currentScreenX;
         snapshot.videoY = video.currentScreenY;
         snapshot.compatible = true;
+        int processlessBounded = 0;
+        int processlessVisible = 0;
 
         for (const auto& entry : Entities().entities) {
             if (entry.second.m_type != GM_TABLE) continue;
@@ -1891,12 +2153,136 @@ bool GetCachedVisibleEntityIds(gmMachine& machine, bool a_unboundedVisible,
                 snapshot.compatible = false;
                 break;
             }
+            if (traceScreenChange) {
+                gmVariable owner = table->Get(&machine, "__behaviorOwner");
+                gmTableObject* behavior = owner.m_type == GM_TABLE
+                    ? (gmTableObject*)machine.GetObject(owner.m_value.m_ref) : table;
+                const gmVariable process = behavior
+                    ? behavior->Get(&machine, "gameProcess") : gmVariable::s_null;
+                if (process.m_type != GM_TABLE) {
+                    gmVariable bounds = table->Get(&machine, "__screenMinCX");
+                    if (bounds.m_type == GM_NULL && behavior)
+                        bounds = behavior->Get(&machine, "__screenMinCX");
+                    if (bounds.m_type == GM_NULL && behavior) {
+                        gmVariable handle = behavior->Get(&machine, "Entity");
+                        if (handle.m_type == GM_TABLE) {
+                            gmTableObject* handleTable = (gmTableObject*)machine.GetObject(
+                                handle.m_value.m_ref);
+                            if (handleTable)
+                                bounds = handleTable->Get(&machine, "__screenMinCX");
+                        }
+                    }
+                    if (bounds.m_type != GM_NULL) {
+                        ++processlessBounded;
+                        if (EntityIsOnCurrentScreen(machine, table, true))
+                            ++processlessVisible;
+                    }
+                }
+            }
             if (EntityIsOnCurrentScreen(machine, table, true))
                 snapshot.unboundedVisible.push_back(entry.first);
             if (EntityIsOnCurrentScreen(machine, table, false))
                 snapshot.boundedVisible.push_back(entry.first);
         }
         snapshot.initialized = true;
+        if (traceScreenChange) {
+            Renderer* renderer = GetEngineContext().renderer;
+            std::fprintf(stderr,
+                "[entity-cull] processCell=(%d,%d)->(%d,%d) videoCell=(%d,%d) "
+                "camera=(%.3f,%.3f) visible=%zu/%zu\n",
+                previousX, previousY, processX, processY,
+                video.currentScreenX, video.currentScreenY,
+                renderer ? renderer->GetCameraX() : 0.0f,
+                renderer ? renderer->GetCameraY() : 0.0f,
+                snapshot.unboundedVisible.size(), Entities().entities.size());
+            std::fprintf(stderr,
+                "[entity-cull] processlessBounded=%d selectedByVideoFallback=%d\n",
+                processlessBounded, processlessVisible);
+        }
+        if (traceVisibilityChanges && snapshot.compatible) {
+            std::set<int> previousIds(previousBoundedVisible.begin(),
+                                      previousBoundedVisible.end());
+            std::set<int> currentIds(snapshot.boundedVisible.begin(),
+                                     snapshot.boundedVisible.end());
+            auto printTransitions = [&](const char* a_label,
+                                        const std::set<int>& a_from,
+                                        const std::set<int>& a_to) {
+                size_t count = 0;
+                for (int id : a_from) {
+                    if (a_to.find(id) != a_to.end()) continue;
+                    ++count;
+                    const auto entityIt = Entities().entitiesByObjectID.find(id);
+                    gmTableObject* table = nullptr;
+                    if (entityIt != Entities().entitiesByObjectID.end() &&
+                        entityIt->second.m_type == GM_TABLE) {
+                        table = (gmTableObject*)machine.GetObject(
+                            entityIt->second.m_value.m_ref);
+                    }
+                    const char* typeName = "<removed>";
+                    int minX = 0, maxX = 0, minY = 0, maxY = 0;
+                    int enabled = -1, invisible = 0;
+                    bool hasScriptDraw = false, hasDrawList = false;
+                    const char* ownerName = "<none>";
+                    if (table) {
+                        gmVariable type = table->Get(&machine, "__typeName");
+                        if (type.m_type == GM_STRING && type.m_value.m_ref) {
+                            auto* string = (gmStringObject*)machine.GetObject(
+                                type.m_value.m_ref);
+                            if (string) typeName = string->GetString();
+                        }
+                        auto readCell = [&](const char* a_key) {
+                            gmVariable cell = table->Get(&machine, a_key);
+                            return cell.m_type == GM_INT
+                                ? static_cast<int>(cell.m_value.m_int) : 0;
+                        };
+                        minX = readCell("__screenMinCX");
+                        maxX = readCell("__screenMaxCX");
+                        minY = readCell("__screenMinCY");
+                        maxY = readCell("__screenMaxCY");
+                        gmVariable enabledValue = table->Get(&machine, "__enabled");
+                        if (enabledValue.m_type == GM_INT)
+                            enabled = enabledValue.m_value.m_int;
+                        gmVariable invisibleValue = table->Get(&machine, "__invisible");
+                        if (invisibleValue.m_type == GM_INT)
+                            invisible = invisibleValue.m_value.m_int;
+                        hasScriptDraw = table->Get(&machine, "draw").m_type == GM_FUNCTION;
+                        hasDrawList = table->Get(&machine, "drawList").m_type >= GM_USER;
+                        gmVariable process = table->Get(&machine, "gameProcess");
+                        if (process.m_type != GM_TABLE) {
+                            gmVariable owner = table->Get(&machine, "__behaviorOwner");
+                            gmTableObject* behavior = owner.m_type == GM_TABLE
+                                ? (gmTableObject*)machine.GetObject(owner.m_value.m_ref)
+                                : nullptr;
+                            if (behavior)
+                                process = behavior->Get(&machine, "gameProcess");
+                        }
+                        if (process.m_type == GM_TABLE) {
+                            gmTableObject* processTable = (gmTableObject*)machine.GetObject(
+                                process.m_value.m_ref);
+                            if (processTable) {
+                                gmVariable processType = processTable->Get(
+                                    &machine, "__typeName");
+                                if (processType.m_type == GM_STRING &&
+                                    processType.m_value.m_ref) {
+                                    auto* string = (gmStringObject*)machine.GetObject(
+                                        processType.m_value.m_ref);
+                                    if (string) ownerName = string->GetString();
+                                }
+                            }
+                        }
+                    }
+                    std::fprintf(stderr,
+                        "[entity-cull-%s] id=%d type=%s bounds=(%d..%d,%d..%d) "
+                        "owner=%s enabled=%d invisible=%d draw=%d drawList=%d\n",
+                        a_label, id, typeName, minX, maxX, minY, maxY, ownerName,
+                        enabled, invisible, hasScriptDraw ? 1 : 0, hasDrawList ? 1 : 0);
+                }
+                if (count != 0)
+                    std::fprintf(stderr, "[entity-cull-%s] count=%zu\n", a_label, count);
+            };
+            printTransitions("left", previousIds, currentIds);
+            printTransitions("entered", currentIds, previousIds);
+        }
     }
     if (!snapshot.compatible) return false;
     a_ids = a_unboundedVisible ? snapshot.unboundedVisible : snapshot.boundedVisible;
@@ -2102,27 +2488,76 @@ int GM_CDECL gmf_entity_is_getAudibilityPerc_neverOnScreen(gmThread* a_thread) {
     a_thread->PushInt((v.m_type == GM_INT && v.m_value.m_int != 0) ? 1 : 0);
     return GM_OK;
 }
-// setGot(bool)/isGot()/isGetting() -- confirmed real note-plant "collected"
-// call sites Main.gm:10650 `e.setGot(true/false)` toggling every note
-// plant's collected flag for video-capture mode, and Main.gm:8403's per-
-// frame checkpoint pass `e.checkpoint_got=e.isGot()||e.isGetting();`). All
-// three were entirely unbound -- hard "getdot failed" aborting both call
-// chains (the video-capture toggle loop and the checkpoint bookkeeping
-// pass) every time either ran. isGetting() (mid-collection-animation, as
-// opposed to already-fully-got) has no separate real setter anywhere in
-// this corpus -- default false, matching every entity that never enters
-// that transient state in this reimplementation's collection flow.
+// Compatibility bridge for note-state calls made on raw EntityManager
+// handles. BaseNotePlant.gm defines setGot()/isGot() on its behavior table;
+// the native handle and behavior table are separate desktop objects, so these
+// calls must read/write the behavior's `got` field as well. The shipped
+// Main.gm also calls isGetting(), but no matching native method appears in the
+// recovered retail EntityBase method inventory, and BaseNotePlant has no
+// `getting` field or transition setter. Keep this false-valued shim for the
+// local note-list workaround, without claiming it is a retail native method.
 int GM_CDECL gmf_entity_setGot(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_OK;
+    gmMachine& machine = *a_thread->GetMachine();
+    // BaseNotePlant.gm's script setter calls onGot() when the requested state
+    // is true. The native Entity facade is a separate table in this port, so
+    // preserve that retail script path when a raw Entity handle receives the
+    // call; the behavior method is saved before native methods are injected.
+    gmVariable owner = self->Get(&machine, "__behaviorOwner");
+    gmTableObject* ownerTable = owner.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(machine.GetObject(owner.m_value.m_ref))
+        : nullptr;
+    gmVariable scriptSetter = ownerTable
+        ? ownerTable->Get(&machine, "__retailScriptSetGot") : gmVariable::s_null;
+    if (ownerTable && scriptSetter.m_type == GM_FUNCTION) {
+        gmCall call;
+        if (call.BeginTableFunction(&machine, "__retailScriptSetGot",
+                                    ownerTable, owner)) {
+            if (a_thread->GetNumParams() > 0)
+                call.AddParam(a_thread->Param(0));
+            call.End();
+        }
+        gmVariable value = ownerTable->Get(&machine, "got");
+        if (value.m_type == GM_NULL) value = gmVariable((gmint)0);
+        SetEntityNativeField(machine, self, "got", value);
+        SetEntityNativeField(machine, self, "__got", value);
+        return GM_OK;
+    }
+
     gmint flag = a_thread->ParamInt(0, 0);
-    self->Set(a_thread->GetMachine(), "__got", gmVariable((gmint)(flag ? 1 : 0)));
+    gmVariable value((gmint)(flag ? 1 : 0));
+    // BaseNotePlant.gm owns its public collected state in `this.got`, while
+    // the native Entity facade also exposes setGot/isGot. Keep both views
+    // synchronized so calls routed through the native method cannot leave the
+    // script renderer seeing a stale `got=true` after level retry.
+    SetEntityNativeField(machine, self, "got", value);
+    SetEntityNativeField(machine, self, "__got", value);
     return GM_OK;
 }
 int GM_CDECL gmf_entity_isGot(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) { a_thread->PushInt(0); return GM_OK; }
-    gmVariable v = self->Get(a_thread->GetMachine(), "__got");
+    gmMachine& machine = *a_thread->GetMachine();
+    // A note's collision callback sets `got=true` directly on its behavior
+    // table, while the native Entity handle may still hold the `got=false`
+    // value written earlier by setGot(false). Prefer the behavior's live
+    // script field when called through the raw handle; otherwise the stale
+    // handle value masks a collected note during checkpoint snapshots.
+    gmTableObject* paired = PairedEntityTable(machine, self);
+    const bool selfIsHandle = self->Get(&machine, "__behaviorOwner").m_type == GM_TABLE;
+    gmTableObject* primary = selfIsHandle && paired ? paired : self;
+    gmTableObject* secondary = primary == self ? paired : self;
+    gmVariable scriptValue = primary->Get(&machine, "got");
+    if (scriptValue.m_type == GM_NULL && secondary)
+        scriptValue = secondary->Get(&machine, "got");
+    if (scriptValue.m_type == GM_INT) {
+        a_thread->PushInt(scriptValue.m_value.m_int != 0 ? 1 : 0);
+        return GM_OK;
+    }
+    gmVariable v = primary->Get(&machine, "__got");
+    if (v.m_type == GM_NULL && secondary)
+        v = secondary->Get(&machine, "__got");
     a_thread->PushInt((v.m_type == GM_INT && v.m_value.m_int != 0) ? 1 : 0);
     return GM_OK;
 }
@@ -2244,17 +2679,54 @@ int GM_CDECL gmf_entity_disownVoice(gmThread* a_thread) {
 // single time, before `this.state.call("die",this)` or the FIRSTSPAWN
 // state change could run: touching a hazard visually froze mid-death
 // instead of completing the death sequence. Whatever native bookkeeping
-// retail's own C++ Entity/Player class did here (physics-body sleep state,
-// render-list membership, ...) is already handled by this
-// reimplementation's own script-driven state machine and native
-// setIsEnabled/physics-body plumbing -- genuine no-op, consumed rather
-// than left as a null-call.
+// retail's native callbacks also notify the player renderer: cppDie sets
+// its scale transition flag and resets scale to one; cppRebirth clears the
+// flag and resets scale. The player renderer advances that native scale on
+// each fixed simulation tick.
 int GM_CDECL gmf_entity_cppDie(gmThread* a_thread) {
-    (void)a_thread;
+    gmMachine& machine = *a_thread->GetMachine();
+    gmTableObject* self = a_thread->ThisTable();
+    SetEntityNativeField(machine, self, "__nativePlayerDrawScale", gmVariable(1.0f));
+    SetEntityNativeField(machine, self, "__nativePlayerDrawScaleTransition", gmVariable((gmint)1));
     return GM_OK;
 }
 int GM_CDECL gmf_entity_cppRebirth(gmThread* a_thread) {
-    (void)a_thread;
+    gmMachine& machine = *a_thread->GetMachine();
+    gmTableObject* self = a_thread->ThisTable();
+    SetEntityNativeField(machine, self, "__nativePlayerDrawScale", gmVariable(1.0f));
+    SetEntityNativeField(machine, self, "__nativePlayerDrawScaleTransition", gmVariable((gmint)0));
+    return GM_OK;
+}
+
+// PlayerGet registers these on the player native object only (retail method
+// table at 0x398d14..0x398d6c). Entity handles for ordinary entities do not
+// have cppDie/cppRebirth; install the adapters only when the distinct
+// createEntityAsPlayer factory returns. The desktop represents retail's
+// unified object with a behavior table and an Entity handle, so both views
+// receive the same native callbacks.
+void InjectPlayerRendererLifecycleMethods(gmMachine& a_machine,
+                                          gmTableObject* a_table) {
+    if (!a_table) return;
+    if (a_table->Get(&a_machine, "cppDie").m_type != GM_FUNCTION)
+        a_table->Set(&a_machine, "cppDie",
+            gmVariable(a_machine.AllocFunctionObject(gmf_entity_cppDie)));
+    if (a_table->Get(&a_machine, "cppRebirth").m_type != GM_FUNCTION)
+        a_table->Set(&a_machine, "cppRebirth",
+            gmVariable(a_machine.AllocFunctionObject(gmf_entity_cppRebirth)));
+}
+// Verification: retail PlayerGet.testfn at FUN_001a2f28 reads/writes the
+// process-wide DAT_00424f48 boolean. Zero args returns it as an integer-tagged
+// GM boolean; one arg stores the raw 32-bit value word's truth value; more
+// than one arg does nothing. The raw word matters here (e.g. negative zero's
+// float bits are nonzero), so do not use ParamInt()/ParamFloat() conversion.
+int GM_CDECL gmf_player_testfn(gmThread* a_thread) {
+    static bool enabled = false; // BSS DAT_00424f48 starts at zero in retail.
+    const int argc = a_thread->GetNumParams();
+    if (argc == 0) {
+        a_thread->PushInt(enabled ? 1 : 0);
+    } else if (argc == 1) {
+        enabled = a_thread->Param(0).m_value.m_int != 0;
+    }
     return GM_OK;
 }
 // Retail 0x001c5c74 clears the cached audibility tick. This is used by
@@ -2474,6 +2946,10 @@ int GM_CDECL gmf_entity_constructorSetNoUpdate(gmThread* a_thread) {
     SetEntityFlag(a_thread, "__noUpdate");
     return GM_OK;
 }
+// Retail constructorSetIsManual at 0x0009bf44 is an unconditional `li r3,-1; blr`.
+int GM_CDECL gmf_entity_constructorSetIsManual(gmThread*) {
+    return GM_EXCEPTION;
+}
 // constructorSetManual/constructorSetNoPhysicsUpdate are real retail calls
 // (Entity.c 0x0009bdb4/0x0009be04). Manual membership affects the distinct
 // EntityManager list/count APIs. The no-physics-update marker controls the
@@ -2522,6 +2998,41 @@ int GM_CDECL gmf_entity_getTypeName(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
     a_thread->Push(self->Get(a_thread->GetMachine(), "__typeName"));
+    return GM_OK;
+}
+
+// Retail Entity.createParticle accepts no argument or one particle type name,
+// but its factory at 0x000388b8 is an unconditional zero return. The following
+// manager insertion is a null guard, then the wrapper returns GM_NULL. Preserve
+// that shipped behavior rather than inventing a desktop particle instance.
+int GM_CDECL gmf_entity_createParticle(gmThread* a_thread) {
+    const int argc = a_thread->GetNumParams();
+    if (argc > 1) return GM_EXCEPTION;
+    if (argc == 1 && a_thread->Param(0).m_type != GM_STRING)
+        return GM_EXCEPTION;
+    a_thread->PushNull();
+    return GM_OK;
+}
+
+// Retail's deleteAllParticles clears the two native ParticleManager lists at
+// GameSystem+0xe5c. The current desktop particle factory always returns null,
+// so there are no locally owned native particles to destroy; keep the method
+// callable while the broader particle-manager API is audited.
+int GM_CDECL gmf_entity_deleteAllParticles(gmThread*) {
+    return GM_OK;
+}
+
+void PushEntityListIterator(gmThread* a_thread, std::vector<gmVariable> a_entities);
+int GM_CDECL gmf_entity_getAllParticles(gmThread* a_thread) {
+    // No local ParticleManager lists exist yet; return the same empty iterator
+    // shape used by EntityManager queries until its native list writers land.
+    PushEntityListIterator(a_thread, {});
+    return GM_OK;
+}
+int GM_CDECL gmf_entity_getNumParticles(gmThread* a_thread) {
+    // Retail reads the first ParticleManager list's count. The local manager
+    // currently has no particle-list writers, so its represented count is 0.
+    a_thread->PushInt(0);
     return GM_OK;
 }
 
@@ -2727,8 +3238,14 @@ int GM_CDECL gmf_entity_getVertexShaderParamIndex(gmThread* a_thread) {
             return GM_OK;
         }
     }
-    GM_EXCEPTION_MSG("Entity.getVertexShaderParamIndex: unknown shader parameter %s slot %d on %s", name, slot, type);
-    return GM_EXCEPTION;
+    // GE3_Internal_ShaderParameterNameToIndex logs a miss and returns index 0;
+    // it does not raise a GameMonkey exception. Preserve that numeric result
+    // for known reflected shader layouts.
+    std::fprintf(stderr,
+        "Error: Param %s not found in shader (GetShaderParamID); slot %d on %s\n",
+        name, slot, type);
+    a_thread->PushInt(0);
+    return GM_OK;
 }
 
 void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int a_uid,
@@ -2742,6 +3259,10 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "__typeName", gmVariable(a_machine.AllocStringObject(a_typeName.c_str())));
     a_table->Set(&a_machine, "getType", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getType)));
     a_table->Set(&a_machine, "getTypeName", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getTypeName)));
+    a_table->Set(&a_machine, "createParticle", gmVariable(a_machine.AllocFunctionObject(gmf_entity_createParticle)));
+    a_table->Set(&a_machine, "deleteAllParticles", gmVariable(a_machine.AllocFunctionObject(gmf_entity_deleteAllParticles)));
+    a_table->Set(&a_machine, "getAllParticles", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getAllParticles)));
+    a_table->Set(&a_machine, "getNumParticles", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getNumParticles)));
     a_table->Set(&a_machine, "getPhysicsData", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getPhysicsData)));
     a_table->Set(&a_machine, "refreshFunctionCache", gmVariable(a_machine.AllocFunctionObject(gmf_entity_refreshFunctionCache)));
     // EntityBase installs these script methods on the returned behavior
@@ -2755,7 +3276,13 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
         a_table->Set(&a_machine, "setIsAlwaysMusicTriggered",
             gmVariable(a_machine.AllocFunctionObject(gmf_entity_delegate_setIsAlwaysMusicTriggered)));
     a_table->Set(&a_machine, "getMainBody", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getMainBody)));
+    a_table->Set(&a_machine, "getEntityCreationPos", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getEntityCreationPos)));
+    a_table->Set(&a_machine, "setEntityCreationPos", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setEntityCreationPos)));
+    a_table->Set(&a_machine, "getDistanceTo", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getDistanceTo)));
+    a_table->Set(&a_machine, "getVectorTo", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getVectorTo)));
+    a_table->Set(&a_machine, "getRadiansToFace", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getRadiansToFace)));
     a_table->Set(&a_machine, "getVectorToNormalized", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getVectorToNormalized)));
+    a_table->Set(&a_machine, "getWhichSide", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getWhichSide)));
     a_table->Set(&a_machine, "setIsEnabled", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setIsEnabled)));
     a_table->Set(&a_machine, "isEnabled", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isEnabled)));
     a_table->Set(&a_machine, "setIsAutoRemove", gmVariable(a_machine.AllocFunctionObject(gmf_entity_noop)));
@@ -2769,6 +3296,7 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "constructorSetNoPhysics", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetNoPhysics)));
     a_table->Set(&a_machine, "constructorSetNoPhysicsCollide", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetNoPhysicsCollide)));
     a_table->Set(&a_machine, "constructorSetNoUpdate", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetNoUpdate)));
+    a_table->Set(&a_machine, "constructorSetIsManual", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetIsManual)));
     a_table->Set(&a_machine, "constructorSetManual", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetManual)));
     a_table->Set(&a_machine, "constructorSetNoPhysicsUpdate", gmVariable(a_machine.AllocFunctionObject(gmf_entity_constructorSetNoPhysicsUpdate)));
     a_table->Set(&a_machine, "clearTelescopes", gmVariable(a_machine.AllocFunctionObject(gmf_entity_clearTelescopes)));
@@ -2785,8 +3313,19 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "setNumOffScreensAudible", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setNumOffScreensAudible)));
     a_table->Set(&a_machine, "set_getAudibilityPerc_neverOnScreen", gmVariable(a_machine.AllocFunctionObject(gmf_entity_set_getAudibilityPerc_neverOnScreen)));
     a_table->Set(&a_machine, "is_getAudibilityPerc_neverOnScreen", gmVariable(a_machine.AllocFunctionObject(gmf_entity_is_getAudibilityPerc_neverOnScreen)));
-    a_table->Set(&a_machine, "setGot", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setGot)));
-    a_table->Set(&a_machine, "isGot", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isGot)));
+    gmVariable scriptSetGot = a_table->Get(&a_machine, "setGot");
+    if (scriptSetGot.m_type == GM_FUNCTION) {
+        // Native method injection runs after the entity factory returns. Keep
+        // the shipped BaseNotePlant.setGot implementation (including its
+        // onGot callback) available to calls through the raw native handle.
+        a_table->Set(&a_machine, "__retailScriptSetGot", scriptSetGot);
+    } else {
+        a_table->Set(&a_machine, "setGot",
+            gmVariable(a_machine.AllocFunctionObject(gmf_entity_setGot)));
+    }
+    if (a_table->Get(&a_machine, "isGot").m_type != GM_FUNCTION)
+        a_table->Set(&a_machine, "isGot",
+            gmVariable(a_machine.AllocFunctionObject(gmf_entity_isGot)));
     a_table->Set(&a_machine, "isGetting", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isGetting)));
     a_table->Set(&a_machine, "getCurrentScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getCurrentScreenY)));
     a_table->Set(&a_machine, "getCurrentScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getCurrentScreenX)));
@@ -2802,8 +3341,6 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "disownVoice", gmVariable(a_machine.AllocFunctionObject(gmf_entity_disownVoice)));
     a_table->Set(&a_machine, "setIsSauceBase", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setIsSauceBase)));
     a_table->Set(&a_machine, "redrawSauceBase", gmVariable(a_machine.AllocFunctionObject(gmf_entity_redrawSauceBase)));
-    a_table->Set(&a_machine, "cppDie", gmVariable(a_machine.AllocFunctionObject(gmf_entity_cppDie)));
-    a_table->Set(&a_machine, "cppRebirth", gmVariable(a_machine.AllocFunctionObject(gmf_entity_cppRebirth)));
     a_table->Set(&a_machine, "forceAudibilityRecalc", gmVariable(a_machine.AllocFunctionObject(gmf_entity_forceAudibilityRecalc)));
     a_table->Set(&a_machine, "recordScreenExtents", gmVariable(a_machine.AllocFunctionObject(gmf_entity_recordScreenExtents)));
     a_table->Set(&a_machine, "isOnCurrentScreen", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isOnCurrentScreen)));
@@ -3041,21 +3578,25 @@ gmVariable CreateEntityFromFactory(gmMachine& a_machine, const std::string& a_ty
         globalFunc = a_machine.GetGlobals()->Get(&a_machine, a_typeName.c_str());
     }
     if (globalFunc.m_type != GM_FUNCTION) {
-        std::fprintf(stderr, "EntityManager.createEntity: global '%s' is not a function, using bare handle\n", a_typeName.c_str());
-        return handle;
+        if (a_typeName.empty()) return handle;
+        std::fprintf(stderr, "ENTITYMANAGER: Failed to create entity type \"%s\" (missing local constructor)\n",
+                     a_typeName.c_str());
+        return gmVariable::s_null;
     }
 
     gmCall call;
     if (!call.BeginGlobalFunction(&a_machine, a_typeName.c_str())) {
-        std::fprintf(stderr, "EntityManager.createEntity: failed to begin call to '%s'\n", a_typeName.c_str());
-        return handle;
+        std::fprintf(stderr, "ENTITYMANAGER: Failed to create entity type \"%s\" (constructor call failed)\n",
+                     a_typeName.c_str());
+        return gmVariable::s_null;
     }
     call.AddParam(handle);
     call.End();
 
     if (!call.DidReturnVariable() || call.GetReturnedVariable().m_type != GM_TABLE) {
-        std::fprintf(stderr, "EntityManager.createEntity: '%s(e)' did not return a table, using bare handle\n", a_typeName.c_str());
-        return handle;
+        std::fprintf(stderr, "ENTITYMANAGER: Failed to create entity type \"%s\" (constructor returned no table)\n",
+                     a_typeName.c_str());
+        return gmVariable::s_null;
     }
 
     gmVariable entityTable = call.GetReturnedVariable();
@@ -3071,6 +3612,17 @@ gmVariable CreateEntityFromFactory(gmMachine& a_machine, const std::string& a_ty
     // isInvincible() directly on `this.Entity` (the handle), expecting the
     // same object identity retail's own unified Entity/Player has.
     handleTable->Set(&a_machine, "__behaviorOwner", entityTable);
+    // Retail exposes one unified Entity object, so dynamically installed
+    // EntityBase methods are callable through either `this` or `this.Entity`.
+    // Some packed pooled-projectile scripts call giveBackToBulletCache on
+    // `this.Entity`; the desktop's behavior-table split otherwise turns that
+    // valid retail call into a missing-method no-op and leaves the projectile
+    // visible/active after its effect completes.
+    if (handleTable->Get(&a_machine, "giveBackToBulletCache").m_type != GM_FUNCTION) {
+        handleTable->Set(&a_machine, "giveBackToBulletCache",
+            gmVariable(a_machine.AllocFunctionObject(
+                gmf_entity_delegate_giveBackToBulletCache)));
+    }
     SyncEntityNativeFields(a_machine, handleTable, table);
 
     // Repoint the PhysicsData's owner at the real final table -- see
@@ -3213,7 +3765,13 @@ gmVariable GetOrCreateDummyEntity(gmMachine& a_machine) {
 // that selected type via PhysicsData.getType().
 gmVariable CreateAndQueueEntity(gmMachine& m, const char* typeName,
                                 int physicsType, bool isPlayer) {
-    int uid = Entities().nextId++;
+    // Reserve the native object ID before invoking the script constructor.
+    // Constructors may recursively call EntityManager.createEntity() (for
+    // example PlayerCheckpoint creates its CarVehicle in its constructor).
+    // Reserving afterward gave the nested entity the same ID as its parent,
+    // so getEntity(vehicleEntityID) resolved back to the checkpoint and the
+    // vehicle never received its configure/body setup.
+    const int uid = Entities().nextId++;
     // GE3_TEXT_DIAG=1 -- pair with [cfg]. An entity type created more
     // times than it is configured has instances left with a null mainpb,
     // which is what puts tutorial text at the world origin.
@@ -3221,8 +3779,23 @@ gmVariable CreateAndQueueEntity(gmMachine& m, const char* typeName,
         std::fprintf(stderr, "[mk] %s\n", typeName[0] ? typeName : "(none)");
     }
     gmVariable var = CreateEntityFromFactory(m, typeName, uid, physicsType);
+    if (var.m_type != GM_TABLE) return var;
     gmTableObject* table = (gmTableObject*)m.GetObject(var.m_value.m_ref);
-    if (isPlayer) SetEntityNativeField(m, table, "__isPlayer", gmVariable((gmint)1));
+    if (isPlayer) {
+        SetEntityNativeField(m, table, "__isPlayer", gmVariable((gmint)1));
+        InjectPlayerRendererLifecycleMethods(m, table);
+        gmVariable handleVar = table ? table->Get(&m, "Entity") : gmVariable::s_null;
+        gmTableObject* handle = handleVar.m_type == GM_TABLE
+            ? static_cast<gmTableObject*>(m.GetObject(handleVar.m_value.m_ref)) : nullptr;
+        InjectPlayerRendererLifecycleMethods(m, handle);
+        // Retail's PlayerGet native base exposes these methods on the player
+        // behavior object. Keep script overrides, but supply the native
+        // implementations when the factory table has no local method.
+        if (table && table->Get(&m, "testfn").m_type != GM_FUNCTION)
+            table->Set(&m, "testfn", gmVariable(m.AllocFunctionObject(gmf_player_testfn)));
+        if (table && table->Get(&m, "hangTimeUpdate").m_type != GM_FUNCTION)
+            table->Set(&m, "hangTimeUpdate", gmVariable(m.AllocFunctionObject(gmf_entity_noop)));
+    }
     RootGmVariable(m, var);
     Entities().pendingCreation.push_back({uid, var});
     gmVariable scriptUid = table->Get(&m, "__uid");
@@ -3597,14 +4170,22 @@ int GM_CDECL gmf_EM_getEntitiesNear(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(rx, 2, 0.0f);
     GM_FLOAT_OR_INT_PARAM(ry, 3, 0.0f);
     std::vector<gmVariable> matches;
-    for (auto& e : Entities().entities) {
-        if (e.second.m_type != GM_TABLE) continue;
-        gmTableObject* t = (gmTableObject*)m.GetObject(e.second.m_value.m_ref);
-        if (t && EntityOverlapsBox(m, t, x - rx, y - ry, x + rx, y + ry)) matches.push_back(e.second);
+    // Retail's shared AABB query refuses inverted bounds. Negative radii
+    // therefore yield an empty result, including when an entity AABB would
+    // otherwise span both inverted corners.
+    if (rx >= 0.0f && ry >= 0.0f) {
+        for (auto& e : Entities().entities) {
+            if (e.second.m_type != GM_TABLE) continue;
+            gmTableObject* t = (gmTableObject*)m.GetObject(e.second.m_value.m_ref);
+            if (t && EntityOverlapsBox(m, t, x - rx, y - ry, x + rx, y + ry))
+                matches.push_back(e.second);
+        }
     }
     // Retail's five-argument branch updates the caller-owned list container
     // in place (Entity.c:getEntitiesNear, 0x00099740). TouchEditProcessBase
     // keeps one ENTITYLISTREFCONTAINER and passes it back on every query.
+    // Candidate membership/order is still only approximated by this local
+    // registry scan; retail dispatches through the PhysicsManager AABB query.
     if (a_thread->GetNumParams() >= 5) {
         gmVariable container = a_thread->Param(4);
         gmUserObject* object = container.m_type == g_entityListIterType
@@ -3668,13 +4249,17 @@ int GM_CDECL gmf_EM_getNumManualEntities(gmThread* a_thread) {
             if (manual.m_type == GM_INT && manual.m_value.m_int != 0) ++count;
         }
     };
+    // Retail reads the dedicated EntityManager manual-list count (+0x44).
+    // Pending creates are not linked into that list until the manager flushes
+    // them (FUN_000c1fd4), so only committed registry entries contribute.
     countManual(Entities().entities);
-    countManual(Entities().pendingCreation);
     a_thread->PushInt(count);
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getNumNonManualEntities(gmThread* a_thread) {
-    const int total = (int)(Entities().entities.size() + Entities().pendingCreation.size());
+    // Retail reads the dedicated non-manual-list count (+0x38), which is
+    // likewise updated only when a pending entity is committed to that list.
+    const int total = (int)Entities().entities.size();
     gmMachine& machine = *a_thread->GetMachine();
     int manualCount = 0;
     auto countManual = [&machine, &manualCount](const auto& entries) {
@@ -3687,7 +4272,6 @@ int GM_CDECL gmf_EM_getNumNonManualEntities(gmThread* a_thread) {
         }
     };
     countManual(Entities().entities);
-    countManual(Entities().pendingCreation);
     a_thread->PushInt(total - manualCount);
     return GM_OK;
 }
@@ -3703,8 +4287,9 @@ int GM_CDECL gmf_EM_getNumPlayers(gmThread* a_thread) {
             if (player.m_type == GM_INT && player.m_value.m_int != 0) ++count;
         }
     };
+    // Retail reads the dedicated player-list count (+0x50). Pending players
+    // join that list only when EntityManager commits their creation.
     countPlayers(Entities().entities);
-    countPlayers(Entities().pendingCreation);
     a_thread->PushInt(count);
     return GM_OK;
 }
@@ -3906,12 +4491,13 @@ void LoadInstrumentSamples(InstrumentData& instrument, const std::string& direct
     instrument.highestVelocity = 1;
     std::string relative = directoryName;
     if (!relative.empty() && relative.front() == '@') relative = "Platformer/sounds/" + relative.substr(1);
-    const std::string root = GetEngineContext().fileHelper->PrimaryRoot();
-    std::error_code ec;
-    const std::filesystem::path directory = std::filesystem::path(root) / relative;
-    for (const auto& entry : std::filesystem::directory_iterator(directory, ec)) {
-        if (ec) break;
-        const std::string filename = entry.path().filename().string();
+    // Instrument samples are assets, not host files. Retail enumerates the
+    // virtual data directory, so this must see PSARC entries as well as loose
+    // files and patch overlays. Scanning PrimaryRoot() made every instrument
+    // empty in the supported archive-only launch layout.
+    FileHelper* fileHelper = GetEngineContext().fileHelper;
+    if (!fileHelper) return;
+    for (const std::string& filename : fileHelper->ListFiles(relative)) {
         if (filename.empty() || filename.front() == '.') continue;
         const size_t v = filename.find('V');
         if (v == std::string::npos) continue;
@@ -4323,14 +4909,121 @@ int GM_CDECL gmf_GAME_CalculateTriangleFillVerts(gmThread* a_thread) {
     return GM_OK;
 }
 
-// classes/Game.c 0x001ae784/0x001ae7f8), each returning the engine's single
-// persistent pre/post-draw DrawList. Only real call site (Main.gm's
-// GAME_PostDraw) caches the result in a global the first time it's called
-// and reuses it forever (`if (!?GAME_PostDraw_drawList) { GAME_PostDraw_
-// drawList=GAME_GetPostDrawList(); }`), so a fresh DrawList handle per call
-// matches the only observed usage pattern; size args are irrelevant since
-// every real caller calls setupWorldView()/reset() on the list itself
-// right after fetching it.
+// CurvedGround's PSARC source marks its former GM vertex builder as ported to
+// this native (Game.GAME_CalculateCurveFillVerts, wrapper 0x001ae5c4). The
+// archived block defines 31 quarter-arc samples, hard-coded linear endpoint
+// exponents, and an outer contour offset by the normalized left normal times
+// thickness. The third argument is reserved (the retail caller passes 0).
+// Math uses the PPC-backed helpers also used by the MATH_* bindings. A direct
+// retail vertex-buffer comparison is still required before claiming 1:1.
+int GM_CDECL gmf_GAME_CalculateCurveFillVerts(gmThread* a_thread) {
+    if (a_thread->GetNumParams() != 3) return GM_EXCEPTION;
+    const gmVariable pointsVar = a_thread->Param(0);
+    const gmVariable entityVar = a_thread->Param(1);
+    if (pointsVar.m_type != GM_TABLE || entityVar.m_type != GM_TABLE)
+        return GM_OK;
+
+    gmMachine& machine = *a_thread->GetMachine();
+    auto* points = (gmTableObject*)machine.GetObject(pointsVar.m_value.m_ref);
+    auto* entity = (gmTableObject*)machine.GetObject(entityVar.m_value.m_ref);
+    if (!points || !entity) return GM_OK;
+    const gmVariable innerVar = points->Get(0);
+    const gmVariable outerVar = points->Get(1);
+    if (innerVar.m_type != GM_TABLE || outerVar.m_type != GM_TABLE)
+        return GM_OK;
+    auto* inner = (gmTableObject*)machine.GetObject(innerVar.m_value.m_ref);
+    auto* outer = (gmTableObject*)machine.GetObject(outerVar.m_value.m_ref);
+    if (!inner || !outer) return GM_OK;
+
+    const gmVariable configVar = entity->Get(&machine, "configureData");
+    if (configVar.m_type != GM_TABLE) return GM_OK;
+    auto* config = (gmTableObject*)machine.GetObject(configVar.m_value.m_ref);
+    if (!config) return GM_OK;
+    auto getFloat = [&](gmTableObject* table, const char* key) -> float {
+        const gmVariable value = table->Get(&machine, key);
+        if (value.m_type == GM_FLOAT) return value.m_value.m_float;
+        if (value.m_type == GM_INT) return static_cast<float>(value.m_value.m_int);
+        return 0.0f;
+    };
+
+    constexpr int kSamples = 31;
+    // Retail FUN_00197e20 loads this exact binary32 increment from
+    // DAT_00197e00 (EBOOT VMA 0x00197e00), then advances the angle with an
+    // `fadds` on each iteration. Multiplying the step by the sample index
+    // produces different binary32 values from sample 21 onward.
+    const float kAngleStep = GroundRenderMath::FloatFromBits(0xbd567750u);
+    constexpr float kPiOverTwo = 1.5707963705062866f;
+    const float curve = getFloat(config, "curve");
+    // Retail loads the rounded binary32 thickness constant
+    // DAT_00197e0c (1.2200000286) directly with `lfs`; it does not read the
+    // mutable GameMonkey SW global here. This equals the shipped script's
+    // SW*2 at SW=0.61, while keeping the native helper's fixed constant.
+    const float thickness = GroundRenderMath::FloatFromBits(0x3f9c28f6u);
+    const float radius = getFloat(config, "editStretchValue") * 2.0f;
+    const float outerRadius = radius + thickness;
+    const float offsetX = -radius / 2.0f;
+    const float offsetY = radius / 2.0f;
+    b2Vec2 innerPoints[kSamples];
+
+    auto signedPow = [](float value, float exponent) {
+        const float magnitude = GroundRenderMath::RetailPlayerPow(
+            std::fabs(value), exponent);
+        return std::signbit(value) ? -magnitude : magnitude;
+    };
+    auto pointAt = [&](float angle, float exponent, float r) {
+        return b2Vec2(
+            std::fma(signedPow(GroundRenderMath::RetailGroundSinCos(angle, true), exponent),
+                     r, offsetX),
+            std::fma(signedPow(GroundRenderMath::RetailGroundSinCos(angle, false), exponent),
+                     r, offsetY));
+    };
+
+    const b2Vec2 innerStart = pointAt(0.0f, 1.0f, radius);
+    const b2Vec2 outerStart = pointAt(0.0f, 1.0f, outerRadius);
+    innerPoints[0] = innerStart;
+    inner->Set(&machine, 0, MakeVector2D(machine, innerStart.x, innerStart.y));
+    outer->Set(&machine, 0, MakeVector2D(machine, outerStart.x, outerStart.y));
+    float angle = kAngleStep;
+    for (int i = 1; i < kSamples - 1; ++i) {
+        innerPoints[i] = pointAt(angle, curve, radius);
+        inner->Set(&machine, i, MakeVector2D(machine,
+            innerPoints[i].x, innerPoints[i].y));
+        // Retail's PPC loop executes a single-precision fadds after each
+        // point. Preserve that accumulation order instead of deriving each
+        // angle independently from its integer index.
+        angle = static_cast<float>(angle + kAngleStep);
+    }
+    for (int i = 1; i < kSamples - 1; ++i) {
+        const float dx = innerPoints[i].x - innerPoints[i - 1].x;
+        const float dy = innerPoints[i].y - innerPoints[i - 1].y;
+        // FUN_00197e20 forms dy*dy first, then fmadds(dx, dx, dySquared),
+        // fsqrts, and divides dy and dx separately. This order is specific to
+        // the CurvedGround outer pass; the shared ground contour helper uses a
+        // different fused operand order.
+        const float dySquared = dy * dy;
+        const float length = std::sqrt(std::fma(dx, dx, dySquared));
+        const float nx = length > 0.0f ? -dy / length : 0.0f;
+        const float ny = length > 0.0f ? dx / length : 0.0f;
+        // Retail computes the X offset with separate multiply/add instructions
+        // and the Y offset with fmadds. Volatile preserves the X intermediate
+        // from host FMA contraction.
+        volatile float scaledNormalX = nx * thickness;
+        const float outerX = innerPoints[i].x + scaledNormalX;
+        const float outerY = std::fma(ny, thickness, innerPoints[i].y);
+        outer->Set(&machine, i, MakeVector2D(machine,
+            outerX, outerY));
+    }
+    const b2Vec2 innerEnd = pointAt(-kPiOverTwo, 1.0f, radius);
+    const b2Vec2 outerEnd = pointAt(-kPiOverTwo, 1.0f, outerRadius);
+    innerPoints[kSamples - 1] = innerEnd;
+    inner->Set(&machine, kSamples - 1, MakeVector2D(machine, innerEnd.x, innerEnd.y));
+    outer->Set(&machine, kSamples - 1, MakeVector2D(machine, outerEnd.x, outerEnd.y));
+    return GM_OK;
+}
+
+// classes/Game.c 0x001ae784/0x001ae7f8). Retail loads retained singleton
+// pointers from GameSystem+0x8310/+0x8314 and returns those same objects on
+// every call. The desktop bindings below preserve that identity and lifetime.
 // RETAIL PPC VERIFIED: ENTITYLISTREFCONTAINER (0x695f8) constructs an empty
 // 0x14-byte wrapper around a linked-list sentinel via 0x31ad28. The desktop
 // returns the same script-visible empty iterator state with index zero; native
@@ -4342,47 +5035,66 @@ int GM_CDECL gmf_ENTITYLISTREFCONTAINER(gmThread* a_thread) {
     return GM_OK;
 }
 
-// GAME_SetSelectionPulseRate(rate)/GAME_SetSelectionAlphaPerc(perc)/
-// Game.c 0x001ae15c/0x001ae22c/0x001ae1d8), real call sites all in
-// TouchEditProcessPS3.gm's constructor/edit-mode toggle (`GAME_
-// SetSelectionAlphaPerc(1.0);` at construction, `GAME_SetSelectionPulseRate
-// (...)`/`GAME_SetIsSelectionPulseEnabled(...)` when entering/leaving
-// selection mode) -- configure a native pulsing-highlight shader effect
-// for the currently-selected editor entity. This reimplementation's
-// renderer has no such fragment-program-driven selection-pulse effect
-// (see GAME_SetIsUsingSelectionFragmentProgram/GAME_SetSelectionPulseRate's
-// own neighboring entries in Game.c, none of which this engine models),
-// genuine no-ops.
+// These three Game globals follow the fixed-slot wrapper conversions in
+// the raw 32-bit payload. The native helpers then narrow their stored fields
+// to f32. Selection fragment consumption remains a renderer parity gap.
+static double GetRetailGameNumericArgument(const gmVariable& a_arg) {
+    return a_arg.m_type == GM_FLOAT
+        ? static_cast<double>(a_arg.m_value.m_float)
+        : static_cast<double>(static_cast<int32_t>(a_arg.m_value.m_int));
+}
+
 int GM_CDECL gmf_GAME_SetSelectionPulseRate(gmThread* a_thread) {
-    (void)a_thread;
+    if (!a_thread || a_thread->GetNumParams() < 1) return GM_OK;
+    GetEngineContext().video.SetSelectionPulseRate(
+        GetRetailGameNumericArgument(a_thread->Param(0)));
     return GM_OK;
 }
 int GM_CDECL gmf_GAME_SetSelectionAlphaPerc(gmThread* a_thread) {
-    (void)a_thread;
+    if (!a_thread || a_thread->GetNumParams() < 1) return GM_OK;
+    GetEngineContext().video.SetSelectionAlphaPerc(
+        GetRetailGameNumericArgument(a_thread->Param(0)));
     return GM_OK;
 }
 int GM_CDECL gmf_GAME_SetIsSelectionPulseEnabled(gmThread* a_thread) {
-    (void)a_thread;
+    if (!a_thread || a_thread->GetNumParams() < 1) return GM_OK;
+    // The PPC wrapper tests the raw payload, so integer 0 and floating-point
+    // +0.0 disable, while any nonzero bit pattern enables.
+    GetEngineContext().video.SetSelectionPulseEnabled(
+        a_thread->Param(0).m_value.m_int != 0);
     return GM_OK;
 }
 
-// GAME_SetIsUsingSelectionFragmentProgram(bool, entity) -- confirmed real
-// as the three above, 2 args this time (enabled flag, target entity).
-// Real call site (TouchEditProcessBase.gm:2096's addToSelected():
-// `GAME_SetIsUsingSelectionFragmentProgram(true,e);`) toggles the
-// selection-highlight shader on/off per-entity -- same "no fragment-
-// program-driven selection effect modeled" no-op as its siblings.
+// GAME_SetIsUsingSelectionFragmentProgram(bool, entity) -- retail resolves
+// entity.setupDrawList() to native Entity+0x14, then writes this flag to
+// DrawList+0x10. Preserve the raw GM payload != 0 test used by the PPC
+// wrapper. The draw-config shader-variant consumer is documented in the API
+// trace TODO and is still pending.
 int GM_CDECL gmf_GAME_SetIsUsingSelectionFragmentProgram(gmThread* a_thread) {
-    (void)a_thread;
+    if (!a_thread || a_thread->GetNumParams() < 2) return GM_OK;
+    const gmVariable& enabledArg = a_thread->Param(0);
+    const gmVariable& entityArg = a_thread->Param(1);
+    if (entityArg.m_type != GM_TABLE) return GM_OK;
+
+    gmMachine& machine = *a_thread->GetMachine();
+    auto* entity = static_cast<gmTableObject*>(machine.GetObject(entityArg.m_value.m_ref));
+    if (!entity) return GM_OK;
+    const gmVariable drawListArg = entity->Get(&machine, "drawList");
+    if (drawListArg.m_type < GM_USER) return GM_OK;
+    auto* drawListObject = static_cast<gmUserObject*>(machine.GetObject(drawListArg.m_value.m_ref));
+    if (!drawListObject || drawListObject->m_userType != GetDrawListType()) return GM_OK;
+    auto* drawList = static_cast<DrawListData*>(drawListObject->m_user);
+    if (drawList)
+        drawList->useSelectionFragmentProgram = enabledArg.m_value.m_int != 0;
     return GM_OK;
 }
 
 int GM_CDECL gmf_GAME_GetPreDrawList(gmThread* a_thread) {
-    PushNewDrawList(a_thread, 0, 0);
+    PushPersistentGameDrawList(a_thread, s_gamePreDrawList);
     return GM_OK;
 }
 int GM_CDECL gmf_GAME_GetPostDrawList(gmThread* a_thread) {
-    PushNewDrawList(a_thread, 0, 0);
+    PushPersistentGameDrawList(a_thread, s_gamePostDrawList);
     return GM_OK;
 }
 
@@ -4687,6 +5399,7 @@ std::vector<int> DrawEntitiesWithNativeDrawHook() {
         drawMapIds.insert(entry.second);
         if (queuedIds.insert(entry.second).second) ids.push_back(entry.second);
     }
+    bool playerSubmissionQueued = false;
     for (int id : ids) {
         const bool drawMapEntity = drawMapIds.find(id) != drawMapIds.end();
         gmVariable* live = FindEntity(id);
@@ -4694,6 +5407,16 @@ std::vector<int> DrawEntitiesWithNativeDrawHook() {
         gmVariable entity = *live;
         gmTableObject* t = (gmTableObject*)m->GetObject(entity.m_value.m_ref);
         if (!t) continue;
+        const gmVariable playerFlag = t->Get(m, "__isPlayer");
+        if (playerFlag.m_type == GM_INT && playerFlag.m_value.m_int != 0) {
+            // Retail dispatches the native callback at this point in the
+            // traversal and queues its DrawList immediately afterward. Keep
+            // this position in the stable equal-key sort instead of moving
+            // the player to the end of the whole entity batch.
+            orderedLists.push_back(CaptureNativePlayerDrawSubmission());
+            playerSubmissionQueued = true;
+            continue;
+        }
         const bool hasScriptDraw = t->Get(m, "draw").m_type == GM_FUNCTION;
         gmVariable sauceFlag = gmVariable::s_null;
         if (!hasScriptDraw) {
@@ -4701,10 +5424,6 @@ std::vector<int> DrawEntitiesWithNativeDrawHook() {
             if (sauceFlag.m_type != GM_INT || sauceFlag.m_value.m_int == 0)
                 continue;
         }
-        gmVariable typeName = t->Get(m, "__typeName");
-        const char* typeNameText = typeName.m_type == GM_STRING && typeName.m_value.m_ref
-            ? ((gmStringObject*)m->GetObject(typeName.m_value.m_ref))->GetString() : "";
-        const bool isSpawnPoint = std::strcmp(typeNameText, "Platformer_EntityPacks_SpawnPoint") == 0;
         // Bullet-cache reclaim hides pooled projectiles with the native
         // Entity.setIsInvisible flag but keeps their entity/body allocated
         // for reuse. The real entity draw dispatcher honours this flag;
@@ -4712,7 +5431,9 @@ std::vector<int> DrawEntitiesWithNativeDrawHook() {
         // frame (the small residual pixels in its shipped FSA) remains
         // visible after giveBackToBulletCache().
         gmVariable invisible = t->Get(m, "__invisible");
-        if (invisible.m_type == GM_INT && invisible.m_value.m_int != 0) continue;
+        if (invisible.m_type == GM_INT && invisible.m_value.m_int != 0) {
+            continue;
+        }
         // Entities created during a process update are visible to this draw
         // sweep before the next frame's configure sweep. Retail only draws
         // configured scene entities; calling their script draw early reads
@@ -4730,9 +5451,13 @@ std::vector<int> DrawEntitiesWithNativeDrawHook() {
             gmTableObject* config = cd.m_type == GM_TABLE
                 ? (gmTableObject*)m->GetObject(cd.m_value.m_ref) : nullptr;
             gmVariable enabled = t->Get(m, "__enabled");
-            if ((config && config->Get(m, "entType").m_type != GM_NULL) ||
-                enabled.m_type != GM_INT || enabled.m_value.m_int == 0 ||
-                !PhysicsDataHasBodies(*m, t->Get(m, "PhysicsData"))) continue;
+            if (config && config->Get(m, "entType").m_type != GM_NULL) {
+                continue;
+            }
+            if (enabled.m_type != GM_INT || enabled.m_value.m_int == 0 ||
+                !PhysicsDataHasBodies(*m, t->Get(m, "PhysicsData"))) {
+                continue;
+            }
         }
         // Retail's screen lists never dispatch draw for a level entity whose
         // registered extent excludes the current screen. Our flat entity
@@ -4803,13 +5528,21 @@ std::vector<int> DrawEntitiesWithNativeDrawHook() {
             if (listVar.m_type >= GM_USER) { // see process_manager.cpp's FlushDrawList for why not `==`
                 gmUserObject* obj = (gmUserObject*)m->GetObject(listVar.m_value.m_ref);
                 if (obj && obj->m_userType == GetDrawListType()) {
-                    orderedLists.push_back(CaptureDrawListSubmission(
-                        (DrawListData*)obj->m_user, isSpawnPoint));
+                    DrawListData* listData = (DrawListData*)obj->m_user;
+                    DrawListSubmission submission =
+                        CaptureDrawListSubmission(listData);
+                    orderedLists.push_back(submission);
                 }
             }
         }
         drawn.push_back(id);
     }
+    // Retail's native player draw is not gated by desktop script-draw
+    // eligibility checks. Ordinarily it was queued at its traversal position
+    // above; retain a fallback for frames where its entity is absent from the
+    // active registry, such as the transition into or out of a level.
+    if (!playerSubmissionQueued)
+        orderedLists.push_back(CaptureNativePlayerDrawSubmission());
     ReplayDrawListsInOrder(orderedLists);
     return drawn;
 }
@@ -5129,12 +5862,13 @@ void UpdateEntitiesWithNativeUpdateHook(float a_msElapsed) {
         gmVariable enabled = t->Get(m, "__enabled");
         const bool isEnabled = enabled.m_type != GM_INT || enabled.m_value.m_int != 0;
         const bool hasUpdate = t->Get(m, "update").m_type == GM_FUNCTION;
+        const gmVariable playerFlag = t->Get(m, "__isPlayer");
+        const bool isPlayerEntity = playerFlag.m_type == GM_INT &&
+                                    playerFlag.m_value.m_int != 0;
         if (s_craigUpdateDebug || s_craigPhysicsTrace) {
             gmVariable typeVar = t->Get(m, "__typeName");
             const char* typeName = typeVar.m_type == GM_STRING && typeVar.m_value.m_ref
                 ? ((gmStringObject*)m->GetObject(typeVar.m_value.m_ref))->GetString() : "";
-            const bool isPlayerEntity =
-                std::strcmp(typeName, "Platformer_Player") == 0;
             if (std::strstr(typeName, "CraigElevator") ||
                 std::strstr(typeName, "CraigElevatorExit") ||
                 std::strstr(typeName, "CraigLiftComputer") ||
@@ -5233,13 +5967,22 @@ void UpdateEntitiesWithNativeUpdateHook(float a_msElapsed) {
                 }
             }
         }
-        if (markedNoUpdate || !isEnabled || !hasUpdate) continue;
+        if (markedNoUpdate || !isEnabled) continue;
 
-        gmCall call;
-        if (call.BeginTableFunction(m, "update", t, e.second)) {
-            call.AddParamFloat(a_msElapsed);
-            call.End();
+        if (hasUpdate) {
+            gmCall call;
+            if (call.BeginTableFunction(m, "update", t, e.second)) {
+                call.AddParamFloat(a_msElapsed);
+                call.End();
+            }
         }
+
+        // Retail PlayerRenderer::update (FUN_001a0b60) invokes its base
+        // update first; FUN_0005d17c runs the cached Player update callback,
+        // then the derived method advances the draw-scale transition. Keep
+        // that native scale tick adjacent to the enabled player's script
+        // update, and skip it with disabled/no-update entities.
+        if (isPlayerEntity) TickPlayerNativeRenderer(a_msElapsed);
     }
 }
 
@@ -5300,6 +6043,7 @@ void RegisterEntityBindings(gmMachine& a_machine) {
     a_machine.RegisterUserCallbacks(g_instrumentType, nullptr, InstrumentGCDestruct, nullptr);
     a_machine.RegisterLibraryFunction("INSTRUMENT", gmf_INSTRUMENT);
     a_machine.RegisterLibraryFunction("ENTITY_GetType", gmf_ENTITY_GetType);
+    a_machine.RegisterLibraryFunction("ENTITY_GetTypeName", gmf_ENTITY_GetTypeName);
     a_machine.RegisterLibraryFunction("ENTITYBASE_SetMixerData", gmf_ENTITYBASE_SetMixerData);
     a_machine.RegisterLibraryFunction("ENTITYBASE_ClearMixer", gmf_ENTITYBASE_ClearMixer);
     g_mixerParamsType = a_machine.CreateUserType("MixerParams");
@@ -5312,6 +6056,7 @@ void RegisterEntityBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("ENTITY_GetMixerIDFromType", gmf_ENTITY_GetMixerIDFromType);
     a_machine.RegisterLibraryFunction("GAME_CalculateFillVerts", gmf_GAME_CalculateFillVerts);
     a_machine.RegisterLibraryFunction("GAME_CalculateTriangleFillVerts", gmf_GAME_CalculateTriangleFillVerts);
+    a_machine.RegisterLibraryFunction("GAME_CalculateCurveFillVerts", gmf_GAME_CalculateCurveFillVerts);
     a_machine.RegisterLibraryFunction("GAME_GetPreDrawList", gmf_GAME_GetPreDrawList);
     a_machine.RegisterLibraryFunction("GAME_GetPostDrawList", gmf_GAME_GetPostDrawList);
     a_machine.RegisterLibraryFunction("GAME_SetSelectionPulseRate", gmf_GAME_SetSelectionPulseRate);

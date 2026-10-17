@@ -33,6 +33,11 @@ void ShutdownAudioOutput();
 // AudioManagerClearTrackedResources. Active voices keep their own sample refs.
 void CleanupAudioManagerTrackedResources();
 
+// Native process-list teardown for Platformer_Main. Retail's level destructor
+// calls Audio.stopAllVoices(), whose default fade is 60 ms; keep that policy
+// available to the engine lifecycle path as well as the script binding.
+void StopAllVoicesForProcessListReset();
+
 // For process_handle_bindings.cpp's Process.setGlobalVolume -- confirmed
 // real call site (PauseProcessBase.gm: `this.gameProcess.setGlobalVolume(gv)`)
 // but a process-handle method, not an Audio.* one; delegates to the same

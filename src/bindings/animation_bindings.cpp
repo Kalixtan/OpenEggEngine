@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -140,6 +141,10 @@ struct AnimationData {
     // both frame/palette pairs and draws the primary shape once with
     // Palette4bOverlayTrans. Keep the raw relationship for this paired path.
     AnimationData* overlay = nullptr;
+    // Keep an attached GM animation object alive while a retained primary
+    // draw command follows this native pointer during opcode-9 replay.
+    gmObject* overlayObject = nullptr;
+    bool ownsOverlayObjectRoot = false;
     gmVariable shape = gmVariable::s_null;
     // DrawList.drawAnimation retains the native animation object until the
     // recorded command is replaced or destroyed (retail DrawList.c calls
@@ -209,6 +214,10 @@ struct AnimationDrawLease {
     }
 
     ~AnimationDrawLease() {
+        // The VM destroys AnimationData and recorded draw-list closures in
+        // arbitrary order during ResetAndFreeMemory. The VM is discarding the
+        // deferred references as a whole, so do not inspect the raw payload.
+        if (objectRoot.machine && objectRoot.machine->IsResetting()) return;
         if (!animation || animation->deferredDrawRefs == 0) return;
         --animation->deferredDrawRefs;
         if (animation->deferredDrawRefs == 0 && animation->unloadPending)
@@ -221,6 +230,15 @@ void ReleaseShape(gmMachine& machine, AnimationData* animation) {
     gmObject* object = machine.GetObject(animation->shape.m_value.m_ref);
     ReleaseObject(machine, object);
     animation->shape = gmVariable::s_null;
+}
+
+void ClearAnimationOverlay(gmMachine& machine, AnimationData* animation) {
+    if (!animation) return;
+    if (animation->ownsOverlayObjectRoot && animation->overlayObject)
+        ReleaseObject(machine, animation->overlayObject);
+    animation->overlay = nullptr;
+    animation->overlayObject = nullptr;
+    animation->ownsOverlayObjectRoot = false;
 }
 
 void RetainShape(gmMachine& machine, AnimationData* animation, const gmVariable& shape) {
@@ -269,6 +287,57 @@ void RetainGlobalShape(gmMachine& machine, AnimationData* animation,
     globalShape.shape = shape;
     RetainObject(machine, machine.GetObject(shape.m_value.m_ref));
     s_fsaGlobalShapes.emplace(asset, std::move(globalShape));
+}
+
+void BuildFsaDefaultShape(gmMachine& machine,
+                          const std::shared_ptr<FsaAsset>& asset,
+                          bool centeredLayout) {
+    if (!asset || asset->frames.empty()) return;
+    const BciFrame& image = asset->frames.front();
+    if (image.width <= 0 || image.height <= 0) return;
+
+    // FUN_000b8080 stores five-float position/UV records in the FSA resource
+    // shape. The source image is uploaded into power-of-two texture storage,
+    // so the shape's UV extents are the visible-image fractions.
+    const float u = (float)image.width / (float)NextPowerOfTwo(image.width);
+    const float v = (float)image.height / (float)NextPowerOfTwo(image.height);
+    float xy[10];
+    float uv[10];
+    int count;
+    if (!centeredLayout) {
+        // FUN_000b8080's zero branch: four unit-rectangle corners, submitted
+        // as the retail triangle fan (RSX primitive 7).
+        constexpr float kXY[8] = {0, 0, 1, 0, 1, 1, 0, 1};
+        const float kUV[8] = {0, 0, u, 0, u, v, 0, v};
+        std::copy(std::begin(kXY), std::end(kXY), xy);
+        std::copy(std::begin(kUV), std::end(kUV), uv);
+        count = 4;
+    } else {
+        // Nonzero branch's five vertices and UVs, transcribed from the
+        // 20-byte records emitted by FUN_000b8080.
+        constexpr float kXY[10] = {0, 1, -0.5f, 1, -0.5f, 0,
+                                    0.5f, 0, 0.5f, 1};
+        const float kUV[10] = {u * 0.5f, v, 0, v, 0, 0,
+                                u * 0.5f, 0, u, v};
+        std::copy(std::begin(kXY), std::end(kXY), xy);
+        std::copy(std::begin(kUV), std::end(kUV), uv);
+        count = 5;
+    }
+
+    gmVariable shape = CreateShapeFromVertsAndUVs(
+        machine, 6, xy, uv, count, 0.0f);
+    if (!shape.IsReference()) return;
+    auto it = s_fsaGlobalShapes.find(asset.get());
+    if (it != s_fsaGlobalShapes.end()) {
+        ReleaseGlobalShape(it->second);
+        s_fsaGlobalShapes.erase(it);
+    }
+    FsaGlobalShape globalShape;
+    globalShape.asset = asset;
+    globalShape.machine = &machine;
+    globalShape.shape = shape;
+    RetainObject(machine, machine.GetObject(shape.m_value.m_ref));
+    s_fsaGlobalShapes.emplace(asset.get(), std::move(globalShape));
 }
 
 gmVariable ShapeForAnimation(const AnimationData* animation) {
@@ -609,8 +678,23 @@ int GM_CDECL gmf_anim_attachOverlayAnim(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    a->overlay = (AnimationData*)a_thread->ParamUserCheckType(0, g_animType);
-    return a->overlay ? GM_OK : GM_EXCEPTION;
+    AnimationData* overlay = (AnimationData*)a_thread->ParamUserCheckType(0, g_animType);
+    if (!overlay) return GM_EXCEPTION;
+    gmMachine& machine = *a_thread->GetMachine();
+    const gmVariable& overlayVar = a_thread->Param(0);
+    gmObject* overlayObject = overlayVar.m_type >= GM_USER
+        ? machine.GetObject(overlayVar.m_value.m_ref) : nullptr;
+    gmUserObject* ownerObject = a_thread->ThisUserObject();
+    if (!overlayObject || !ownerObject) return GM_EXCEPTION;
+    if (a->overlay == overlay && a->overlayObject == overlayObject) return GM_OK;
+    ClearAnimationOverlay(machine, a);
+    a->overlay = overlay;
+    a->overlayObject = overlayObject;
+    if (overlayObject != ownerObject) {
+        RetainObject(machine, overlayObject);
+        a->ownsOverlayObjectRoot = true;
+    }
+    return GM_OK;
 }
 
 // Retail wrapper 0x000a25b0 accepts (sequence index, table of alternating
@@ -983,8 +1067,14 @@ gmFunctionEntry s_animLib[] = {
 };
 
 int GM_CDECL gmf_animationModuleLoad(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1);
+    if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2)
+        return GM_EXCEPTION;
     GM_STRING_PARAM(path, 0, "");
+    // Retail forwards an optional second argument to FUN_000b8080 only when
+    // exactly two VM parameters were supplied. That helper branches on the
+    // raw selector being zero/nonzero; preserve the union payload test.
+    const bool centeredLayout = a_thread->GetNumParams() == 2 &&
+        a_thread->Param(1).m_value.m_int != 0;
     std::string resolved;
     if (auto* fileHelper = GetEngineContext().fileHelper) {
         // RETAIL BYTECODE: FUN_000b8808 probes "PS3_" + FSA path in game-data
@@ -995,7 +1085,7 @@ int GM_CDECL gmf_animationModuleLoad(gmThread* a_thread) {
     }
     if (resolved.empty())
         std::fprintf(stderr, "AnimationModule.loadAnimation: '%s' not found\n", path);
-    PushNewAnimation(a_thread, resolved);
+    PushNewAnimation(a_thread, resolved, true, centeredLayout ? 1 : 0);
     return GM_OK;
 }
 
@@ -1029,7 +1119,10 @@ void GM_CDECL AnimGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
     s_detachedAnimationInstances.erase(
         std::remove(s_detachedAnimationInstances.begin(), s_detachedAnimationInstances.end(), a),
         s_detachedAnimationInstances.end());
-    if (a_machine) ReleaseShape(*a_machine, a);
+    if (a_machine) {
+        ClearAnimationOverlay(*a_machine, a);
+        ReleaseShape(*a_machine, a);
+    }
     FreeTextures(a);
     delete a;
     if (a_machine) PurgeExpiredGlobalShapes();
@@ -1096,7 +1189,7 @@ void DetachAnimationFromManager(gmMachine& a_machine, const gmVariable& a_animVa
     // FUN_000b9dcc first clears Animation+0x28, then FUN_000b9c0c removes
     // the pointer from the manager and clears +0x4d. It releases the
     // manager's reference, not the script object's own animation resources.
-    animation->overlay = nullptr;
+    ClearAnimationOverlay(a_machine, animation);
     animation->managerAttached = false;
     if (std::find(s_detachedAnimationInstances.begin(), s_detachedAnimationInstances.end(),
                   animation) == s_detachedAnimationInstances.end())
@@ -1180,7 +1273,7 @@ void RegisterAnimationBindings(gmMachine& a_machine) {
 }
 
 void PushNewAnimation(gmThread* a_thread, const std::string& a_resolvedPath,
-                      bool a_attachToManager) {
+                      bool a_attachToManager, int a_fsaShapeLayout) {
     AnimationData* data = new AnimationData();
     if (!a_resolvedPath.empty()) {
         auto it = s_animationResources.find(a_resolvedPath);
@@ -1197,6 +1290,9 @@ void PushNewAnimation(gmThread* a_thread, const std::string& a_resolvedPath,
             }
         }
     }
+    if (data->asset && a_fsaShapeLayout >= 0)
+        BuildFsaDefaultShape(*a_thread->GetMachine(), data->asset,
+                             a_fsaShapeLayout != 0);
     // RETAIL BYTECODE: Animation initialization attaches the shared FSA
     // resource shape (+0x124) to this instance (+0x24) if it is populated.
     // Snapshot that pointer now: a later setGlobalShape changes future loads

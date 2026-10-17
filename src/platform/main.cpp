@@ -1,16 +1,22 @@
 // Engine entry point. Boots the GameMonkeyScript VM, registers the confirmed
 // native bindings (see src/bindings/), loads the retail game_data/Main.gm
-// entry point by default (with game_data_min available as a fallback for
-// shared test assets), and drives the render loop.
+// entry point from the retail PSARC archives beside the executable and drives
+// the render loop.
 #include "platform_window.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <array>
 #include <cmath>
 #include <box2d/box2d.h>
+
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #include "../core/gm_vm.h"
 #include "../core/strict_calls.h"
@@ -60,16 +66,6 @@
 #include "../bindings/foe_compat_bindings.h"
 #include "gmCall.h"
 
-#ifndef GE3_PRIMARY_DATA_ROOT
-#define GE3_PRIMARY_DATA_ROOT "../game_data"
-#endif
-#ifndef GE3_FALLBACK_DATA_ROOT
-#define GE3_FALLBACK_DATA_ROOT "../game_data_min"
-#endif
-#ifndef GE3_DEFAULT_SIMULATION_SPEED_MULTIPLIER
-#define GE3_DEFAULT_SIMULATION_SPEED_MULTIPLIER 1.0f
-#endif
-
 // GAME_Update/GAME_PostDraw -- reserved top-level script hooks (Main.gm:
 // `global GAME_Update=function(msElapsed){...}`, `global GAME_PostDraw=
 // function(){...}`), confirmed real and load-bearing: GAME_Update drives
@@ -87,6 +83,23 @@
 // uncalled: Main.gm only defines a commented-out stub for it ("commented
 // out until it's needed"), so there is nothing real to invoke there.
 namespace {
+bool SetEnvironmentIfUnset(const char* a_name, const char* a_value) {
+    if (std::getenv(a_name)) return true;
+#if defined(_WIN32)
+    return _putenv_s(a_name, a_value) == 0;
+#else
+    return setenv(a_name, a_value, 0) == 0;
+#endif
+}
+
+FILE* OpenTextFileForWrite(const std::filesystem::path& a_path) {
+#if defined(_WIN32)
+    return _wfopen(a_path.c_str(), L"w");
+#else
+    return std::fopen(a_path.c_str(), "w");
+#endif
+}
+
 int KeyboardEventAliasCodes(int scancode, int* codes, int capacity) {
     // Retail PS3 menus commonly accept both KEYBOARD_LEFT and JOYSTICK0_LEFT
     // in one key handler. Dispatching both for one PC arrow press navigates
@@ -108,38 +121,27 @@ void CallGlobalHookIfPresent(gmMachine& a_machine, const char* a_name, int a_int
     if (a_hasParam) call.AddParam(gmVariable(a_intParam));
     call.End();
 }
+
+bool ShowStrictCallDialog(void* context, const char* report) {
+    auto* frontend = static_cast<PlatformFrontend*>(context);
+    return frontend && frontend->ShowUnimplementedFunctionDialog(
+        "Unimplemented engine function", report);
+}
 } // namespace
 
 int main(int argc, char** argv) {
     // DEBUG: write startup trace to file
-    FILE* trace = fopen("/tmp/gameengine3_trace.log", "w");
+    std::error_code tempPathError;
+    std::filesystem::path tempDirectory = std::filesystem::temp_directory_path(tempPathError);
+    if (tempPathError) {
+        tempPathError.clear();
+        tempDirectory = std::filesystem::current_path(tempPathError);
+        if (tempPathError) tempDirectory = ".";
+    }
+    FILE* trace = OpenTextFileForWrite(tempDirectory / "OpenEgg_trace.log");
     if (trace) {
         fprintf(trace, "[TRACE] main() entry point reached\n");
         fflush(trace);
-    }
-
-    // --clear-save / GE3_CLEAR_SAVE=1: wipe SaveData::Dir() (the real
-    // "savedata/" JSON files next to the executable, see core/save_data.h)
-    // before anything else runs, so a level/campaign/settings test starts
-    // from a genuinely fresh boot -- SPLASHSCREEN_FinalizeSplashScreenAndGet-
-    // Results (system_bindings.cpp) sees no save.json and reports
-    // SAVEDATARESULT_NEWSAVE exactly like a brand-new PS3, no leftover
-    // progress/unlocks/settings from a previous run. Scanned out of argv
-    // BEFORE the positional dataRoot/entryScript/processName parsing below
-    // so it can be combined freely with those, in any position
-    // (`gameengine3 --clear-save`, `gameengine3 ../../game_data Main.gm Main
-    // --clear-save`, ...).
-    bool clearSave = std::getenv("GE3_CLEAR_SAVE") != nullptr;
-    {
-        int write = 1;
-        for (int i = 1; i < argc; ++i) {
-            if (std::strcmp(argv[i], "--clear-save") == 0) { clearSave = true; continue; }
-            argv[write++] = argv[i];
-        }
-        argc = write;
-    }
-    if (clearSave) {
-        SaveData::ClearAll();
     }
 
     // GE3_HEADLESS=1: the frontend window is created hidden, so
@@ -148,8 +150,8 @@ int main(int argc, char** argv) {
     // what a scripted/CI run almost always wants, so they're implied here
     // unless explicitly set already.
     if (std::getenv("GE3_HEADLESS")) {
-        setenv("GE3_FIXED_TIMESTEP_MS", "17", 0);
-        setenv("GE3_NO_FPS_LIMIT", "1", 0);
+        SetEnvironmentIfUnset("GE3_FIXED_TIMESTEP_MS", "17");
+        SetEnvironmentIfUnset("GE3_NO_FPS_LIMIT", "1");
     }
 
     // Scripted input + screenshot capture (GE3_HARNESS=<script>), see
@@ -158,19 +160,60 @@ int main(int argc, char** argv) {
 
     // Optional overrides for probing against another data root, entry script,
     // or process:
-    //   gameengine3 [dataRoot] [entryScript] [processName] [--clear-save]
+    //   OpenEgg [dataRoot] [entryScript] [processName]
     // With no args, launches the retail game_data/Main.gm entry point.
     if (trace) fprintf(trace, "[TRACE] parsing args\n"), fflush(trace);
-    std::string dataRoot = (argc > 1) ? argv[1] : GE3_PRIMARY_DATA_ROOT;
+    const std::filesystem::path executableDirectory =
+        std::filesystem::u8path(SaveData::ExecutableDirectory());
+    const std::filesystem::path systemConfigPath = executableDirectory / "OpenEgg.ini";
+    if (SystemConfig::Get().LoadFromIni(systemConfigPath.u8string())) {
+        std::fprintf(stderr, "system config: loaded '%s' (os_id=%s, language_code=%d, retail_build=%s)\n",
+                     systemConfigPath.u8string().c_str(), SystemConfig::Get().OsIdName(),
+                     SystemConfig::Get().languageCode,
+                     SystemConfig::Get().isRetailBuild ? "true" : "false");
+    } else {
+        std::fprintf(stderr, "system config: '%s' not found; using retail defaults (os_id=%s, language_code=%d)\n",
+                     systemConfigPath.u8string().c_str(), SystemConfig::Get().OsIdName(),
+                     SystemConfig::Get().languageCode);
+    }
+    const std::string defaultDataRoot =
+        (executableDirectory / "game_data").lexically_normal().u8string();
+    const std::string archiveRoot = executableDirectory.u8string();
+    std::filesystem::path requestedDataRoot = argc > 1
+        ? std::filesystem::u8path(argv[1]) : std::filesystem::u8path(defaultDataRoot);
+    if (requestedDataRoot.is_relative()) requestedDataRoot = executableDirectory / requestedDataRoot;
+    std::string dataRoot = requestedDataRoot.lexically_normal().u8string();
     std::string entryScript = (argc > 2) ? argv[2] : "Main.gm";
     std::string processName = (argc > 3) ? argv[3] : "Main";
 
     if (trace) fprintf(trace, "[TRACE] creating Renderer object\n"), fflush(trace);
     std::unique_ptr<PlatformFrontend> hostFrontend = CreatePlatformFrontend();
-    if (!hostFrontend || !hostFrontend->Create(800, 600, "GameEngine3 Reimplementation",
+    if (!hostFrontend || !hostFrontend->Create(800, 600, "OpenEgg",
                                                 std::getenv("GE3_HEADLESS") != nullptr)) {
         return 1;
     }
+    if (!std::getenv("GE3_HEADLESS")) {
+        StrictCalls::SetHaltDialogHandler(&ShowStrictCallDialog, hostFrontend.get());
+    }
+
+    GmVm vm;
+    vm.Files().AddRoot(dataRoot, archiveRoot);
+    if (!vm.Files().Resolve(entryScript)) {
+        const char* message =
+            "No runnable game files were found beside the executable. Place "
+            "game_data.psarc there, optionally with game_data/ and any "
+            "patch_data001.psarc through patch_data004.psarc files.";
+        std::fprintf(stderr, "main: %s\n", message);
+        if (trace) {
+            std::fprintf(trace, "[TRACE] no runnable game files beside executable\n");
+            std::fclose(trace);
+            trace = nullptr;
+        }
+        hostFrontend->ShowErrorMessage("Game files not found", message);
+        hostFrontend->Destroy();
+        return 1;
+    }
+
     harness.Init(*hostFrontend);
     Renderer renderer;
     if (trace) fprintf(trace, "[TRACE] calling renderer.Init()...\n"), fflush(trace);
@@ -192,10 +235,6 @@ int main(int argc, char** argv) {
     // initialized Video mode here, before any scripts can request textures.
     GetEngineContext().video.textureResizeOverrideEnabled = true;
 
-    GmVm vm;
-    vm.Files().AddRoot(dataRoot);
-    vm.Files().AddRoot(GE3_FALLBACK_DATA_ROOT);
-
     // Arm the strict-call tripwire before anything can run script. Any call to
     // an engine function that hasn't been reimplemented 1-1 from the retail
     // build now stops the engine (or, in survey mode, gets listed) instead of
@@ -207,7 +246,7 @@ int main(int argc, char** argv) {
     auto loadBitmapFont = [&](BitmapFont& font, const std::string& relativeJson) {
         auto jsonPath = vm.Files().Resolve(relativeJson);
         if (!jsonPath) return false;
-        return font.Load(*jsonPath, std::filesystem::path(*jsonPath).parent_path().string(),
+        return font.Load(*jsonPath, std::filesystem::u8path(*jsonPath).parent_path().u8string(),
                          renderer, &vm.Files());
     };
     bool haveNormal = loadBitmapFont(normalFont, "HelveticaNeueLTCom-Lt.json");
@@ -373,16 +412,8 @@ int main(int argc, char** argv) {
     // so this stays a native preload rather than a confirmed match for
     // whatever retail actually does.
     //
-    // Gated on the PRIMARY data root actually containing Platformer/Main.gm
-    // itself (not resolved through the game_data fallback root):
-    // game_data_min (a minimal test scene with no Platformer/ tree of its
-    // own) only ever reaches this file through the fallback root, and
-    // shouldn't have this bootstrap step applied to it -- confirmed
-    // necessary after this same class of unconditional preload (originally
-    // also covering MainMenu5.gm, before that moved to the on-demand
-    // mechanism above) broke game_data_min's rendering by pulling in
-    // Platformer/MainMenuScriptLoader.gm's large, global-state-mutating
-    // script sweep.
+    // Gate the preload on the retail tree containing Platformer/Main.gm.
+    // This avoids applying retail bootstrap behavior to custom data roots.
     bool isFullRetailTree = vm.Files().Resolve("Platformer/Main.gm").has_value();
     if (isFullRetailTree) {
         if (trace) fprintf(trace, "[TRACE] loading Platformer/CoryPopup.gm\n"), fflush(trace);
@@ -422,19 +453,8 @@ int main(int argc, char** argv) {
     // (50.0000038 ms). See timing_manager_loop_18a2e8.disasm.
     constexpr float kRetailSimulationStepMs = 16.666666f;
     constexpr float kRetailSimulationDeltaCapMs = 50.0000038f;
-    // Diagnostic only: scales the retail script-selected simulationSpeed
-    // before it enters the retail-style accumulator. Set to 10 to test whether
-    // the current script speed (often 0.1) is the source of slow motion.
-    float simulationSpeedMultiplier = GE3_DEFAULT_SIMULATION_SPEED_MULTIPLIER;
-    if (const char* multiplierEnv = std::getenv("GE3_SIMULATION_SPEED_MULTIPLIER")) {
-        char* end = nullptr;
-        const float value = std::strtof(multiplierEnv, &end);
-        if (end != multiplierEnv && *end == '\0' && std::isfinite(value) && value > 0.0f)
-            simulationSpeedMultiplier = value;
-    }
-    if (simulationSpeedMultiplier != 1.0f)
-        std::fprintf(stderr, "main: simulation speed multiplier %.6g (GE3_SIMULATION_SPEED_MULTIPLIER)\n",
-                     simulationSpeedMultiplier);
+    // Temporary slow-motion diagnostic: keep the effective simulation speed
+    // at 1.0 until the recurring script-selected 0.1 value is understood.
     bool running = true;
     // Runtime physics-debug-draw toggle -- GE3_PHYSICS_DEBUG_DRAW=1 still
     // forces it on for a whole session, but that means relaunching just to
@@ -621,18 +641,13 @@ int main(int argc, char** argv) {
         static const char* s_fixedStepEnv = std::getenv("GE3_FIXED_TIMESTEP_MS");
         if (s_fixedStepEnv) elapsedMs = std::strtof(s_fixedStepEnv, nullptr);
 
-        // Hardware voices advance from elapsed wall time between simulation
-        // ticks in retail. Keep this independent of the fixed simulation
-        // cadence so audio is not stalled on a render frame with no tick.
-        AdvanceAudioVoices(static_cast<float>(wallElapsedMs));
-
         // RETAIL PPC: FUN_0019bbb0 calls FUN_0018a2e8 once as the retail main
         // loop (direct branch at 0x0019cbfc). The loop initializes f25 to
         // zero once, then carries its remainder across rendered frames,
         // accumulating elapsed*simulationSpeed, capping the total at
         // 50.0000038 ms, and dispatching 16.666666 ms updates. This desktop
         // accumulator has the same lifetime and tick threshold.
-        const float speed = GetEngineContext().gameSystem.simulationSpeed * simulationSpeedMultiplier;
+        const float speed = 1.0f;
         // RETAIL PPC: FUN_0018a2e8 uses `fmadds f25,f24,f1,f25` (one
         // single-precision fused multiply-add) to add scaled elapsed time to
         // the carried remainder, then `fsel` caps the total at 50.0000038 ms.
@@ -653,6 +668,12 @@ int main(int argc, char** argv) {
         recordPhase(0); // frontend input and event dispatch
         while (simulationAccumulatorMs >= kRetailSimulationStepMs) {
             const float simDtMs = kRetailSimulationStepMs;
+            // Retail's AudioManager is GameSystem field +0xe24 (constructed
+            // by FUN_00188b00 via FUN_000225cc). FUN_0018a2e8 dispatches its
+            // virtual +0x18 update with the fixed dVar15 step from inside this
+            // loop, so voice envelopes and playback state advance per sim
+            // tick rather than once per rendered frame.
+            AdvanceAudioVoices(simDtMs);
             // The vendored GameMonkey scheduler takes integer milliseconds;
             // distribute the retail 50 ms / 3 tick cadence as 17,17,16 so
             // its cumulative clock does not run 2% fast from rounding every
@@ -660,6 +681,10 @@ int main(int argc, char** argv) {
             const unsigned int scriptDtMs = (simulationTickCount % 3 == 2) ? 16u : 17u;
             ++simulationTickCount;
             GetEngineContext().video.frameTimeMs = simDtMs;
+            // Retail Video's selection render-state callback advances its
+            // ping-pong scalar with the current fixed simulation delta.
+            GetEngineContext().video.AdvanceSelectionPulse(
+                static_cast<double>(simDtMs));
 
             // Retail's AnimationModule manager checks GameSystem.isPaused()
             // before visiting its animation list.
@@ -732,11 +757,11 @@ int main(int argc, char** argv) {
             // Retail entities have an independent preDraw callback. Player's
             // native draw caches this method for auxiliary geometry.
             PreDrawEntitiesWithNativeHook();
-            // Script-authored per-entity draw and drawAlpha are separate
-            // retail passes. The player body is native and draws after them.
+            // Native/script entity draw lists, including the player list at
+            // retail key 0x200000ff, are sorted and replayed in this pass.
+            // Script-authored drawAlpha is a later, separate retail pass.
             nativeDrawnUids = DrawEntitiesWithNativeDrawHook();
             DrawEntitiesWithNativeDrawAlphaHook();
-            DrawPlayerNative();
         }
         recordPhase(6); // entity and player rendering
         // postDraw() -- confirmed real, reserved lifecycle key (see
@@ -766,23 +791,60 @@ int main(int argc, char** argv) {
         recordPhase(7); // process postDraw and final overlays
 
         // Debug: GE3_SCREENSHOT_FRAME=<n> dumps that frame (0-based) to
-        // /tmp/gameengine3_frame<n>.ppm right before the swap, for visual
+        // OpenEgg_frame<n>.ppm in the system temp directory before swap,
+        // for visual
         // comparison against the real FoE PC build.
         static int s_frameIndex = 0;
         static const char* s_screenshotFrameEnv = std::getenv("GE3_SCREENSHOT_FRAME");
         if (s_screenshotFrameEnv && s_frameIndex == std::atoi(s_screenshotFrameEnv)) {
-            char path[256];
-            std::snprintf(path, sizeof(path), "/tmp/gameengine3_frame%d.ppm", s_frameIndex);
+            const std::filesystem::path path = tempDirectory /
+                ("OpenEgg_frame" + std::to_string(s_frameIndex) + ".ppm");
             renderer.SaveScreenshot(path);
-            std::fprintf(stderr, "main: saved screenshot to %s\n", path);
+            std::fprintf(stderr, "main: saved screenshot to %s\n", path.string().c_str());
         }
         // Harness `shot <path>` -- same point in the frame as the
         // GE3_SCREENSHOT_FRAME capture above (after letterbox bars, before
         // the swap), so both produce identical output for the same frame.
         if (!harness.PendingScreenshot().empty()) {
-            renderer.SaveScreenshot(harness.PendingScreenshot().c_str());
+            renderer.SaveScreenshot(std::filesystem::u8path(harness.PendingScreenshot()));
             std::fprintf(stderr, "[harness] frame %d -> %s\n", s_frameIndex,
                          harness.PendingScreenshot().c_str());
+            if (std::getenv("GE3_TRACE_ENTITY_CULL")) {
+                Process* entityProcess = processManager.GetEntityUpdateProcess();
+                int processX = -999, processY = -999;
+                if (entityProcess && entityProcess->table.m_type == GM_TABLE) {
+                    gmTableObject* table = (gmTableObject*)vm.Machine().GetObject(
+                        entityProcess->table.m_value.m_ref);
+                    if (table) {
+                        const gmVariable x = table->Get(&vm.Machine(), "currentScreenX");
+                        const gmVariable y = table->Get(&vm.Machine(), "currentScreenY");
+                        if (x.m_type == GM_INT) processX = x.m_value.m_int;
+                        if (y.m_type == GM_INT) processY = y.m_value.m_int;
+                    }
+                }
+                float playerX = 0.0f, playerY = 0.0f;
+                bool havePlayerPos = false;
+                const gmVariable playerVar = FindPlayerEntity(vm.Machine());
+                if (playerVar.m_type == GM_TABLE) {
+                    gmTableObject* player = (gmTableObject*)vm.Machine().GetObject(
+                        playerVar.m_value.m_ref);
+                    if (player) {
+                        const gmVariable physicsData = player->Get(&vm.Machine(), "PhysicsData");
+                        havePlayerPos = GetPhysicsDataPos(vm.Machine(), physicsData,
+                                                          playerX, playerY);
+                    }
+                }
+                std::fprintf(stderr,
+                    "[entity-cull-frame] frame=%d process=%s cell=(%d,%d) "
+                    "videoCell=(%d,%d) camera=(%.3f,%.3f)\n",
+                    s_frameIndex, entityProcess ? entityProcess->name.c_str() : "none",
+                    processX, processY, GetEngineContext().video.currentScreenX,
+                    GetEngineContext().video.currentScreenY,
+                    renderer.GetCameraX(), renderer.GetCameraY());
+                if (havePlayerPos)
+                    std::fprintf(stderr, "[entity-cull-frame] player-position=(%.3f,%.3f)\n",
+                                 playerX, playerY);
+            }
         }
         ++s_frameIndex;
         renderer.EndFrame();
@@ -834,3 +896,79 @@ int main(int argc, char** argv) {
     if (trace) fprintf(trace, "[TRACE] returning success\n"), fflush(trace), fclose(trace);
     return 0;
 }
+
+#if defined(_WIN32)
+// The distributable Windows build uses the GUI subsystem so Explorer does not
+// flash a command window. Keep the existing main() and its argument handling;
+// MinGW exposes the CRT parsed command line through __argc/__argv.
+extern "C" int __argc;
+extern "C" char** __argv;
+
+static LONG WINAPI ReportUnhandledWindowsException(EXCEPTION_POINTERS* exceptionInfo) {
+    const DWORD code = exceptionInfo && exceptionInfo->ExceptionRecord
+        ? exceptionInfo->ExceptionRecord->ExceptionCode : 0;
+    const void* address = exceptionInfo && exceptionInfo->ExceptionRecord
+        ? exceptionInfo->ExceptionRecord->ExceptionAddress : nullptr;
+    void* frames[32] = {};
+    const USHORT frameCount = CaptureStackBackTrace(
+        0, static_cast<DWORD>(std::size(frames)), frames, nullptr);
+    const void* instructionPointer = nullptr;
+    if (exceptionInfo && exceptionInfo->ContextRecord) {
+#if defined(_M_X64) || defined(__x86_64__)
+        instructionPointer = reinterpret_cast<const void*>(
+            exceptionInfo->ContextRecord->Rip);
+#elif defined(_M_IX86) || defined(__i386__)
+        instructionPointer = reinterpret_cast<const void*>(
+            exceptionInfo->ContextRecord->Eip);
+#elif defined(_M_ARM64) || defined(__aarch64__)
+        instructionPointer = reinterpret_cast<const void*>(
+            exceptionInfo->ContextRecord->Pc);
+#endif
+    }
+    char message[256];
+    std::snprintf(message, sizeof(message),
+        "GameEngine3 stopped after an unhandled Windows exception.\n\n"
+        "Exception code: 0x%08lx\nFault address: %p\nInstruction pointer: %p\n\n"
+        "More detail was written to OpenEgg.log.",
+        (unsigned long)code, address, instructionPointer);
+    std::fprintf(stderr,
+        "\n[fatal] unhandled Windows exception code=0x%08lx address=%p ip=%p\n",
+        (unsigned long)code, address, instructionPointer);
+    for (USHORT i = 0; i < frameCount; ++i)
+        std::fprintf(stderr, "[fatal] stack[%u]=%p\n", (unsigned)i, frames[i]);
+    std::fflush(stderr);
+    MessageBoxA(nullptr, message, "GameEngine3 crashed",
+                MB_OK | MB_ICONERROR | MB_TASKMODAL);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    const char* showConsole = std::getenv("GE3_CONSOLE");
+    if (showConsole && showConsole[0] != '\0' && std::strcmp(showConsole, "0") != 0) {
+        if (AllocConsole()) {
+            std::freopen("CONOUT$", "w", stdout);
+            std::freopen("CONOUT$", "w", stderr);
+        }
+    } else {
+        // A GUI process launched from Explorer has no console handles. Keep
+        // normal debug prints hidden so they cannot stall the game, but retain
+        // errors and strict-call reports beside the executable. Strict mode
+        // exits on the first unimplemented engine call, so discarding stderr
+        // made that exit indistinguishable from an ordinary crash to testers.
+        std::freopen("NUL", "w", stdout);
+        wchar_t executablePath[MAX_PATH] = {};
+        const DWORD pathLength = GetModuleFileNameW(
+            nullptr, executablePath, static_cast<DWORD>(std::size(executablePath)));
+        if (pathLength > 0 && pathLength < std::size(executablePath)) {
+            std::filesystem::path logPath(executablePath);
+            logPath = logPath.parent_path() / L"OpenEgg.log";
+            if (_wfreopen(logPath.c_str(), L"w", stderr) == nullptr)
+                std::freopen("NUL", "w", stderr);
+        } else {
+            std::freopen("NUL", "w", stderr);
+        }
+    }
+    SetUnhandledExceptionFilter(&ReportUnhandledWindowsException);
+    return main(__argc, __argv);
+}
+#endif

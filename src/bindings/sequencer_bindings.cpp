@@ -2,6 +2,8 @@
 #include "sequencer_bindings.h"
 #include "gmCall.h"
 #include "gmTableObject.h"
+#include "gmUserObject.h"
+#include "gmOperators.h"
 #include "../core/process_manager.h" // RootGmVariable/UnrootGmVariable
 #include "../core/strict_calls.h"
 #include <vector>
@@ -11,22 +13,44 @@
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <limits>
 #include <string>
 #include <utility>
 
 namespace {
 
 gmType g_sequencerType = -1;
-gmType g_sequencerIteratorType = -1;
+gmType g_sequencerListRefType = -1;
 gmType g_sequencerTriggerType = -1;
 gmType g_sequencerTriggerListType = -1;
+gmType g_sequencerActionType = -1;
 uint64_t g_nextSequencerSerial = 1;
+
+// Retail's setNumStepsPerPattern wrapper uses PPC fctiwz for GM_FLOAT and
+// copies the payload word directly for every other GM type. Keep the float
+// conversion's truncation and invalid-result behavior explicit instead of
+// relying on an out-of-range C++ float-to-int cast.
+int32_t RetailFctiwz(float value) {
+    constexpr float kIntMin = -2147483648.0f;
+    constexpr float kIntMaxExclusive = 2147483648.0f;
+    if (std::isnan(value) || value < kIntMin) {
+        return std::numeric_limits<int32_t>::min();
+    }
+    if (value >= kIntMaxExclusive) return std::numeric_limits<int32_t>::max();
+    return static_cast<int32_t>(value);
+}
+
+float RetailFselMaxZero(float value) {
+    // PPC fsel selects its original second operand for NaN comparisons; the
+    // ordinary std::max ordering would instead return the zero operand.
+    return std::isnan(value) ? value : std::max(0.0f, value);
+}
 
 struct SequencerTrigger {
     uint64_t serial = 0;
     int pattern = 0;
     int step = 0;
-    gmVariable action = gmVariable::s_null; // whatever was passed to setTrigger -- commonly a SEQUENCERACTION table
+    gmVariable action = gmVariable::s_null; // normally a SEQUENCERACTION native object
     // Confirmed real field (SequencerTrigger.getLooped in the sequencer
     // type's four-method table) -- NOT a fire/don't-fire mask (that was this
     // engine's previous, unconfirmed "enabled" reading). Every real call
@@ -89,13 +113,15 @@ struct SequencerData {
     uint64_t serial = 0;         // insertion order in retail's manager list
     std::shared_ptr<SequencerTriggerList> triggers = std::make_shared<SequencerTriggerList>();
     float msTillNextStep = 0.0f; // retail countdown at +0x48
+    float msPerStep = (1.0f / (98.0f * 0.01666666753590107f)) * 1000.0f * 0.125f;
 
     int EffectiveLen() const { return numStepsPerPattern; }
     // Retail FUN_0016bd48/FUN_0016c8b8 store this at +0x50. The binary
     // constants are 1, 1/60, 1000 and 1/8, in that operation order.
-    float MsPerStep() const {
+    float CalculateMsPerStep() const {
         return (1.0f / ((float)bpm * 0.01666666753590107f)) * 1000.0f * 0.125f;
     }
+    float MsPerStep() const { return msPerStep; }
 };
 
 struct SequencerTriggerListRefData {
@@ -103,12 +129,17 @@ struct SequencerTriggerListRefData {
     uint64_t currentSerial = 0; // zero is the end sentinel
 };
 
+struct SequencerActionData {
+    gmVariable boundTable = gmVariable::s_null;
+    bool tagged = false;
+};
+
 std::vector<SequencerData*>& AllSequencers() {
     static std::vector<SequencerData*> all;
     return all;
 }
 
-struct SequencerIteratorData { uint64_t currentSerial = 0; };
+struct SequencerListRefData { uint64_t currentSerial = 0; };
 
 SequencerTrigger* FindTriggerBySerial(SequencerTriggerList* list, uint64_t serial) {
     if (!list || serial == 0) return nullptr;
@@ -185,35 +216,51 @@ uint64_t FirstSequencerSerialAfter(uint64_t serial) {
     return next;
 }
 
-int GM_CDECL gmf_sequencerIterator_isValid(gmThread* a_thread) {
-    auto* it = (SequencerIteratorData*)a_thread->ThisUserCheckType(g_sequencerIteratorType);
+int GM_CDECL gmf_sequencerListRef_isValid(gmThread* a_thread) {
+    auto* it = (SequencerListRefData*)a_thread->ThisUserCheckType(g_sequencerListRefType);
     a_thread->PushInt(it && FindSequencerBySerial(it->currentSerial) ? 1 : 0);
     return GM_OK;
 }
 
-int GM_CDECL gmf_sequencerIterator_goToNext(gmThread* a_thread) {
-    auto* it = (SequencerIteratorData*)a_thread->ThisUserCheckType(g_sequencerIteratorType);
-    if (it && FindSequencerBySerial(it->currentSerial))
-        it->currentSerial = FirstSequencerSerialAfter(it->currentSerial);
+int GM_CDECL gmf_sequencerListRef_goToNext(gmThread* a_thread) {
+    auto* it = (SequencerListRefData*)a_thread->ThisUserCheckType(g_sequencerListRefType);
+    if (it) {
+        it->currentSerial = it->currentSerial == 0
+            ? FirstSequencerSerialAfter(0)
+            : FirstSequencerSerialAfter(it->currentSerial);
+    }
     return GM_OK;
 }
 
-int GM_CDECL gmf_sequencerIterator_get(gmThread* a_thread) {
-    auto* it = (SequencerIteratorData*)a_thread->ThisUserCheckType(g_sequencerIteratorType);
+int GM_CDECL gmf_sequencerListRef_get(gmThread* a_thread) {
+    auto* it = (SequencerListRefData*)a_thread->ThisUserCheckType(g_sequencerListRefType);
     SequencerData* s = it ? FindSequencerBySerial(it->currentSerial) : nullptr;
     if (s) a_thread->Push(s->handle);
     else a_thread->PushNull();
     return GM_OK;
 }
 
-gmFunctionEntry s_sequencerIteratorLib[] = {
-    {"isValid", gmf_sequencerIterator_isValid, nullptr},
-    {"goToNext", gmf_sequencerIterator_goToNext, nullptr},
-    {"get", gmf_sequencerIterator_get, nullptr},
+int GM_CDECL gmf_sequencerListRef_reset(gmThread* a_thread) {
+    auto* it = (SequencerListRefData*)a_thread->ThisUserCheckType(g_sequencerListRefType);
+    if (it) it->currentSerial = FirstSequencerSerialAfter(0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_sequencerListRef_size(gmThread* a_thread) {
+    a_thread->PushInt((gmint)AllSequencers().size());
+    return GM_OK;
+}
+
+gmFunctionEntry s_sequencerListRefLib[] = {
+    {"get", gmf_sequencerListRef_get, nullptr},
+    {"isValid", gmf_sequencerListRef_isValid, nullptr},
+    {"goToNext", gmf_sequencerListRef_goToNext, nullptr},
+    {"reset", gmf_sequencerListRef_reset, nullptr},
+    {"size", gmf_sequencerListRef_size, nullptr},
 };
 
-void GM_CDECL SequencerIteratorGCDestruct(gmMachine*, gmUserObject* a_object) {
-    delete (SequencerIteratorData*)a_object->m_user;
+void GM_CDECL SequencerListRefGCDestruct(gmMachine*, gmUserObject* a_object) {
+    delete (SequencerListRefData*)a_object->m_user;
 }
 
 float g_masterPulse = 0.0f;       // SEQUENCER_SetMasterPulse
@@ -260,12 +307,24 @@ void InsertTrigger(SequencerData& a_seq, SequencerTrigger a_trigger) {
 }
 
 void FireTrigger(gmMachine& a_machine, const gmVariable& a_action) {
-    if (a_action.m_type != GM_TABLE) return;
-    gmTableObject* table = (gmTableObject*)a_machine.GetObject(a_action.m_value.m_ref);
+    if (a_action.m_type != g_sequencerActionType) return;
+    auto* userObject = static_cast<gmUserObject*>(
+        a_machine.GetObject(a_action.m_value.m_ref));
+    auto* action = userObject && userObject->GetType() == g_sequencerActionType
+        ? static_cast<SequencerActionData*>(userObject->m_user) : nullptr;
+    if (!action || action->boundTable.m_type != GM_TABLE) return;
+    // Retail SEQUENCERACTION's virtual slot +0x14 (FUN_000b1804) resolves
+    // `execute` on +0x70. This is also the dynamic property table used by
+    // the inherited GETDOT/SETDOT methods; setTable() replaces both routes.
+    // Its script receiver remains the action object (+0x7c), while the
+    // GameSystem* passed by FUN_0016d580 is unused by the retail callback.
+    gmTableObject* callbackTable = static_cast<gmTableObject*>(
+        a_machine.GetObject(action->boundTable.m_value.m_ref));
+    if (!callbackTable) return;
     static const bool s_traceTriggerActions =
         std::getenv("GE3_TRACE_SEQUENCER_STEPS") != nullptr;
     if (s_traceTriggerActions) {
-        gmVariable parent = table ? table->Get(&a_machine, "parent") : gmVariable::s_null;
+        gmVariable parent = callbackTable->Get(&a_machine, "parent");
         int setup = -1;
         if (parent.m_type == GM_TABLE) {
             auto* parentTable = static_cast<gmTableObject*>(a_machine.GetObject(parent.m_value.m_ref));
@@ -274,12 +333,13 @@ void FireTrigger(gmMachine& a_machine, const gmVariable& a_action) {
             setup = called.m_type == GM_INT ? called.m_value.m_int : -1;
         }
         std::fprintf(stderr, "[sequencer-fire] execute=%d setup=%d\n",
-            table && table->Get(&a_machine, "execute").m_type == GM_FUNCTION ? 1 : 0,
+            callbackTable->Get(&a_machine, "execute").m_type == GM_FUNCTION ? 1 : 0,
             setup);
     }
     gmCall call;
-    // Matches real usage exactly (game_data/Main.gm): act.execute=function(){...};
-    if (call.BeginTableFunction(&a_machine, "execute", table, a_action)) {
+    // The callback is looked up on the selected table but called with the
+    // SEQUENCERACTION instance as `this`.
+    if (call.BeginTableFunction(&a_machine, "execute", callbackTable, a_action)) {
         call.End();
     }
 }
@@ -288,9 +348,6 @@ SequencerData* ThisSequencer(gmThread* a_thread) {
     return (SequencerData*)a_thread->ThisUserCheckType(g_sequencerType);
 }
 
-// Forward declaration -- defined alongside the rest of the SEQUENCERACTION
-// section below, but needed here by setTrigger/setTriggerOnNext.
-gmTableObject* CreateSequencerActionTable(gmMachine& a_machine, int a_initialStep);
 gmVariable CreateSequencerTriggerHandle(gmMachine& a_machine, int a_pattern,
                                         int a_step, bool a_looped,
                                         const gmVariable& a_action);
@@ -331,11 +388,12 @@ void GM_CDECL SequencerTriggerGCDestruct(gmMachine*, gmUserObject* a_object) {
 }
 
 bool IsActionTagged(gmMachine& a_machine, const gmVariable& a_action) {
-    if (a_action.m_type != GM_TABLE) return false;
-    gmTableObject* t = (gmTableObject*)a_machine.GetObject(a_action.m_value.m_ref);
-    if (!t) return false;
-    gmVariable v = t->Get(&a_machine, "__tagged");
-    return v.m_type == GM_INT && v.m_value.m_int != 0;
+    if (a_action.m_type != g_sequencerActionType) return false;
+    auto* object = static_cast<gmUserObject*>(
+        a_machine.GetObject(a_action.m_value.m_ref));
+    auto* action = object && object->GetType() == g_sequencerActionType
+        ? static_cast<SequencerActionData*>(object->m_user) : nullptr;
+    return action && action->tagged;
 }
 
 // ---------------------------------------------------------------------
@@ -356,8 +414,16 @@ int GM_CDECL gmf_getNumStepsPerPattern(gmThread* a_thread) {
 }
 int GM_CDECL gmf_setNumStepsPerPattern(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(n, 0, 32.0f);
-    s->numStepsPerPattern = (int)n;
+    const gmVariable& arg = a_thread->Param(0);
+    const int32_t numSteps = arg.m_type == GM_FLOAT
+        ? RetailFctiwz(arg.m_value.m_float)
+        : arg.m_value.m_int;
+    s->numStepsPerPattern = numSteps;
+    // Retail FUN_0016c8b8 also recomputes +0x50 from the current BPM. This
+    // matters when changing pattern length after setBPM (the interval is
+    // normally independent of length, but retail still writes it here).
+    // Keep the same operation order as the native helper.
+    s->msPerStep = s->CalculateMsPerStep();
     s->msTillNextStep = 0.0f;
     return GM_OK;
 }
@@ -374,8 +440,10 @@ int GM_CDECL gmf_setLoopLen(gmThread* a_thread) {
 }
 int GM_CDECL gmf_setCurrentStep(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(n, 0, 0);
-    s->currentStep = n; // confirmed real: direct field write, no wrapping/side effects observed
+    const gmVariable& arg = a_thread->Param(0);
+    s->currentStep = arg.m_type == GM_FLOAT
+        ? RetailFctiwz(arg.m_value.m_float)
+        : arg.m_value.m_int; // Retail writes directly, without wrapping or side effects.
     return GM_OK;
 }
 int GM_CDECL gmf_setVolume(gmThread* a_thread) {
@@ -395,15 +463,18 @@ int GM_CDECL gmf_setPan(gmThread* a_thread) {
 int GM_CDECL gmf_setBPM(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
-    // GM_FLOAT_OR_INT_PARAM, not GM_INT_PARAM: real callers pass a value
+    // Retail branches on the exact GM_FLOAT tag, applying fctiwz to floats
+    // and loading the raw word for every other type. Real callers pass a value
     // straight from level XML/JSON data (Platformer/ScaleOfTheWorld.gm's
     // setMinBPM -> MainSequencer.setBPM(this.minBPM), fed by
     // levelData.bpm), and every XML/JSON leaf number parses to a GM_FLOAT
     // (gamemonkeyscript_bindings.cpp's ParseLeafValue/JsonToGmVariable) --
-    // GM_INT_PARAM's strict GM_INT-only check silently threw here (blank
-    // exception, no message) for the exact real value 100.0.
-    GM_FLOAT_OR_INT_PARAM(bpm, 0, 120.0f);
-    s->bpm = (int)bpm;
+    // so float input is required even though the native field is integer.
+    const gmVariable& bpmArg = a_thread->Param(0);
+    s->bpm = bpmArg.m_type == GM_FLOAT
+        ? RetailFctiwz(bpmArg.m_value.m_float)
+        : bpmArg.m_value.m_int;
+    s->msPerStep = s->CalculateMsPerStep();
     if (a_thread->GetNumParams() == 1 || a_thread->Param(1).m_value.m_int == 0)
         s->msTillNextStep = 0.0f;
     return GM_OK;
@@ -416,10 +487,11 @@ int GM_CDECL gmf_restart(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     if (a_thread->GetNumParams() > 1) return GM_EXCEPTION;
     if (a_thread->GetNumParams() == 1) {
-        GM_INT_PARAM(step, 0, 0);
+        GM_FLOAT_OR_INT_PARAM(step, 0, 0.0f);
+        const int integerStep = (int)step;
         SequencerTrigger trigger;
         trigger.step = s->numStepsPerPattern > 0
-            ? WrapStep(step, s->numStepsPerPattern) : std::max(0, step);
+            ? WrapStep(integerStep, s->numStepsPerPattern) : std::max(0, integerStep);
         trigger.looped = false;
         trigger.restartAction = true;
         gmMachine& machine = *a_thread->GetMachine();
@@ -457,14 +529,14 @@ int GM_CDECL gmf_isPlaying(gmThread* a_thread) {
 
 int GM_CDECL gmf_getNumStepsPerNote(gmThread* a_thread) {
     if (!ThisSequencer(a_thread)) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(noteType, 0, 0);
+    const int noteType = a_thread->Param(0).m_value.m_int;
     a_thread->PushInt(StepsForNoteType(noteType));
     return GM_OK;
 }
 int GM_CDECL gmf_getNoteTime(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(noteType, 0, 0);
-    a_thread->PushFloat((float)StepsForNoteType(noteType) * s->MsPerStep());
+    const int noteType = a_thread->Param(0).m_value.m_int;
+    a_thread->PushFloat((float)StepsForNoteType(noteType) * s->CalculateMsPerStep());
     return GM_OK;
 }
 int GM_CDECL gmf_getMSPerStep(gmThread* a_thread) {
@@ -575,7 +647,11 @@ int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
                 triggers[i].handle.m_value.m_ref == handle.m_value.m_ref) {
                 SequencerTrigger t = triggers[i];
                 triggers.erase(triggers.begin() + i);
-                triggers.insert(triggers.begin(), t);
+                // Retail FUN_0016d240 unlinks the matching native node, then
+                // walks to the insertion point by (pattern, step). Equal
+                // coordinates are passed over, so this moves the handle to
+                // the end of its coordinate group rather than the list head.
+                InsertTrigger(*s, std::move(t));
                 break;
             }
         }
@@ -597,7 +673,7 @@ int GM_CDECL gmf_getNumTriggers(gmThread* a_thread) {
 }
 int GM_CDECL gmf_getWrappedStep(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(step, 0, 0);
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(step, 0, 0.0f);
     a_thread->PushInt(WrapStep(step, s->EffectiveLen()));
     return GM_OK;
 }
@@ -605,11 +681,14 @@ int GM_CDECL gmf_getWrappedStep(gmThread* a_thread) {
 // wrapped (default) or direct step assignment; it does not reset timing.
 int GM_CDECL gmf_gotoStep(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(step, 0, 0);
+    if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
+    GM_FLOAT_OR_INT_PARAM(step, 0, 0.0f);
+    const int integerStep = (int)step;
     bool wrap = a_thread->GetNumParams() == 1 || a_thread->Param(1).m_value.m_int != 0;
     s->currentPattern = 0;
     s->currentStep = wrap ? (s->numStepsPerPattern > 0
-        ? WrapStep(step, s->numStepsPerPattern) : std::max(0, step)) : step;
+        ? WrapStep(integerStep, s->numStepsPerPattern) : std::max(0, integerStep))
+        : integerStep;
     return GM_OK;
 }
 int GM_CDECL gmf_getCurrentStep(gmThread* a_thread) {
@@ -630,7 +709,7 @@ int GM_CDECL gmf_getCurrentPattern(gmThread* a_thread) {
 }
 int GM_CDECL gmf_getMSTillNextStep(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    a_thread->PushFloat(std::max(0.0f, s->msTillNextStep));
+    a_thread->PushFloat(RetailFselMaxZero(s->msTillNextStep));
     return GM_OK;
 }
 int GM_CDECL gmf_getMSTillNextStepAccurate(gmThread* a_thread) { return gmf_getMSTillNextStep(a_thread); }
@@ -730,9 +809,9 @@ void GM_CDECL SequencerGCDestruct(gmMachine* a_machine, gmUserObject* a_object) 
 // ---------------------------------------------------------------------
 
 int GM_CDECL gmf_SEQUENCER_GetAllSequencers(gmThread* a_thread) {
-    auto* it = new SequencerIteratorData();
+    auto* it = new SequencerListRefData();
     it->currentSerial = FirstSequencerSerialAfter(0);
-    a_thread->PushNewUser(it, g_sequencerIteratorType);
+    a_thread->PushNewUser(it, g_sequencerListRefType);
     return GM_OK;
 }
 int GM_CDECL gmf_SEQUENCER_PauseAllSequencers(gmThread* a_thread) {
@@ -761,55 +840,121 @@ int GM_CDECL gmf_SEQUENCER_SetMasterPulse(gmThread* a_thread) {
 }
 
 // ---------------------------------------------------------------------
-// SEQUENCERACTION -- plain GM table + injected native methods, not a
-// distinct native user type. Real usage (game_data/Main.gm) sets arbitrary
-// fields directly on an action instance (`act.parent=this;
-// act.execute=function(){...};`) that aren't among the 8 confirmed native
-// methods, meaning the real type supports generic property access beyond
-// its native methods -- a plain table with injected methods gets the same
-// externally-visible behavior (arbitrary property set/get + the confirmed
-// methods) without us having to replicate a GETDOT/SETDOT fallback
-// mechanism on a native user type. Internal state uses "__"-prefixed keys
-// to stay out of the way of real script fields like "parent"/"execute".
+// SEQUENCERACTION -- retail native userdata with a dynamic property table.
+// Retail has three own type-library methods (setTable, tagForRemoval,
+// isTaggedForRemoval) plus two inherited registrations, and its GM object
+// receiver supports arbitrary script fields such as execute and parent.
 // ---------------------------------------------------------------------
 
-gmTableObject* ThisActionTable(gmThread* a_thread) {
-    return a_thread->ThisTable();
+SequencerActionData* ThisAction(gmThread* a_thread) {
+    return static_cast<SequencerActionData*>(
+        a_thread->ThisUserCheckType(g_sequencerActionType));
 }
 
-// Builder for the script-facing SEQUENCERACTION table. Trigger references
-// are separate SEQUENCERTRIGGER user objects with their own four-method
-// library, matching the two retail native type entries.
-gmTableObject* CreateSequencerActionTable(gmMachine& a_machine, int a_initialStep) {
-    gmTableObject* table = a_machine.AllocTableObject();
-    table->Set(&a_machine, "__step", gmVariable((gmint)a_initialStep));
-    table->Set(&a_machine, "__tagged", gmVariable((gmint)0));
-    table->Set(&a_machine, "__boundTable", gmVariable::s_null);
+void GM_CDECL SequencerActionGetDot(gmThread* a_thread, gmVariable* a_operands) {
+    auto* object = static_cast<gmUserObject*>(
+        a_thread->GetMachine()->GetObject(a_operands[0].m_value.m_ref));
+    auto* action = object && object->GetType() == g_sequencerActionType
+        ? static_cast<SequencerActionData*>(object->m_user) : nullptr;
+    gmTableObject* table = action && action->boundTable.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(a_thread->GetMachine()->GetObject(
+            action->boundTable.m_value.m_ref)) : nullptr;
+    a_operands[0] = table ? table->Get(a_operands[1]) : gmVariable::s_null;
+}
 
-    table->Set(&a_machine, "setTable", gmVariable(a_machine.AllocFunctionObject(
-        [](gmThread* a_thread) -> int {
-            gmTableObject* self = ThisActionTable(a_thread);
-            if (!self) return GM_EXCEPTION;
-            GM_CHECK_NUM_PARAMS(1);
-            self->Set(a_thread->GetMachine(), "__boundTable", a_thread->Param(0));
-            return GM_OK;
-        })));
-    table->Set(&a_machine, "tagForRemoval", gmVariable(a_machine.AllocFunctionObject(
-        [](gmThread* a_thread) -> int {
-            gmTableObject* self = ThisActionTable(a_thread);
-            if (!self) return GM_EXCEPTION;
-            self->Set(a_thread->GetMachine(), "__tagged", gmVariable((gmint)1));
-            return GM_OK;
-        })));
-    table->Set(&a_machine, "isTaggedForRemoval", gmVariable(a_machine.AllocFunctionObject(
-        [](gmThread* a_thread) -> int {
-            gmTableObject* self = ThisActionTable(a_thread);
-            if (!self) return GM_EXCEPTION;
-            gmVariable v = self->Get(a_thread->GetMachine(), "__tagged");
-            a_thread->PushInt(v.m_type == GM_INT && v.m_value.m_int != 0 ? 1 : 0);
-            return GM_OK;
-        })));
-    return table;
+void GM_CDECL SequencerActionSetDot(gmThread* a_thread, gmVariable* a_operands) {
+    auto* object = static_cast<gmUserObject*>(
+        a_thread->GetMachine()->GetObject(a_operands[0].m_value.m_ref));
+    auto* action = object && object->GetType() == g_sequencerActionType
+        ? static_cast<SequencerActionData*>(object->m_user) : nullptr;
+    gmTableObject* table = action && action->boundTable.m_type == GM_TABLE
+        ? static_cast<gmTableObject*>(a_thread->GetMachine()->GetObject(
+            action->boundTable.m_value.m_ref)) : nullptr;
+    if (table) {
+        table->Set(a_thread->GetMachine(), a_operands[2], a_operands[1]);
+    }
+}
+
+int GM_CDECL gmf_action_setTable(gmThread* a_thread) {
+    SequencerActionData* action = ThisAction(a_thread);
+    if (!action) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    action->boundTable = a_thread->Param(0);
+    if (action->boundTable.IsReference() && a_thread->GetMachine()->IsGCRunning()) {
+        gmObject* object = a_thread->GetMachine()->GetObject(
+            action->boundTable.m_value.m_ref);
+        if (object) a_thread->GetMachine()->GetGC()->GetNextObject(object);
+    }
+    return GM_OK;
+}
+
+int GM_CDECL gmf_action_tagForRemoval(gmThread* a_thread) {
+    SequencerActionData* action = ThisAction(a_thread);
+    if (!action) return GM_EXCEPTION;
+    action->tagged = true;
+    return GM_OK;
+}
+
+int GM_CDECL gmf_action_isTaggedForRemoval(gmThread* a_thread) {
+    SequencerActionData* action = ThisAction(a_thread);
+    a_thread->PushInt(action && action->tagged ? 1 : 0);
+    return GM_OK;
+}
+
+gmFunctionEntry s_sequencerActionLib[] = {
+    {"setTable", gmf_action_setTable, nullptr},
+    {"tagForRemoval", gmf_action_tagForRemoval, nullptr},
+    {"isTaggedForRemoval", gmf_action_isTaggedForRemoval, nullptr},
+};
+
+void GM_CDECL SequencerActionGCDestruct(gmMachine*, gmUserObject* a_object) {
+    delete static_cast<SequencerActionData*>(a_object->m_user);
+}
+
+#if GM_USE_INCGC
+bool GM_CDECL SequencerActionGCTrace(gmMachine* a_machine, gmUserObject* a_object,
+                                    gmGarbageCollector* a_gc,
+                                    const int, int& a_workDone) {
+    auto* action = static_cast<SequencerActionData*>(a_object->m_user);
+    if (action && action->boundTable.IsReference()) {
+        gmObject* object = a_machine->GetObject(action->boundTable.m_value.m_ref);
+        if (object) {
+            a_gc->GetNextObject(object);
+            ++a_workDone;
+        }
+    }
+    ++a_workDone;
+    return true;
+}
+#else
+void GM_CDECL SequencerActionGCMark(gmMachine* a_machine, gmUserObject* a_object,
+                                   gmuint32 a_mark) {
+    auto* action = static_cast<SequencerActionData*>(a_object->m_user);
+    auto mark = [a_machine, a_mark](gmObject* object) {
+        if (object && object->NeedsMark(a_mark)) object->Mark(a_machine, a_mark);
+    };
+    if (action) {
+        if (action->boundTable.IsReference())
+            mark(a_machine->GetObject(action->boundTable.m_value.m_ref));
+    }
+}
+#endif
+
+int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
+    const int numParams = a_thread->GetNumParams();
+    if (numParams < 0 || numParams > 1) return GM_EXCEPTION;
+    gmMachine* machine = a_thread->GetMachine();
+    auto* action = new SequencerActionData();
+    const bool gcWasEnabled = machine->IsGCEnabled();
+    machine->EnableGC(false);
+    if (numParams == 1) {
+        action->boundTable = a_thread->Param(0);
+    } else {
+        action->boundTable = gmVariable(machine->AllocTableObject());
+    }
+    a_thread->PushNewUser(action, g_sequencerActionType);
+    machine->EnableGC(gcWasEnabled);
+    return GM_OK;
 }
 
 gmVariable CreateSequencerTriggerHandle(gmMachine& a_machine, int a_pattern,
@@ -825,17 +970,9 @@ gmVariable CreateSequencerTriggerHandle(gmMachine& a_machine, int a_pattern,
     return gmVariable(a_machine.AllocUserObject(data, g_sequencerTriggerType));
 }
 
-// Confirmed real: 0 or 1 args -- the 1-arg form's value ends up stored at a
-// fixed offset with no further use visible in the constructor itself. Real
-// usage (`act=SEQUENCERACTION();`) is always 0-arg, so the 1-arg form's
-// exact meaning is unconfirmed; stored as the initial step.
-int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
-    int initialStep = a_thread->GetNumParams() >= 1 ? a_thread->ParamInt(0, 0) : 0;
-    gmTableObject* table = CreateSequencerActionTable(*a_thread->GetMachine(), initialStep);
-    a_thread->PushTable(table);
-    return GM_OK;
-}
-
+// Retail SEQUENCERACTION accepts exactly zero or one argument. The optional
+// argument is stored at +0x70, the same field used by setTable(), and is the
+// table used for resolving execute().
 // Retail's four SEQUENCE_* wrappers at 0x000aa83c..0x000aae30 convert
 // script sequence tables. The table form stores sixteen two-bit steps in
 // each 32-bit integer, lowest step in the low bits. The shipped level JSON
@@ -946,12 +1083,26 @@ int GM_CDECL gmf_SEQUENCE_ToTable(gmThread* a_thread) {
 
 void RegisterSequencerBindings(gmMachine& a_machine) {
     g_sequencerType = a_machine.CreateUserType("SEQUENCER");
-    g_sequencerIteratorType = a_machine.CreateUserType("SequencerIterator");
+    g_sequencerListRefType = a_machine.CreateUserType("SEQUENCERLISTREFCONTAINER");
+    g_sequencerActionType = a_machine.CreateUserType("SEQUENCERACTION");
     g_sequencerTriggerType = a_machine.CreateUserType("SEQUENCERTRIGGER");
     g_sequencerTriggerListType = a_machine.CreateUserType("SEQUENCERTRIGGERLISTREFCONTAINER");
     a_machine.RegisterTypeLibrary(g_sequencerType, s_sequencerLib,
                                    sizeof(s_sequencerLib) / sizeof(s_sequencerLib[0]));
     a_machine.RegisterUserCallbacks(g_sequencerType, nullptr, SequencerGCDestruct, nullptr);
+    a_machine.RegisterTypeLibrary(g_sequencerActionType, s_sequencerActionLib,
+        sizeof(s_sequencerActionLib) / sizeof(s_sequencerActionLib[0]));
+#if GM_USE_INCGC
+    a_machine.RegisterUserCallbacks(g_sequencerActionType, SequencerActionGCTrace,
+        SequencerActionGCDestruct, nullptr);
+#else
+    a_machine.RegisterUserCallbacks(g_sequencerActionType, SequencerActionGCMark,
+        SequencerActionGCDestruct, nullptr);
+#endif
+    a_machine.RegisterTypeOperator(g_sequencerActionType, O_GETDOT, nullptr,
+        SequencerActionGetDot);
+    a_machine.RegisterTypeOperator(g_sequencerActionType, O_SETDOT, nullptr,
+        SequencerActionSetDot);
     a_machine.RegisterTypeLibrary(g_sequencerTriggerType, s_sequencerTriggerLib,
         sizeof(s_sequencerTriggerLib) / sizeof(s_sequencerTriggerLib[0]));
     a_machine.RegisterUserCallbacks(g_sequencerTriggerType, nullptr,
@@ -960,10 +1111,10 @@ void RegisterSequencerBindings(gmMachine& a_machine) {
         sizeof(s_sequencerTriggerListLib) / sizeof(s_sequencerTriggerListLib[0]));
     a_machine.RegisterUserCallbacks(g_sequencerTriggerListType, nullptr,
         TriggerListRefGCDestruct, nullptr);
-    a_machine.RegisterTypeLibrary(g_sequencerIteratorType, s_sequencerIteratorLib,
-        sizeof(s_sequencerIteratorLib) / sizeof(s_sequencerIteratorLib[0]));
-    a_machine.RegisterUserCallbacks(g_sequencerIteratorType, nullptr,
-        SequencerIteratorGCDestruct, nullptr);
+    a_machine.RegisterTypeLibrary(g_sequencerListRefType, s_sequencerListRefLib,
+        sizeof(s_sequencerListRefLib) / sizeof(s_sequencerListRefLib[0]));
+    a_machine.RegisterUserCallbacks(g_sequencerListRefType, nullptr,
+        SequencerListRefGCDestruct, nullptr);
     a_machine.RegisterLibraryFunction("SEQUENCER", gmf_SEQUENCER);
 
     a_machine.RegisterLibraryFunction("SEQUENCER_GetAllSequencers", gmf_SEQUENCER_GetAllSequencers);
@@ -1083,10 +1234,33 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
 gmVariable CreateSequencerInstance(gmMachine& a_machine, int a_initialBpm) {
     SequencerData* data = new SequencerData();
     data->bpm = a_initialBpm;
+    data->msPerStep = data->CalculateMsPerStep();
     data->triggers->machine = &a_machine;
     gmUserObject* obj = a_machine.AllocUserObject(data, g_sequencerType);
     data->handle = gmVariable(obj);
     data->serial = g_nextSequencerSerial++;
     AllSequencers().push_back(data);
     return data->handle;
+}
+
+float GetMainSequencerMsPerStep(gmMachine& a_machine) {
+    gmTableObject* globals = a_machine.GetGlobals();
+    if (!globals) return 0.0f;
+    const gmVariable sequencer = globals->Get(&a_machine, "MainSequencer");
+    if (sequencer.m_type != g_sequencerType) return 0.0f;
+    gmObject* object = a_machine.GetObject(sequencer.m_value.m_ref);
+    gmUserObject* user = object ? static_cast<gmUserObject*>(object) : nullptr;
+    if (!user || user->m_userType != g_sequencerType || !user->m_user) return 0.0f;
+    return static_cast<SequencerData*>(user->m_user)->MsPerStep();
+}
+
+void StopMainSequencerForProcessListReset(gmMachine& a_machine) {
+    gmTableObject* globals = a_machine.GetGlobals();
+    if (!globals) return;
+    const gmVariable sequencer = globals->Get(&a_machine, "MainSequencer");
+    if (sequencer.m_type != g_sequencerType) return;
+    gmObject* object = a_machine.GetObject(sequencer.m_value.m_ref);
+    auto* user = object ? static_cast<gmUserObject*>(object) : nullptr;
+    if (!user || user->m_userType != g_sequencerType || !user->m_user) return;
+    static_cast<SequencerData*>(user->m_user)->isPlaying = false;
 }

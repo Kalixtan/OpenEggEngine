@@ -61,10 +61,20 @@ struct Process {
     };
     int id = 0;
     std::string name;
+    // Retail PROCESS.isHasErrors reads the native error-state byte at +0x38
+    // through vtable slot +0x70. The desktop currently raises process errors
+    // through the VM log, so this remains clear unless a future traced path
+    // establishes a corresponding persistent state transition.
+    bool hasErrors = false;
     // Native fire-ground owner state. Retail vtable +0x34 initializes the
     // shader owner once; later update callbacks at +0x38 step these scalars.
     bool hasNativeGroundFireOwner = false;
     bool nativeGroundFireUpdateReady = false;
+    // EntityRegistration native fields recovered at +0xb8/+0x198. The
+    // shipped GroundProcessNEW sets fireThickness during construction; the
+    // constructor's pre-script default is still being checked against PPC.
+    float fireThickness = 0.0f;
+    bool refreshGroundDrawListsOnChange = false;
     float fireAmplitudePhase = 0.0f;
     float fireAmplitudeRate = 1.0f;
     float fireAmplitudeScale = 2.0f / 800.0f;

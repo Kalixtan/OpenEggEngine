@@ -48,6 +48,11 @@
 namespace StrictCalls {
 
 enum class Mode { Halt, Survey, Off };
+using HaltDialogHandler = bool (*)(void* context, const char* report);
+
+// The desktop frontend may show a Continue/Quit dialog for a strict halt.
+// Returning true means continue with the legacy null fallback.
+void SetHaltDialogHandler(HaltDialogHandler handler, void* context);
 
 // Reads GE3_STRICT once and caches. Default is Halt.
 Mode GetMode();

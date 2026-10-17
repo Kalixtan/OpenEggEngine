@@ -58,6 +58,35 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     g->Set(&a_machine, "STEP_ON", gmVariable((gmint)1));
     g->Set(&a_machine, "STEP_SUSTAIN", gmVariable((gmint)2));
 
+    // FMOD DSP type IDs consumed by Audio.createEffectChain/addEffect.
+    // FUN_0005f704 confirms these names are expected as globals, while the
+    // effect dispatch in Audio.c switches on the corresponding FMOD type
+    // values (3..22); the custom Dirac time-stretch route is explicitly
+    // selected by type 0x10000 in the retail parameter dispatcher.
+    // Values follow the FMOD DSP type enum used by the retail integration.
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_LOWPASS", gmVariable((gmint)3));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_LOWPASSSIMPLE", gmVariable((gmint)20));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_LOWPASSIT", gmVariable((gmint)4));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_HIGHPASS", gmVariable((gmint)5));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_ECHO", gmVariable((gmint)6));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_ECHOIT", gmVariable((gmint)17));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_FLANGE", gmVariable((gmint)7));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_DISTORTION", gmVariable((gmint)8));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_NORMALIZE", gmVariable((gmint)9));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_PITCHSHIFT", gmVariable((gmint)12));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_CHORUS", gmVariable((gmint)13));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_SFXREVERB", gmVariable((gmint)19));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_COMPRESSOR", gmVariable((gmint)18));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_DELAY", gmVariable((gmint)21));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_TREMOLO", gmVariable((gmint)22));
+    g->Set(&a_machine, "SOUNDEFFECTTYPE_TIMESTRETCH", gmVariable((gmint)0x10000));
+
+    // FMOD low-pass parameter slots referenced by the chain setup in Main.gm.
+    // FUN_0001e770 forwards the parameter ID unchanged to the DSP backend;
+    // FMOD's low-pass enum assigns cutoff=0 and resonance=1.
+    g->Set(&a_machine, "FILTER_CUTOFF", gmVariable((gmint)0));
+    g->Set(&a_machine, "FILTER_RES", gmVariable((gmint)1));
+
     // Confirmed live on real RPCS3/retail via game_data_testcart's TEST 101.
     g->Set(&a_machine, "SW", gmVariable(0.61f));
 
@@ -390,4 +419,16 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     g->Set(&a_machine, "VIDEOPARAMS_INCR_WRAP", gmVariable((gmint)105));
     g->Set(&a_machine, "VIDEOPARAMS_DECR_WRAP", gmVariable((gmint)106));
     g->Set(&a_machine, "VIDEOPARAMS_ZERO", gmVariable((gmint)107));
+
+    // Retail drawList.clear(mode) consumes four independent mode bits in
+    // GE3_Internal_DrawListReplayCommands: bit 0 selects colour writes, bit 1
+    // selects depth state, bit 2 selects stencil state, and bit 3 selects
+    // the alternate colour-surface render config. The retail global bootstrap
+    // requires these names, while the desktop previously left them undefined;
+    // shipped MainMenu5 scripts pass VIDEO_ALLSURFACES to clear().
+    g->Set(&a_machine, "VIDEO_COLOURSURFACE", gmVariable((gmint)0x1));
+    g->Set(&a_machine, "VIDEO_DEPTHSURFACE", gmVariable((gmint)0x2));
+    g->Set(&a_machine, "VIDEO_STENCILSURFACE", gmVariable((gmint)0x4));
+    g->Set(&a_machine, "VIDEO_COLOURSURFACEBLEND", gmVariable((gmint)0x8));
+    g->Set(&a_machine, "VIDEO_ALLSURFACES", gmVariable((gmint)0xf));
 }

@@ -7,6 +7,8 @@
 #include "../core/strict_calls.h"
 #include "texture_bindings.h"
 #include "process_handle_bindings.h"
+#include "colour_bindings.h"
+#include "../ported_native/ground_math.h"
 #include <GL/glew.h>
 #include <vector>
 #include <string>
@@ -112,7 +114,10 @@ enum class ShapeType {
 // cross-checked against PSL1GHT ppu/include/rsx/gcm_sys.h. GL enum translation
 // is host-renderer adaptation, not a claim of identical RSX rasterization.
 GLenum ToGLMode(int a_shapeType) {
-    switch ((ShapeType)a_shapeType) {
+    // Some retail builders pass internal flag bits alongside the primitive
+    // byte (e.g. rounded-rect outline uses raw mode 0x102). VMSHAPE.endShape
+    // masks the same value to its low byte before indexing the retail tables.
+    switch ((ShapeType)(static_cast<unsigned int>(a_shapeType) & 0xffu)) {
         case ShapeType::Points: return GL_POINTS;
         case ShapeType::Lines: return GL_LINES;
         case ShapeType::LineStrip: return GL_LINE_STRIP;
@@ -188,6 +193,10 @@ struct ShapeData {
     int retailShapeType = 0;
     int retailEndShapeField4 = 0;
     int retailEndShapeField8 = 0;
+    // Native player shapes allocate 0x14 + capacity*initialStride bytes, then
+    // their per-frame XYZ appender changes the live vertex stride to 12.
+    int retailBufferBytes = 0;
+    int retailVertexStride = 0;
 };
 
 ShapeData* ThisShape(gmThread* a_thread) {
@@ -216,7 +225,7 @@ ShapeData* g_currentShape = nullptr;
 // confirmed (`FUN_00055bb4`, selector 8 = TextureDist). Forwarding this shape
 // draw through the existing desktop distance shader is a local approximation;
 // retail's aColor payload and aSmoothLevel source are still unresolved.
-void DrawShapeData(ShapeData* s) {
+void DrawShapeData(ShapeData* s, bool a_defaultTransVertexOrder = false) {
     int count = (int)(s->verts.size() / 2);
     if (count <= 0) return;
     DrawContext& ctx = GetDrawContext();
@@ -272,7 +281,23 @@ void DrawShapeData(ShapeData* s) {
             x = signedPow(std::cos(angle), param(4)) * radius;
             y = signedPow(std::sin(angle), param(4)) * radius;
         }
-        DC_TransformPoint(ctx.Top(), x, y, transformed[i * 2], transformed[i * 2 + 1]);
+        if (a_defaultTransVertexOrder) {
+            // DefaultTrans_v evaluates its affine position contribution in
+            // this order: y*column1, x*column0 + r0, z*column2 + r0,
+            // column3 + r0. Player VMSHAPEs store local z=0 and this 2D
+            // stack has no x/y contribution from z. Keep the y product as
+            // the initial partial, use an explicit fused MAD for x, then add
+            // translation separately. The active view/projection is still
+            // applied by Renderer::DrawPolygon after this model-space step.
+            const DrawContext::Mat& matrix = ctx.Top();
+            const float xPartial = std::fma(x, matrix.a, y * matrix.c);
+            const float yPartial = std::fma(x, matrix.b, y * matrix.d);
+            transformed[i * 2] = matrix.e + xPartial;
+            transformed[i * 2 + 1] = matrix.f + yPartial;
+        } else {
+            DC_TransformPoint(ctx.Top(), x, y,
+                              transformed[i * 2], transformed[i * 2 + 1]);
+        }
     }
     unsigned int tex = GetDrawContext().currentTextureHandle;
     if (std::getenv("GE3_SHAPE_TEX_DEBUG")) {
@@ -282,6 +307,50 @@ void DrawShapeData(ShapeData* s) {
                          count, tex, (int)(s->uvs.size() == (size_t)count * 2),
                          (int)(s->colors.size() == (size_t)count * 4));
         }
+    }
+    // A VMSHAPE's saved colour samples can all be identical even though the
+    // draw-list supplies its actual flat colour later. This occurs for
+    // SwayingTree.gm: the stem mesh is built during configure(), then drawn
+    // under a deferred COLOURSCHEME_SetColour("bg_out", drawList). Reusing
+    // the renderer colour from mesh construction bakes a stale value (often
+    // black) into every vertex and multiplying it by the draw-list colour
+    // still produces black. A uniform vertex stream carries no gradient, so
+    // let the current draw-list colour provide the flat shader input, as it
+    // does for shapes built by the native VideoHelper path.
+    const bool hasCapturedColours =
+        s->colors.size() == static_cast<size_t>(count) * 4;
+    bool uniformCapturedColour = hasCapturedColours;
+    if (uniformCapturedColour) {
+        for (int i = 1; i < count && uniformCapturedColour; ++i) {
+            for (int c = 0; c < 4; ++c) {
+                if (s->colors[static_cast<size_t>(i) * 4 + c] != s->colors[c]) {
+                    uniformCapturedColour = false;
+                    break;
+                }
+            }
+        }
+    }
+    if (count == 34 && s->glMode == GL_TRIANGLE_STRIP &&
+        std::getenv("GE3_TRACE_SWAYING_TREE_COLOUR")) {
+        static unsigned int traceCount = 0;
+        if (traceCount++ < 64) {
+            float r, g, b, a;
+            GetEngineContext().renderer->GetColour(r, g, b, a);
+            const bool flatColourPath =
+                s->shaderEntityId < 0 && tex == 0 && uniformCapturedColour;
+            std::fprintf(stderr,
+                "[sway-tree-colour] shape scheme=%d vertices=%d texture=%u flat=%d captured=(%.4f,%.4f,%.4f,%.4f) draw=(%.4f,%.4f,%.4f,%.4f)\n",
+                GetCurrentColourSchemeID(), count, tex, flatColourPath,
+                s->colors.empty() ? 0.0f : s->colors[0],
+                s->colors.size() < 2 ? 0.0f : s->colors[1],
+                s->colors.size() < 3 ? 0.0f : s->colors[2],
+                s->colors.size() < 4 ? 0.0f : s->colors[3], r, g, b, a);
+        }
+    }
+    if (s->shaderEntityId < 0 && tex == 0 && uniformCapturedColour) {
+        GetEngineContext().renderer->DrawPolygon(
+            s->glMode, transformed.data(), count, ctx.Top().z + s->localZ);
+        return;
     }
     // Per-vertex colours (set via plotVertex/plotVertices, see ShapeData::
     // colors' header comment) take the real-fan gradient path instead of
@@ -363,7 +432,13 @@ void DrawShapeData(ShapeData* s) {
             s->hasTextureBasedRenderConfig ? s->textureShaderType : -1);
         return;
     }
-    GetEngineContext().renderer->DrawPolygon(s->glMode, transformed.data(), count, ctx.Top().z + s->localZ);
+    if (a_defaultTransVertexOrder) {
+        GetEngineContext().renderer->DrawPolygonDefaultTrans(
+            s->glMode, transformed.data(), count, ctx.Top().z + s->localZ);
+    } else {
+        GetEngineContext().renderer->DrawPolygon(
+            s->glMode, transformed.data(), count, ctx.Top().z + s->localZ);
+    }
 }
 
 } // namespace
@@ -658,17 +733,26 @@ int GM_CDECL gmf_setAsFilledCircle(gmThread* a_thread) {
     if (quality < 2) quality = 2;
     int segments = quality - 1;    // q in the dead code's terms
     if (segments < 1) segments = 1;
-    float angInc = 6.28318530718f / (float)segments;
+    const float angInc = 6.28318530718f / (float)segments;
 
     s->verts.clear();
     s->vertexData.clear();
     s->verts.reserve((size_t)(1 + quality) * 2);
     s->verts.push_back(0.0f);
     s->verts.push_back(0.0f); // centre, index 0
+    float ang = 0.0f;
     for (int j = 0; j < quality; ++j) {
-        float ang = (float)j * angInc;
-        s->verts.push_back(std::cos(ang) * radius);
-        s->verts.push_back(std::sin(ang) * radius);
+        // The pre-optimization VIDEOHELPER_DrawFilledCircle reference
+        // advances one float angle per vertex and calls MATH_COS/MATH_SIN.
+        // Those retail wrappers use FUN_001dd1ac, not host libm. Do not
+        // replace this accumulated sequence with j*angInc: the rounded
+        // angles (especially the closing rim point) feed the player's live
+        // particleFillShape mesh.
+        s->verts.push_back(
+            GroundRenderMath::RetailGroundSinCos(ang, true) * radius);
+        s->verts.push_back(
+            GroundRenderMath::RetailGroundSinCos(ang, false) * radius);
+        ang += angInc;
     }
     s->localZ = 0.0f;
     s->needsClearOnNextPlot = false;
@@ -986,11 +1070,175 @@ void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
     }
 }
 
+gmVariable CreateShapeFromVertsAndUVs(gmMachine& a_machine, int a_shapeType,
+                                      const float* a_xy, const float* a_uv,
+                                      int a_count, float a_z) {
+    if (g_shapeType < 0 || a_count < 0 ||
+        (a_count > 0 && (!a_xy || !a_uv))) return gmVariable::s_null;
+    auto* object = a_machine.AllocUserObject(new ShapeData(), g_shapeType);
+    if (!object) return gmVariable::s_null;
+    auto* data = static_cast<ShapeData*>(object->m_user);
+    if (!data) return gmVariable::s_null;
+    data->retailShapeType = a_shapeType;
+    data->glMode = ToGLMode(a_shapeType);
+    data->capacity = a_count;
+    data->localZ = a_z;
+    data->retailEndShapeField4 = 7; // RSX triangle-fan primitive
+    data->retailEndShapeField8 = 0x1b02; // filled polygon mode
+    if (a_count > 0) {
+        data->verts.assign(a_xy, a_xy + (size_t)a_count * 2);
+        data->uvs.assign(a_uv, a_uv + (size_t)a_count * 2);
+    }
+    return gmVariable(object);
+}
+
+gmVariable UpdateNativeOwnedShape(gmMachine& a_machine, gmTableObject* a_owner,
+                                  const char* a_fieldName, int a_shapeType,
+                                  const float* a_xy, int a_count, float a_z,
+                                  int a_nativeCapacity,
+                                  int a_nativeAllocationStride) {
+    if (!a_owner || !a_fieldName || g_shapeType < 0) return gmVariable();
+    gmVariable value = a_owner->Get(&a_machine, a_fieldName);
+    gmUserObject* object = AsShapeObject(a_machine, value);
+    if (!object) {
+        object = a_machine.AllocUserObject(new ShapeData(), g_shapeType);
+        if (!object) return gmVariable();
+        value = gmVariable(object);
+        a_owner->Set(&a_machine, a_fieldName, value);
+    }
+
+    ShapeData* data = static_cast<ShapeData*>(object->m_user);
+    if (!data) return gmVariable();
+    data->retailShapeType = a_shapeType;
+    data->glMode = ToGLMode(a_shapeType);
+    const int liveCount = std::max(a_count, 0);
+    data->capacity = a_nativeCapacity >= 0 ? a_nativeCapacity : liveCount;
+    const int hostReserveCount = std::max(liveCount, data->capacity);
+    if (hostReserveCount > 0 &&
+        data->verts.capacity() < static_cast<size_t>(hostReserveCount) * 2)
+        data->verts.reserve(static_cast<size_t>(hostReserveCount) * 2);
+    data->retailBufferBytes = a_nativeCapacity >= 0
+        ? 0x14 + a_nativeCapacity * std::max(a_nativeAllocationStride, 0)
+        : 0;
+    data->retailVertexStride = a_nativeCapacity >= 0 ? 12 : 0;
+    data->localZ = a_z;
+    if (a_xy && a_count > 0)
+        data->verts.assign(a_xy, a_xy + (size_t)a_count * 2);
+    else
+        data->verts.clear();
+    data->vertexData.clear();
+    data->colors.clear();
+    data->uvs.clear();
+    data->needsClearOnNextPlot = false;
+    data->shaderEntityId = -1;
+    data->shaderSlot = 0;
+    data->shaderEntityType.clear();
+    data->hasTextureBasedRenderConfig = false;
+    data->textureShaderType = 0;
+    return value;
+}
+
+std::shared_ptr<void> RetainNativeShapeForDeferredDraw(
+    gmMachine& a_machine, const gmVariable& a_shape) {
+    gmUserObject* object = AsShapeObject(a_machine, a_shape);
+    if (!object) return {};
+    gmObject* managed = a_machine.GetObject(a_shape.m_value.m_ref);
+    if (!managed || managed != static_cast<gmObject*>(object)) return {};
+    return std::static_pointer_cast<void>(
+        std::make_shared<DeferredShapeLease>(a_machine, managed));
+}
+
 gmUserObject* AsShapeObject(gmMachine& a_machine, const gmVariable& a_var) {
     if (a_var.m_type < GM_USER) return nullptr;
     gmUserObject* obj = (gmUserObject*)a_machine.GetObject(a_var.m_value.m_ref);
     if (!obj || obj->m_userType != g_shapeType) return nullptr;
     return obj;
+}
+
+// Verification: retail FUN_001a0be8 emits translate opcode 0x13, scale
+// opcode 0x16, retained-shape submit, inverse scale, and inverse translate
+// for each active particle (see player_particle_pass_headless_20261010.txt).
+// Reuse the live VMSHAPE and the normal DrawShapeData path under the composed
+// matrix so its primitive and vertices remain script-authored.
+bool DrawShapeObjectWithTransform(gmMachine& a_machine, const gmVariable& a_shape,
+                                  float a_a, float a_b, float a_c, float a_d,
+                                  float a_e, float a_f, float a_z,
+                                  bool a_retailPpcMatrixMath) {
+    gmUserObject* obj = AsShapeObject(a_machine, a_shape);
+    if (!obj || !obj->m_user) return false;
+    ShapeData* shape = static_cast<ShapeData*>(obj->m_user);
+    if (!shape->hasDirectReference || shape->verts.empty()) return false;
+
+    DrawContext& context = GetDrawContext();
+    const DrawContext::Mat previousMatrix = context.Top();
+    const unsigned int previousTexture = context.currentTextureHandle;
+    const bool previousDistanceTexture = context.distanceTextureEnabled;
+    const float previousDiscard = context.distanceTextureDiscardLevel;
+    const float previousSmooth = context.distanceTextureSmoothLevel;
+    struct RestoreDrawContext {
+        DrawContext& context;
+        DrawContext::Mat matrix;
+        unsigned int texture;
+        bool distanceTexture;
+        float discard;
+        float smooth;
+        ~RestoreDrawContext() {
+            context.Top() = matrix;
+            context.currentTextureHandle = texture;
+            context.distanceTextureEnabled = distanceTexture;
+            context.distanceTextureDiscardLevel = discard;
+            context.distanceTextureSmoothLevel = smooth;
+        }
+    } restore{context, previousMatrix, previousTexture,
+              previousDistanceTexture, previousDiscard, previousSmooth};
+
+    // Retail draw-list matrix opcodes multiply each operation into the live
+    // stack matrix (current * operation; see FUN_0030ab94). Player commands
+    // are replayed in their sorted-list position, so the supplied player
+    // transform must extend whatever matrix is live then, not replace it.
+    DrawContext::Mat operation;
+    operation.a = a_a;
+    operation.b = a_b;
+    operation.c = a_c;
+    operation.d = a_d;
+    operation.e = a_e;
+    operation.f = a_f;
+    operation.z = a_z;
+    if (a_retailPpcMatrixMath) {
+        // Retail draw-list matrix replay at FUN_0030ab94 rounds each VMX
+        // product before adding the two linear partials. Its translation
+        // column uses a fused second partial followed by a separate sum.
+        // The player renderer has a traced 2D affine command stream, so
+        // mirror those PPC rounding points when composing it with the live
+        // sorted-replay matrix. Other VMSHAPE users retain DC_Multiply.
+        const auto roundedProduct = [](float lhs, float rhs) {
+            return std::fma(lhs, rhs, 0.0f);
+        };
+        DrawContext::Mat result;
+        result.a = roundedProduct(previousMatrix.a, operation.a) +
+                   roundedProduct(previousMatrix.c, operation.b);
+        result.b = roundedProduct(previousMatrix.b, operation.a) +
+                   roundedProduct(previousMatrix.d, operation.b);
+        result.c = roundedProduct(previousMatrix.a, operation.c) +
+                   roundedProduct(previousMatrix.c, operation.d);
+        result.d = roundedProduct(previousMatrix.b, operation.c) +
+                   roundedProduct(previousMatrix.d, operation.d);
+        result.e = roundedProduct(previousMatrix.a, operation.e) +
+                   std::fma(previousMatrix.c, operation.f, previousMatrix.e);
+        result.f = roundedProduct(previousMatrix.b, operation.e) +
+                   std::fma(previousMatrix.d, operation.f, previousMatrix.f);
+        result.z = previousMatrix.z + operation.z;
+        context.Top() = result;
+    } else {
+        context.Top() = DC_Multiply(previousMatrix, operation);
+    }
+    // Native player particle meshes are untextured and use the current
+    // named color. Do not let an unrelated Video texture/render-config state
+    // leak into this native shape submission.
+    context.currentTextureHandle = 0;
+    context.distanceTextureEnabled = false;
+    DrawShapeData(shape, a_retailPpcMatrixMath);
+    return true;
 }
 
 bool DrawAnimationShapeWithTransform(gmMachine& a_machine, const gmVariable& a_shape,

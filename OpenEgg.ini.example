@@ -1,0 +1,25 @@
+; Copy this file to the executable's folder as OpenEgg.ini.
+; The Linux build reads engine/build/OpenEgg.ini; the Windows build reads
+; engine/build-windows/OpenEgg.ini. Paths are always beside the executable.
+
+[system]
+; Supported: windows/win32, osx, ps3, ps4, ngp/vita, vitatv (or IDs 0..5).
+; OS selection changes which platform-specific GameMonkey branches are used.
+os_id = ps3
+
+; Language names or retail IDs 0..19. Default English US = 1.
+; ja=0, en_us=1, fr=2, es=3, de=4, it=5, nl=6, pt_pt=7, ru=8, ko=9,
+; zh_hant=10, zh_hans=11, fi=12, sv=13, da=14, no=15, pl=16,
+; pt_br=17, en_gb=18, es_mx=19.
+language = en_us
+
+; Exposes SYSTEM_IsRetailBuild() to scripts.
+retail_build = true
+
+; Development-only entitlement simulation for the 15 retail DLC pack IDs.
+; This only affects Network_IsDLCAvailable(); it does not provide assets.
+debug_all_dlc_available = false
+
+; Preserve the game's configured aspect ratio and draw black bars when the
+; host window has a different aspect ratio. Set false to fill the whole window.
+letterbox = true

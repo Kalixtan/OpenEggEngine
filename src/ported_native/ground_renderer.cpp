@@ -22,9 +22,10 @@
 // Verification: retail EntityRegistration.drawGrounds calls
 // FUN_001ce4a0 (FUN_001d0520); palette strings/cell constants are PPC
 // verified and geometry helpers match shipped GroundProcessNEW/VideoHelper
-// source. The normal outline/fill split is an experimentally supported
-// rendering hypothesis, not yet proven by the native command stream. The
-// desktop pass preserves the bytecode-mapped style category order and the
+// source. Retail's per-cell native handoff maps normal and no-climb only to
+// fill lists; their script-stub outline passes are not reproduced here. Fire
+// has a distinct `danger_out` geometry stream. The desktop pass preserves the
+// bytecode-mapped style category order and the
 // fire palette's traced 600 ms ping-pong interpolation, but does not reproduce
 // per-cell command replay, stencil lifetime, or fire shader displacement.
 namespace {
@@ -51,7 +52,6 @@ constexpr float kClearZ = kOutlineZ + 60.0f * kBackConversion;
 constexpr float kNoclimbClearZ = kClearZ - 20.0f * kBackConversion;
 
 
-constexpr int kOutlineStencilValue = 1;
 constexpr int kNoclimbStencilValue = 2;
 // The batch passes DAT_001cc6c8 (-1) to the emitter. In mode zero this
 // selects geometry[+0x24] - geometry[+0x28]; it is a subtraction selector,
@@ -73,6 +73,9 @@ constexpr int kReplace = 101;
 enum ShapeKind { kCircle, kPolygon, kEdgeChain };
 
 struct GroundGeometry {
+    int entityId = -1;
+    int fixtureCount = 0;
+    bool retailCurve = false;
     ShapeKind kind = kPolygon;
     b2Vec2 pos = b2Vec2(0, 0); // circle center / polygon centroid (world)
     float radius = 0.0f;       // circle only
@@ -317,7 +320,9 @@ bool BuildRetailCurveFill(gmMachine& a_machine, gmTableObject* a_owner,
 bool BuildRetailConfiguredCornerFill(gmMachine& a_machine,
                                      gmTableObject* a_owner,
                                      float a_inset,
-                                     std::vector<b2Vec2>& a_fill) {
+                                     std::vector<b2Vec2>& a_fill,
+                                     int a_entityId,
+                                     const char* a_streamName) {
     const gmVariable configVar = a_owner->Get(&a_machine, "configureData");
     if (configVar.m_type != GM_TABLE) return false;
     auto* config = static_cast<gmTableObject*>(a_machine.GetObject(configVar.m_value.m_ref));
@@ -340,6 +345,23 @@ bool BuildRetailConfiguredCornerFill(gmMachine& a_machine,
     for (int i = 0; i < cornerCount; ++i) {
         corners[i].x = ReadRetailNumericOrZero(a_machine, cornerTable, cornerKeys[i][0]);
         corners[i].y = ReadRetailNumericOrZero(a_machine, cornerTable, cornerKeys[i][1]);
+    }
+
+    const bool traceCornerGeometry =
+        std::getenv("GE3_TRACE_GROUND_GEOMETRY") != nullptr;
+    static std::set<std::pair<int, std::string>> tracedCornerStreams;
+    const bool emitCornerTrace = traceCornerGeometry && a_streamName &&
+        tracedCornerStreams.emplace(a_entityId, a_streamName).second;
+    if (emitCornerTrace) {
+        std::fprintf(stderr,
+            "[ground-corner-input] id=%d stream=%s path=%d inset=%.9g "
+            "pos=(%.9g,%.9g) corners=",
+            a_entityId, a_streamName, cornerCount, a_inset, centerX, centerY);
+        for (int i = 0; i < cornerCount; ++i) {
+            std::fprintf(stderr, "%s(%.9g,%.9g)", i ? ";" : "",
+                         corners[i].x, corners[i].y);
+        }
+        std::fputc('\n', stderr);
     }
 
     // PPC uses float sqrt/divide and fma for this inset. Keep intermediate
@@ -405,12 +427,14 @@ bool BuildRetailConfiguredCornerFill(gmMachine& a_machine,
             float bulgeX = 0.0f;
             float bulgeY = 0.0f;
             if (chordLength > 0.0f) {
-                bulgeX = (chord.x / chordLength) * bulge;
-                bulgeY = (chord.y / chordLength) * bulge;
+                // Retail's PPC register mapping is crossed: f26 is the
+                // normalized chord Y component and feeds the X FMA; f25 is
+                // normalized chord X and feeds the negated Y multiply.
+                bulgeX = (chord.y / chordLength) * bulge;
+                bulgeY = (chord.x / chordLength) * bulge;
             }
-            // Retail PPC uses the normalized chord X component for the X
-            // offset and the negated normalized chord Y component for Y.
-            // Preserve its component-wise reflection and arithmetic order.
+            // This is the fixed right-normal basis (dy, -dx), independent of
+            // polygon winding; preserve the native component mapping/order.
             float sampleX;
             if (threeCornerPath) {
                 volatile float xProduct = wave * bulgeX;
@@ -431,6 +455,13 @@ bool BuildRetailConfiguredCornerFill(gmMachine& a_machine,
             angle += kAngleStep;
             base.x = std::fma(chord.x, kBaseStep, base.x);
             base.y = std::fma(chord.y, kBaseStep, base.y);
+        }
+    }
+    if (emitCornerTrace) {
+        for (size_t i = 0; i < a_fill.size(); ++i) {
+            std::fprintf(stderr,
+                "[ground-corner-output] id=%d stream=%s index=%zu point=(%.9g,%.9g)\n",
+                a_entityId, a_streamName, i, a_fill[i].x, a_fill[i].y);
         }
     }
     return true;
@@ -541,37 +572,6 @@ bool BuildGeometry(b2Body* a_body, GroundGeometry& a_out) {
     return true;
 }
 
-// The archived ground renderer emits a closed SHAPETYPE_LINESTRIP for
-// polygon outlines. Keep that primitive and the active Video line-width
-// state; expanding edges into world-space quads changes joins and overlaps.
-void DrawOutline(Renderer& a_r, const GroundGeometry& a_g, float a_z) {
-    if (a_g.kind == kEdgeChain || a_g.verts.empty()) return;
-    if (a_g.kind == kCircle) {
-        // VIDEOHELPER_DrawCircle replays circleShape ring indices 1..60 as
-        // SHAPETYPE_LINELOOP. That shared shape has 60 segments, starts at
-        // angle zero, and stores a duplicate closing vertex that the outline
-        // range deliberately omits. GroundRegistration's own `verts` uses a
-        // separate 61 point sequence for style setup and is not this draw.
-        constexpr int kCircleSegments = 60;
-        std::vector<float> xy;
-        xy.reserve(kCircleSegments * 2);
-        for (int i = 0; i < kCircleSegments; ++i) {
-            const float ang = (float)i / (float)kCircleSegments *
-                2.0f * (float)M_PI;
-            const b2Vec2 p = a_g.pos + a_g.radius *
-                b2Vec2{RetailGroundSinCos(ang, true), RetailGroundSinCos(ang, false)};
-            xy.push_back(p.x); xy.push_back(p.y);
-        }
-        a_r.DrawPolygon(GL_LINE_LOOP, xy.data(), kCircleSegments, a_z);
-        return;
-    }
-    std::vector<float> xy;
-    xy.reserve((a_g.verts.size() + 1) * 2);
-    for (const b2Vec2& v : a_g.verts) { xy.push_back(v.x); xy.push_back(v.y); }
-    xy.push_back(a_g.verts.front().x);
-    xy.push_back(a_g.verts.front().y);
-    a_r.DrawPolygon(GL_LINE_STRIP, xy.data(), (int)xy.size() / 2, a_z);
-}
 void DrawFill(Renderer& a_r, const GroundGeometry& a_g, float a_z,
               float a_fireAmp = 0.0f, bool a_fireShader = false) {
     const std::vector<b2Vec2>& verts = (a_g.kind == kCircle) ? a_g.verts : a_g.fillVerts;
@@ -632,6 +632,35 @@ void DrawFill(Renderer& a_r, const GroundGeometry& a_g, float a_z,
         }
         append(verts[(size_t)(count - halfCount)]);
     }
+    // Opt-in diagnostic for the reported CurvedGround surface gaps. Capture
+    // the exact strip submitted to GL, together with the state that can
+    // suppress fragments. This keeps the production path unchanged and
+    // makes a later user/runtime capture attributable to one registration.
+    static std::set<int> tracedCurvedSubmissions;
+    if (a_g.retailCurve && std::getenv("GE3_TRACE_CURVED_GROUND_DRAW") &&
+        tracedCurvedSubmissions.insert(a_g.entityId).second) {
+        GLboolean colourMask[4] = {GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE};
+        GLfloat colour[4] = {0, 0, 0, 0};
+        GLint stencilFunc = 0, stencilRef = 0, depthFunc = 0;
+        glGetBooleanv(GL_COLOR_WRITEMASK, colourMask);
+        glGetFloatv(GL_CURRENT_COLOR, colour);
+        glGetIntegerv(GL_STENCIL_FUNC, &stencilFunc);
+        glGetIntegerv(GL_STENCIL_REF, &stencilRef);
+        glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
+        std::fprintf(stderr,
+            "[curved-ground-submit] id=%d fixtures=%d style-z=%.6g strip=%zu "
+            "color=(%.6g,%.6g,%.6g,%.6g) mask=%d%d%d%d stencil=%d:%d depth=%d cull=%d\n",
+            a_g.entityId, a_g.fixtureCount, a_z, xy.size() / 2,
+            colour[0], colour[1], colour[2], colour[3], colourMask[0],
+            colourMask[1], colourMask[2], colourMask[3],
+            glIsEnabled(GL_STENCIL_TEST) ? 1 : 0, stencilFunc, stencilRef,
+            glIsEnabled(GL_DEPTH_TEST) ? depthFunc : 0,
+            glIsEnabled(GL_CULL_FACE) ? 1 : 0);
+        for (size_t i = 0; i < xy.size() / 2; ++i) {
+            std::fprintf(stderr, "[curved-ground-submit-vertex] id=%d i=%zu x=%.9g y=%.9g\n",
+                         a_g.entityId, i, xy[i * 2], xy[i * 2 + 1]);
+        }
+    }
     if (a_fireShader)
         a_r.DrawFireGroundStrip(xy.data(), data.data(), (int)xy.size() / 2, a_fireAmp, a_z);
     else
@@ -668,13 +697,6 @@ void SetColourByName(Renderer& a_r, const char* a_name) {
 // not authoritative for the native fill colour. The live retail level-1
 // capture and scheme-8 palette agree on ground_fill (yellow) for terrain;
 // using clear here aliases the sky colour and makes the terrain disappear.
-void DrawNormalOutline(Renderer& a_r, const GroundGeometry& a_g) {
-    a_r.SetStencilFunc(kGreater, kOutlineStencilValue);
-    a_r.SetStencilOp(kKeep, kKeep, kReplace);
-    SetColourByName(a_r, "ground_out");
-    DrawOutline(a_r, a_g, kOutlineZ);
-}
-
 void DrawNormalFill(Renderer& a_r, const GroundGeometry& a_g) {
     a_r.SetStencilFunc(kDisable, 0);
     SetColourByName(a_r, "ground_fill");
@@ -682,17 +704,13 @@ void DrawNormalFill(Renderer& a_r, const GroundGeometry& a_g) {
 }
 
 void DrawNormal(Renderer& a_r, const GroundGeometry& a_g) {
-    DrawNormalOutline(a_r, a_g);
     DrawNormalFill(a_r, a_g);
 }
 
-// installNoClimbGround -- confirmed real; note the stencil wrap is on the
-// FILL here, not the outline (opposite of installNormalGround) -- matches
-// the reference exactly, not a copy-paste of Normal's order.
+// The native per-cell handoff maps no-climb geometry to its fill child list.
+// The script stub's separate outline path targets a list that is not submitted
+// by the traced style-1 handoff.
 void DrawNoClimb(Renderer& a_r, const GroundGeometry& a_g) {
-    SetColourByName(a_r, "ground_noClimb_out");
-    DrawOutline(a_r, a_g, kOutlineZ);
-
     SetColourByName(a_r, "ground_noClimb_fill");
     a_r.SetStencilFunc(kGreater, kNoclimbStencilValue);
     a_r.SetStencilOp(kKeep, kKeep, kReplace);
@@ -707,7 +725,7 @@ void DrawNoClimb(Renderer& a_r, const GroundGeometry& a_g) {
 // stepped by ProcessManager from the traced update callback. Drawing consumes
 // those values without advancing animation based on camera-visible geometry.
 // FireGroundShader2's aData input remains unresolved.
-void DrawFire(Renderer& a_r, const FireGroundGeometry& a_g) {
+void DrawFireFill(Renderer& a_r, const FireGroundGeometry& a_g) {
     const float colourPhase = a_g.colourPhase;
     const float amp = a_g.amplitudePhase * 0.061f;
     float r, g, b;
@@ -720,7 +738,9 @@ void DrawFire(Renderer& a_r, const FireGroundGeometry& a_g) {
     // Default2d parameter is also -10.0. Do not use the script's computed
     // FIRE_CLEAR_Z (-9.7) for these native shader-backed streams.
     DrawFill(a_r, a_g.dangerFill, kGroundZ, amp, true);
+}
 
+void DrawFireOutline(Renderer& a_r, const FireGroundGeometry& a_g) {
     SetColourByName(a_r, "danger_out");
     DrawFill(a_r, a_g.dangerOut, kGroundZ);
 }
@@ -733,13 +753,30 @@ public:
     explicit GroundRenderStateScope(Renderer& a_renderer)
         : m_renderer(a_renderer), m_viewState(a_renderer.GetViewState()) {
         a_renderer.GetColour(m_colour[0], m_colour[1], m_colour[2], m_colour[3]);
+        // GL_ALL_ATTRIB_BITS does not include the projection or modelview
+        // matrix contents. Ground polygons call Renderer::ApplyProjection(),
+        // so an attribute-only scope restored the renderer's C++ view mode
+        // while leaving the ground world matrix installed for later commands
+        // in this same draw-list replay.
+        glGetIntegerv(GL_MATRIX_MODE, &m_matrixMode);
         // Retail's 0x1a/0x1b scope restores depth, stencil, colour-mask,
         // blend, and other fixed-function state after the ground commands.
         glPushAttrib(GL_ALL_ATTRIB_BITS);
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
     }
 
     ~GroundRenderStateScope() {
+        glMatrixMode(GL_MODELVIEW);
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
         glPopAttrib();
+        // GL_TRANSFORM_BIT restores the selected matrix mode but not matrix
+        // contents; restore the exact entry mode explicitly after popping.
+        glMatrixMode(static_cast<GLenum>(m_matrixMode));
         m_renderer.SetColour(m_colour[0], m_colour[1], m_colour[2], m_colour[3]);
         m_renderer.RestoreViewState(m_viewState);
     }
@@ -751,6 +788,7 @@ private:
     Renderer& m_renderer;
     Renderer::ViewState m_viewState;
     float m_colour[4]{};
+    GLint m_matrixMode = GL_MODELVIEW;
 };
 
 void DrawGroundsNativeNow() {
@@ -764,6 +802,13 @@ void DrawGroundsNativeNow() {
     // Retail FUN_001ce4a0 calls FUN_0003e198(drawList, false): use world view
     // bounds while skipping FUN_0004cea0's camera-rotation branch.
     renderer->SetWorldView(false);
+    // This direct native pass submits filled ground strips and polygons.
+    // Unlike the retail child-DrawList path, it does not replay a per-list
+    // culling tuple, so inheriting GL_CULL_FACE from an earlier script draw
+    // can discard individual curved-ground strip triangles. The ground
+    // geometry is authored as a visible 2D surface; render both windings for
+    // this pass and let GroundRenderStateScope restore the caller's state.
+    glDisable(GL_CULL_FACE);
     // Visible cell registrations replay through the 0x1cc448 per-cell path,
     // which records DrawList opcode 0x1c with index 1. Dispatcher 0x44d4c
     // selects DAT_00431684[1] = 0x201 (LESS) and enables depth testing. The
@@ -824,6 +869,10 @@ void DrawGroundsNativeNow() {
         (void)registration.second.selected; // native draw call's selected behavior is still under audit.
 
         GroundGeometry geo;
+        geo.entityId = registration.first;
+        for (b2Fixture* fixture = body->GetFixtureList(); fixture;
+             fixture = fixture->GetNext())
+            ++geo.fixtureCount;
         geo.registrationInset = style == 1
             ? kGroundRegistrationInsetId1
             : kGroundRegistrationInsetDefault;
@@ -832,9 +881,43 @@ void DrawGroundsNativeNow() {
             const float registrationInset = style == 1
                 ? kGroundRegistrationInsetId1
                 : kGroundRegistrationInsetDefault;
-            if (!BuildRetailCurveFill(*machine, et, geo.fillVerts))
+            const bool isRetailCurve = BuildRetailCurveFill(*machine, et, geo.fillVerts);
+            geo.retailCurve = isRetailCurve;
+            if (isRetailCurve && std::getenv("GE3_TRACE_GROUND_GEOMETRY")) {
+                static std::set<int> tracedCurves;
+                if (tracedCurves.insert(registration.first).second) {
+                    gmVariable configVar = et->Get(machine, "configureData");
+                    auto* config = configVar.m_type == GM_TABLE
+                        ? static_cast<gmTableObject*>(machine->GetObject(configVar.m_value.m_ref))
+                        : nullptr;
+                    const float curve = config
+                        ? ReadRetailNumericOrZero(*machine, config, "curve") : 0.0f;
+                    const float stretch = config
+                        ? ReadRetailNumericOrZero(*machine, config, "editStretchValue") : 0.0f;
+                    const float rotation = config
+                        ? ReadRetailNumericOrZero(*machine, config, "editRotateValue") : 0.0f;
+                    int fixtureCount = 0;
+                    for (b2Fixture* fixture = body->GetFixtureList(); fixture;
+                         fixture = fixture->GetNext())
+                        ++fixtureCount;
+                    const int stripVertexCount = 1 + 2 * ((int(geo.fillVerts.size()) + 1) / 2) + 1;
+                    std::fprintf(stderr,
+                        "[ground-curve-render] id=%d style=%d fixtures=%d curve=%.9g "
+                        "stretch=%.9g rotation=%.9g contour=%zu strip=%d quads=15\n",
+                        registration.first, style, fixtureCount, curve, stretch,
+                        rotation, geo.fillVerts.size(), stripVertexCount);
+                    for (size_t i = 0; i < geo.fillVerts.size(); ++i) {
+                        const b2Vec2& point = geo.fillVerts[i];
+                        std::fprintf(stderr,
+                            "[ground-curve-point] id=%d index=%zu x=%.9g y=%.9g\n",
+                            registration.first, i, point.x, point.y);
+                    }
+                }
+            }
+            if (!isRetailCurve)
                 BuildRetailConfiguredCornerFill(*machine, et, registrationInset,
-                                                geo.fillVerts);
+                                                geo.fillVerts, registration.first,
+                                                "primary");
         }
 
         if (std::getenv("GE3_TRACE_GROUND_GEOMETRY")) {
@@ -874,7 +957,8 @@ void DrawGroundsNativeNow() {
                     if (!BuildRetailCurveFill(*machine, et,
                                               fire.dangerOut.fillVerts))
                         BuildRetailConfiguredCornerFill(*machine, et, -0.01f,
-                                                        fire.dangerOut.fillVerts);
+                                                        fire.dangerOut.fillVerts,
+                                                        registration.first, "danger_out");
                 }
                 fireGrounds.push_back(std::move(fire));
                 break;
@@ -888,19 +972,20 @@ void DrawGroundsNativeNow() {
     }
 
     // Retail's per-cell batch handoff submits style 0 (+0x44), then style 1
-    // (+0x4c), then both style-2 streams (+0x50/+0x54). Keep that proven
-    // category order across the direct desktop submissions too. Previously
-    // no-climb/fire were drawn during collection and normal ground was
-    // deferred until afterward, reversing the retail ordering for overlapping
-    // styles.
-    for (const GroundGeometry& geo : normalGrounds)
-        DrawNormalOutline(*renderer, geo);
+    // (+0x4c), then style-2 primary (+0x50) and secondary (+0x54) buffers.
+    // These are separate batched streams: draw every danger fill before any
+    // danger_out rim. Interleaving fill/rim per registration lets a later
+    // registration's fill expose or overwrite earlier registrations' rims,
+    // unlike the native two-buffer handoff, and creates visible seams between
+    // the individual danger-ground pieces.
     for (const GroundGeometry& geo : normalGrounds)
         DrawNormalFill(*renderer, geo);
     for (const GroundGeometry& geo : noClimbGrounds)
         DrawNoClimb(*renderer, geo);
     for (const FireGroundGeometry& fire : fireGrounds)
-        DrawFire(*renderer, fire);
+        DrawFireFill(*renderer, fire);
+    for (const FireGroundGeometry& fire : fireGrounds)
+        DrawFireOutline(*renderer, fire);
 
     // Do not add the diagonal no-climb hatch from the archived
     // PORTED_TO_CPP______Platformer_GroundProcessNEW script here. The active

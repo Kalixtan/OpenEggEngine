@@ -61,13 +61,14 @@ bool PhysicsDataPairIsColliding(uintptr_t a_myPhysicsData,
 // Retail's bodies, decompiled:
 //   FUN_00034084(body):   walks body->contactList setting a per-contact
 //                         flag byte on EVERY contact of that body
-//   FUN_0002d7fc(sci, i): finds the record whose index == i and ORs a bit
-//                         into that contact's flag word
+//   FUN_0002d7fc(sci, id): compares each record's +0x0c other-shape ID with
+//                         the raw argument and ORs bit 0 into matching
+//                         contact flags at +4
 //
-// So both are "mark a contact, let the solver honour it this step", which
-// is exactly what Box2D's PreSolve hook is for. Marks are applied in
-// ScriptContactListener::PreSolve and cleared after every world step, so
-// they last one step like retail's own per-frame flags.
+// The local adapter applies them through Box2D PreSolve. disableContact is
+// retained for the contact's lifetime and cleared at EndContact, matching the
+// native contact-object flag and the packed owner-pass wrapper's until-
+// separation behavior. disableRestitutionThisFrame remains one-step scoped.
 //
 // Real call site, Player.gm:4488-4489 (landing-impact handling):
 //     this.mainpb.disableRestitutionThisFrame();
@@ -75,7 +76,7 @@ bool PhysicsDataPairIsColliding(uintptr_t a_myPhysicsData,
 // With both stubbed, landings kept their restitution and the contact was
 // never suppressed, so the player bounced where retail does not.
 void DisableRestitutionThisFrameForBody(b2Body* a_body);
-void DisableContactThisFrame(b2Contact* a_contact);
+void MarkContactDisabled(b2Contact* a_contact);
 
 // Retail Entity teardown (FUN_000bfdb0 -> FUN_00037120 -> FUN_00036f48)
 // removes contact records referencing the entity without dispatching a script

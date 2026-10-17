@@ -5,7 +5,6 @@
 #include "gmIncGC.h"
 #include "../core/engine_context.h"
 #include "../core/save_data.h"
-#include "../core/strict_calls.h"
 #include "tinyxml2.h"
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
@@ -20,6 +19,9 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 namespace {
 
@@ -27,17 +29,9 @@ namespace {
 // FUN_0018ab1c services one pass and decrements it in the engine update.
 int g_cleanPassesRemaining = 0;
 
-// Level files (Platformer/levels/*.xml.z, *.json.z) are real zlib streams
-// (confirmed: every ".z" file in the corpus starts with byte 0x78, zlib's
-// standard header) -- retail's own fallback-filename dance
-// (".xml.z" -> ".xml" -> ".json.z" -> ".json", all four tried per level,
-// confirmed by the "LEVEL LOAD FAILED: try uncompressed filename" trace in
-// Platformer/Main.gm) only makes sense if SOME of those names are meant to
-// be read raw and others decompressed -- detecting by the zlib magic byte
-// rather than trusting the ".z" suffix handles both without guessing which
-// path a given level actually takes.
-bool MaybeInflate(std::string& a_text) {
-    if (a_text.size() < 2 || (unsigned char)a_text[0] != 0x78) return true; // not zlib, leave as-is
+// Retail has separate raw and compressed table loaders. The compressed
+// wrappers always enter the zlib path; do not infer compression from bytes.
+bool InflateRequired(std::string& a_text) {
     uLongf destLen = (uLongf)a_text.size() * 8 + 1024;
     for (int attempt = 0; attempt < 6; ++attempt) {
         std::string out(destLen, '\0');
@@ -64,9 +58,9 @@ bool SaveTicketFilename(gmMachine& a_machine, const gmVariable& a_ticket, std::s
     return true;
 }
 
-// Confirmed real, reveng: none (no decompiled evidence anywhere) --
-// GameMonkeyScript.loadTableFromXMLFile is confirmed real purely by usage
-// (game_data/Platformer/Mixer.gm, SystemHelper.gm, Platformer/User.gm).
+// Retail wrapper at 0x6ceb8 accepts path, optional raw file-area payload, and
+// optional force-string flag. Its XML converter selects GM_INT/GM_FLOAT for
+// numeric leaf values by default and GM_STRING when that flag is nonzero.
 // Real data files (Platformer/mixer.dat) use a small, consistent tag
 // vocabulary -- nested `<tableElement key="...">...</tableElement>` and
 // leaf `<element key="..." value="..."/>`, no XML declaration, no single
@@ -91,6 +85,16 @@ void SetTableKey(gmMachine& a_machine, gmTableObject* a_table, const std::string
     else a_table->Set(&a_machine, a_key.c_str(), a_value);
 }
 
+// JSON object member names are always strings, including numeric-looking
+// names such as DLC pack IDs "1" through "15". Arrays are handled separately
+// by JsonToGmVariable and receive integer indexes. Do not use SetTableKey for
+// JSON objects: its numeric-key coercion is only appropriate for the retail
+// XML table format above and made persisted DLC flags unreadable on reload.
+void SetJsonObjectKey(gmMachine& a_machine, gmTableObject* a_table,
+                      const char* a_key, const gmVariable& a_value) {
+    a_table->Set(&a_machine, a_key, a_value);
+}
+
 // Whole numbers ("3", "-12", not "3.0"/"3e1") parse to GM_INT, not
 // GM_FLOAT -- confirmed load-bearing: GM table indexing distinguishes int
 // and float keys (gmTableObject.cpp's VarKeysEqual requires
@@ -110,8 +114,10 @@ bool IsWholeNumber(const char* a_value, size_t a_len) {
     return true;
 }
 
-gmVariable ParseLeafValue(gmMachine& a_machine, const char* a_value) {
+gmVariable ParseLeafValue(gmMachine& a_machine, const char* a_value,
+                          bool a_forceString) {
     if (!a_value) a_value = "";
+    if (a_forceString) return gmVariable(a_machine.AllocStringObject(a_value));
     char* numEnd = nullptr;
     double d = std::strtod(a_value, &numEnd);
     if (numEnd != a_value && *numEnd == '\0') {
@@ -135,19 +141,23 @@ gmVariable ParseLeafValue(gmMachine& a_machine, const char* a_value) {
 // arrays loaded as consistently EMPTY tables -- level data parsed
 // "successfully" (no XML error) but described a level with no ground, no
 // entities, nothing to render.
-void ParseXmlElementInto(gmMachine& a_machine, gmTableObject* a_table, const tinyxml2::XMLElement* a_elem, int a_fallbackIndex) {
+void ParseXmlElementInto(gmMachine& a_machine, gmTableObject* a_table,
+                         const tinyxml2::XMLElement* a_elem, int a_fallbackIndex,
+                         bool a_forceStringValues) {
     const char* key = a_elem->Attribute("key");
 
     if (std::strcmp(a_elem->Name(), "tableElement") == 0) {
         gmTableObject* child = a_machine.AllocTableObject();
         int childIndex = 0;
         for (const tinyxml2::XMLElement* c = a_elem->FirstChildElement(); c; c = c->NextSiblingElement()) {
-            ParseXmlElementInto(a_machine, child, c, childIndex++);
+            ParseXmlElementInto(a_machine, child, c, childIndex++,
+                                a_forceStringValues);
         }
         if (key) SetTableKey(a_machine, a_table, key, gmVariable(child));
         else a_table->Set(&a_machine, a_fallbackIndex, gmVariable(child));
     } else if (std::strcmp(a_elem->Name(), "element") == 0) {
-        gmVariable v = ParseLeafValue(a_machine, a_elem->Attribute("value"));
+        gmVariable v = ParseLeafValue(a_machine, a_elem->Attribute("value"),
+                                      a_forceStringValues);
         if (key) SetTableKey(a_machine, a_table, key, v);
         else a_table->Set(&a_machine, a_fallbackIndex, v);
     }
@@ -155,10 +165,44 @@ void ParseXmlElementInto(gmMachine& a_machine, gmTableObject* a_table, const tin
     // of the confirmed vocabulary above.
 }
 
-// Confirmed real, reveng: none -- GameMonkeyScript.loadTableFromJsonFile
-// is confirmed real purely by usage (heavily used for level/UI data
-// across the corpus, e.g. game_data/Platformer/Main.gm,
-// Platformer/SaveDataHelper.gm). Maps JSON objects/arrays onto GM tables
+gmTableObject* ParseXmlTable(gmMachine& a_machine, const std::string& a_text,
+                             bool a_forceStringValues) {
+    tinyxml2::XMLDocument doc;
+    if (doc.Parse(a_text.c_str(), a_text.size()) != tinyxml2::XML_SUCCESS)
+        return nullptr;
+    gmTableObject* table = a_machine.AllocTableObject();
+    int topIndex = 0;
+    for (const tinyxml2::XMLElement* elem = doc.FirstChildElement(); elem;
+         elem = elem->NextSiblingElement()) {
+        ParseXmlElementInto(a_machine, table, elem, topIndex++, a_forceStringValues);
+    }
+    return table;
+}
+
+// GameMonkeyScript's retail XML and JSON loaders forward their area argument
+// to the same FileHelper area conventions. The desktop maps area 2 to a
+// literal host path, matching system_bindings.cpp's FILEHELPER_AREA_HOST path.
+bool ReadGameMonkeyScriptFile(int a_area, const std::string& a_path,
+                              std::string& a_out) {
+    if (a_area == 0) return SaveData::ReadFile(a_path, a_out);
+    if (a_area == 1) {
+        FileHelper* files = GetEngineContext().fileHelper;
+        return files && files->ReadTextFile(a_path, a_out);
+    }
+    if (a_area == 2) {
+        std::ifstream file(std::filesystem::u8path(a_path), std::ios::binary);
+        if (!file) return false;
+        std::ostringstream contents;
+        contents << file.rdbuf();
+        a_out = contents.str();
+        return true;
+    }
+    // Retail's area formatter has no path branch for values outside 0..2.
+    return false;
+}
+
+// Retail wrapper at 0x6d708 accepts path and an optional raw file-area
+// payload. Maps JSON objects/arrays onto GM tables
 // (array elements keyed 0..n-1, matching how GM itself has no separate
 // array type), numbers to GM_FLOAT, strings to GM_STRING, null to
 // GM_NULL. kParseTrailingCommasFlag for the same reason bitmap_font.cpp
@@ -167,7 +211,8 @@ gmVariable JsonToGmVariable(gmMachine& a_machine, const rapidjson::Value& a_v) {
     if (a_v.IsObject()) {
         gmTableObject* table = a_machine.AllocTableObject();
         for (auto it = a_v.MemberBegin(); it != a_v.MemberEnd(); ++it) {
-            SetTableKey(a_machine, table, it->name.GetString(), JsonToGmVariable(a_machine, it->value));
+            SetJsonObjectKey(a_machine, table, it->name.GetString(),
+                             JsonToGmVariable(a_machine, it->value));
         }
         return gmVariable(table);
     }
@@ -237,99 +282,120 @@ int GM_CDECL gmf_GameMonkeyScript_loadScript(gmThread* a_thread) {
     return GM_OK;
 }
 
-int GM_CDECL gmf_GameMonkeyScript_loadTableFromXMLFile(gmThread* a_thread) {
+int LoadTableFromXMLFile(gmThread* a_thread, bool a_compressed) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
     if (a_thread->GetNumParams() > 3) return GM_EXCEPTION;
 
     int area = 1; // FILEHELPER_AREA_GAMEDATA
     if (a_thread->GetNumParams() >= 2) {
-        GM_INT_PARAM(requestedArea, 1, 1);
-        area = requestedArea;
+        // Retail forwards the argument's raw payload to FileHelper.
+        area = a_thread->Param(1).m_value.m_int;
     }
-    if (area != 0 && area != 1)
-        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromXMLFile(area)");
-    if (a_thread->GetNumParams() == 3 && a_thread->Param(2).m_value.m_int != 0)
-        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromXMLFile(parseFlag)");
+    // Retail's third argument selects string values in XML leaf elements;
+    // the native converter emits GM_STRING even when the value looks numeric.
+    const bool forceStringValues = a_thread->GetNumParams() == 3 &&
+                                   a_thread->Param(2).m_value.m_int != 0;
 
     std::string text;
-    const bool found = area == 0 ? SaveData::ReadFile(path, text)
-                                 : GetEngineContext().fileHelper->ReadTextFile(path, text);
+    const bool found = ReadGameMonkeyScriptFile(area, path, text);
     if (!found) {
         std::fprintf(stderr, "GameMonkeyScript.loadTableFromXMLFile: '%s' not found\n", path);
         a_thread->PushNull();
         return GM_OK;
     }
-    if (!MaybeInflate(text)) {
-        std::fprintf(stderr, "GameMonkeyScript.loadTableFromXMLFile: zlib inflate failed for '%s'\n", path);
-        a_thread->PushNull();
-        return GM_OK;
-    }
-
-    tinyxml2::XMLDocument doc;
-    if (doc.Parse(text.c_str(), text.size()) != tinyxml2::XML_SUCCESS) {
-        std::fprintf(stderr, "GameMonkeyScript.loadTableFromXMLFile: XML parse failed for '%s': %s\n",
-                     path, doc.ErrorStr());
+    if (a_compressed && !InflateRequired(text)) {
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromCompressedXMLFile: zlib inflate failed for '%s'\n", path);
         a_thread->PushNull();
         return GM_OK;
     }
 
     gmMachine& machine = *a_thread->GetMachine();
-    gmTableObject* table = machine.AllocTableObject();
-    int topIndex = 0;
-    for (const tinyxml2::XMLElement* elem = doc.FirstChildElement(); elem; elem = elem->NextSiblingElement()) {
-        ParseXmlElementInto(machine, table, elem, topIndex++);
+    gmTableObject* table = ParseXmlTable(machine, text, forceStringValues);
+    if (!table) {
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromXMLFile: XML parse failed for '%s'\n",
+                     path);
+        a_thread->PushNull();
+        return GM_OK;
     }
     a_thread->PushTable(table);
     return GM_OK;
 }
 
-// Retail 0x0006e184 accepts (path, [area], [parseFlag]), reads the file,
-// decompresses it, then calls the same XML-to-GM table converter family as
-// loadTableFromXMLFile. The shipped level corpus calls the two-argument
-// GAMEDATA form; all its .xml.z files are zlib streams and the shared XML
-// loader above already inflates them before parsing. Savedata area 0 uses
-// the same per-title save root as the other FILEHELPER_AREA_SAVEDATA calls.
-// The third flag's effect and host/null areas need separate evidence.
-int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedXMLFile(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1);
-    if (a_thread->GetNumParams() > 3) return GM_EXCEPTION;
-    if (a_thread->GetNumParams() >= 2 && a_thread->Param(1).m_type != GM_INT)
-        return GM_EXCEPTION;
-    if (a_thread->GetNumParams() >= 2 && a_thread->Param(1).m_value.m_int != 0 &&
-        a_thread->Param(1).m_value.m_int != 1) {
-        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromCompressedXMLFile(area)");
-    }
-    if (a_thread->GetNumParams() == 3 && a_thread->Param(2).m_value.m_int != 0) {
-        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromCompressedXMLFile(parseFlag)");
-    }
-    return gmf_GameMonkeyScript_loadTableFromXMLFile(a_thread);
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromXMLFile(gmThread* a_thread) {
+    return LoadTableFromXMLFile(a_thread, false);
 }
 
-// Confirmed real: 1 or 2 args (path, [area]) -- area follows the same
-// FILEHELPER_AREA_* convention as the XML loader above.
-int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonFile(gmThread* a_thread) {
+// Retail 0x0006e184 accepts (path, [area], [parseFlag]) and requires zlib
+// inflation before applying the XML loader's string-value option.
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedXMLFile(gmThread* a_thread) {
+    return LoadTableFromXMLFile(a_thread, true);
+}
+
+int LoadTableFromXMLSaveRequest(gmThread* a_thread, bool a_compressed) {
+    GM_CHECK_NUM_PARAMS(1);
+    if (a_thread->GetNumParams() > 2) return GM_EXCEPTION;
+    std::string ticket;
+    if (!SaveTicketFilename(*a_thread->GetMachine(), a_thread->Param(0), ticket)) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    const bool forceStringValues = a_thread->GetNumParams() == 2 &&
+                                   a_thread->Param(1).m_value.m_int != 0;
+    std::string text;
+    if (!SaveData::ReadFile(ticket, text)) {
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromXMLSaveRequest: '%s' not found in save dir\n",
+                     ticket.c_str());
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    if (a_compressed && !InflateRequired(text)) {
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromCompressedXMLSaveRequest: zlib inflate failed for '%s'\n",
+                     ticket.c_str());
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    gmTableObject* table = ParseXmlTable(*a_thread->GetMachine(), text,
+                                         forceStringValues);
+    if (!table) {
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromXMLSaveRequest: XML parse failed for '%s'\n",
+                     ticket.c_str());
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    a_thread->PushTable(table);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromXMLSaveRequest(gmThread* a_thread) {
+    return LoadTableFromXMLSaveRequest(a_thread, false);
+}
+
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedXMLSaveRequest(
+    gmThread* a_thread) {
+    return LoadTableFromXMLSaveRequest(a_thread, true);
+}
+
+// Retail 0x0006d708 accepts 1 or 2 args (path, [area]); its optional area
+// payload follows the same FILEHELPER_AREA_* convention as the XML loader.
+int LoadTableFromJsonFile(gmThread* a_thread, bool a_compressed) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
-    if (a_thread->GetNumParams() > 2) return GM_EXCEPTION;
+    if (a_thread->GetNumParams() > (a_compressed ? 3 : 2)) return GM_EXCEPTION;
     int area = 1;
-    if (a_thread->GetNumParams() == 2) {
-        GM_INT_PARAM(requestedArea, 1, 1);
-        area = requestedArea;
+    if (a_thread->GetNumParams() >= 2) {
+        area = a_thread->Param(1).m_value.m_int;
     }
-    if (area != 0 && area != 1)
-        return StrictCalls::Report(a_thread, "GameMonkeyScript.loadTableFromJsonFile(area)");
 
     std::string text;
-    const bool found = area == 0 ? SaveData::ReadFile(path, text)
-                                 : GetEngineContext().fileHelper->ReadTextFile(path, text);
+    const bool found = ReadGameMonkeyScriptFile(area, path, text);
     if (!found) {
         std::fprintf(stderr, "GameMonkeyScript.loadTableFromJsonFile: '%s' not found\n", path);
         a_thread->PushNull();
         return GM_OK;
     }
-    if (!MaybeInflate(text)) {
-        std::fprintf(stderr, "GameMonkeyScript.loadTableFromJsonFile: zlib inflate failed for '%s'\n", path);
+    if (a_compressed && !InflateRequired(text)) {
+        std::fprintf(stderr, "GameMonkeyScript.loadTableFromCompressedJsonFile: zlib inflate failed for '%s'\n", path);
         a_thread->PushNull();
         return GM_OK;
     }
@@ -341,6 +407,26 @@ int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonFile(gmThread* a_thread) {
         return GM_OK;
     }
 
+    a_thread->Push(JsonToGmVariable(*a_thread->GetMachine(), doc));
+    return GM_OK;
+}
+
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonFile(gmThread* a_thread) {
+    return LoadTableFromJsonFile(a_thread, false);
+}
+
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedJsonFile(gmThread* a_thread) {
+    return LoadTableFromJsonFile(a_thread, true);
+}
+
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonString(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_STRING_PARAM(json, 0, "");
+    rapidjson::Document doc;
+    if (doc.Parse<rapidjson::kParseTrailingCommasFlag>(json).HasParseError()) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
     a_thread->Push(JsonToGmVariable(*a_thread->GetMachine(), doc));
     return GM_OK;
 }
@@ -527,6 +613,29 @@ int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonSaveRequest(gmThread* a_threa
     return GM_OK;
 }
 
+int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedJsonSaveRequest(
+    gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    std::string ticket;
+    if (!SaveTicketFilename(*a_thread->GetMachine(), a_thread->Param(0), ticket)) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    if (a_thread->GetNumParams() != 1) return GM_EXCEPTION;
+    std::string text;
+    if (!SaveData::ReadFile(ticket, text) || !InflateRequired(text)) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    rapidjson::Document doc;
+    if (doc.Parse<rapidjson::kParseTrailingCommasFlag>(text.c_str()).HasParseError()) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    a_thread->Push(JsonToGmVariable(*a_thread->GetMachine(), doc));
+    return GM_OK;
+}
+
 // GameMonkeyScript.setIsCheckingInfiniteLoop(bool) -- confirmed real
 // setter). Real call site (Main.gm:3226's setupLevelFromJsonFile():
 // `GameMonkeyScript.setIsCheckingInfiniteLoop(false);`) toggles the GM VM's
@@ -560,6 +669,13 @@ int GM_CDECL gmf_GameMonkeyScript_isCollectingGarbage(gmThread* a_thread) {
     return GM_OK;
 }
 
+// Retail 0x0006f800 and 0x0006f808 are empty wrappers that return zero.
+// They are used by menu screen-state code as checkpoint markers, but do not
+// actually snapshot or restore VM state in this build.
+int GM_CDECL gmf_GameMonkeyScript_scriptCheckpointNoop(gmThread*) {
+    return GM_OK;
+}
+
 // Retail 0x0006f77c pushes the collector's m_numAllocated field at +0x60.
 // The bundled GameMonkey collector already tracks that field under
 // GM_GC_STATS; keep the existing counter enabled in Release builds too.
@@ -571,22 +687,21 @@ int GM_CDECL gmf_GameMonkeyScript_getNumObjectsInGC(gmThread* a_thread) {
 gmFunctionEntry s_gameMonkeyScriptLib[] = {
     {"loadScript", gmf_GameMonkeyScript_loadScript, nullptr},
     {"setIsCheckingInfiniteLoop", gmf_GameMonkeyScript_setIsCheckingInfiniteLoop, nullptr},
+    {"setScriptCheckpoint", gmf_GameMonkeyScript_scriptCheckpointNoop, nullptr},
+    {"restoreScriptCheckpoint", gmf_GameMonkeyScript_scriptCheckpointNoop, nullptr},
     {"clean", gmf_GameMonkeyScript_clean, nullptr},
     {"isCollectingGarbage", gmf_GameMonkeyScript_isCollectingGarbage, nullptr},
     {"getNumObjectsInGC", gmf_GameMonkeyScript_getNumObjectsInGC, nullptr},
     {"loadTableFromXMLFile", gmf_GameMonkeyScript_loadTableFromXMLFile, nullptr},
     {"loadTableFromCompressedXMLFile", gmf_GameMonkeyScript_loadTableFromCompressedXMLFile, nullptr},
+    {"loadTableFromXMLSaveRequest", gmf_GameMonkeyScript_loadTableFromXMLSaveRequest, nullptr},
+    {"loadTableFromCompressedXMLSaveRequest", gmf_GameMonkeyScript_loadTableFromCompressedXMLSaveRequest, nullptr},
     {"loadTableFromJsonFile", gmf_GameMonkeyScript_loadTableFromJsonFile, nullptr},
-    // GameMonkeyScript.c 0x0006e9c0), same 1-or-2-arg (path,[area]) shape.
-    // Genuinely the same native entry point as loadTableFromJsonFile above
-    // once MaybeInflate's magic-byte zlib detection is accounted for (both
-    // handle compressed and uncompressed input identically) -- Main.gm's
-    // own real level-load fallback dance calls whichever one matches the
-    // filename it's trying (compressedAreaFilename vs areaFilename) but
-    // both ultimately need to inflate-then-parse the same way.
-    {"loadTableFromCompressedJsonFile", gmf_GameMonkeyScript_loadTableFromJsonFile, nullptr},
+    {"loadTableFromCompressedJsonFile", gmf_GameMonkeyScript_loadTableFromCompressedJsonFile, nullptr},
+    {"loadTableFromJsonString", gmf_GameMonkeyScript_loadTableFromJsonString, nullptr},
     {"saveTableToJsonSaveRequest", gmf_GameMonkeyScript_saveTableToJsonSaveRequest, nullptr},
     {"loadTableFromJsonSaveRequest", gmf_GameMonkeyScript_loadTableFromJsonSaveRequest, nullptr},
+    {"loadTableFromCompressedJsonSaveRequest", gmf_GameMonkeyScript_loadTableFromCompressedJsonSaveRequest, nullptr},
 };
 
 } // namespace
@@ -622,7 +737,8 @@ gmVariable JsonStringToGmVariable(gmMachine& a_machine, const std::string& a_jso
         // table rather than allocating a fresh one.
         gmTableObject* table = (gmTableObject*)a_machine.GetObject(a_extra->m_value.m_ref);
         for (auto it = doc.MemberBegin(); it != doc.MemberEnd(); ++it) {
-            SetTableKey(a_machine, table, it->name.GetString(), JsonToGmVariable(a_machine, it->value));
+            SetJsonObjectKey(a_machine, table, it->name.GetString(),
+                             JsonToGmVariable(a_machine, it->value));
         }
         return *a_extra;
     }
