@@ -30,21 +30,13 @@ struct DrawBufferShape {
     int vertexCapacity = 0;
     int vertexCount = 0;
     unsigned int vertexFlags = 0;
-    // Retail vertex records begin with colour -1; the remaining five words
-    // are zeroed by FUN_00053870 and restored to these values by reset.
     unsigned int defaultColour = 0xffffffffu;
     int mode = 0;
-    // FUN_00053b9c copies 0x44 bytes from manager+0x10 to record+0x1c:
-    // four {x,y,z,rotation} stack entries (0x40 bytes), followed by the
-    // manager's stack index. resetMatrixShape/resetMatrixStack write -1 to
-    // the copied stack-index word at record+0x5c.
     int matrixStackSnapshotIndex = -1;
     std::array<DrawBufferMatrix, 4> matrixSnapshot{};
 };
 
 struct VideoDrawBufferData {
-    // Retail FUN_00053758 allocates one initial 0x70-byte record and sets
-    // current shape and matrix-stack indices (+0x54/+0x50) to -1.
     std::vector<DrawBufferShape> shapes{1};
     int currentShape = -1;
     int matrixStackIndex = -1;
@@ -89,10 +81,6 @@ std::vector<std::shared_ptr<VideoDrawBufferData>>& DrawBufferManager() {
 }
 
 std::vector<std::vector<unsigned char>>& ResetAllOrphanedVertexStorage() {
-    // FUN_00053ad8 resets records and frees the record array but never frees
-    // the per-record vertex allocations. Keep those allocations alive to
-    // reproduce that retail lifetime side effect; destroyDrawBuffer uses the
-    // separate FUN_000537d0 path, which does release them.
     static std::vector<std::vector<unsigned char>> storage;
     return storage;
 }
@@ -123,13 +111,9 @@ int GM_CDECL gmf_VideoDrawBuffer_dummy(gmThread* a_thread) {
 
 int GM_CDECL gmf_VideoDrawBuffer_draw(gmThread* a_thread) {
     if (!ThisDrawBuffer(a_thread)) return GM_EXCEPTION;
-    // PPC 0x836dc reaches FUN_00053be8, whose body is a literal `blr`.
     return GM_OK;
 }
 
-// Retail FUN_00053870 grows the 0x70-byte shape-record array through index,
-// frees that record's previous vertex allocation, then allocates
-// vertexCapacity * 0x18 bytes and initializes each 24-byte vertex record.
 int GM_CDECL gmf_VideoDrawBuffer_setReservedSize(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer || a_thread->GetNumParams() < 2) return GM_EXCEPTION;
@@ -149,14 +133,9 @@ int GM_CDECL gmf_VideoDrawBuffer_setReservedSize(gmThread* a_thread) {
     }
     shape.vertexCapacity = capacity;
     shape.vertexCount = 0;
-    // FUN_00053870 does not clear the record's flags or copied matrix-stack
-    // index when replacing only its vertex allocation.
     return GM_OK;
 }
 
-// FUN_00053a60 restores existing vertex records to their default colour and
-// zero payload, then clears count/flags and sets the copied stack-index word
-// at record+0x5c to -1.
 int GM_CDECL gmf_VideoDrawBuffer_reset(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
@@ -166,8 +145,6 @@ int GM_CDECL gmf_VideoDrawBuffer_reset(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail FUN_00053ad8 resets each record and frees the record array but leaks
-// the per-record vertex allocations. Keep those allocations alive to match.
 int GM_CDECL gmf_VideoDrawBuffer_resetAll(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer) return GM_EXCEPTION;
@@ -194,8 +171,6 @@ int GM_CDECL gmf_VideoDrawBuffer_isHasData(gmThread* a_thread) {
 }
 
 uint8_t RetailDrawBufferColourByte(float a_value) {
-    // FUN_00053c10 uses fmuls(value, 255.0f), fctidz, then keeps the low
-    // byte. PPC's invalid-conversion result has zero in that byte.
     volatile float scaled = a_value * 255.0f;
     constexpr double kInt64Min = -9223372036854775808.0;
     constexpr double kInt64Limit = 9223372036854775808.0;
@@ -254,9 +229,6 @@ void ApplyDrawBufferColour(VideoDrawBufferData& a_buffer, float a_red,
         static_cast<size_t>(a_buffer.currentShape) >= a_buffer.shapes.size())
         return;
 
-    // FUN_00053d08 uses these exact f32 constants and fmuls/fmadds sequence
-    // to form its grayscale source, then interpolates toward it using Video's
-    // grayscale percentage. The literal pool is at PPC 0x53cd8..0x53cec.
     constexpr float kRedWeight = 0x1.030304p-1f;   // 0x3f018182
     constexpr float kGreenWeight = 0x1.b9b9bap-1f; // 0x3f5cdcdd
     constexpr float kBlueWeight = 0x1.151516p-2f;  // 0x3e8a8a8b
@@ -282,8 +254,6 @@ int GM_CDECL gmf_VideoDrawBuffer_setColour(gmThread* a_thread) {
         float red = 0.0f, green = 0.0f, blue = 0.0f;
         if (!ResolveColourRGB(a_thread, a_thread->Param(0), red, green, blue))
             return GM_EXCEPTION;
-        // The optional alpha is converted by retail and forwarded, but
-        // FUN_00053d08 writes an opaque alpha byte (0xff) unconditionally.
         if (count == 2) (void)DrawBufferScalarAsFloat(a_thread->Param(1));
         ApplyDrawBufferColour(*buffer, red, green, blue);
         return GM_OK;
@@ -298,9 +268,6 @@ int GM_CDECL gmf_VideoDrawBuffer_setColour(gmThread* a_thread) {
     }
     return GM_EXCEPTION;
 }
-// FUN_0008372c reserves/resets the selected shape, copies four complete
-// {x,y,z,rotation} matrix-stack entries plus the stack index (0x44 bytes)
-// into record+0x1c, and stores the requested shape mode.
 int GM_CDECL gmf_VideoDrawBuffer_beginShape(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
@@ -317,10 +284,6 @@ int GM_CDECL gmf_VideoDrawBuffer_beginShape(gmThread* a_thread) {
         if (index < 0) index = static_cast<int>(buffer->shapes.size());
     }
 
-    // FUN_00053870 grows the record array to index+1, replaces that record's
-    // vertex allocation with capacity 0x18-byte records, and initializes each
-    // vertex colour to -1 with the remaining words zero. Retail trusts these
-    // values; reject sizes that cannot be represented safely on desktop.
     if (index < 0 || capacity < 0 ||
         static_cast<size_t>(capacity) > std::vector<unsigned char>().max_size() / 0x18)
         return GM_EXCEPTION;
@@ -344,7 +307,6 @@ int GM_CDECL gmf_VideoDrawBuffer_beginShape(gmThread* a_thread) {
     buffer->currentShape = index;
     return GM_OK;
 }
-// FUN_000838b4 writes -1 to buffer field +0x54; it reads no script args.
 int GM_CDECL gmf_VideoDrawBuffer_endShape(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer) return GM_EXCEPTION;
@@ -410,12 +372,8 @@ int GM_CDECL gmf_VideoDrawBuffer_plotVertex(gmThread* a_thread) {
         }
     }
     ++shape.vertexCount;
-    // FUN_00083d14 writes a valid six-argument vertex, then returns -1.
     return count == 6 ? GM_EXCEPTION : GM_OK;
 }
-// FUN_000843cc increments the native stack index and zeroes the new
-// 16-byte {x,y,z,angle} stack entry. Retail has four inline entries in the
-// 0x60-byte matrix object; exceeding them is an unchecked native overrun.
 int GM_CDECL gmf_VideoDrawBuffer_pushMatrix(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer) return GM_EXCEPTION;
@@ -426,8 +384,6 @@ int GM_CDECL gmf_VideoDrawBuffer_pushMatrix(gmThread* a_thread) {
     return GM_OK;
 }
 
-// FUN_0008443c only decrements the native stack index; there is no
-// underflow branch in the PPC body.
 int GM_CDECL gmf_VideoDrawBuffer_popMatrix(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer) return GM_EXCEPTION;
@@ -470,8 +426,6 @@ int GM_CDECL gmf_VideoDrawBuffer_translate(gmThread* a_thread) {
         matrix.z = matrix.z + z;
     return GM_OK;
 }
-// FUN_0008470c converts arg 0 using GM_FLOAT payload for tag 2 and the raw
-// signed integer payload otherwise, then adds that scalar to current angle.
 int GM_CDECL gmf_VideoDrawBuffer_rotateZ(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
@@ -484,9 +438,6 @@ int GM_CDECL gmf_VideoDrawBuffer_rotateZ(gmThread* a_thread) {
     return GM_OK;
 }
 
-// FUN_000847a0 with zero args calls FUN_00053b58(buffer,false); one arg uses
-// the embedded 0.0f threshold at 0x84798 and asks the helper to clear all
-// copied matrix-stack indices only when arg0 > 0.0f. Counts above one do nothing.
 int GM_CDECL gmf_VideoDrawBuffer_resetMatrixStack(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer) return GM_EXCEPTION;
@@ -507,8 +458,6 @@ int GM_CDECL gmf_VideoDrawBuffer_resetMatrixStack(gmThread* a_thread) {
     return GM_OK;
 }
 
-// FUN_0008487c converts arg 0 to the native record index and writes -1 to
-// that record's field +0x5c.
 int GM_CDECL gmf_VideoDrawBuffer_resetMatrixShape(gmThread* a_thread) {
     VideoDrawBufferData* buffer = ThisDrawBuffer(a_thread);
     if (!buffer || a_thread->GetNumParams() < 1) return GM_EXCEPTION;

@@ -9,18 +9,6 @@
 
 class Renderer;
 
-// entry #: "TEXTURE"), previously threaded through this engine as a plain
-// gmint GL handle instead (a known, documented architecture gap) --
-// confirmed wrong two ways: (1) real retail throws `cannot do: TEXTURE + ""`
-// when a script tries to string-concatenate a texture handle (confirmed
-// live on real RPCS3 via game_data_testcart), which a plain int could never
-// do; (2) real usage calls `.getDimensions()` as a METHOD directly on a
-// texture (`Platformer/Main.gm`: `this.loadingScreen.texture.getDimensions()`,
-// used immediately as a vector2D via `.x`/`.y`), which a plain int has no
-// way to support. Implemented as a lightweight native user type wrapping
-// the same underlying GL handle this engine already used, so every
-// existing texture-consuming calls keep working via ResolveTextureHandle()
-// below; path-based unload is handled by the per-area resource lease table.
 void RegisterTextureBindings(gmMachine& a_machine);
 
 // Wraps a_handle (an existing GL texture handle from Renderer::LoadTexture)

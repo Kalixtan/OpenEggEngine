@@ -18,29 +18,8 @@
 #include <cmath>
 
 namespace {
-// Confirmed live on real RPCS3/retail via game_data_testcart's TEST
-// 104/105/106 -- NOT the intuitive 0/1/2 order. Must match
-// constants_bindings.cpp's TEXTALIGN_LEFT/CENTER/RIGHT.
 enum { kAlignLeft = 0, kAlignRight = 1, kAlignCenter = 2 };
 
-// `{TOKEN}` inline icon substitution -- confirmed real via
-// game_data/Platformer/extFont/how_to_use.txt (left-in Queasy Games
-// internal doc): "You can also add an entry in FontSpecialChars.cpp...
-// {EXAMPLE} will use EXAMPLE.png". Real retail scripts embed these tokens
-// directly in localized strings (ResizeScreenProcess.gm's "Use {LSY} to
-// fit the outer corners...", PauseProcessBase's button-hint text) and
-// expect the native font renderer to splice in the button-icon image
-// in-place, matching the surrounding text's colour/height/baseline.
-//
-// {ACCEPT}/{CANCEL} are the two real semantic (not literal-filename)
-// tokens -- retail maps these to the current platform's actual
-// accept/cancel button, which is region-dependent (US convention: Cross
-// accepts, Circle cancels; this reimplementation targets NPUA80543/US so
-// that's hardcoded here rather than threaded through SystemConfig).
-// The shipped scripts also spell the Unicode registered mark as `{(R)}`
-// (NetworkErrors.gm explicitly documents that convention).
-// {CROSS_BUTTON} appears once in the corpus (commented-out
-// TouchEditProcessPS3.gm tip) as an alt spelling of {CROSS}.
 const char* ResolveIconAlias(const std::string& a_token) {
     if (a_token == "ACCEPT") return "CROSS";
     if (a_token == "CANCEL") return "CIRCLE";
@@ -48,8 +27,6 @@ const char* ResolveIconAlias(const std::string& a_token) {
     return nullptr;
 }
 
-// Retail FUN_00044540 maps this exact codepoint interval to the name table
-// at EBOOT.elf 0x0041f81c. The table is the order shown below.
 const char* RetailSpecialCharacterName(uint32_t a_codepoint) {
     static const char* const names[] = {
         "CROSS", "CIRCLE", "SQUARE", "TRIANGLE",
@@ -61,10 +38,6 @@ const char* RetailSpecialCharacterName(uint32_t a_codepoint) {
     return names[a_codepoint - 0x2510];
 }
 
-// Match FUN_0004387c's UTF-8 leading-byte length and continuation-bit
-// assembly. Retail accepts legacy five/six-byte forms and does not validate
-// continuation bytes; normal valid UTF-8 therefore maps identically, while
-// malformed inputs avoid reading past the C++ string buffer.
 uint32_t DecodeRetailCodepoint(const std::string& a_text, size_t& a_offset) {
     const unsigned char first = (unsigned char)a_text[a_offset++];
     unsigned int byteCount = first < 0x80 ? 1 : first < 0xe0 ? 2 :
@@ -138,11 +111,6 @@ struct FontToken {
     std::string iconToken;  // valid when isIcon
 };
 
-// FUN_00041e40 writes the same five metrics as a normal font glyph:
-// width=.98*(imageWidth/imageHeight), height=.98, advance=width+.08,
-// yOfs=.12446, bearingX=.04. extFont's own instructions require square
-// icons, making the retail width .98 and advance 1.06 for the supported
-// assets. yOfs/bearingX use DrawText's ordinary glyph baseline formula.
 constexpr float kIconWidth = 0.98f;
 constexpr float kIconHeight = 0.98f;
 constexpr float kIconAdvance = 1.06f;
@@ -218,11 +186,6 @@ bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageD
     ss << f.rdbuf();
     std::string text = ss.str();
 
-    // kParseTrailingCommasFlag: the retail bitmap font atlases
-    // (HelveticaNeueLTCom-*.json etc, loaded via
-    // GameMonkeyScript.loadTableFromJsonFile in the real engine) contain
-    // trailing commas that a strict JSON parser rejects -- confirmed
-    // necessary, not a stylistic choice.
     rapidjson::Document root;
     if (root.Parse<rapidjson::kParseTrailingCommasFlag>(text.c_str()).HasParseError() || !root.IsObject()) {
         std::fprintf(stderr, "BitmapFont::Load: JSON parse failed for '%s'\n", a_jsonPath.c_str());
@@ -233,7 +196,7 @@ bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageD
         std::fprintf(stderr, "BitmapFont::Load: no 'pages' in '%s'\n", a_jsonPath.c_str());
         return false;
     }
-    const auto& page = root["pages"][0]; // single-page atlas only, matches confirmed data
+    const auto& page = root["pages"][0];
 
     if (!page.HasMember("image") || !page["image"].IsString()) return false;
     if (!page.HasMember("characters") || !page["characters"].IsArray()) return false;
@@ -404,36 +367,6 @@ bool BitmapFont::Load(const std::string& a_jsonPath, const std::string& a_imageD
     return true;
 }
 
-// FoE PC's font isn't a pre-baked retail atlas (see header comment) -- this
-// rasterises grayscale-bold.ttf into the same normalized Glyph shape Load()
-// produces, so DrawText/DrawGlyphQuad need no separate code path.
-//
-// RETAIL MATCH: retail rasterises its text with **FreeType2** -- its own
-// assert paths name `D:\projects\pekkoAndJon\code\FreeType2TestProcess.cpp`
-// (see reveng_pc/RETAIL_GL_GROUND_TRUTH.md's module-architecture section).
-// This used stb_truetype, which is a different rasteriser: it produces
-// different coverage values for the same outline, so glyph pixels differed
-// from retail's even when geometry and blending were identical. Using
-// FreeType2 here removes that class of difference.
-//
-// Metrics mapping from FreeType to this codebase's normalized units (all
-// divided by a_pixelHeight to get fraction-of-em, matching what the JSON
-// atlas path already stores):
-//
-//   advance   = (glyph->advance.x >> 6)        / pixelHeight   [26.6 fixed]
-//   width     = bitmap.width                   / pixelHeight
-//   height    = bitmap.rows                    / pixelHeight
-//   bearingX  = glyph->bitmap_left             / pixelHeight
-//   yOfs      = (rows - bitmap_top)            / pixelHeight
-//
-// The yOfs line is the one worth care. FreeType's `bitmap_top` is the
-// distance from the baseline UP to the glyph's top row. This codebase's yOfs
-// is a y-DOWN signed offset from the baseline to the glyph's BOTTOM edge
-// (DrawText does `lyBottom = a_y - yOfs*scale`, so a negative yOfs pushes the
-// bottom edge above the baseline, which is the normal case for a
-// non-descending glyph). Converting: top edge y-down is -bitmap_top, and the
-// bottom edge is that plus the glyph height, giving (rows - bitmap_top).
-// That is exactly the quantity stb_truetype expressed as (yoff + glyphH).
 bool BitmapFont::LoadTTF(const std::string& a_ttfPath, float a_pixelHeight, Renderer& a_renderer) {
     FT_Library ft = nullptr;
     if (FT_Init_FreeType(&ft) != 0) {
@@ -533,10 +466,6 @@ bool BitmapFont::LoadTTF(const std::string& a_ttfPath, float a_pixelHeight, Rend
             m_hasRetailFallbackGlyph = true;
         }
         if (p.w <= 0 || p.h <= 0) {
-            // Space etc: zero-size ink box, advance only. MUST still be
-            // inserted -- FindGlyph returning null makes DrawText's
-            // `if (!g) continue;` skip advancing the cursor too, which is how
-            // "flowers of error" once rendered as "flowersoferror".
             m_glyphs[32 + i] = g;
             continue;
         }
@@ -571,9 +500,6 @@ float BitmapFont::GetRetailGlyphAdvance(uint32_t a_codepoint) const {
 }
 
 float BitmapFont::MeasureRetailTextWidth(const std::string& a_text, double a_scale) const {
-    // Retail Video.getTextWidth -> FUN_00052c20 uses strlen and looks up each
-    // signed byte separately via FUN_000441c4. That helper selects a glyph
-    // range or falls back to the font's first glyph record.
     auto glyphForByte = [this](unsigned char a_byte) -> const Glyph* {
         const int signedCode = static_cast<int>(static_cast<int8_t>(a_byte));
         const Glyph* glyph = FindGlyph(signedCode);
@@ -664,24 +590,6 @@ void BitmapFont::DrawText(Renderer& a_renderer, const std::string& a_text, float
         const Glyph* g = FindGlyph((int)t.codepoint);
         if (!g) continue;
 
-        // Retail formula, decompiled from the real glyph-quad builder
-        // (FUN_0003f4b8, called from DrawList.print's line-layout routine
-        // function computes one glyph edge as `baselineY - yOfs*scale`
-        // and the other as that same edge offset by `height * (k*scale)`
-        // where k is a per-font sign/scale constant read from the current
-        // font object (FUN_00052c0c) -- i.e. yOfs anchors DIRECTLY to the
-        // baseline, no line-top/ascent reference glyph involved at all
-        // (the earlier m_baselineFontY-subtraction approach was a wrong
-        // model). Confirmed numerically against every glyph in
-        // HelveticaNeueLTCom-Lt.json using bottom=baseline-yOfs,
-        // top=bottom+height: caps/digits/most-lowercase all give a
-        // consistent ~0.777-0.793 cap-height with a small ~0.06-0.08
-        // baseline overshoot (expected optical correction on round/flat
-        // letters like O/U/S), descenders (g/j/p/q/y) all give a
-        // consistent ~0.25-0.27 hang below baseline with x-height (or,
-        // for j, full cap-height) tops, and '.' gives a small ~0.17-tall
-        // box sitting almost exactly on the baseline -- exactly matching
-        // real typographic proportions for this typeface.
         float lx0 = cursorX + g->bearingX * a_scale;
         float lx1 = lx0 + g->width * a_scale;
         float lyBottom = a_y - g->yOfs * a_scale;

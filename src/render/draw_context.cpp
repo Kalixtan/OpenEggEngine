@@ -46,10 +46,6 @@ static std::optional<std::string> ResolveDrawTexturePath(const char* a_path, int
     return fullPath;
 }
 
-// The retail wrappers widen GM_FLOAT values to double and convert GM_INT
-// values directly to double before calling FUN_0003e040. Keep that precision
-// through its double addition/absolute-value operations; the helper then
-// rounds once to float before multiplying by its 0.5f constant.
 static double RetailFloatOrIntAsDouble(gmThread* a_thread, int a_index) {
     const gmVariable& value = a_thread->Param(a_index);
     return value.m_type == GM_FLOAT
@@ -116,9 +112,6 @@ int GM_CDECL DC_gmf_setAttrDepthWrite(gmThread* a_thread) {
     });
 }
 
-// drawList.setAttrCulling(mode) -- confirmed real, see Renderer::SetCulling's
-// header comment for the mode semantics (taken straight from the one real
-// call site's own comment, QuadShadowed.gm:36).
 int GM_CDECL DC_gmf_setAttrCulling(gmThread* a_thread) {
     GM_INT_PARAM(mode, 0, 0);
     return DC_RecordOrRun(a_thread, [mode] {
@@ -128,8 +121,6 @@ int GM_CDECL DC_gmf_setAttrCulling(gmThread* a_thread) {
     });
 }
 
-// Retail FUN_00041ad0 quantizes transparent Z by float 0x42055556, adds 0xff00,
-// clamps to 16 bits, and selects tier 3 in the draw-list order key.
 int GM_CDECL DC_gmf_setOrderTransparent(gmThread* a_thread) {
     DrawListData* list = RecordingTarget(a_thread);
     if (!list) return GM_EXCEPTION;
@@ -140,7 +131,6 @@ int GM_CDECL DC_gmf_setOrderTransparent(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail FUN_00041b38 uses a different tier and reverses Z within it.
 int GM_CDECL DC_gmf_setOrderAlphaTest(gmThread* a_thread) {
     DrawListData* list = RecordingTarget(a_thread);
     if (!list) return GM_EXCEPTION;
@@ -151,7 +141,6 @@ int GM_CDECL DC_gmf_setOrderAlphaTest(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail 0x00082bbc changes only the tier bits of native field +0x30.
 int GM_CDECL DC_gmf_setOrderLast(gmThread* a_thread) {
     DrawListData* list = RecordingTarget(a_thread);
     if (!list) return GM_EXCEPTION;
@@ -159,21 +148,10 @@ int GM_CDECL DC_gmf_setOrderLast(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Verification: retail PPC plus native config table and Cg reflection. Native
-// config row IDs differ from Cg paramno: row 1 is aColor/category 5, row 2 is
-// aDiscardLevel, row 3 is aSmoothLevel, and row 4 is aSize/category 10.
-// setDistanceTextureRenderAttributes(near, far) -- retail records two
-// 4-byte payloads through FUN_0003e040 (DrawList.c:0x000815b8). Cg reflection
-// and FUN_0003e040 establish that those payloads update native IDs 2
-// (aDiscardLevel) and 3 (aSmoothLevel). Preserve both until another setter,
-// resetFontRenderAttributes, or popAttributes changes them.
 int GM_CDECL DC_gmf_setDistanceTextureRenderAttributes(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     const double nearValue = RetailFloatOrIntAsDouble(a_thread, 0);
     const double farValue = RetailFloatOrIntAsDouble(a_thread, 1);
-    // FUN_0003e040 receives (-near, far) from the retail wrapper. PPC fsel
-    // selects native ID 2 / aDiscardLevel (0.25 for positive `near`) while
-    // ID 3 / aSmoothLevel receives (near + far) / 2.
     const double retailFirst = -nearValue;
     const float discardLevel = retailFirst < 0.0 ? 0.25f : 0.5f;
     const float smoothLevel = RetailSmoothLevelFromArgs(retailFirst, farValue);
@@ -185,7 +163,6 @@ int GM_CDECL DC_gmf_setDistanceTextureRenderAttributes(gmThread* a_thread) {
     });
 }
 
-// drawList.setColourMask(bool) -- confirmed real, see Renderer::SetColourMask.
 int GM_CDECL DC_gmf_setColourMask(gmThread* a_thread) {
     GM_INT_PARAM(enabled, 0, 1);
     return DC_RecordOrRun(a_thread, [enabled] {
@@ -195,34 +172,6 @@ int GM_CDECL DC_gmf_setColourMask(gmThread* a_thread) {
     });
 }
 
-// drawList.setAttrStencil(func, op, ref) / (func, sfail, dpfail, dppass, ref)
-//
-// DECOMPILED EXACTLY (0x000804d0), closing the gap
-// layout not decoded in this pass ... flagged as a gap, not guessed"). The
-// body accepts ONLY 3 or 5 arguments (any other count returns -1) and
-// marshals them into a 0x18-byte / six-field struct pushed as opcode 0x22:
-//
-//     struct { u32 func, sfail, dpfail, dppass, ref, mask; }
-//
-// 5-arg form (0x80604), reading GM args 0..4 at the 12-byte gmVariable
-// stride (+0, +0xc, +0x18, +0x24, +0x30):
-//     func=arg0  sfail=arg1  dpfail=arg2  dppass=arg3  ref=arg4  mask=-1
-// which is what this engine already did.
-//
-// 3-arg form (0x8053c) -- and this is the correction:
-//     r6 = arg0; r5 = arg1; r4 = arg2; r7 = -1
-//     stw r6,0x88   stw r5,0x8c   stw r5,0x90   stw r5,0x94
-//     stw r4,0x98   stw r7,0x9c
-// i.e. func=arg0, ref=arg2, mask=-1, and the SINGLE op argument is stored
-// into all three op fields: sfail = dpfail = dppass = arg1. This engine
-// previously defaulted sfail/dpfail to KEEP and only applied arg1 to
-// dppass, on the reasoning that the 3-arg call sites "never need to touch
-// the stencil buffer on a failed test". Retail simply does not make that
-// distinction -- with the stencil test disabled or always-passing the two
-// readings coincide, which is why it went unnoticed, but they diverge the
-// moment a 3-arg REPLACE runs against a failing stencil or depth test.
-//
-// mask is the literal -1 (0xFFFFFFFF) in both forms, not GL's default 0xFF.
 int GM_CDECL DC_gmf_setAttrStencil(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     GM_CHECK_NUM_PARAMS(3);
@@ -250,8 +199,6 @@ int GM_CDECL DC_gmf_setAttrStencil(gmThread* a_thread) {
     });
 }
 
-// drawList.setAttrDefaultStencil() -- confirmed real, resets to "no
-// stencil test", see Renderer::SetDefaultStencil.
 int GM_CDECL DC_gmf_setAttrDefaultStencil(gmThread* a_thread) {
     return DC_RecordOrRun(a_thread, [] {
         DrawContext& ctx = GetDrawContext();
@@ -261,12 +208,6 @@ int GM_CDECL DC_gmf_setAttrDefaultStencil(gmThread* a_thread) {
     });
 }
 
-// Retail drawList.setColour wrapper at 0x7e6c8 appends a color command after
-// converting scalar payloads (float payload for GM_FLOAT, otherwise signed
-// integer payload). Its 1/2-argument forms accept color ID, name, or COLOUR;
-// its 3/4-argument forms are RGB[A]. Invalid arities/types return -1.
-// Verification: FUN_0007e6c8 uses float payloads only for GM_FLOAT and
-// sign-extends/converts every other raw 32-bit payload to single precision.
 static float RetailSetColourScalar(gmThread* a_thread, int a_index) {
     const gmVariable& value = a_thread->Param(a_index);
     return value.m_type == GM_FLOAT
@@ -355,9 +296,6 @@ int GM_CDECL DC_gmf_setFontRenderAttributes(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     const double edge = RetailFloatOrIntAsDouble(a_thread, 0);
     const double width = RetailFloatOrIntAsDouble(a_thread, 1);
-    // Match FUN_0003e040's PPC fsel: a nonnegative first argument stores
-    // 0.5, a negative one 0.25. Unlike the distance-texture wrapper, the
-    // font wrapper passes its first argument unchanged.
     const float storedEdge = edge < 0.0 ? 0.25f : 0.5f;
     const float storedWidth = RetailSmoothLevelFromArgs(edge, width);
     return DC_RecordOrRun(a_thread, [storedEdge, storedWidth] {
@@ -367,18 +305,12 @@ int GM_CDECL DC_gmf_setFontRenderAttributes(gmThread* a_thread) {
     });
 }
 
-// Verification: decomp-confirmed native call and parameter writes; the native
-// table row map distinguishes descriptor IDs from Cg paramno. Reset writes
-// rows 2/3 (discard/smooth); row 4 (aSize) is not set by this path.
 int GM_CDECL DC_gmf_resetFontRenderAttributes(gmThread* a_thread) {
     return DC_RecordOrRun(a_thread, [] {
         DrawContext& ctx = GetDrawContext();
         ctx.fontEdge = 0.5f;
         ctx.fontWidth = 0.45f;
         ctx.distanceTextureEnabled = false;
-        // FUN_0003e0fc writes native ID 2 (aDiscardLevel)=0.5 and
-        // ID 3 (aSmoothLevel)=0.45. Cg paramno is one higher than these
-        // native descriptor-row IDs for the corresponding uniforms.
         ctx.distanceTextureDiscardLevel = 0.5f;
         ctx.distanceTextureSmoothLevel = 0.45f;
     });
@@ -386,27 +318,6 @@ int GM_CDECL DC_gmf_resetFontRenderAttributes(gmThread* a_thread) {
 
 namespace {
 
-// classes/DrawList.c's printTranslated decompiles to a helper
-// (FUN_000816c8) that reads a variable number of stack slots by type, not
-// a fixed positional signature. Reverse-engineered from corpus usage
-// instead (every distinct arg count/shape grepped across game_data/*.gm):
-// the leading run of NUMERIC args (before the first STRING arg) encodes
-// the position, and its length alone disambiguates the shape --
-// consistently either 2 (x,y), 3 (x,y,z), or 4 (x,wrapWidth,y,z) across
-// every real call site found. Whatever follows the text arg is, in order,
-// [height], [align], [PRINTINFO out-param] -- all optional, trailing.
-//   2 leading nums: print(x,y,text,[height,[align,[pInfo]]])
-//   3 leading nums: print(x,y,z,text,[height,[align,[pInfo]]])
-//   4 leading nums: print(x,wrapWidth,y,z,text,[height,[align,[pInfo]]])
-// wrapWidth greedily word-wraps into multiple lines (see WrapText below).
-// Resolves one {fmt, arg1, arg2, ...} substitution argument to its display
-// string. Args are confirmed real in 3 shapes (corpus grep of `%1`/`%2`
-// call sites): a plain GM_STRING (KeyToStringMap[keyCode]), a plain number
-// (HelpScreenPS3.gm's `{_("Page %1/%2"), this.currentPageIndex+1,
-// this.numberOfPages}`), or a nested {untranslated=str} wrapper
-// (PauseProcessBase.gm's `{_("Music by %1"), {untranslated=this.artist}}`,
-// used so the artist/level name itself isn't run through the `_()`
-// translation table like the surrounding format string is).
 std::string ResolveFormatArg(gmMachine* a_machine, const gmVariable& a_arg) {
     char buf[256];
     if (a_arg.m_type == GM_STRING) {
@@ -425,11 +336,6 @@ std::string ResolveFormatArg(gmMachine* a_machine, const gmVariable& a_arg) {
     return std::string();
 }
 
-// Substitutes 1-indexed %1, %2, ... placeholders in a format string with
-// the given resolved arg strings -- confirmed real via pervasive corpus
-// usage (`{"%1 %2", KeyToStringMap[...], text}`, `{_("Page %1/%2"), ...}`,
-// `{_("Music by %1"), {untranslated=...}}`). Left unsubstituted (printed
-// literally, e.g. "Music by %1") wherever this was missing before.
 std::string SubstituteFormatArgs(const std::string& a_fmt, const std::vector<std::string>& a_args) {
     std::string out;
     out.reserve(a_fmt.size());
@@ -447,14 +353,6 @@ std::string SubstituteFormatArgs(const std::string& a_fmt, const std::vector<std
     return out;
 }
 
-// Greedy word-wrap for print()'s 4-leading-number form (x,wrapWidth,y,z,text,...
-// -- confirmed real call shape via FontHelper.gm's
-// `drawList.print(0,width,0,0,text,adjustedSize,TEXTALIGN_CENTER,pInfo);`).
-// wrapWidth was previously read-and-discarded (BitmapFont had no
-// line-wrapping at all), so any real multi-line text (tutorial messages,
-// long popup copy) just ran off the edge of its box as one unbroken line.
-// No decompiled evidence for the exact line-spacing ratio -- 1.15x scale is
-// a plausible standard leading, not pinned to a confirmed constant.
 std::vector<std::string> WrapText(const BitmapFont& a_font, const std::string& a_text, float a_scale, float a_wrapWidth) {
     std::vector<std::string> lines;
     std::string line, word;
@@ -483,18 +381,6 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
     int n = a_thread->GetNumParams();
     GM_CHECK_NUM_PARAMS(4);
 
-    // Stop the leading-position scan at the first NON-NUMERIC arg, not
-    // specifically the first STRING -- confirmed real usage (Platformer/
-    // ScrollingString.gm:136 `drawList.print(0,0,0,this.string,...)`, where
-    // `this.string` was itself built by Platformer/PauseProcessBase.gm:685
-    // as `{this.parent.levelName}` or `{untranslated=this.parent.levelName}`,
-    // real table-wrapped-string patterns) can legitimately pass a GM_TABLE
-    // as the text argument, not just a GM_STRING -- scanning for "not a
-    // string" specifically ran straight past it (a table isn't a string
-    // either) and miscounted the whole leading run, always overflowing
-    // past 4 and throwing "expecting a string text argument" on every
-    // real call that does this (e.g. the pause menu's level-title display,
-    // permanently broken every frame).
     auto isPosition = [](const gmVariable& v) { return v.m_type == GM_INT || v.m_type == GM_FLOAT; };
     int numLeading = 0;
     while (numLeading < n && isPosition(a_thread->Param(numLeading))) ++numLeading;
@@ -503,22 +389,6 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
         return GM_EXCEPTION;
     }
 
-    // 4 leading numerics is a (left, right, y, z) BOUNDS form, not
-    // (x, wrapWidth, y, z) -- confirmed by corpus usage: every real 4-arg
-    // call site passes a genuine left/right pair, not an x/width pair
-    // (Platformer/PopupProcessBase.gm:265 `this.preDrawList.print(
-    // -this.bodyTable[i].textWidth/2.0, this.bodyTable[i].textWidth/2.0,
-    // 0, 0, text, textSize, alignment, pInfo)`; PopUpScriptLine.gm's
-    // `drawList.print(0, this.TEXT_WIDTH, 0, 0, text, size, TEXTALIGN_LEFT,
-    // pInfo)` pattern, repeated ~30 times across the corpus). Treating the
-    // first numeric as a literal x (as before) happened to look right for
-    // TEXTALIGN_LEFT calls (anchor == left, correct by coincidence) but
-    // put CENTER/RIGHT-aligned text at `left` instead of the bounds'
-    // midpoint/right edge -- e.g. GenericOkDialogProcess's body text
-    // rendered shifted a full half-textWidth off its intended center,
-    // overflowing the popup's left edge. The actual anchor x (computed
-    // below, once `align` is known) and wrapWidth (right-left, not a bare
-    // `right`) are both alignment-dependent for this form.
     int idx = 0;
     float leftOrX = a_thread->ParamFloatOrInt(idx++, 0.0f);
     bool hasBounds = (numLeading == 4);
@@ -535,8 +405,6 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
         char textBuf[512];
         text = textParam.AsString(a_thread->GetMachine(), textBuf, sizeof(textBuf));
     } else if (textParam.m_type == GM_TABLE) {
-        // See header comment above -- {untranslated=str} or a bare
-        // positional {str} table, both confirmed real.
         gmTableObject* textTable = (gmTableObject*)a_thread->GetMachine()->GetObject(textParam.m_value.m_ref);
         gmVariable inner = textTable->Get(a_thread->GetMachine(), "untranslated");
         bool isUntranslatedWrapper = (inner.m_type == GM_STRING);
@@ -612,38 +480,6 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
     // a recorded print() must see whatever transform is ambient when it's
     // actually replayed, not whatever it was when the list was built.
 
-    // Return value -- CONFIRMED REAL and load-bearing, missed in the
-    // (0x000819cc) ends by pushing a computed float onto the GM return slot
-    // (`*(float*)(iVar1+iVar2*0xc+4) = (float)dVar4;` then bumping the
-    // thread's top -- GM's own "push a return value" pattern, identical in
-    // shape to every other function here that returns something), not
-    // falling through to nothing the way a bare `return GM_OK;` with no
-    // push implies. Confirmed independently by corpus usage -- 31 real call
-    // sites consume it directly as a line-advance amount, e.g.
-    // Platformer/PopUpScriptLine.gm: `y-=drawList.print(left,right,y,0,
-    // this.title,yinctitle,TEXTALIGN_CENTER,pi);` (stacking multiple
-    // print() calls downward by subtracting each one's return value from
-    // the running y cursor) -- not a return value real scripts merely
-    // tolerate being null, one they actively depend on for layout, on
-    // every single-line AND multi-line print in the corpus. Previously
-    // returning nothing meant every one of those 31 sites hit "operator
-    // sub undefined for type null and float" the moment it ran.
-    // FUN_00040650's exact inputs aren't recoverable (opaque helper, see
-    // this function's own reveng comment), so the precise formula isn't
-    // decompiled -- but the CONTRACT is unambiguous from usage: the total
-    // vertical height just consumed, since every call site treats it as
-    // "how far to move the cursor past what I just drew". Derived here as
-    // (line count) * (line spacing), the same kLineSpacing this function
-    // already draws multi-line text with, so a single print() and an
-    // N-line wrapped print() both advance the cursor by exactly the space
-    // their own output actually occupies.
-    // Calibrated against FoE's real PC build (Wine screenshot of the title
-    // screen vs GE3_SCREENSHOT_FRAME capture of the same script state):
-    // measured line-to-line pitch for consecutive single-line print() calls
-    // at a known scale gives kLineSpacing ~= 0.75, not 1.15 -- the 1.15
-    // guess made every successive print() advance the cursor ~53% too far,
-    // visibly compounding over the title screen's ~15 stacked print() calls
-    // (text drifted down far enough to collide with the TOJAM logo).
     constexpr float kLineSpacing = 1.0f; // see WrapText's header comment
     float heightConsumed = 0.0f;
 
@@ -724,19 +560,6 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
     return GM_OK;
 }
 
-// Video.c cluster), same leading-numerics (left,[right,]y,[z]) position
-// form as print()/PrintImpl above (real call site TouchEditProcessPS3.gm
-// :2263: `drawList.printArray(0,0,-10,0,tipTable,.03,TEXTALIGN_CENTER,
-// this.pInfo);` -- 4 leading numerics, i.e. the same (left,right,y,z)
-// bounds form print() uses) -- but the "text" argument is a plain array
-// of already-formed strings (tipTable[0..n], TouchEditProcessPS3.gm:1315's
-// getTipTable() builds it that way, one already-translated/composed
-// string per line: spacerString/createString/cancelString/...), printed
-// one line per array element top-to-bottom, rather than PrintImpl's
-// single-string-with-%N-substitution/table-wrapper handling. Shares
-// PrintImpl's bounds-to-anchor-x resolution, deferred-draw-via-
-// DC_RecordOrRun mechanism, and PRINTINFO out-param contract exactly --
-// only the "how do we get the list of lines" step differs.
 int PrintArrayImpl(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     GM_CHECK_NUM_PARAMS(5);
@@ -840,20 +663,11 @@ int PrintArrayImpl(gmThread* a_thread) {
 
 } // namespace
 
-// print() confirmed real; the distinct printUntranslated() confirmed real
-// localization lookup and printUntranslated() is the explicit opt-out.
 int GM_CDECL DC_gmf_print(gmThread* a_thread) { return PrintImpl(a_thread, true); }
-// Bytecode verified against VMDRAWLIST.printTranslated at EBOOT 0x81b80:
-// it shares FUN_000816c8's argument parser with printUntranslated, then
-// formats through FUN_00010e28 with translated=1 and submits the resulting
-// text via FUN_00040650. This is the same translated path as DrawList.print.
 int GM_CDECL DC_gmf_printTranslated(gmThread* a_thread) { return PrintImpl(a_thread, true); }
 int GM_CDECL DC_gmf_printUntranslated(gmThread* a_thread) { return PrintImpl(a_thread, false); }
 int GM_CDECL DC_gmf_printArray(gmThread* a_thread) { return PrintArrayImpl(a_thread); }
 
-// Verification: DrawList.c @ 0x7f874 confirms 0/1 argument arity and direct
-// raw-payload != 0 conversion. PPC FUN_0004cea0 branches on that flag: false
-// skips its axis-angle camera transform; true runs the VMX transform branch.
 int GM_CDECL DC_gmf_setupWorldView(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count < 0 || count > 1) return GM_EXCEPTION;
@@ -864,35 +678,12 @@ int GM_CDECL DC_gmf_setupWorldView(gmThread* a_thread) {
     });
 }
 
-// Video.setupWorldOrthoView -- retail binding +0x3c -> device +0x60
-// (FUN_004215a0), gluOrtho2D over the GameBoard's AABB. Was not bound at all
-// previously. FoE's own content never calls it, but retail has it.
 int GM_CDECL DC_gmf_setupWorldOrthoView(gmThread* a_thread) {
     return DC_RecordOrRun(a_thread, [] {
         GetEngineContext().renderer->SetViewMode(Renderer::ViewMode::WorldOrtho);
     });
 }
 
-// setupAspectRatioOrthoView. Same reasoning as setupWorldView above -- our
-// renderer already recomputes a fixed ortho projection per draw call;
-// these two turn camera-relative projection back off (screen-fixed UI).
-// Video.setupOrthoView -- retail binding +0x40 -> device +0x64
-// (FUN_00421640), gluOrtho2D(0, 1, 0, 1). This previously used the
-// aspect-ratio form, which is a different mode (see below).
-// SOUND SHAPES: this takes EITHER no arguments OR exactly four, confirmed
-// it reads the GM argument count and dispatches `if (count < 1) { ortho(
-// DAT_0008132c, DAT_00081330, DAT_0008132c, DAT_00081330, list) } else if
-// (count == 4) { ...read four float-or-int args... } else { return -1 }`.
-// The 0-arg constants read 0.0f/1.0f out of EBOOT.elf, i.e. the 0..1 unit
-// square -- so the 4-arg form is the same (left, right, bottom, top) tuple
-// made explicit. Anything other than 0 or 4 arguments is a real error in
-// retail, matched here.
-//
-// The four-argument form was previously ignored outright (the arguments were
-// never even read), silently projecting any caller's custom bounds as the
-// unit square. Stock game_data only calls the 0-arg form, so this is an
-// accuracy fix rather than a live bug fix -- but a silent one is exactly
-// what would make a future custom-bounds caller mysteriously misrender.
 int GM_CDECL DC_gmf_setupOrthoView(gmThread* a_thread) {
     const int n = GM_NUM_PARAMS;
     if (n != 0 && n != 4) return GM_EXCEPTION;
@@ -909,14 +700,7 @@ int GM_CDECL DC_gmf_setupOrthoView(gmThread* a_thread) {
         GetEngineContext().renderer->SetCustomOrtho(l, r, b, t);
     });
 }
-// Video.setupAspectRatioOrthoView -- retail binding +0x44 -> device +0x68
-// (FUN_00421680), gluOrtho2D(-a/2, a/2, -0.5, 0.5). This is the one FoE's
-// own UI actually uses.
 int GM_CDECL DC_gmf_setupAspectRatioOrthoView(gmThread* a_thread) {
-    // RETAIL PPC: FUN_0003e4a0 reads Video+0x81bc before building the matrix
-    // command. Capture the same value now because DrawList execution is deferred.
-    // The desktop full-window option intentionally substitutes the current
-    // viewport ratio so UI and camera helpers adapt to arbitrary window shapes.
     const auto& engine = GetEngineContext();
     const float aspect = !SystemConfig::Get().letterbox && engine.renderer
         ? engine.renderer->GetAspect() : engine.video.aspectRatio;
@@ -925,36 +709,6 @@ int GM_CDECL DC_gmf_setupAspectRatioOrthoView(gmThread* a_thread) {
     });
 }
 
-// pushMatrix/popMatrix/translate/rotateZ -- DECOMPILED-CONFIRMED via live
-// beginShape_plotVertex_endShape_matrixstack_setColour.txt). drawList's
-// real bodies (FUN_0007f990/FUN_0008443c/FUN_00084478/FUN_0008470c) turned
-// out to be a materially different representation than assumed: not a full
-// 2x3 affine matrix at all, but a stack of plain (x, y, z, angle) tuples
-// -- pushMatrix appends a new zeroed tuple (fields at +0x10/+0x14/+0x18/
-// +0x1c off a per-frame 0x10-byte stride); popMatrix just decrements the
-// frame count (no restore needed, since a child frame's tuple starts at
-// zero and never touches its parent's); translate(x,y,[z]) ADDS into the
-// CURRENT top frame's x/y/z fields; rotateZ(angle) ADDS into its angle
-// field. (Video's own pushMatrix/popMatrix are separate again -- they
-// append opcodes 0x17/0x18 to a deferred command stream instead, per the
-// same evidence file; not replicated here, see this cluster's other
-// comments for why.)
-//
-// This engine's existing DrawContext::Mat/DC_Multiply (a full affine 2x3 +
-// z) is a strict superset of that four-field tuple -- composing a pure
-// translation and a pure Z-rotation the way this file already does
-// produces the identical CUMULATIVE push/translate/rotate/pop behavior
-// just confirmed, without needing a parallel, narrower stack representation
-// alongside it. Every other draw primitive already reads ctx.Top() as a
-// full matrix (drawTextureByHandle, print, drawShape, ...), so keeping one
-// unified representation -- rather than bolting on retail's narrower one
-// just for these four calls -- matches this project's stated renderer
-// principle (docs/ARCHITECTURE.md: match visible output, not internal
-// storage). scale is NOT part of this confirmed (x,y,z,angle) tuple at
-// all (Video's scale opcodes into its own command stream; drawList's own
-// scale body, FUN_00083280, failed to disassemble cleanly under
-// -noanalysis and needs a proper full-analysis pass before it can be
-// trusted) -- stays trapped rather than guessed at.
 int GM_CDECL gmf_DC_pushMatrix(gmThread* a_thread) {
     return DC_RecordOrRun(a_thread, [] {
         DrawContext& ctx = GetDrawContext();
@@ -971,29 +725,6 @@ int GM_CDECL gmf_DC_popMatrix(gmThread* a_thread) {
 
 int GM_CDECL gmf_DC_translate(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    // translate(x, y, [z]) numeric, or translate(vector2D, [z]) -- both
-    // real call shapes across the corpus (BaseNotePlant.gm's
-    // `drawList.translate(notePos, PLAYER_MODE_NOTE_Z)` uses the vector2D
-    // form); the decompiled body's own arg-count dispatch (2 vs 3 args)
-    // only distinguishes "with/without z", not which of these two shapes
-    // arg 0 is, so this dual-form read is retained from before.
-    //
-    // Uses gmThread::ParamFloatOrInt's lenient (default-on-mismatch)
-    // overload rather than the GM_FLOAT_OR_INT_PARAM macro -- that macro
-    // expands to the vendored gmscript's STRICT variant (gmThread.h's
-    // unconditional `#if 1` block), which throws a blank-message
-    // GM_EXCEPTION the instant a param exists but isn't numeric, rather
-    // than coercing/defaulting. Confirmed real, non-hypothetical call site
-    // needing the lenient read: Platformer/MainMenu5/
-    // CampaignScreenRecordPlayer.gm:1072's `VIDEOHELPER_DrawFilledDonut(
-    // t.grooveShape,0,0,0,t.r,t.r,th,th,q)` -- 9 args against
-    // VideoHelper.gm's 8-param VIDEOHELPER_DrawFilledDonut, so every
-    // positional arg shifts by one and this function's `x` ends up bound
-    // to `t.grooveShape` (a shape handle, not a number) on every frame
-    // after the first. A strict throw here aborts the entire draw call
-    // mid-frame (this project's draw lists are flat/sequential, no
-    // per-call isolation), which was silently blanking out the whole
-    // campaign menu screen behind the one widget that reached this path.
     float x = 0.0f, y = 0.0f, z = 0.0f;
     gmVariable p0 = a_thread->Param(0);
     if (p0.m_type == g_vector2DType) {
@@ -1018,19 +749,6 @@ int GM_CDECL gmf_DC_translate(gmThread* a_thread) {
         if (getenv("GE3_TEXT_DIAG")) {
             std::fprintf(stderr, "[xlate-null] null vector, z kept\n");
         }
-        // ENGINE PATCH: null-tolerant vector-form translate(null, [z]) --
-        // confirmed real, live crash FlareBuddyCannon.gm:141: `this.
-        // drawList.translate(this.animOffset);` where `this.animOffset` is
-        // a real vector2D field that simply hasn't been assigned yet on an
-        // entity this engine's own lazy-configure sweep (entity_bindings.cpp's
-        // ConfigureUnconfiguredEntities) now reaches earlier in its
-        // lifecycle than before -- previously-dormant code, not a newly
-        // introduced null. Falling through to the strict 2-numeric-arg
-        // branch below threw "expecting 2 param(s)" (a 1-arg vector call,
-        // not a 2-arg numeric one), aborting draw() every frame. A null
-        // translate is a no-op translate (x=y=0), matching every other
-        // null-tolerant leniency this engine already applies elsewhere
-        // (BC_GETDOT/BC_SETDOT, null arithmetic) rather than a hard abort.
         if (a_thread->GetNumParams() >= 2) z = a_thread->ParamFloatOrInt(1, 0.0f);
     } else {
         GM_CHECK_NUM_PARAMS(2);
@@ -1054,43 +772,8 @@ int GM_CDECL gmf_DC_translate(gmThread* a_thread) {
     });
 }
 
-// Confirmed radians: FUN_0008470c (drawList's real rotateZ) adds the raw
-// float argument directly into the angle field with no unit conversion
-// (no *pi/180 or similar), and every other angle-bearing native in this
-// codebase (MathUtil, CameraHelper) already works in radians -- consistent,
-// not independently reconfirmed here.
 int GM_CDECL gmf_DC_rotate(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    // Lenient rather than GM_FLOAT_OR_INT_PARAM's usual "present but wrong
-    // type -> exception": confirmed real per-entity draw() hooks (e.g.
-    // EntityPacks/GameStuff/Checkpoint.gm's `this.drawList.rotateZ(this.
-    // mainpb.getDir());`) call this with a value that's null whenever the
-    // entity's own physics-body setup didn't fully complete (a separate,
-    // not-yet-root-caused gap upstream of this draw call) -- since a GM
-    // exception aborts the ENTIRE calling draw() function, not just this
-    // one statement, that one null angle was silently discarding every
-    // other real, correct draw call later in the same entity's draw()
-    // (same "one bad entity taking the rest down with it" failure mode
-    // documented elsewhere in this engine, e.g. gmf_entity_setUIDData's
-    // header comment) -- defaulting to no rotation here is a strictly
-    // better fallback than losing the whole entity's visuals over it.
-    // ENGINE PATCH (2026-08-17): vector2D form. Real call sites pass a
-    // normalized direction vector, not a scalar angle -- Player.gm:5489/
-    // 5704's `drawList.rotateZ(this.lastEyeDirDrawn)` /
-    // `drawList.rotateZ(this.mainpb.getVel().getNormalized())` (both real
-    // Vector2D values, confirmed via getNormalized()'s own binding
-    // returning a Vector2D, not a float). FUN_0008470c's decompiled body
-    // only shows a bare float-or-int read with no vector handling, but that
-    // reflects the SCALAR overload (Checkpoint.gm's `rotateZ(this.mainpb.
-    // getDir())`, where getDir() is confirmed to return a float) -- passing
-    // a Vector2D through that same blind int-cast path would reinterpret
-    // the object's reference bits as a numeric angle, producing an
-    // effectively random rotation every frame, which is visibly wrong
-    // (confirmed live: player sprite never rotated to face its movement
-    // direction, staying flat regardless of slope/velocity) and not a
-    // plausible real behaviour. Converting a direction vector to its
-    // rotateZ angle via atan2(y,x) is the only interpretation consistent
-    // with both call sites actually working.
     gmVariable p0 = a_thread->Param(0);
     float angle = 0.0f;
     if (p0.m_type == GM_FLOAT) angle = p0.m_value.m_float;
@@ -1109,34 +792,6 @@ int GM_CDECL gmf_DC_rotate(gmThread* a_thread) {
     });
 }
 
-// RETAIL BYTECODE AUDIT: DrawList.scale is FUN_00083280. Raw PPC shows it
-// builds a transform and calls FUN_0031bdb4, the native matrix-compose
-// kernel. That confirms scale participates in matrix composition. The
-// desktop post-multiplies a diagonal 2D matrix, consistent with the
-// verified current*new order used by the neighboring matrix operations.
-// The scale-matrix assembly includes paired-vector instructions at 0x832d0,
-// exact parameter replication (including one- versus two-argument behavior)
-// The separate Video.scale function is not evidence for DrawList.scale's
-// argument contract. Do not change the desktop matrix behavior from a visual
-// guess alone.
-//
-// Runtime note: lenient numeric reads are retained because null arguments
-// occur in live game calls; unlike the retail bytecode path, their fallback
-// semantics have not been verified and remain an API compatibility question.
-// Lenient argument reads, for exactly the reason gmf_DC_translate documents
-// at length: GM_FLOAT_OR_INT_PARAM expands to the vendored gmscript's STRICT
-// variant, which throws a blank-message GM_EXCEPTION the moment a parameter
-// exists but isn't numeric -- and a GM exception aborts the ENTIRE calling
-// draw() function, not just the offending statement.
-//
-// Confirmed live, not hypothetical: `this.drawList.scale(this.dirSign, 1)`
-// in EntityPacks/GoombaCritterGuitar.gm:495 and EntityPacks/BlockCannon.gm:311
-// runs every frame with `dirSign` still null on entities whose facing hasn't
-// been resolved yet, and it threw roughly 1900 times over a single tutorial
-// run -- silently discarding every other draw call those entities make. A
-// null scale is a no-op scale (1,1), matching the null-tolerant handling
-// translate and rotateZ already apply to the same class of not-yet-assigned
-// entity field.
 int GM_CDECL gmf_DC_scale(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     float sx = a_thread->ParamFloatOrInt(0, 1.0f);
@@ -1150,9 +805,6 @@ int GM_CDECL gmf_DC_scale(gmThread* a_thread) {
     });
 }
 
-// Retail DrawList.multMatrix (0x00080958) records opcode 0x12 together with
-// the native matrix pointer. Read that matrix when the command is replayed:
-// scripts update a stored pulse matrix without rebuilding the draw list.
 int GM_CDECL gmf_DC_multMatrix(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     Matrix4Handle matrix = GetMatrix4Handle(*a_thread->GetMachine(),
@@ -1164,14 +816,6 @@ int GM_CDECL gmf_DC_multMatrix(gmThread* a_thread) {
     });
 }
 
-// Retail VMDRAWLIST.clear is wrapper 0x800e0. It appends opcode 4 with mode
-// 9 when called without arguments, or the raw first argument when called
-// with one. Replay draws the prebuilt clear-screen VMSHAPE at GameSystem
-// +0x8154 via FUN_0030a278, then restores render state. This is a draw, not
-// a framebuffer clear: opcode 4 applies mode-selected color-mask, depth-write,
-// stencil-op, and render-config branches while drawing the clear shape. The
-// old alpha>=1 glClear branch erased depth/stencil buffers without following
-// those branches.
 int GM_CDECL DC_gmf_clear(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     if (n > 1) return GM_EXCEPTION;
@@ -1185,24 +829,6 @@ int GM_CDECL DC_gmf_clear(gmThread* a_thread) {
     });
 }
 
-// setTextureByHandle(texture)/clearTexture() -- confirmed real (Ghidra
-// recorded opcode into the draw list (0xd/0xe respectively), not an
-// immediate GL state change -- same "record now, apply at replay" model
-// this engine's own DrawListData already uses for every other primitive
-// (see draw_list.h's header comment). Was entirely unbound on drawList
-// instances (Video.setTextureByHandle exists but is a DIFFERENT, genuinely
-// unimplemented global-table function -- see its own GE3_REMOVED marker --
-// the real call sites are always `this.drawList.setTextureByHandle(...)`,
-// a distinct per-instance method). Confirmed live, HALTING crash (this
-// engine's default GE3_STRICT=halt mode aborts the whole process on any
-// unbound native call, not just logging and continuing like survey mode):
-// SafeVine.gm:291, reached on the very first level that places a vine --
-// every real player hit this immediately on starting a level with one.
-// Sets/clears DrawContext::currentTextureHandle (see its own header
-// comment for why a plain field, not a stack, matches every real call
-// site's flat bind/draw-N/unbind pattern); DC_gmf_drawShape (shape_
-// bindings.cpp) checks it at REPLAY time to decide flat-colour vs
-// textured-quad drawing.
 int GM_CDECL DC_gmf_setTextureByHandle(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     unsigned int handle = ResolveTextureHandle(*a_thread->GetMachine(), a_thread->Param(0));
@@ -1211,11 +837,6 @@ int GM_CDECL DC_gmf_setTextureByHandle(gmThread* a_thread) {
         GetDrawContext().currentTextureHandle = handle;
     });
 }
-// Bytecode verified: VMDRAWLIST.setTexture (EBOOT 0x7c2f4) delegates to
-// FUN_0003d83c, which loads from FILEHELPER_AREA_GAMEDATA (area 1), retains
-// the texture in the list's resource vector, and appends the same opcode 0xd
-// used by setTextureByHandle. The desktop closure holds the matching resource
-// lease through deferred replay.
 int GM_CDECL DC_gmf_setTexture(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 1) return GM_EXCEPTION;
     GM_STRING_PARAM(path, 0, "");
@@ -1237,12 +858,6 @@ int GM_CDECL DC_gmf_clearTexture(gmThread* a_thread) {
     });
 }
 
-// Bytecode verified against VMDRAWLIST.drawModTexture (EBOOT 0x7bea4): it
-// retains arg 0 in the list's mod-texture resource vector and appends opcode
-// 0x0a with that vector's index. Retail FUN_00044d4c skips opcode 0x0a without
-// issuing a draw, so replay preserves ordering but has no visual operation.
-// The DrawList root below supplies the lifetime retention that the native
-// list's intrusive reference vector provides.
 int GM_CDECL DC_gmf_drawModTexture(gmThread* a_thread) {
     DrawListData* target = RecordingTarget(a_thread);
     if (!target || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
@@ -1264,10 +879,6 @@ int GM_CDECL DC_gmf_drawModTexture(gmThread* a_thread) {
     return GM_OK;
 }
 
-// setTextureSubImg(texture, palette) -- confirmed real (Ghidra decompile,
-// from setTextureByHandle's (0xd). Retail retains both objects in the
-// drawlist, then dispatcher opcode 0xf assigns palette to image +0x4c via
-// FUN_0030a7e0. This relationship persists beyond the current draw call.
 int GM_CDECL DC_gmf_setTextureSubImg(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     unsigned int handle = ResolveTextureHandle(*a_thread->GetMachine(), a_thread->Param(0));
@@ -1299,11 +910,6 @@ int GM_CDECL DC_gmf_setTextureSubImg(gmThread* a_thread) {
     });
 }
 
-// RETAIL BYTECODE VERIFIED: the Video wrapper at EBOOT 0x7d510 accepts only
-// 9/10/11/13 arguments and forwards the corners to FUN_0003e6f0. That helper
-// submits a texture-backed shape, then clears the texture state with opcode
-// 0x0e. Desktop now mirrors the valid-handle bind/draw/clear lifetime during
-// deferred replay; exact native resource-vector identity remains unmodeled.
 int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
     // RETAIL PPC: wrapper 0x7d510 dispatches only counts 9, 10, 11 and 13;
     // every other count returns -1. The 9-arg form is corners+texture, 10
@@ -1332,8 +938,6 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
     if (count == 11) {
         extraObjectParamIdx = 10;
     } else if (count == 13) {
-        // FUN_0003f1a4 forwards args 9/10 as UV extents. FUN_0003e6f0
-        // multiplies these by TEXTURE +0x34/+0x38 respectively.
         uvScaleU = a_thread->ParamFloatOrInt(9, 1.0f);
         uvScaleV = a_thread->ParamFloatOrInt(10, 1.0f);
         handleParamIdx = 11;
@@ -1362,26 +966,10 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
         }
     }
 
-    // Was passing raw script-space corners straight to the renderer,
-    // completely ignoring the current pushMatrix/translate/rotate/scale
-    // stack every other draw primitive (shapes, text) already goes
-    // through via DC_TransformPoint (see shape_bindings.cpp). Confirmed
-    // real bug via the MainMenu5PS3 logo screen: HomeScreenBase.gm draws
-    // its full-screen quad as `drawList.translate(scrWidth/2,scrHeight/2);
-    // drawTextureByHandle(-scrWidth/2,-scrHeight/2, ...)`, and without
-    // this transform the translate was silently dropped, leaving the quad
-    // centred on the origin instead of the screen centre -- exactly the
-    // "logo stuck in the bottom-left quadrant" symptom. Transform is
-    // resolved at DRAW time (inside the deferred lambda), not here -- same
-    // reasoning as PrintImpl's deferred z/matrix read above.
     return DC_RecordOrRun(a_thread, [x0, y0, x1, y1, x2, y2, x3, y3, handle, extraZ,
                                      uvScaleU, uvScaleV,
                                      textureShaderType, shapePrimitiveMode,
                                      resourceLease] {
-        // RETAIL PPC: FUN_0003e6f0 attaches the texture, submits its shape,
-        // then appends clearTexture (opcode 0x0e). A null texture returns
-        // before emitting commands. Mirror that binding lifetime so later
-        // plain drawShape calls cannot inherit an earlier texture.
         if (handle == 0) return;
         DrawContext& drawContext = GetDrawContext();
         drawContext.currentTextureHandle = handle;
@@ -1433,24 +1021,6 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
     });
 }
 
-// RETAIL PPC: VMDRAWLIST.drawTexture at 0x7c6d0 accepts counts 10, 11, 12,
-// and 14. PPC/decomp confirm the 11/12-arg paths use corners, optional Z,
-// filename, optional retained native object, and area. The 14-arg path reads
-// scalar slots 8-10, retains slot 12, and calls FUN_0003f24c. LimiterWall.gm's
-// commented 14-arg call labels these as Z, nx, ny, filename, VMSHAPE, area.
-// PPC for FUN_0003f24c copies nx/ny into a 2-float pair passed to
-// FUN_0003e6f0; that helper multiplies the texture width/height by the pair
-// when writing UVs. Thus using nx/ny as UV scales is bytecode-confirmed. The
-// native path queues its texture command and retains the supplied object in
-// the draw-list resource table; desktop currently roots the object through
-// deferred playback, but does not reproduce the retail resource-index record.
-// The 9-argument game-data spelling is a desktop compatibility extension
-// (retail returns -1); checked-in TouchEditProcess.gm uses it.
-// RETAIL BYTECODE VERIFIED: Video.drawTexture at EBOOT 0x7c6d0 accepts
-// 10/11/12/14 arguments; valid calls reach FUN_0003f24c/FUN_0003e6f0, which
-// submits a texture-backed shape and appends clearTexture. The 9-argument
-// game-data form is a documented compatibility extension. Desktop mirrors
-// the valid-handle binding lifetime but retains its direct-quad renderer.
 int GM_CDECL DC_gmf_drawTexture(gmThread* a_thread) {
     const int paramCount = a_thread->GetNumParams();
     if (paramCount != 9 && paramCount != 10 && paramCount != 11 &&
@@ -1525,9 +1095,6 @@ int GM_CDECL DC_gmf_drawTexture(gmThread* a_thread) {
     return DC_RecordOrRun(a_thread, [x0, y0, x1, y1, x2, y2, x3, y3, handle,
                                      extraZ, uvScaleU, uvScaleV, textureShaderType,
                                      shapePrimitiveMode] {
-        // RETAIL PPC: this overload reaches the same FUN_0003e6f0 path and
-        // clears the texture binding after submitting the quad. Null handles
-        // exit before changing the draw-list state.
         if (handle == 0) return;
         DrawContext& drawContext = GetDrawContext();
         drawContext.currentTextureHandle = handle;

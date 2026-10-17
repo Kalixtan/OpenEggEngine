@@ -118,9 +118,6 @@ bool AllInputsReleased();
 
 PlatformFrontend& Frontend() { return *g_frontend; }
 
-// Confirmed from Input.c: the getter/setter read and write the INPUT
-// object's byte at +0xf3e (FUN_00188278/FUN_0018c21c). Keep that state on
-// the engine's singleton Input library object.
 int GM_CDECL gmf_isInputEnabled(gmThread* a_thread) {
     a_thread->PushInt(g_inputEnabled ? 1 : 0);
     return GM_OK;
@@ -265,7 +262,6 @@ bool AllInputsReleased() {
     return true;
 }
 
-// Confirmed real: 1 int param (a KEYBOARD_*/JOYSTICK0_* code), returns
 int GM_CDECL gmf_isKeyPressed(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(code, 0, 0);
@@ -286,10 +282,6 @@ int GM_CDECL gmf_isAltPressed(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 2 int params (joystick index, axis index), returns
-// as the left stick and 2/3 as the right stick. The platform frontend maps
-// physical controller layouts into these logical axes;
-// keyboard emulation remains available when no compatible pad is attached.
 int GM_CDECL gmf_getJoystickAxis(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(joyIndex, 0, 0);
@@ -328,15 +320,6 @@ int GM_CDECL gmf_isControllerPresent(gmThread* a_thread) {
 
 }
 
-// getMousePosX/Y -- confirmed NORMALIZED [0,1], not raw pixels: real usage
-// (PekkoAndJon/Main.gm:15/19) is
-// `GameBoard.getMinPos().x + Input.getMousePosX() * GameBoard.getRangeX()`,
-// a lerp that only makes sense if getMousePosX() is a 0..1 fraction of the
-// screen. Ghidra's own decompile of retail (FUN_00435550/4355c0) is an
-// opaque vtable call whose internal scale can't be recovered directly, but
-// the corpus math above pins it down unambiguously. Y is left top=0..1=
-// bottom (not pre-flipped) -- Main.gm's own getMouseY() negates the result
-// itself, so flipping here too would double-invert.
 void NormalizedMousePos(float& a_x, float& a_y) {
     int x = 0, y = 0;
     if (g_frontend) Frontend().MousePosition(x, y);
@@ -362,18 +345,8 @@ int GM_CDECL gmf_getMousePosVec(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), x, y));
     return GM_OK;
 }
-// getMousePosVec -- no corpus call sites for either to disambiguate a
-// different return shape, so treated as an alias.
 int GM_CDECL gmf_getMousePos(gmThread* a_thread) { return gmf_getMousePosVec(a_thread); }
 
-// classes/KeyCode.c @ 0xa9ef0): 1 or 2 args, returns a length-1 string for
-// a printable key or null for a non-printable one (real call sites --
-// GenericTextInputProcess.gm/2.gm, ColourEditorProcess*.gm's text-entry
-// widgets -- check `?cha` for "was this printable" before appending it to
-// a text buffer). Since this engine's KEYBOARD_*/JOYSTICK0_* constants are
-// USB HID key usage values directly (see header comment above), this maps
-// those stable key codes -> ASCII the same way, respecting the shift flag for
-// letter case and the standard US-QWERTY shifted symbols.
 int GM_CDECL gmf_KEYCODE_GetAscii(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(code, 0, 0);
@@ -489,9 +462,6 @@ gmFunctionEntry s_inputLib[] = {
     {"playPadSpeakerSound", gmf_playPadSpeakerSound, nullptr},
     {"getPadSpeakerVolume", gmf_getPadSpeakerVolume, nullptr},
     {"setPadSpeakerVolume", gmf_setPadSpeakerVolume, nullptr},
-    // Retail Input.suppressSharing at EBOOT 0x74838 has an empty body and
-    // returns status 0. BaseNotePlant calls it for notes marked as sharing-
-    // suppressed; keep the call registered without inventing desktop policy.
     {"suppressSharing", gmf_noop, nullptr},
 };
 
@@ -556,8 +526,6 @@ void RegisterInputBindings(gmMachine& a_machine, PlatformFrontend& a_frontend) {
     g_frontend = &a_frontend;
     a_machine.RegisterLibrary(s_inputLib, sizeof(s_inputLib) / sizeof(s_inputLib[0]), "Input");
 
-    // KeyCode.c), not under "Input." or "KeyCode." -- matches every real
-    // call site (`local cha=KEYCODE_GetAscii(kc);`).
     a_machine.RegisterLibraryFunction("KEYCODE_GetAscii", gmf_KEYCODE_GetAscii);
 
     // Retail's exact integer values are not yet recovered. Keep keyboard
@@ -640,19 +608,6 @@ void RegisterInputBindings(gmMachine& a_machine, PlatformFrontend& a_frontend) {
         {"KEYBOARD_KEYPAD_PLUS", KeyCode::KeypadPlus}, {"KEYBOARD_KEYPAD_MINUS", KeyCode::KeypadMinus},
         {"KEYBOARD_KEYPAD_ASTERISK", KeyCode::KeypadMultiply},
     };
-    // ENGINE PATCH (this session): the PS3-no-keyboard reasoning below was
-    // Sound Shapes-only -- FoE's real binary is `flowers of error.exe`, a PC
-    // build with a real keyboard, and PekkoAndJon/Player.gm reads
-    // Input.isKeyPressed(KEYBOARD_W/A/S/D/UP/DOWN/LEFT/RIGHT) directly (not
-    // via joystick axis), plus Main.gm's key-event dispatch
-    // (KEYBOARD_ESCAPE/F/M/P/B/I/R/0/6/7) drives pause/fullscreen/mute/debug
-    // toggles including showingBoundingBox. With every KEYBOARD_* dead,
-    // none of that ever fired -- title screen loaded but gameplay input did
-    // nothing. Reverted to live scancodes, exactly the "one-line revert"
-    // this comment used to promise. (Original PS3 reasoning, kept for
-    // context: retail PS3 hardware has no keyboard peripheral, so
-    // isKeyPressed(KEYBOARD_*) should never see a real one on that
-    // platform -- still true for Sound Shapes, not for FoE.)
     for (auto& k : kKeys) { g->Set(&a_machine, k.name, gmVariable((gmint)k.code)); }
 }
 

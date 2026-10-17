@@ -10,8 +10,6 @@
 #include <cstdio>
 #include <cstdlib>
 
-// See videohelper_bindings.h for why these two live here in C++ rather than
-// in game_data/VideoHelper.gm.
 
 namespace {
 
@@ -22,16 +20,6 @@ constexpr int kShapeTypeTriangleFan = 6;
 constexpr int kShapeTypeTriangleStrip = 5;
 constexpr int kShapeTypeLineStrip = 2;
 
-// Retail VIDEOHELPER_DrawRoundedRectCentered (EBOOT 0x001b72dc) passes a raw
-// VMSHAPE mode of 0x102 and capacity q*2 to its native builder at 0x001acd00.
-// That builder emits q curve samples, then repeats the first point to close
-// the line strip. The filled companion
-// (0x001b77ec -> 0x001acfa8) uses mode 5, capacity q+2, and emits paired
-// signed-sine vertices while i < q/2. Both call the retail sin/cos and
-// sign-preserving power helpers, so use the same PPC-derived math routines.
-// Both builders scale signed powered cosine and sine independently by the
-// half-width and half-height. The filled builder differs in its paired,
-// mirrored vertex layout; it does not add straight-edge offsets.
 void RetailRoundedRectOutlinePoint(float angle, float x, float y,
                                    float halfWidth, float halfHeight,
                                    float curve, float& outX, float& outY) {
@@ -171,21 +159,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledRoundedRectCentered(gmThread* a_thread) {
     return GM_OK;
 }
 
-// VIDEOHELPER_DrawFilledRect(x1, y1, x2, y2 [, z])          -> shape
-// VIDEOHELPER_DrawFilledRect(shape, x1, y1, x2, y2 [, z])   -> that shape
-//
-// Confirmed from the decompiled body (0x001b25d8): it branches on whether
-// the FIRST argument is the VMSHAPE user type (`*(int *)(iVar3 + iVar2) ==
-// DAT_0043c438`) -- the shape form repopulates the shape passed in, the
-// numeric form allocates a new one. Both read four float-or-int coordinates,
-// and z is optional: the body takes a 5th coordinate only when the argument
-// count exceeds the base form's (`if (*(short *)(param_1 + 0x54) < 6)` /
-// `< 5` for the two overloads respectively), otherwise substituting
-// DAT_001b25d4, which is 0.0 read straight out of EBOOT.elf.
-//
-// The vertex layout is a 4-vertex GL_QUADS winding
-// (x1,y1) (x2,y1) (x2,y2) (x1,y2), independently corroborated by
-// VideoHelper.gm's dead reference implementation of the same function.
 int GM_CDECL gmf_VIDEOHELPER_DrawFilledRect(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmUserObject* existing = (GM_NUM_PARAMS > 0)
@@ -204,10 +177,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledRect(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail 0x001b4d64 dispatches on a leading VMSHAPE: six numeric
-// arguments allocate and return a shape; seven update the supplied shape
-// without pushing a return value. VideoHelper.gm's reference implementation
-// gives the quad winding and half-thickness normal used by the native helper.
 int GM_CDECL gmf_VIDEOHELPER_DrawThickLine2D(gmThread* a_thread) {
     gmMachine& machine = *a_thread->GetMachine();
     gmUserObject* existing = GM_NUM_PARAMS > 0
@@ -236,27 +205,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawThickLine2D(gmThread* a_thread) {
     return GM_OK;
 }
 
-// VIDEOHELPER_DrawFilledPolygon(plist, n [, z])         -> shape
-// VIDEOHELPER_DrawFilledPolygon(shape, plist, n [, z])  -> that shape
-//
-// Same leading-SHAPE overload dispatch as DrawFilledRect above, confirmed
-// the same way in the decompiled body (0x001b5c78, which tests the first
-// argument against the same DAT_0043c438 user type).
-//
-// Builds an n+1 vertex GL_TRIANGLE_FAN: the polygon's centroid first, then
-// the n perimeter points walked so the fan closes back on its start.
-// VideoHelper.gm's dead reference implementation gives the exact order --
-//
-//     local cpos = MATHUTIL_GetCentroid(plist, n);
-//     beginShape(SHAPETYPE_TRIANGLEFAN, n+1);
-//     plotVertex(cpos, z);
-//     local j = n-1;
-//     for (i=0; i<=n; i+=1) { plotVertex(plist[j], z); j = i; }
-//
-// -- note `i<=n` with j lagging one behind, which emits plist[n-1] first and
-// then plist[0..n-1], i.e. the last point doubles as the closing vertex. The
-// centroid is the mean of the n points (MATHUTIL_GetCentroid, whose own
-// binding this mirrors rather than calls, to avoid a script round-trip).
 int GM_CDECL gmf_VIDEOHELPER_DrawFilledPolygon(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmUserObject* existing = (GM_NUM_PARAMS > 0)
@@ -303,20 +251,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledPolygon(gmThread* a_thread) {
     return GM_OK;
 }
 
-// VIDEOHELPER_DrawFilledRectCentered(x, y, z, w, h)          -> shape
-// VIDEOHELPER_DrawFilledRectCentered(shape, x, y, z, w, h)   -> that shape
-//
-// leading-SHAPE overload and shape-return shape as DrawFilledRect above.
-// Note the argument ORDER differs from DrawFilledRect: z comes third, before
-// the extents. VideoHelper.gm's dead reference gives the geometry exactly:
-//
-//     local hw=w/2; local hh=h/2;
-//     VIDEOHELPER_DrawFilledRect(x-hw, y-hh, x+hw, y+hh, z);
-//
-// Real call sites are 4-arg + z (Main.gm:4771's
-// `this.loadingScreenFillShape=VIDEOHELPER_DrawFilledRectCentered(0,0,0,1,1)`
-// -- a unit quad built once and reused under a scale, 132 call sites of that
-// shape) and 1-arg rebuilds of an existing shape.
 int GM_CDECL gmf_VIDEOHELPER_DrawFilledRectCentered(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmUserObject* existing = (GM_NUM_PARAMS > 0)
@@ -337,27 +271,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledRectCentered(gmThread* a_thread) {
     return GM_OK;
 }
 
-// VIDEOHELPER_DrawFilledCircle(x, y, z, r)          -> shape
-// VIDEOHELPER_DrawFilledCircle(shape, x, y, z, r)   -> that shape
-//
-// Real native in retail (0x001b3624; its decompiled body confirms the
-// argument-count dispatch and the same shape return). The four-argument
-// wrapper passes 0x3d (61) rim vertices to FUN_001aa590; that builder uses
-// 2*pi/(61-1) and emits a center plus 61 rim vertices, with the last rim
-// vertex repeating the first. The q=20 geometry below in VideoHelper.gm is
-// inside its inactive branch; it is not the retail native default:
-//
-//     local q=20; local angInc=TWOPI/MATH_REAL(q);
-//     beginShape(SHAPETYPE_TRIANGLEFAN);
-//     plotVertex(x,y,z);
-//     for (i=0;i<=q;i+=1) { plotVertex(x+cos(ang)*r, y+sin(ang)*r, z); ang+=angInc; }
-//
-// That dead script version is a center plus 21 rim vertices. The native
-// implementation below instead matches the Ghidra-confirmed 62-vertex fan.
-//
-// 174 real call sites use the 4-arg form (e.g. Player.gm:5318's
-// `this.particleFillShape=VIDEOHELPER_DrawFilledCircle(0,0,0,1)` -- a unit
-// circle built once and reused under a scale).
 int GM_CDECL gmf_VIDEOHELPER_DrawFilledCircle(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmUserObject* existing = (GM_NUM_PARAMS > 0)
@@ -382,12 +295,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledCircle(gmThread* a_thread) {
     xy.push_back(y);
     float ang = 0.0f;
     for (int i = 0; i < rimVertexCount; ++i) {
-        // The retail native builder FUN_001aa590 evaluates the retail
-        // MATH_COS/MATH_SIN wrappers and uses fmadds for center + unit*r.
-        // Player.gm creates particleFillShape through this four-argument
-        // helper, so host libm and a separate multiply/add changed the
-        // cached particle mesh even though the later native particle pass
-        // reuses that shape unchanged.
         const float unitX = GroundRenderMath::RetailGroundSinCos(ang, true);
         const float unitY = GroundRenderMath::RetailGroundSinCos(ang, false);
         xy.push_back(std::fma(unitX, r, x));
@@ -399,18 +306,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledCircle(gmThread* a_thread) {
     return GM_OK;
 }
 
-// VIDEOHELPER_DrawCircle(x, y, z, r [, quality]) or
-// VIDEOHELPER_DrawCircle(shape, x, y, z, r [, quality]). The native body is
-// at EBOOT.elf 0x001b3ad4. Disassembly confirms exact arities (4/5 and 5/6),
-// default quality 0x3d (61), start angle 0, and a float 2*pi/quality angle
-// increment. The allocate-new path constructs VMSHAPE with raw mode 0x102;
-// endShape masks that field to byte 2, selecting RSX line strip. It emits
-// quality points and explicitly adds the first point again to close the
-// outline. Keep the duplicate point and line-strip mode to match retail.
-// The leading-shape path instead updates that shape in place with exactly
-// quality points and preserves its original primitive type. Retail returns
-// a shape only for the allocate-new overload; the reuse overload does not
-// push a return value.
 int GM_CDECL gmf_VIDEOHELPER_DrawCircle(gmThread* a_thread) {
     gmMachine& machine = *a_thread->GetMachine();
     gmUserObject* existing = (GM_NUM_PARAMS > 0)
@@ -457,36 +352,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawCircle(gmThread* a_thread) {
     return GM_OK;
 }
 
-// VIDEOHELPER_DrawFilledDonut(x, y, z, rx, ry, tx, ty [, q])        -> shape
-// VIDEOHELPER_DrawFilledDonut(shape, x, y, z, rx, ry, tx, ty [, q]) -> shape
-//
-// Real native in retail (0x001b67c4; decompiled body confirms the
-// argument-count dispatch). Geometry from VideoHelper.gm's dead reference;
-// the native seven-argument default is confirmed separately as q=31 by the
-// wrapper's immediate at 0x001b6a68 (not the script reference's q=22):
-//
-//     if (!?q) { q=22; }
-//     local angInc=TWOPI/MATH_REAL(q-1);
-//     local htx=tx/2; local hty=ty/2;
-//     beginShape(SHAPETYPE_TRIANGLESTRIP,q);
-//     for (i=0;i<q;i+=1) {
-//         dx=cos(ang); dy=sin(ang);
-//         plotVertex(dx*(rx+htx), dy*(ry+hty));   // outer rim
-//         plotVertex(dx*(rx-htx), dy*(ry-hty));   // inner rim
-//         ang+=angInc;
-//     }
-//
-// -- a triangle strip alternating outer/inner rim vertices, with angInc
-// spanning the full circle over q-1 steps so the last step closes the ring.
-// The reference emits the ring around the ORIGIN and positions it with an
-// enclosing translate(x,y,z); this bakes x,y into the vertices instead and
-// carries z as the shape's own depth, which composes identically under the
-// caller's transform and matches what the other builders here return.
-//
-// The leading-SHAPE overload is exercised by a real call site:
-// CampaignScreenRecordPlayer.gm:1072's
-// `VIDEOHELPER_DrawFilledDonut(t.grooveShape,0,0,0,t.r,t.r,th,th,q)` -- nine
-// arguments, rebuilding an existing shape in place each frame.
 int GM_CDECL gmf_VIDEOHELPER_DrawFilledDonut(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmUserObject* existing = (GM_NUM_PARAMS > 0)
@@ -501,10 +366,6 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledDonut(gmThread* a_thread) {
     const float ry = a_thread->ParamFloatOrInt(base + 4, 0.0f);
     const float tx = a_thread->ParamFloatOrInt(base + 5, 0.0f);
     const float ty = a_thread->ParamFloatOrInt(base + 6, 0.0f);
-    // The retail seven-argument overload supplies 0x1f (31) to
-    // FUN_001aae20; its q-1 angular divisor and q outer/inner pairs produce
-    // 62 triangle-strip vertices. The optional explicit-quality overload
-    // forwards its supplied value.
     int q = (GM_NUM_PARAMS > base + 7) ? (int)a_thread->ParamInt(base + 7, 31) : 31;
     if (q < 2) q = 31; // avoid a zero divisor; retail default is 31
 

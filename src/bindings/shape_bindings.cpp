@@ -34,10 +34,6 @@ namespace {
 
 gmType g_shapeType = -1;
 
-// Retail drawShape/drawShapeWithTexture retain the native shape resource
-// when recording opcodes 6/0xe (Video.c: FUN_0003f3dc and drawShape wrappers).
-// The desktop command closures hold ShapeData pointers, so root the owning
-// GameMonkey object until every queued closure that uses it is destroyed.
 struct DeferredShapeRootState {
     size_t uses = 0;
     bool addedRoot = false;
@@ -88,15 +84,6 @@ std::shared_ptr<DeferredShapeLease> MakeDeferredShapeLease(
     return std::make_shared<DeferredShapeLease>(*machine, object);
 }
 
-// Retail VMSHAPE.endShape at 0x7ba38 maps the raw mode byte through the
-// EBOOT tables at 0x3a1384/0x3a13a8. Field +4 receives RSX primitive codes
-// [1,2,4,3,5,6,7,8,10] for mode bytes 0..8; PSL1GHT's GCM_TYPE_* definitions
-// identify those as points, lines, line strip, line loop, triangles,
-// triangle strip, triangle fan, quads, polygon. Numeric mode meanings are
-// bytecode-backed; mapping SHAPETYPE_* names to those values follows their
-// names and use sites because no named-constant assignment table has yet been
-// recovered. This replaces the former claim based on FUN_00421810, which does
-// not exist in this EBOOT.
 enum class ShapeType {
     Points = 0,
     Lines = 1,
@@ -156,13 +143,6 @@ struct ShapeData {
     // uses (angle,width,height,unused,z). Preserve all three unmodified;
     // the shader selected on this shape determines their meaning.
     std::vector<float> vertexData;
-    // Per-vertex rgba, aligned 1:1 with verts (4 floats per xy pair) -- the
-    // colour Video.setColour() had set at the moment each vertex was pushed
-    // (PlotVertexOn/gmf_plotVertices), not a single shape-wide tint. Needed
-    // for FoE's radial-gradient beginShape/plotVertex/endShape idiom (see
-    // Renderer::DrawPolygonGradient's header comment) -- setAsFilledCircle's
-    // precomputed ring never populates this (no colour involved building
-    // it), only plotVertex/plotVertices do.
     std::vector<float> colors;
     // Per-vertex uv, aligned 1:1 with verts -- populated by getVertex(i)'s
     // live SHAPEVERTEX handle (PekkoAndJon/bg.gm's update(): `this.
@@ -172,20 +152,11 @@ struct ShapeData {
     // bounds, which is a flat single-texture-copy stretch, not the animated
     // radial sampling that produces bg.gm's kaleidoscope look.
     std::vector<float> uvs;
-    // Last appended Z, retained for existing host draw helpers. Retail
-    // VMSHAPE records carry Z per vertex; DrawShapeData currently collapses
-    // this field across the whole shape (see VIDEO_SHAPE_PRIMITIVE_AUDIT.md).
     float localZ = 0.0f;
     // True right after a completed draw (endShape or drawShape), until the
     // next plotVertex call -- see gmf_plotVertex's comment.
     bool needsClearOnNextPlot = false;
 
-    // SHAPE(shapeType, numVerts, owner)'s numVerts -- confirmed real via
-    // game_data/VideoHelper.gm's `SHAPE(SHAPETYPE_TRIANGLEFAN,61+1,GameSystem)`
-    // (see gmf_setAsFilledCircle's header comment for the full derivation).
-    // Only setAsFilledCircle/getQuality actually consume this; a plain
-    // beginShape()-built shape (capacity never set) leaves it at 0 and grows
-    // verts freely via plotVertex, same as before this field existed.
     int capacity = 0;
     // VIDEO.beginShape's third argument initializes native constructor
     // field +0x24. Default 0x14; the 3-argument overload stores arg2 << 2.
@@ -209,22 +180,6 @@ ShapeData* ThisShape(gmThread* a_thread) {
 // its exact handler below only returns the newly allocated VMSHAPE.
 ShapeData* g_currentShape = nullptr;
 
-// FoE's beginShape/plotVertex/endShape triangle-fan background pattern
-// (PekkoAndJon/bg.gm's radial backdrop: `Video.beginTexture(path);
-// Video.beginShape(SHAPETYPE_TRIANGLEFAN); ...; Video.endShape();
-// Video.endTexture();`) wraps its shape draw in a beginTexture/endTexture
-// scope expecting the texture to actually paint -- same currentTextureHandle
-// DrawContext already threads through DC_gmf_drawShape's drawList.drawShape()
-// path (see that function's own header comment), just not previously
-// consulted here. Without this the whole textured backdrop silently fell
-// back to DrawPolygon's flat-colour fill, which is why the FoE title-screen
-// background under this triangle fan was reduced to a near-black wash --
-// the texture that was meant to show through the colour gradient never
-// bound to anything.
-// Verification: retail textured-shape config selection is bytecode/decomp
-// confirmed (`FUN_00055bb4`, selector 8 = TextureDist). Forwarding this shape
-// draw through the existing desktop distance shader is a local approximation;
-// retail's aColor payload and aSmoothLevel source are still unresolved.
 void DrawShapeData(ShapeData* s, bool a_defaultTransVertexOrder = false) {
     int count = (int)(s->verts.size() / 2);
     if (count <= 0) return;
@@ -453,7 +408,7 @@ int GM_CDECL gmf_Shape_beginShape(gmThread* a_thread) {
     ShapeData* data = new ShapeData();
     data->retailShapeType = shapeType;
     data->glMode = ToGLMode(shapeType);
-    data->capacity = 0x40; // confirmed default (1-arg form), see header comment
+    data->capacity = 0x40;
     // Lenient float-or-int read, not the strict GM_INT_PARAM macro:
     // VideoHelper.gm's VIDEOHELPER_DrawFilledDonut can be called with one
     // extra leading arg (Platformer/MainMenu5/CampaignScreenRecordPlayer.
@@ -487,11 +442,6 @@ int RetailShapeIntegerArgument(const gmVariable& value) {
 }
 }
 
-// Verification: EBOOT Video.beginShape at 0x75c7c and constructor helper
-// FUN_00047750. Retail accepts exactly 1/2/3 args, uses raw int payloads or
-// fctiwz for float shape/capacity values, defaults capacity to 64 and native
-// field +0x24 to 20, and stores raw arg2<<2 there for the 3-arg form. It
-// returns a fresh VMSHAPE and does not install an implicit current shape.
 int GM_CDECL gmf_Video_beginShape(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count < 1 || count > 3) return GM_EXCEPTION;
@@ -532,17 +482,6 @@ int GM_CDECL gmf_Video_endShape(gmThread* a_thread) {
 
 namespace {
 
-// Global SHAPE(shapeType, numVerts, owner) -- confirmed real, distinct call
-// from Video.beginShape despite superficially overlapping args (see
-// Shape_gmf_beginShape above): allocates a persistent shape WITHOUT opening
-// it for immediate plotVertex/endShape building, i.e. does not touch
-// g_currentShape. Every real call site (VideoHelper.gm's
-// `VIDEOHELPER_circleShape=SHAPE(SHAPETYPE_TRIANGLEFAN,61+1,GameSystem)`)
-// builds it up afterward via setAsFilledCircle(), not plotVertex/endShape.
-// `owner` (GameSystem in the one real call site) has no observable effect on
-// anything the corpus reads back -- accepted and ignored, same convention as
-// this codebase's other unrecoverable trailing-flag arguments (e.g.
-// GameSystem.startNewProcessList's 2nd bool).
 int GM_CDECL gmf_SHAPE(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(shapeType, 0, 0);
@@ -555,15 +494,6 @@ int GM_CDECL gmf_SHAPE(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Shared by shape.plotVertex() (`s` = the receiver) and the bare
-// Video.plotVertex()/drawList.plotVertex() form (`s` = g_currentShape) --
-// see gmf_Shape_plotVertexCurrent below. Two real call conventions
-// confirmed both by corpus usage and by FUN_0007b280's own dispatch (see
-// gmf_VMSHAPE_plotVertex's header comment just below for the address):
-// plotVertex(x, y[, z]) with separate numbers, and plotVertex(vector2D[, z])
-// with a single vector2D and an optional z (VideoHelper.gm's
-// VIDEOHELPER_DrawFilledPolygon/DrawPolygon: `retval.plotVertex(cpos, z)`,
-// `retval.plotVertex(plist[j], z)`).
 int PlotVertexOn(gmThread* a_thread, ShapeData* s) {
     GM_CHECK_NUM_PARAMS(1);
     float x = 0.0f, y = 0.0f;
@@ -577,10 +507,6 @@ int PlotVertexOn(gmThread* a_thread, ShapeData* s) {
         GM_FLOAT_OR_INT_PARAM(px, 0, 0.0f);
         GM_FLOAT_OR_INT_PARAM(py, 1, 0.0f);
         x = px; y = py;
-        // VMSHAPE.plotVertex(x,y,z,u,v) stores five float slots in retail
-        // (FUN_0007b280, five-argument branch). For unbound shapes, the last
-        // two values are also treated as UVs here. Shader-bound shapes use
-        // those slots as custom vertex inputs instead.
         if (a_thread->GetNumParams() >= 3) { GM_FLOAT_OR_INT_PARAM(zp, 2, 0.0f); localZ = zp; }
     }
 
@@ -616,14 +542,6 @@ int PlotVertexOn(gmThread* a_thread, ShapeData* s) {
     s->colors.push_back(cg);
     s->colors.push_back(cb);
     s->colors.push_back(ca);
-    // No real UV for a bare plotVertex(x,y[,z]) call -- 0.5,0.5 (texture
-    // centre) is the one confirmed real value for this exact call shape
-    // (PekkoAndJon/bg.gm's `Video.plotVertex(0,0)` centre point, matching
-    // its OWN getVertex(0)'s independently-set u=0.5,v=0.5 -- see
-    // ShapeVertexData's header comment) -- kept in lockstep with verts/
-    // colors either way so DrawPolygonGradient's per-vertex-UV path (sized
-    // against verts) stays valid even when this shape mixes a manual
-    // plotVertex() centre with plotVertices()-copied ring UVs.
     const bool textureUV = p0.m_type != g_vector2DType &&
         a_thread->GetNumParams() >= 5 && s->shaderEntityType.empty();
     s->uvs.push_back(textureUV ? data3 : 0.5f);
@@ -632,16 +550,6 @@ int PlotVertexOn(gmThread* a_thread, ShapeData* s) {
     return GM_OK;
 }
 
-// RETAIL BYTECODE: VMSHAPE.plotVertex is registered at 0x7b280 and appends
-// native vertex records. It is distinct from VIDEO.plotVertex at 0x76fd8,
-// whose terminal helpers are no-ops. The legacy script implementation of
-// VIDEOHELPER_DrawFilledRect is specifically in the `else` branch of a
-// literal `if(1)`; the active method is native at 0x1b25d8 and builds
-// VMSHAPE data directly. Other live VideoHelper script functions need their
-// own call-site audit before inferring that the bare VIDEO helpers draw.
-// VMSHAPE.endShape at 0x7ba38 maps the native mode byte through static tables
-// and writes record fields +4/+8. The desktop records those values for valid
-// modes, without treating endShape as an implicit reset.
 int GM_CDECL gmf_VMSHAPE_plotVertex(gmThread* a_thread) {
     ShapeData* s = ThisShape(a_thread);
     if (!s) return GM_EXCEPTION;
@@ -650,9 +558,6 @@ int GM_CDECL gmf_VMSHAPE_plotVertex(gmThread* a_thread) {
 int GM_CDECL gmf_VMSHAPE_endShape(gmThread* a_thread) {
     ShapeData* s = ThisShape(a_thread);
     if (!s) return GM_EXCEPTION;
-    // RETAIL BYTECODE: 0x7ba38 masks the constructor's +0x2c mode to a byte,
-    // then writes these two table values to the native shape record +4/+8.
-    // Table words were read from EBOOT.elf at 0x3a1384/0x3a13a8.
     static constexpr int modeField4[9] = {1, 2, 4, 3, 5, 6, 7, 8, 10};
     static constexpr int modeField8[9] = {
         0x1b00, 0x1b01, 0x1b01, 0x1b01, 0x1b02,
@@ -676,10 +581,6 @@ int GM_CDECL gmf_VMSHAPE_getNumVertices(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail VMSHAPE.releaseReference (0x0007bb54) decrements its held native
-// shape reference and clears the pointer at wrapper-native offset +0x14.
-// The animation that received this shape already owns the mesh separately;
-// its draw path must continue to see the stored vertices after this call.
 int GM_CDECL gmf_VMSHAPE_releaseReference(gmThread* a_thread) {
     // Keep this operation idempotent: retail clears the held pointer, then
     // a repeated release observes that it is already null.
@@ -689,40 +590,6 @@ int GM_CDECL gmf_VMSHAPE_releaseReference(gmThread* a_thread) {
     return GM_OK;
 }
 
-// VMSHAPE.setAsFilledCircle(radius)/getQuality()/plotVertices(from,to)/draw()
-// -- confirmed real (the only real call site, game_data/VideoHelper.gm:685-686
-// & 751-813, exercises all four together) but with no decompiled body: the
-// name isn't in EBOOT.elf's string table at all (checked directly, unlike
-// every other function in this file -- confirmed present: beginShape/
-// plotVertex/endShape all are), so unlike the rest of this reimplementation
-// this one function's exact geometry can't be pinned to a Ghidra address.
-// Reconstructed instead from the SAME retail script file's own reference
-// implementation: VideoHelper.gm wraps its entire pre-optimization
-// implementation in `if(0){ /* ... */ }` (dead but still literally retail
-// source, lines 1-683) immediately before the live `}else{` block that
-// replaces it with this SHAPE()-based one (line 684+). The dead
-// VIDEOHELPER_DrawFilledCircle draws an identical-looking circle via a plain
-// per-frame loop:
-//   Video.beginShape(SHAPETYPE_TRIANGLEFAN);
-//   Video.plotVertex(x,y,z);                         // centre
-//   for (i=0;i<=q;i+=1) {                             // q+1 ring points,
-//     Video.plotVertex(x+cos(ang)*r,y+sin(ang)*r,z);  // ang=i*(TWOPI/q) --
-//     ang+=angInc;                                    // i=q closes back to
-//   }                                                 // i=0's position
-//   Video.endShape();
-// -- i.e. this is a precompute-once optimization of that same loop, not a
-// behavior change: SHAPE(SHAPETYPE_TRIANGLEFAN,61+1,GameSystem)'s capacity
-// (62 = centre + (q+1) ring points) fixes q=60, matching the live corpus's
-// `61+1` literally spelling out "(q+1) ring points, plus 1 for the centre".
-// getQuality() must return the RING point count including its own built-in
-// closing duplicate (61 = capacity-1), not q itself: plotVertices(1,
-// getQuality()-1) = plotVertices(1,60) is used for the LINELOOP outline
-// (VIDEOHELPER_DrawCircle) to replay ring indices 1..60 -- every ring point
-// EXCEPT the final one (index 61), which exactly duplicates index 1 and
-// would draw a redundant zero-length closing segment on a LINELOOP (which
-// already auto-closes). draw() (VIDEOHELPER_DrawFilledCircle) instead draws
-// every stored vertex including that duplicate, matching the dead code's
-// TRIANGLEFAN loop exactly (centre + full closed ring).
 int GM_CDECL gmf_setAsFilledCircle(gmThread* a_thread) {
     ShapeData* s = ThisShape(a_thread);
     if (!s) return GM_EXCEPTION;
@@ -742,12 +609,6 @@ int GM_CDECL gmf_setAsFilledCircle(gmThread* a_thread) {
     s->verts.push_back(0.0f); // centre, index 0
     float ang = 0.0f;
     for (int j = 0; j < quality; ++j) {
-        // The pre-optimization VIDEOHELPER_DrawFilledCircle reference
-        // advances one float angle per vertex and calls MATH_COS/MATH_SIN.
-        // Those retail wrappers use FUN_001dd1ac, not host libm. Do not
-        // replace this accumulated sequence with j*angInc: the rounded
-        // angles (especially the closing rim point) feed the player's live
-        // particleFillShape mesh.
         s->verts.push_back(
             GroundRenderMath::RetailGroundSinCos(ang, true) * radius);
         s->verts.push_back(
@@ -833,12 +694,6 @@ int GM_CDECL gmf_shapeDraw(gmThread* a_thread) {
     return GM_OK;
 }
 
-// setShaderBasedOnTexture(texture) -- confirmed real, live call site
-// SafeVine.gm:158: `t.shape.setShaderBasedOnTexture(this.thornTexture);`
-// (selects a retail render-config variant from the texture's +0x48 shader
-// type). Retail helper FUN_00055bb4 assigns a refcounted GameSystem config
-// to shape +0x30. The complete config-to-GL mapping remains open; preserve
-// the selected state for the currently recovered textured-mesh behavior.
 int GM_CDECL gmf_shapeSetShaderBasedOnTexture(gmThread* a_thread) {
     ShapeData* shape = ThisShape(a_thread);
     if (!shape || a_thread->GetNumParams() != 1) return GM_EXCEPTION;
@@ -869,7 +724,6 @@ int GM_CDECL gmf_shapeBindEntityShader(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail VMSHAPE.bindShader at 0x0007b194 stores a direct SHADER reference.
 int GM_CDECL gmf_shapeBindShader(gmThread* a_thread) {
     ShapeData* shape = ThisShape(a_thread);
     if (!shape || a_thread->GetNumParams() != 1) return GM_EXCEPTION;
@@ -882,7 +736,6 @@ int GM_CDECL gmf_shapeBindShader(gmThread* a_thread) {
     return GM_OK;
 }
 
-// FoE texture methods (stubs) -- shapes can call these but they're no-ops
 int GM_CDECL gmf_VMSHAPE_setTexture(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     return GM_OK;
@@ -898,20 +751,6 @@ int GM_CDECL gmf_VMSHAPE_isUsesTexture(gmThread* a_thread) {
     return GM_OK;
 }
 
-// SHAPEVERTEX -- confirmed real native type (Ghidra: FoE PC binary's own
-// native-type registration table lists SHAPEVERTEX alongside SHAPE/ALARM/
-// REALPOINT/etc, see reveng_pc/FoE_decompiled_functions.txt). getVertex(i)
-// returns a LIVE handle into shape s's own vertex/uv arrays at index i --
-// not a copy -- so PekkoAndJon/bg.gm's ShapeHelper.gm idiom
-// (`this.shapePoints[i].vertex.x = ...`, ShapeHelper.gm's
-// SHAPEHELPER_GetVertexTableArray wrapping getVertex(i) results once in the
-// constructor) keeps mutating the SAME underlying shape every subsequent
-// frame's update(), instead of writing to a disconnected snapshot. Without
-// this, bg.gm's constructor throws "getdot failed" on its very first
-// getVertex() call (getVertex didn't exist at all before this), so
-// this.shapePoints/this.shape's real star-fan geometry never builds --
-// plotVertices() then had 0 real vertices to copy, leaving the whole
-// kaleidoscope backdrop as a flat colour wash.
 gmType g_shapeVertexType = -1;
 struct ShapeVertexData {
     ShapeData* shape = nullptr;
@@ -1033,12 +872,6 @@ unsigned int GetShapePrimitiveMode(gmMachine& a_machine,
     return shape && shape->hasDirectReference ? shape->glMode : 0;
 }
 
-// See header comment. Builds shape geometry directly, bypassing the
-// beginShape/plotVertex/endShape trap thunks -- those are trapped because
-// retail's bodies for them aren't recovered, but a NATIVE VideoHelper
-// function doesn't call them in the first place: retail's own
-// VIDEOHELPER_DrawFilledRect/DrawFilledPolygon are native code
-// the shape's vertex buffer directly, exactly as this does.
 void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
                         int a_count, float a_z, gmUserObject* a_existing,
                         bool a_preserveExistingMode, bool a_pushExisting) {
@@ -1155,11 +988,6 @@ gmUserObject* AsShapeObject(gmMachine& a_machine, const gmVariable& a_var) {
     return obj;
 }
 
-// Verification: retail FUN_001a0be8 emits translate opcode 0x13, scale
-// opcode 0x16, retained-shape submit, inverse scale, and inverse translate
-// for each active particle (see player_particle_pass_headless_20261010.txt).
-// Reuse the live VMSHAPE and the normal DrawShapeData path under the composed
-// matrix so its primitive and vertices remain script-authored.
 bool DrawShapeObjectWithTransform(gmMachine& a_machine, const gmVariable& a_shape,
                                   float a_a, float a_b, float a_c, float a_d,
                                   float a_e, float a_f, float a_z,
@@ -1192,10 +1020,6 @@ bool DrawShapeObjectWithTransform(gmMachine& a_machine, const gmVariable& a_shap
     } restore{context, previousMatrix, previousTexture,
               previousDistanceTexture, previousDiscard, previousSmooth};
 
-    // Retail draw-list matrix opcodes multiply each operation into the live
-    // stack matrix (current * operation; see FUN_0030ab94). Player commands
-    // are replayed in their sorted-list position, so the supplied player
-    // transform must extend whatever matrix is live then, not replace it.
     DrawContext::Mat operation;
     operation.a = a_a;
     operation.b = a_b;
@@ -1205,12 +1029,6 @@ bool DrawShapeObjectWithTransform(gmMachine& a_machine, const gmVariable& a_shap
     operation.f = a_f;
     operation.z = a_z;
     if (a_retailPpcMatrixMath) {
-        // Retail draw-list matrix replay at FUN_0030ab94 rounds each VMX
-        // product before adding the two linear partials. Its translation
-        // column uses a fused second partial followed by a separate sum.
-        // The player renderer has a traced 2D affine command stream, so
-        // mirror those PPC rounding points when composing it with the live
-        // sorted-replay matrix. Other VMSHAPE users retain DC_Multiply.
         const auto roundedProduct = [](float lhs, float rhs) {
             return std::fma(lhs, rhs, 0.0f);
         };
@@ -1322,43 +1140,6 @@ bool DrawAnimationShapeOverlayWithTransform(gmMachine& a_machine, const gmVariab
         a_alpha, a_z + shape->localZ);
 }
 
-// See header comment -- redraws a shape's stored (local-space) geometry
-// under the caller's CURRENT transform/colour, without touching its
-// plotVertex/endShape rebuild state.
-//
-// Leniently no-ops on a missing/wrong-type argument rather than throwing --
-// confirmed necessary, not just cautious: real retail's own VideoHelper.gm
-// helpers (VIDEOHELPER_DrawFilledRect/Centered, used as
-// `drawList.drawShape(VIDEOHELPER_DrawFilledRectCentered(...))` in e.g.
-// Platformer/Main.gm's postDraw()) never `return` the shape they build
-// internally via Video.beginShape/plotVertex/endShape -- that call always
-// passes drawShape() a null in real retail too. Since the genuine article
-// doesn't crash on this (players complete the game), the native drawShape
-// must tolerate it silently; a hard exception here would abort the rest of
-// that draw call's own function every time it runs. For the OVERWHELMING
-// majority of real call sites this null is harmless: VIDEOHELPER_
-// DrawFilledRect's own Video.beginShape/plotVertex/endShape call already
-// drew the correct content immediately, every frame (these helpers are
-// virtually always rebuilt-and-redrawn fresh, not cached), so the
-// redundant drawShape(null) right after changes nothing visible.
-//
-// ONE confirmed real exception: PopupProcessBase.gm's customVerticalScrolling
-// body type CACHES its stencil-clip mask once (`if (!?this.base_stencilShape)
-// { this.base_stencilShape=VIDEOHELPER_DrawFilledRect(...); }`) and replays
-// it via drawShape() every subsequent frame -- meaning the one-time
-// immediate draw happens before setAttrStencil's REPLACE op is even
-// configured for this pass, and every later drawShape(null) genuinely never
-// writes the mask. The following VIDEOPARAMS_EQUAL clip test then discards
-// everything drawn under it, since the stencil buffer was never actually
-// set to the reference value anywhere -- confirmed live: MainMenu5/
-// CreditsPopupTable.gm's whole credits list rendered as a blank popup body,
-// only fixed once this fallback existed. When a REPLACE stencil write is
-// currently configured, this fills the whole viewport into the stencil
-// buffer instead of no-op'ing (colour writes suppressed, so nothing paints
-// visibly) -- both real cache calls (clear-shape and mask-shape) are sized
-// to cover the entire scrollable body anyway, so "the whole viewport" is
-// the same practical region a correctly-returned shape would have covered.
-// (forward-declared above DrawShapeData, which now also calls it)
 
 int GM_CDECL DC_gmf_drawShape(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
@@ -1404,13 +1185,6 @@ int GM_CDECL DC_gmf_drawShapeWithTexture(gmThread* a_thread) {
     auto resourceLease = ResolveTextureResourceLease(*a_thread->GetMachine(), a_thread->Param(1));
     auto shapeLease = MakeDeferredShapeLease(a_thread, obj);
 
-    // Retail FUN_0003f3dc records texture bind (opcode 0xd), selects the
-    // texture render config on the supplied shape, queues the shape, then
-    // records opcode 0xe to clear the current texture. Keep the selected
-    // config on the shape, but scope the texture handle to this draw only.
-    // Without the final clear, QUADSHADOWED's following untextured fill quad
-    // inherits dropShadowWhite.png and vanishes wherever that image is
-    // transparent; this is the missing backing panel in CampaignScreen.
     return DC_RecordOrRun(a_thread, [s, handle, shaderType, resourceLease, shapeLease] {
         s->hasTextureBasedRenderConfig = true;
         s->textureShaderType = shaderType;
@@ -1427,11 +1201,6 @@ struct TextBubbleAxisSamples {
     float fullSpan = 0.0f;
 };
 
-// Verification: bytecode-translated from FUN_001ad708 (`textbubble_helper.disasm`).
-// `vmaddfp` computes the two half-span candidates on the six-sample path;
-// `stvewx`/`vsel` branch tables select the four/six position and texel tables.
-// Keep `fullSpan` based on the original target: retail computes it before its
-// <=0 target fallback changes the temporary interpolation dimension to 1.
 TextBubbleAxisSamples BuildTextBubbleAxis(float a_first, float a_middle,
                                           float a_last, float a_target) {
     TextBubbleAxisSamples result;
@@ -1480,10 +1249,6 @@ TextBubbleAxisSamples BuildTextBubbleAxis(float a_first, float a_middle,
     return result;
 }
 
-// Verification: bytecode-matched wrapper and helper (`0x001b8240` and
-// triangle strip, including 4/6 sample axes, original-target full spans,
-// zero-dimension interpolation fallback, logical-image UV conversion, and
-// texture padding extents. Runtime pixel parity remains unverified.
 int GM_CDECL gmf_VIDEOHELPER_CreateTextBubble(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(9);
     gmMachine& machine = *a_thread->GetMachine();
@@ -1529,12 +1294,6 @@ int GM_CDECL gmf_VIDEOHELPER_CreateTextBubble(gmThread* a_thread) {
                 ? std::fma(-(pixelV / (float)textureHeight), textureVScale,
                            textureVScale)
                 : 0.0f;
-            // FUN_001ad708 computes reciprocal full-span values with vrefp
-            // and multiplies these pixel-space positions by them before
-            // storing the mesh (see the normalization loop near 0x1ada84).
-            // QuadShadowed then scales this unit-space mesh to its panel
-            // dimensions; keeping pixel coordinates here applies that scale
-            // twice and pushes the backing panel off-screen.
             const float normalizedX = x.fullSpan != 0.0f
                 ? x.positions[column] / x.fullSpan : 0.0f;
             const float normalizedY = y.fullSpan != 0.0f
@@ -1559,15 +1318,6 @@ int GM_CDECL gmf_VIDEOHELPER_CreateTextBubble(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Video.plotVertex(...)/Video.endShape() (and the same on drawList) -- the
-// bare-call counterpart to shape.plotVertex()/shape.endShape() above,
-// operating on g_currentShape instead of an explicit receiver. Same
-// decompiled-confirmed dispatch as gmf_VMSHAPE_plotVertex/endShape (see
-// their header comment) -- these are literally the SAME registration
-// table entries, just invoked without a captured local (e.g.
-// VideoHelper.gm's VIDEOHELPER_DrawFilledRect: `Video.beginShape(...);
-// Video.plotVertex(x1,y1,z); ...; Video.endShape();`, no captured shape
-// anywhere in that function).
 int GM_CDECL gmf_Shape_plotVertexCurrent(gmThread* a_thread) {
     if (!g_currentShape) { GM_EXCEPTION_MSG("plotVertex: no shape currently being built (no matching beginShape)"); return GM_EXCEPTION; }
     return PlotVertexOn(a_thread, g_currentShape);
@@ -1580,8 +1330,6 @@ int GM_CDECL gmf_Shape_endShapeCurrent(gmThread* a_thread) {
 }
 
 void RegisterShapeBindings(gmMachine& a_machine) {
-    // Confirmed real retail type name (Ghidra, EBOOT.elf's native type
-    // here, an invented name; only affects typeName()/exception text.
     g_shapeType = a_machine.CreateUserType("VMSHAPE");
     a_machine.RegisterTypeLibrary(g_shapeType, s_shapeLib, sizeof(s_shapeLib) / sizeof(s_shapeLib[0]));
     a_machine.RegisterUserCallbacks(g_shapeType, nullptr, ShapeGCDestruct, nullptr);
@@ -1592,10 +1340,6 @@ void RegisterShapeBindings(gmMachine& a_machine) {
     a_machine.RegisterTypeOperator(g_shapeVertexType, O_GETDOT, nullptr, ShapeVertexGetDot);
     a_machine.RegisterTypeOperator(g_shapeVertexType, O_SETDOT, nullptr, ShapeVertexSetDot);
 
-    // SHAPE(shapeType, numVerts, owner) -- confirmed real, game_data/
-    // VideoHelper.gm -- distinct native constructor from Video.beginShape,
-    // see gmf_SHAPE's header comment for why they can't share a function
-    // once beginShape has to track g_currentShape.
     a_machine.RegisterLibraryFunction("SHAPE", gmf_SHAPE, nullptr);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_CreateTextBubble", gmf_VIDEOHELPER_CreateTextBubble, nullptr);
 

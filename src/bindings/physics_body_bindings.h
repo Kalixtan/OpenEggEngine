@@ -11,35 +11,6 @@ class b2Body;
 // colour-source forms (retail type tag 37).
 gmType GetShapeCollisionInfoType();
 
-// PhysicsBody ("pb" in real scripts, e.g. Platformer/Player.gm:
-// `local pb=this.PhysicsData.getBody(this.PhysicsData.createBody());`) and
-// PhysicsData (the per-entity container of bodies, e.g.
-// `PhysicsData=e.getPhysicsData()` in Platformer/Player.gm:12) -- confirmed
-// real by extensive corpus usage (Player.gm's constructor alone: getBody,
-// createBody, appendShapes, setCollisionCategory, setMaxSpeed,
-// setVelocityDecayRate, setMaxRotateSpeed, setRotationDecayRate,
-// setRotateAcc, setIsBullet, getShapeObjectID, getDir).
-// container-level (PhysicsData/gmf_pd_) API by explicit index -- an
-// earlier pass of this comment claimed otherwise; that was wrong (see its
-// 10 functions: createBody, replaceBody, removeBody, getBodyIndex,
-// wakeUp, getBodyPos/setBodyPos/getBodyBBox by index, etc). Real Box2D
-// 2.4.1 (vendor/box2d) backs both types, per the same "just import the
-// real lib" approach as PHYSICSSHAPECOLLECTIONDEF (physics_bindings.h/
-// .cpp), which supplies the b2FixtureDef list `appendShapes` consumes.
-//
-// Position, geometry, and velocity pass through without a unit conversion.
-// Gravity is zero (see core/physics_world.h) since scripts drive movement.
-//
-// getCollisionInfo returns a cached GM view per active directed pair and
-// refreshes its contact data from retained contact-add/remove records. Pair
-// removal and PhysicsData collection invalidate/unroot that view. This models
-// the retail mapped-value identity/lifetime at the script-object level, while
-// the local pair registry and record layout remain adapters (see
-// via PhysicsData.createBody has its Box2D user-data pointer set back to the
-// owning PhysicsDataObj (see gmf_pd_createBody), so collision queries resolve
-// the other PhysicsData and then its ownerEntity. getCollidingEntities sorts
-// distinct other PhysicsData handles by unsigned local key, preserving retail's
-// ordered-map traversal shape without deduplicating by owner Entity.
 void RegisterPhysicsBodyBindings(gmMachine& a_machine);
 
 // Creates the retail IntListRefContainer user object used by native Physics
@@ -81,8 +52,6 @@ gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity = gmVa
 // has no body yet.
 bool GetPhysicsDataAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
                          float& a_minX, float& a_minY, float& a_maxX, float& a_maxY);
-// Union of every live body/fixture in PhysicsData. Used where retail's entity
-// extent helper walks the complete entity-owned shape list (FUN_000302f8).
 bool GetPhysicsDataAllBodiesAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
                                  float& a_minX, float& a_minY,
                                  float& a_maxX, float& a_maxY);
@@ -114,23 +83,6 @@ bool GetPhysicsDataFacingDirection(gmMachine& a_machine,
                                    const gmVariable& a_physicsDataVar,
                                    float& a_x, float& a_y);
 
-// For entity_bindings.cpp's CreateEntityFromFactory: real factories build
-// their returned entity table via `PhysicsData=_entity.getPhysicsData()`
-// inside the object literal, i.e. BEFORE that literal (the final,
-// script-visible entity table) exists at all -- `_entity` there is the
-// native "handle" table the factory was called with, a DIFFERENT object.
-// So the PhysicsData created at that point has its owner captured as the
-// handle, not the final table, even though dual-injection
-// (InjectEntityHandleMethods on both) makes method calls on either look
-// consistent. Confirmed a real bug, not theoretical: Player.gm's
-// `local pd=e.PhysicsData; ... pd.isCollidable()` on an entity returned by
-// PhysicsData.getCollidingEntities() (which resolves the OWNER from the
-// PhysicsData's captured owner) got a table missing every field the real
-// entityTable has, since PhysicsData.getCollidingEntities returns the
-// captured owner, not necessarily the final table -- "getdot failed"
-// calling a method that only really exists on the final table. Called
-// once, right after dual-injection, to repoint ownership at the real
-// final table.
 void SetPhysicsDataOwnerEntity(gmMachine& a_machine, const gmVariable& a_physicsDataVar, const gmVariable& a_ownerEntity);
 
 // EntityManager calls this after the entity's script destructor and before

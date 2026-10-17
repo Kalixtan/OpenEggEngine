@@ -7,22 +7,6 @@
 #include <memory>
 #include <string>
 
-// "Video.* and drawList.* really are (mostly) the same underlying command
-// list"; drawTextureByHandle/print/setColour/pushAttributes/popAttributes/
-// setAttrDepthTest/setupWorldView/reset/setFontRenderAttributes all
-//
-// A real drawList instance now genuinely records (see
-// DrawListData::CommandBuffer::commands below) rather than drawing
-// immediately -- the earlier milestone's immediate-execution shortcut broke
-// the real "build a sub-list once,
-// callDrawList() it every frame" composition pattern used throughout the
-// corpus (QuadShadowed.gm's drop shadows, EntityMenu_*Cell.gm's nested
-// widget draws, ...): with every drawList call executing immediately at
-// build time, geometry drawn once during an occasional rebuild simply never
-// reappeared on later frames, since nothing ever replayed it again. The
-// bare `Video.*` global form is unaffected -- it still executes immediately,
-// matching real retail's own Video-vs-drawList split (Video IS effectively
-// "whichever list is being replayed for the frame"; see RecordingTarget).
 gmType RegisterDrawListType(gmMachine& a_machine);
 gmType GetDrawListType();
 
@@ -79,9 +63,6 @@ DrawListSubmission CaptureDrawListSubmission(DrawListData* a_list,
 // by the unsigned order key at native DrawList+0x30 before replaying it.
 void ReplayDrawListsInOrder(std::vector<DrawListSubmission>& a_lists);
 
-// Creates a new drawList user object sized a_width x a_height (per
-// this.setupPreDrawList(w,h)'s confirmed call shape). Pushed as the return
-// value on a_thread.
 void PushNewDrawList(gmThread* a_thread, int a_width, int a_height);
 
 // Lets native FONTHELPER_* stand-ins (see video_bindings.cpp) drive a

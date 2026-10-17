@@ -100,9 +100,6 @@ GmVm::GmVm() {
     if (std::getenv("GE3_TRACE_EDITOR_LIMIT"))
         m_machine.m_line = TraceEditorLimitLine;
 
-    // Stock GameMonkeyScript machine library -- print/format/table*/sys*/gc*.
-    // (gmVersion, tableCount, print, format, sysCollectGarbage, ...) almost
-    // exactly, strong evidence retail registered this same stock lib as-is.
     gmMachineLib(&m_machine);
 }
 

@@ -1,14 +1,6 @@
 #pragma once
 #include "gmMachine.h"
 
-// SEQUENCERACTION (three own methods plus inherited field operators; see
-// A real, functional step sequencer (real BPM-driven timing, triggers that
-// actually fire during playback), not just stubs -- MainSequencer (the
-// real retail global that game_data/Main.gm drives its whole music/gameplay
-// loop through) is created from this and set as a global before Main.gm
-// loads, since no .gm script anywhere creates it -- confirmed by grepping
-// the whole corpus for "MainSequencer =", zero hits. It has to come from
-// the native engine bootstrap, exactly like retail's must.
 void RegisterSequencerBindings(gmMachine& a_machine);
 
 // Advances every live SEQUENCER instance's playback clock and fires any

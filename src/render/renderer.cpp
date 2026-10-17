@@ -13,18 +13,6 @@
 #include <algorithm>
 #include <limits>
 
-// Desktop compatibility-OpenGL backend for the Sound Shapes draw commands.
-// The Flowers of Error desktop binary is historical reference material only;
-// its 0x00420xxx bodies are not executable code in the Sound Shapes PS3 EBOOT
-// and do not establish retail rendering parity (see ENGINE_AUDIT.md).
-//
-// Texture upload orientation is chosen to match the desktop asset loaders.
-// Its equivalence to the PS3 retail RSX texture convention has not been
-// established; do not infer it from the unrelated desktop reference backend.
-//
-// Power-of-two padding and logical-extent UV scaling are implemented for the
-// desktop texture path. The PS3 sampler's wrap/filter semantics remain a
-// separate unresolved render-config question.
 
 
 
@@ -42,8 +30,6 @@ int RetailFctiwz(float a_value) {
     return static_cast<int>(a_value);
 }
 
-// FUN_0004e6b8 uses PPC subf + srwi to center the adjusted viewport. The
-// subtraction and offset addition wrap as 32-bit integers; srwi is logical.
 int RetailViewportOrigin(int a_deviceSize, int a_viewSize, int a_offset) {
     uint32_t difference = static_cast<uint32_t>(a_deviceSize) -
                           static_cast<uint32_t>(a_viewSize);
@@ -53,17 +39,6 @@ int RetailViewportOrigin(int a_deviceSize, int a_viewSize, int a_offset) {
     return result;
 }
 
-// Legacy Flowers of Error desktop-reference transform (not Sound Shapes
-// retail evidence; this helper is currently unused):
-//
-//   glRotatef(pitch, 1, 0, 0);
-//   angleRad = (pitch - 90.0f) * PI / 180.0f;
-//   s = sinf(angleRad);  if (s == 0.0f) s = 0.001f;   // guard, 0x3a83126f
-//   yOff = fabsf(camZ) * cosf(angleRad) / s;
-//   glTranslatef(-camX, yOff - camY, -camZ);
-//
-// Currently unreferenced. It is retained only as a decoded reference helper;
-// the Sound Shapes world-projection path is a separate PS3 command routine.
 float CameraYOffset(float a_pitchDeg, float a_camZ) {
     const float angleRad = (a_pitchDeg - 90.0f) * kPi / 180.0f;
     float s = std::sin(angleRad);
@@ -71,10 +46,6 @@ float CameraYOffset(float a_pitchDeg, float a_camZ) {
     return std::fabs(a_camZ) * std::cos(angleRad) / s;
 }
 
-// Retail FUN_000548b8 applies descriptor blend state when its flag changes:
-// SRC_ALPHA/ONE_MINUS_SRC_ALPHA and FUNC_ADD for RGB and alpha. Flag 1 enables
-// blending; flag 0 disables it. Both paths disable logic-op and line/polygon
-// smoothing. The flags are recovered from the render-config descriptors.
 void ApplyRenderConfigBlendState(bool a_translucent) {
     glBlendEquation(GL_FUNC_ADD);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
@@ -86,11 +57,6 @@ void ApplyRenderConfigBlendState(bool a_translucent) {
     glDisable(GL_POLYGON_SMOOTH);
 }
 
-// FUN_00302f30 uses vrefp followed by one Newton refinement to build its
-// orthographic coefficients. A host divide is used only as the initial
-// estimate; PPC's vrefp seed is not reproduced here, so last-bit parity is
-// still open. The refinement and subsequent coefficient operations preserve
-// the traced float operation boundaries.
 float RetailRefinedReciprocal(float a_value) {
     const float estimate = 1.0f / a_value;
     const float residual = std::fma(-a_value, estimate, 1.0f);
@@ -110,9 +76,6 @@ void LoadRetailOrthographicMatrix(float a_left, float a_right,
     const float verticalCenter = a_top + a_bottom;
     const float depthCenter = a_far + a_near;
 
-    // Column-major OpenGL layout of FUN_00302f30's standard ortho matrix.
-    // The native path doubles the X/Y/Z reciprocal for scale and uses the
-    // signed reciprocal against the summed bounds for translation.
     const GLfloat matrix[16] = {
         reciprocalWidth + reciprocalWidth, 0.0f, 0.0f, 0.0f,
         0.0f, reciprocalHeight + reciprocalHeight, 0.0f, 0.0f,
@@ -173,14 +136,6 @@ bool Renderer::Init(PlatformWindow& a_window, int a_width, int a_height) {
         std::fprintf(stderr, "Renderer: multisample antialiasing unavailable; using line smoothing\n");
     }
 
-    // Sound Shapes note textures use grayscale distance fields. The fragment
-    // Math and discard-level mapping follow the retail TextureDist microcode.
-    // Native descriptor row 1 maps aColor to category 5, uploaded by
-    // FUN_000548b8 from drawContext +0x1a10 (current draw color). Native rows
-    // 2/3 are aDiscardLevel/aSmoothLevel; Cg paramno is a separate index space.
-    // FUN_0003e040's distance-texture payloads now map to those uniforms in
-    // desktop state. Nested replay's row-4 aSize write follows a texture-state
-    // route and does not override smooth (see TextureDist_Uniform_Analysis.md).
     static const char* kDistanceTextureVS = R"GLSL(#version 120
 varying vec2 v_uv;
 void main() {
@@ -239,15 +194,6 @@ void main() {
 }
 )GLSL";
 
-    // Verification: retail's selector table maps shader type 0 to
-    // TextureTrans (`FUN_00055bb4`). Its static descriptor points directly to
-    // the vertex CgBinary at EBOOT VA 0x430198 and fragment CgBinary at VA
-    // 0x42ffa8. Reflection names aColor as a vertex uniform and vColor as the
-    // varying consumed by the fragment program. Descriptor 0x43bcc0 points
-    // to binding table 0x41f8d8, where aColor maps to native category 5;
-    // FUN_000548b8 uploads that category from drawContext +0x1a10. The decoded
-    // fragment samples the complete texel, discards when texel alpha <= 0,
-    // and multiplies the texel by vColor.
     static const char* kTextureTransFS = R"GLSL(#version 120
 uniform sampler2D u_texture;
 uniform vec4 u_color;
@@ -263,12 +209,6 @@ void main() {
     if (!m_textureTransShaderReady)
         std::fprintf(stderr, "Renderer: TextureTrans shader unavailable; textured shapes use generic texture modulation\n");
 
-    // Verification: TextureTransFast and TextureTransFastNB share the
-    // CgBinary fragment at EBOOT VA 0x430528 (profile 0x1b5c), which
-    // decompiles to one fetch from aTexture at vTexCord. It has no
-    // vColor/aColor parameter, so the sample ignores current draw color.
-    // Fast enables translucent blending; FastNB's native flag is zero and
-    // disables blending. Alpha/depth parity remains open.
     static const char* kTextureTransFastFS = R"GLSL(#version 120
 uniform sampler2D u_texture;
 varying vec2 v_uv;
@@ -281,10 +221,6 @@ void main() {
     if (!m_textureTransFastShaderReady)
         std::fprintf(stderr, "Renderer: TextureTransFast shader unavailable; textured shapes use generic texture modulation\n");
 
-    // Static RSX decode of Selection_f: output.rgb = mix(vColor.rgb,
-    // selectColour.rgb, pulsePerc), output.a = vColor.a * alphaPerc.
-    // `edit_selected` is native selector-table row 0x12 (confirmed by the
-    // 0x39d0c8 selector-name table and colours.dat's s{scheme}_edit_selected).
     static const char* kSelectionFS = R"GLSL(#version 120
 uniform vec4 u_selectColour;
 uniform float u_pulsePerc;
@@ -328,11 +264,6 @@ void main() {
     if (!m_textureSelectionShaderReady)
         std::fprintf(stderr, "Renderer: TextureSelection_f shader unavailable; selected textures use their base config\n");
 
-    // TextureDistSelection_f computes its edge width from dFdx(dot(uv,aSize))
-    // scaled by aDiscardLevel, places the threshold at aSmoothLevel-width/4,
-    // smooths across width/2, mixes aColor toward aSelectColour, then applies
-    // alphaPerc. This follows the retail RSX instruction ordering recovered
-    // from the CgBinary at EBOOT VA 0x42c328.
     static const char* kTextureDistSelectionFS = R"GLSL(#version 120
 uniform sampler2D u_texture;
 uniform vec2 u_size;
@@ -405,11 +336,6 @@ void main() {
     if (!m_paletteOverlayShaderReady)
         std::fprintf(stderr, "Renderer: paired animation shader unavailable\n");
 
-    // FireGroundShader2 RSX microcode computes aPosition.xy + aData.xy*aAmp,
-    // then transforms that point at aZ and forwards aColour. The desktop
-    // vertex shader mirrors that operation. aData's retail attribute-8 source
-    // is unresolved; see FIRE_GROUND_SHADER_AUDIT.md before treating this as
-    // a complete port.
     static const char* kFireGroundVS = R"GLSL(#version 120
 uniform float u_amp;
 uniform float u_z;
@@ -461,8 +387,6 @@ void main() { gl_FragColor = vColor; }
     // import OpenGL, so this is not a literal retail call sequence.
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
     glEnable(GL_LINE_SMOOTH);
-    // Retail's zero-argument Video.setLineWidth default is 2.0
-    // (DAT_000774dc); FUN_00052550 stores the selected value at +0x8210.
     SetLineWidth(kDefaultLineWidth);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -472,10 +396,6 @@ void main() { gl_FragColor = vColor; }
     // Per-frame clears are colour-only (see BeginFrame).
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Retail dispatcher FUN_00044d4c uses comparison-table slot 2 for
-    // enabled depth and slot 7 for disabled depth. DAT_00431684 maps them
-    // to 0x203 (LEQUAL) and 0x207 (ALWAYS). Same-depth sprite layers need
-    // equality: GL_LESS discarded every layer after the first Goomba head.
     glDepthFunc(GL_LEQUAL);
 
     // Fixed-function texturing modulates the sampled texel by the current
@@ -511,12 +431,6 @@ void Renderer::OnWindowResized(int a_width, int a_height) {
     UpdateLetterboxBars();
 }
 
-// Verification: bytecode-matched to FUN_0004e6b8. Retail compares the
-// physical aspect passed by FUN_000574a0 with device +0x81bc, rounds the
-// adjusted width or height using +0.5 then fctiwz, stores +0x81a4/+0x81a8,
-// and centers the viewport origin in +0x8178/+0x817c. The frontend supplies the
-// desktop physical dimensions; OpenGL's bottom-left viewport origin is the
-// platform adaptation.
 void Renderer::UpdateLetterboxBars() {
     if (m_rawWidth <= 0 || m_rawHeight <= 0) return;
     if (!SystemConfig::Get().letterbox) {
@@ -548,10 +462,6 @@ void Renderer::UpdateLetterboxBars() {
     m_barY = RetailViewportOrigin(m_rawHeight, logicalH, video.viewportOffsetY);
 }
 
-// Verification: black regions correspond to the adjusted retail viewport
-// rectangle; the GL quad submission is a desktop adaptation. FUN_0004e6b8
-// uses a floored half-difference for the origin and retains the independently
-// rounded viewport size, so odd leftover pixels belong to the far edge.
 void Renderer::DrawLetterboxBars() {
     const int rightBar = m_rawWidth - (m_barX + m_width);
     const int topBar = m_rawHeight - (m_barY + m_height);
@@ -639,8 +549,6 @@ void Renderer::BeginFrame() {
     // the leftover margin is odd, so pass the rounded logical size verbatim.
     glViewport(m_barX, m_barY, m_width, m_height);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    // This clear policy is a desktop choice; do not treat the old FoE GL
-    // clear-function addresses as evidence for Sound Shapes' RSX frame loop.
     glClear(GL_COLOR_BUFFER_BIT);
     // The desktop port clears these buffers to prevent stale contents. Retail
     // clear cadence remains open and must be recovered from RSX commands.
@@ -663,9 +571,6 @@ void Renderer::EndFrame() {
 // Only meaningful in WorldPerspective mode -- the other three modes have
 // fixed extents that do not depend on the camera.
 float Renderer::GetWorldHalfHeight() const {
-    // FUN_00052568 returns full width = cameraZ * 0.44721359 * 4 and
-    // full height = width / (deviceWidth / deviceHeight); the matrix path
-    // halves the extents to build camera-centred bounds.
     const float fullWidth = static_cast<float>(
         static_cast<double>(m_cameraZ) * kWorldViewExtentBase * 4.0);
     return (fullWidth / GetAspect()) * 0.5f;
@@ -767,12 +672,6 @@ void Renderer::ReleaseAllTextures() {
     m_texturesByPath.clear();
 }
 
-// RETAIL BYTECODE VERIFIED: FUN_0004f23c returns pool object +0x20
-// (capacity) minus +0x00 (used bytes). Its owner initializes +0x20 to
-// 0x0aa00000 (170 MiB) at EBOOT 0x173c68. The desktop texture backend uploads
-// each resident texture as RGBA8, so account those allocations against the
-// same engine-owned pool budget instead of reporting unrelated driver-wide
-// free VRAM.
 int Renderer::GetTextureMemoryFreeBytes() const {
     constexpr uint64_t kRetailTexturePoolBytes = 0x0AA00000ull;
     uint64_t residentBytes = 0;
@@ -992,12 +891,6 @@ void Renderer::BindTextureWithUVScale(unsigned int a_handle, float& a_uMax, floa
     glBindTexture(GL_TEXTURE_2D, a_handle);
 }
 
-// Verification: retail bytecode confirms opcode 0x1c stores 2 for enabled
-// and 7 for disabled, then
-// FUN_00044d4c indexes DAT_00431684. The actual table entries are
-// 0x203 (LEQUAL) and 0x207 (ALWAYS). Mapping these RSX compare modes to GL
-// LEQUAL/ALWAYS is supported by enum meaning; whole render-state parity is
-// not established.
 void Renderer::SetDepthTest(bool a_enabled) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(a_enabled ? GL_LEQUAL : GL_ALWAYS);
@@ -1018,16 +911,10 @@ void Renderer::SetDepthWrite(bool a_enabled) {
     glDepthMask(a_enabled ? GL_TRUE : GL_FALSE);
 }
 
-// Sound Shapes retail Video.setLineWidth stores the value at graphics-state
-// offset +0x8210 (FUN_00052550). The former deviceWidth/800 rule came from a
-// different game's PC binary and has no Sound Shapes evidence.
 void Renderer::SetLineWidth(float a_width) {
     glLineWidth(a_width);
 }
 
-// --- Sound Shapes-only state (retail FoE imports none of these; see
-// --- renderer.h's note above these declarations). Kept working so the
-// --- ported_native/ Sound Shapes path does not regress.
 
 // drawList.setColourMask(enabled) -- the argument is "is the colour MASK
 // enabled", i.e. true means colour writes are BLOCKED, so it maps to
@@ -1138,19 +1025,9 @@ void Renderer::SetCameraPos(float a_x, float a_y, float a_z) {
     m_cameraZ = a_z;
 }
 
-// Verification: Sound Shapes bytecode/decompilation confirms the unit and
-// aspect-ratio orthographic setup helpers. The unrotated world-view branch's
-// bounds and depth mapping are traced; the rotated branch and GL state/matrix
-// conversion remain desktop adaptations.
 void Renderer::ApplyProjection() const {
     const float viewportAspect = GetAspect();
 
-    // FUN_000590c0 builds the frame base as diag(screenViewScale,
-    // screenViewScale, 1, 1). FUN_000548b8 left-multiplies the selected view
-    // matrix by that base before uploading aViewWorldProjection. In column
-    // vector convention this scales the clip-space X/Y rows of the complete
-    // projection matrix. Apply it after constructing the view projection so
-    // all retail view modes receive the same frame-level transform.
     const auto applyRetailFrameViewScale = [] {
         const float scale = GetEngineContext().video.screenViewScale;
         if (scale == 1.0f) return;
@@ -1168,20 +1045,11 @@ void Renderer::ApplyProjection() const {
 
     switch (m_viewMode) {
         case ViewMode::WorldPerspective: {
-            // Retail FUN_0004cea0's false/default branch calls
-            // FUN_00052568, which computes full width as
-            // cameraZ * 0.44721359 * 4 and full height as width divided by
-            // device width/height. It then builds camera-centred bounds from
-            // half of those extents. The same branch supplies fixed world
-            // near/far bounds -1023/+1023 to the matrix construction.
             const float fullWidth = static_cast<float>(
                 static_cast<double>(m_cameraZ) * kWorldViewExtentBase * 4.0);
             const float fullHeight = fullWidth / viewportAspect;
             const float halfW = fullWidth * 0.5f;
             const float halfH = fullHeight * 0.5f;
-            // FUN_0004cea0's false/default branch forms the near/far bound
-            // vectors from the binary's -1023 and +1023 constants. The
-            // orthographic builder uses their difference for the Z scale.
             LoadRetailOrthographicMatrix(
                 m_cameraX - halfW, m_cameraX + halfW,
                 m_cameraY - halfH, m_cameraY + halfH,
@@ -1223,31 +1091,14 @@ void Renderer::ApplyProjection() const {
             break;
         }
         case ViewMode::UnitOrtho: {
-            // Sound Shapes' own setupOrthoView with no arguments is
-            // gluOrtho2D(0, 1, 0, 1) -- CONFIRMED against its binary, not
-            // rather than inherited from FoE's FUN_00421640: the decompiled body
-            // helper as FUN_0003e220(DAT_0008132c, DAT_00081330,
-            // DAT_0008132c, DAT_00081330, list), and those two constants
-            // read 0x00000000 and 0x3f800000 -- 0.0f and 1.0f -- straight
-            // out of EBOOT.elf. Same (left, right, bottom, top) order as
-            // the 4-argument form below.
             glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
             break;
         }
         case ViewMode::CustomOrtho: {
-            // setupOrthoView(left, right, bottom, top) -- the 4-argument
-            // form, confirmed real in the same decompiled body: with an
-            // argument count of exactly 4 it reads four float-or-int
-            // arguments and passes them to the same helper the 0-arg form
-            // calls with (0,1,0,1). See DC_gmf_setupOrthoView.
             glOrtho((double)m_orthoLeft, (double)m_orthoRight,
                     (double)m_orthoBottom, (double)m_orthoTop, -1.0, 1.0);
             break;
         }
-        // RETAIL PPC: DrawList.setupAspectRatioOrthoView (0x814b0) calls
-        // FUN_0003e4a0. It loads constants (-0.5,+0.5,-1,+1), multiplies
-        // the first pair by Video+0x81bc, then passes six float arguments to
-        // FUN_00302f30: horizontal bounds, vertical bounds (-0.5,+0.5), and
         case ViewMode::AspectRatioOrtho:
         default: {
             // Translation of the retail orthographic bounds to GL.
@@ -1270,9 +1121,6 @@ void Renderer::ApplyProjection() const {
     glLoadIdentity();
 }
 
-// Verification: desktop immediate-quad implementation. Retail drawTexture
-// records through FUN_0003f3dc and RSX render-config submission; matching its
-// queue state, coverage, blend, and depth behavior remains open.
 void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
                                  float a_x2, float a_y2, float a_x3, float a_y3,
                                  unsigned int a_textureHandle, float a_z,
@@ -1280,10 +1128,6 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
                                  float a_distanceSmoothLevel, int a_textureShaderType,
                                  float a_uvScaleU, float a_uvScaleV,
                                  unsigned int a_primitiveMode) {
-    // RETAIL PPC: FUN_0003e6f0 returns before adding any vertices or command
-    // when its retained texture pointer is null. Desktop texture lookup uses
-    // handle 0 for that state, so do not let fixed-function GL's unbound
-    // texture render as a solid white quad.
     if (a_textureHandle == 0) return;
 
     // Retail screen-space texture helpers express positions and dimensions in
@@ -1516,11 +1360,6 @@ void Renderer::DrawTexturedQuad(float a_x0, float a_y0, float a_x1, float a_y1,
         }
     }
 
-    // Retail FUN_0003e6f0 writes the caller's VMSHAPE draw buffer. It expands
-    // ordinary quad submissions to six vertices when the target shape is
-    // TRIANGLES; the MarshmallowTree idle crown uses this path. Triangle-strip
-    // shapes instead receive BL, BR, TL, TR so their four vertices form the
-    // same two-triangle quad without adding a diagonal seam.
     if (a_primitiveMode == GL_TRIANGLE_STRIP) {
         glBegin(GL_TRIANGLE_STRIP);
         glTexCoord2f(0.0f, 0.0f);  glVertex3f(a_x0, a_y0, a_z);
@@ -1712,16 +1551,6 @@ void Renderer::DrawPolygonGradient(unsigned int a_glPrimitiveMode, const float* 
         glDisable(GL_TEXTURE_2D);
     }
 
-    // Verification: TextureDist fragment math is bytecode-confirmed; its
-    // aColor source is confirmed by the native category-5 descriptor and
-    // FUN_000548b8. TextureTrans's bytecode-confirmed fragment multiplies the
-    // texel by vColor; its table maps aColor to category 5 at 0x41f8d8.
-    // TextureTransFast and TextureTransFastNB share a fragment with only
-    // aTexture/vTexCord and return its sampled texel unchanged. Selector 1
-    // enables the native translucent state; selector 2 disables blending per
-    // its native zero flag. Other specialized configs are not mapped here yet.
-    // Grouped native/desktop draw-pass correspondence and depth behavior
-    // remain open. Blend state is set from recovered descriptor values below.
     GLint previousProgram = 0;
     const int textureShaderType = a_textureShaderType < 0
         ? GetTextureShaderType(a_textureHandle) : a_textureShaderType;
@@ -1840,11 +1669,6 @@ void Renderer::DrawPolygonGradient(unsigned int a_glPrimitiveMode, const float* 
             // path with a_uvAlreadyIncludesTextureExtent.
             const float u = a_uv ? a_uv[i * 2 + 0] : (x - minX) / spanX;
             const float v = a_uv ? a_uv[i * 2 + 1] : (y - minY) / spanY;
-            // RETAIL BYTECODE MATCH: CreateTextBubble's PPC helper writes
-            // UVs after applying texture +0x34/+0x38. Video.getTextureExtX/Y
-            // expose those same scale values. Those authored shape UVs are
-            // final texture coordinates and must not receive the padding
-            // scale a second time.
             glTexCoord2f(a_uvAlreadyIncludesTextureExtent ? u : u * uMax,
                          a_uvAlreadyIncludesTextureExtent ? v : v * vMax);
         }
@@ -1969,10 +1793,6 @@ bool Renderer::DrawPolygonPaletteOverlay(unsigned int a_glPrimitiveMode, const f
 }
 
 void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
-    // Retail DrawList.clear appends opcode 4, whose dispatcher submits the
-    // prebuilt oversized clear-screen triangle through FUN_0030a278. Its
-    // depth and stencil effects depend on mode. This full-window triangle is
-    // a desktop geometry approximation; preserve matrices and GL state.
     (void)a_z; // retail's clear shape uses fixed clip-space positions.
 
     GLint previousMatrixMode = GL_MODELVIEW;
@@ -2018,12 +1838,6 @@ void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
     glPushMatrix();
     glLoadIdentity();
 
-    // PPC at 0x30a144 maps both depth descriptors to ALWAYS; bit 1 controls
-    // only the depth write flag. At 0x30a02c, bit 2 selects stencil ZERO
-    // versus KEEP for all outcomes. The color-mask helper resolves both
-    // opcode-4 branches to all channels enabled. Bit 3 selects one of two
-    // retail render-config objects; their shared fragment program and blend
-    // flag are traced in DRAWLIST_CLEAR_AUDIT.md.
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
     glDisable(GL_TEXTURE_2D);
@@ -2062,15 +1876,6 @@ void Renderer::DrawFullscreenOverlay(float a_z, unsigned int a_mode) {
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 
-    // FUN_0030a414 restores the saved retail tuple after opcode 4. Depth is
-    // always enabled by the helper; stencil enable follows whether the saved
-    // state is the null/default tuple. The GL adapter preserves that enable
-    // bit because the function/reference values may be stale while stencil is
-    // disabled (e.g. EQUAL/ref 8 left by a prior masked pass). It also reapplies
-    // the saved compare/write/color and stencil state and forces CCW front
-    // faces. It does not restore blending, draw colour, or texture state.
-    // Avoid GL attrib-stack restoration here: that would roll back more state
-    // than retail does.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(static_cast<GLenum>(previousDepthFunction));
     glDepthMask(previousDepthWrite);

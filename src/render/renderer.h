@@ -8,39 +8,15 @@
 #include "texture.h"
 #include "../platform/platform_window.h"
 
-// Compatibility OpenGL renderer for the desktop port's draw-command model.
-// Ordinary geometry/textures use fixed-function calls; glyphs and explicitly marked
-// distance-field textures use fragment shaders. Distance shader parameters
-//
-// Sound Shapes runs on PS3 RSX and does not use OpenGL. This OpenGL backend
-// is a portability layer, not a direct retail renderer port. The old desktop
-// Flowers of Error binary is not authoritative for Sound Shapes behavior;
-// per-function retail evidence and remaining gaps are tracked in
-//
-// The frontend owns the native window and OpenGL context. Nothing from a
-// windowing library draws or manages the renderer's GL state.
-//
-// Projection evidence: retail unit/aspect ortho and the unrotated world-view
-// bounds/depth mapping are traced. The rotated world-view branch remains under
-// audit. No FoE FUN_00421xxx OpenGL address is evidence for this PS3 binary.
 class Renderer {
 public:
-    // FUN_00052568 computes the retail world-view width from camera Z using
-    // this binary float. The complete matrix composition remains under audit.
     static constexpr float kWorldViewExtentBase = 0.44721359f;
-    // FUN_0004cea0 supplies world near/far bounds -1023 and +1023 to its
-    // orthographic matrix construction.
     static constexpr float kLayerDepthRange = 1023.0f;
     static constexpr float kNearClip = 1.0f;
     static constexpr float kFarClip = 1000000.0f;
 
-    // Retail FUN_0003e4a0 passes vertical bounds [-0.5,+0.5] to
-    // FUN_00302f30 for setupAspectRatioOrthoView.
     static constexpr float kUIOrthoHalfHeight = 0.5f;
 
-    // Desktop GameBoard bounds. The former FUN_0040df90/FUN_004215a0
-    // attribution was to the unrelated FoE reference and is not proof of
-    // Sound Shapes world-ortho projection behavior.
     static constexpr float kGameBoardMinX = -2399.0f;
     static constexpr float kGameBoardMinY = -1339.0f;
     static constexpr float kGameBoardMaxX = 2399.0f;
@@ -50,9 +26,6 @@ public:
     // unverified.
     static constexpr float kDefaultLineWidth = 2.0f;
 
-    // Preserve the script-level view modes independently. The world matrix
-    // and GameBoard mapping remain desktop approximations; the retail PS3
-    // projection is an RSX command path, not the unrelated FoE GL vtable.
     enum class ViewMode {
         WorldPerspective,   // setupWorldView
         WorldOrtho,         // setupWorldOrthoView -- GameBoard bounds
@@ -154,25 +127,13 @@ public:
     std::shared_ptr<PaletteData> GetTextureSubPalette(unsigned int a_handle) const;
     void BindTextureSubPalette(unsigned int a_handle, std::shared_ptr<PaletteData> a_palette);
 
-    // Convenience mode used by legacy callers: true selects LEQUAL and false
-    // selects ALWAYS. Retail opcode 0x1c supports all eight table entries via
-    // DAT_00431684; opcode 0x1d controls depth writes independently.
     void SetDepthTest(bool a_enabled);
-    // Retail DrawList opcode 0x1c: table index selects the compare and enables
-    // depth testing. Index order is verified in EBOOT.elf at 0x44d4c.
     void SetDepthTestCompareIndex(int a_index);
     void SetDepthWrite(bool a_enabled);
     // Video.setLineWidth(w); retail stores it at graphics-state +0x8210.
     // The desktop backend passes the requested value to OpenGL directly.
     void SetLineWidth(float a_width);
 
-    // NOTE ON THE FOUR METHODS BELOW: retail FoE's import table contains no
-    // glColorMask, no glCullFace/glFrontFace, and no glStencil* of any kind
-    // -- it never uses colour masking, face culling or the stencil buffer.
-    // These are kept because Sound Shapes content in this tree
-    // (ported_native/ground_renderer.cpp, draw_context.cpp's attribute
-    // stack) still drives them, and removing them would regress that path.
-    // They are inert for FoE, whose scripts never reach them.
     void SetColourMask(bool a_maskEnabled);
     void SetCulling(int a_mode);
     void FillStencilFullscreen(float a_z);
@@ -189,12 +150,7 @@ public:
         a_r = m_colour[0]; a_g = m_colour[1]; a_b = m_colour[2]; a_a = m_colour[3];
     }
 
-    // Video.setCameraPos(x,y,z). Its retail world-view effect is represented
-    // by a desktop approximation until FUN_0004cea0 is fully lifted.
     void SetCameraPos(float a_x, float a_y, float a_z = 0.0f);
-    // Retail FUN_0004cea0 consumes Video.setCameraRotation's stored
-    // axis-angle fields (+0x81fc/+0x8200/+0x8204/+0x8208). GL uses degrees,
-    // while the shipped script quaternion helpers supply radians.
     void SetCameraRotation(float a_angleRadians, float a_axisX,
                            float a_axisY, float a_axisZ) {
         m_cameraRotationAngle = a_angleRadians;
@@ -206,16 +162,11 @@ public:
         m_viewMode = a_mode;
         m_hasViewAspectOverride = false;
     }
-    // FUN_0004cea0's boolean selects the axis-angle camera transform branch:
-    // false jumps directly to the unrotated camera-centred bounds path.
     void SetWorldView(bool a_cameraRotationEnabled) {
         m_viewMode = ViewMode::WorldPerspective;
         m_hasViewAspectOverride = false;
         m_worldViewRotationEnabled = a_cameraRotationEnabled;
     }
-    // RETAIL PPC: FUN_0003e4a0 reads Video+0x81bc while constructing the
-    // aspect-ortho matrix. Keep that value with a deferred draw-list command
-    // instead of consulting the later window/video state during replay.
     void SetAspectRatioOrtho(float a_aspect) {
         m_viewMode = ViewMode::AspectRatioOrtho;
         m_viewAspectOverride = a_aspect;
@@ -270,28 +221,6 @@ public:
     void DrawFireGroundStrip(const float* a_xy, const float* a_data, int a_count,
                              float a_amp, float a_z);
 
-    // Verification: PPC inspection of EBOOT 0x1ad708 and 0x4c094/0x4c0a0
-    // establishes pre-scaled UVs for texture-configured shape meshes.
-    // Verification: desktop OpenGL implementation. Textured shape UV extent
-    // handling follows retail `CreateTextBubble` PPC; TextureDist selection
-    // reuses the recovered fragment equation and category-5 draw-color
-    // binding. TextureTrans selector 0 uses the linked Cg fragment operation
-    // and verified category-5 color route. TextureTransFast selectors 1 and 2
-    // use the shared bytecode-confirmed texture-only fragment; selector 2
-    // disables blending because its native descriptor flag is zero.
-    // TextureDist aSmoothLevel is native config row 3 (Cg paramno 4); the
-    // setter/reset values are mapped, while default and depth parity remain
-    // open (see TextureDist_Uniform_Analysis.md).
-    // Per-vertex-coloured variant -- backs FoE's radial-gradient
-    // beginShape/plotVertex/endShape idiom (PekkoAndJon/bg.gm alternates
-    // alpha between a fan's centre and its outer ring to fade a colour out
-    // to transparent). a_rgba has 4 floats per vertex. a_textureHandle == 0
-    // draws untextured. a_uv supplies real per-vertex UVs when the shape has
-    // them (ShapeData::uvs, via getVertex(i).u/.v); pass nullptr to fall
-    // back to UV = vertex xy remapped into the shape's bounding box.
-    // Set a_uvAlreadyIncludesTextureExtent for authored shape UVs that retail
-    // has already multiplied by texture fields +0x34/+0x38; ordinary logical
-    // image UVs continue to receive the renderer's occupied-POT scale.
     void DrawPolygonGradient(unsigned int a_glPrimitiveMode, const float* a_xy, const float* a_rgba,
                              const float* a_uv, int a_count, unsigned int a_textureHandle,
                              float a_z = 0.0f, bool a_uvAlreadyIncludesTextureExtent = false,
@@ -324,8 +253,6 @@ public:
                            float a_uvScaleV = 1.0f,
                            unsigned int a_primitiveMode = GL_QUADS);
 
-    // A glyph quad with explicit UVs and the two thresholds encoded by
-    // FUN_0003e040. Its alpha channel contains the grayscale glyph distance.
     void DrawGlyphQuad(float a_x0, float a_y0, float a_x1, float a_y1,
                         float a_x2, float a_y2, float a_x3, float a_y3,
                         unsigned int a_textureHandle, float a_u0, float a_v0, float a_u1, float a_v1,
@@ -348,16 +275,6 @@ private:
     void UpdateLetterboxBars();
 
     float m_colour[4] = {1, 1, 1, 1};
-    // getCameraPosZ()` reads 26.879999 on retail before any script ever
-    // calls setCameraPos, not 0.0). This isn't just an accuracy nit: with
-    // cameraZ=0, WorldPerspective content drawn at its own z=0 sits exactly
-    // at the eye plane, which is degenerate for gluPerspective's projection
-    // (eye.z=0 -> clip.w=0 -> the perspective divide produces NDC (0,0,0)
-    // for every vertex, collapsing every triangle to a point regardless of
-    // its x/y). Any scene that never calls setCameraPos (diagnostic scene's
-    // hello-world Main.gm included) rendered nothing at all until this was
-    // fixed -- confirmed by instrumenting DrawTexturedQuad's own clip-space
-    // math, not a guess.
     float m_cameraX = 0.0f, m_cameraY = 0.0f, m_cameraZ = 26.879999f;
     float m_cameraRotationAngle = 0.0f;
     float m_cameraRotationX = 0.0f, m_cameraRotationY = 0.0f,
@@ -376,7 +293,6 @@ private:
     bool m_textureTransShaderReady = false;
     Shader m_textureTransFastShader;
     bool m_textureTransFastShaderReady = false;
-    // Retail Selection_f and TextureSelection_f alternate configs. The
     Shader m_selectionShader;
     bool m_selectionShaderReady = false;
     Shader m_textureSelectionShader;

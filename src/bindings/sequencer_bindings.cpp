@@ -51,24 +51,10 @@ struct SequencerTrigger {
     int pattern = 0;
     int step = 0;
     gmVariable action = gmVariable::s_null; // normally a SEQUENCERACTION native object
-    // Confirmed real field (SequencerTrigger.getLooped in the sequencer
-    // type's four-method table) -- NOT a fire/don't-fire mask (that was this
-    // engine's previous, unconfirmed "enabled" reading). Every real call
-    // site is consistent with "does this trigger keep firing every time
-    // the pattern loops back to its step (true), or fire once and then
-    // remove itself (false)": SequencerHelper.gm passes false for one-shot
-    // sync/volume-fade actions and true for repeating rhythm-pattern
-    // triggers. The exact retail removal mechanics aren't decompiled (no
-    // sequencer-tick body in the corpus), so "fire once, then erase" is
-    // our best-supported reading, not a confirmed decompiled port.
     bool looped = true;
     // restart(step) inserts a native one-shot action whose callback resets
     // the sequencer. It does not carry a script action or returned handle.
     bool restartAction = false;
-    // Confirmed real: setTrigger/setTrigger16/setTriggerOnNext return a
-    // trigger object using DAT_0043c394), and
-    // getAllTriggers()/moveTriggerToFront operate on that same handle, not
-    // a bare index.
     gmVariable handle = gmVariable::s_null;
 };
 
@@ -83,9 +69,6 @@ struct SequencerTriggerList {
     }
 };
 
-// Retail setTrigger returns the SEQUENCERTRIGGER native type (DAT_0043c394),
-// distinct from the SEQUENCERACTION passed into it (DAT_0043c390). The
-// trigger exposes its own metadata and retains the original action object.
 struct SequencerTriggerHandle {
     int pattern = 0;
     int step = 0;
@@ -94,21 +77,15 @@ struct SequencerTriggerHandle {
     gmMachine* machine = nullptr;
 };
 
-// Confirmed direct-offset fields from the decompiled body (currentStep at
-// +0x28, currentPattern at +0x24 -- both read/written with no function call
-// at all, unlike every other property here) map onto currentStep/
-// currentPattern below. Timing (msPerStep etc) is real BPM-driven math, not
-// a stub -- see UpdateAllSequencers.
 struct SequencerData {
     int bpm = 98;                // retail constructor +0x4c
     int numStepsPerPattern = 32; // retail constructor +0x54
     int loopLen = 1;             // number of patterns before +0x24 wraps, retail +0x58
     int currentStep = -1;        // retail constructor +0x28; first tick reaches step zero
-    int currentPattern = 0;      // confirmed direct-offset field (+0x24)
-    float volume = 1.0f;         // setVolume confirmed real setter (no confirmed getter)
-    float pan = 0.0f;            // setPan confirmed real setter (no confirmed getter)
-    bool isPlaying = false;      // start/stop confirmed real actions; isPlaying is real usage (Main.gm) but not
-                                  // in the confirmed decompiled method list -- see header comment on "play"/"isPlaying"
+    int currentPattern = 0;
+    float volume = 1.0f;
+    float pan = 0.0f;
+    bool isPlaying = false;
     gmVariable handle = gmVariable::s_null; // GM sequencer object returned by SEQUENCER()
     uint64_t serial = 0;         // insertion order in retail's manager list
     std::shared_ptr<SequencerTriggerList> triggers = std::make_shared<SequencerTriggerList>();
@@ -116,8 +93,6 @@ struct SequencerData {
     float msPerStep = (1.0f / (98.0f * 0.01666666753590107f)) * 1000.0f * 0.125f;
 
     int EffectiveLen() const { return numStepsPerPattern; }
-    // Retail FUN_0016bd48/FUN_0016c8b8 store this at +0x50. The binary
-    // constants are 1, 1/60, 1000 and 1/8, in that operation order.
     float CalculateMsPerStep() const {
         return (1.0f / ((float)bpm * 0.01666666753590107f)) * 1000.0f * 0.125f;
     }
@@ -273,7 +248,6 @@ int WrapStep(int a_step, int a_len) {
 }
 
 int StepsForNoteType(int a_type) {
-    // Retail FUN_0016ceb0: note types 0..5 map to 1,2,4,8,16,32.
     return a_type >= 0 && a_type <= 5 ? 1 << a_type : 0;
 }
 
@@ -293,8 +267,6 @@ TriggerPosition NextNotePosition(const SequencerData& a_seq, int a_noteType) {
 }
 
 void InsertTrigger(SequencerData& a_seq, SequencerTrigger a_trigger) {
-    // FUN_0016c97c inserts after existing triggers at the same
-    // (pattern, step), preserving their call order.
     if (a_trigger.serial == 0)
         a_trigger.serial = a_seq.triggers->nextSerial++;
     auto& triggers = a_seq.triggers->values;
@@ -313,11 +285,6 @@ void FireTrigger(gmMachine& a_machine, const gmVariable& a_action) {
     auto* action = userObject && userObject->GetType() == g_sequencerActionType
         ? static_cast<SequencerActionData*>(userObject->m_user) : nullptr;
     if (!action || action->boundTable.m_type != GM_TABLE) return;
-    // Retail SEQUENCERACTION's virtual slot +0x14 (FUN_000b1804) resolves
-    // `execute` on +0x70. This is also the dynamic property table used by
-    // the inherited GETDOT/SETDOT methods; setTable() replaces both routes.
-    // Its script receiver remains the action object (+0x7c), while the
-    // GameSystem* passed by FUN_0016d580 is unused by the retail callback.
     gmTableObject* callbackTable = static_cast<gmTableObject*>(
         a_machine.GetObject(action->boundTable.m_value.m_ref));
     if (!callbackTable) return;
@@ -419,10 +386,6 @@ int GM_CDECL gmf_setNumStepsPerPattern(gmThread* a_thread) {
         ? RetailFctiwz(arg.m_value.m_float)
         : arg.m_value.m_int;
     s->numStepsPerPattern = numSteps;
-    // Retail FUN_0016c8b8 also recomputes +0x50 from the current BPM. This
-    // matters when changing pattern length after setBPM (the interval is
-    // normally independent of length, but retail still writes it here).
-    // Keep the same operation order as the native helper.
     s->msPerStep = s->CalculateMsPerStep();
     s->msTillNextStep = 0.0f;
     return GM_OK;
@@ -458,8 +421,6 @@ int GM_CDECL gmf_setPan(gmThread* a_thread) {
     s->pan = v;
     return GM_OK;
 }
-// Retail FUN_0016bd48 recomputes +0x50 and resets the +0x48 countdown
-// unless its optional second argument is truthy.
 int GM_CDECL gmf_setBPM(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
@@ -479,10 +440,6 @@ int GM_CDECL gmf_setBPM(gmThread* a_thread) {
         s->msTillNextStep = 0.0f;
     return GM_OK;
 }
-// Retail FUN_0016c960 resets pattern/step and starts playback. Its one-arg
-// overload FUN_0016cbc8 schedules a nonlooped native action at pattern 0,
-// with FUN_0016c9c8 wrapping the step. The action callback FUN_0033279c
-// applies the same three field writes when that step is reached.
 int GM_CDECL gmf_restart(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     if (a_thread->GetNumParams() > 1) return GM_EXCEPTION;
@@ -516,10 +473,6 @@ int GM_CDECL gmf_stop(gmThread* a_thread) {
     s->isPlaying = false;
     return GM_OK;
 }
-// Real usage (game_data/Main.gm: `MainSequencer.isPlaying()`,
-// `MainSequencer.play()`) -- not in the confirmed decompiled method list
-// so these fill a real gap in coverage rather than replacing a confirmed
-// function. "play" aliases start(); isPlaying() reports our own state flag.
 int GM_CDECL gmf_play(gmThread* a_thread) { return gmf_start(a_thread); }
 int GM_CDECL gmf_isPlaying(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
@@ -545,15 +498,6 @@ int GM_CDECL gmf_getMSPerStep(gmThread* a_thread) {
     return GM_OK;
 }
 
-// or 4 args. The arg-count/type dispatch itself is confirmed from the
-// decompiled body:
-//   2 args            -> (step, action), looped defaults true
-//   3 args, arg1 is int -> (pattern, step, action), looped defaults true
-//   3 args, arg1 not int -> (step, action, looped)
-//   4 args            -> (pattern, step, action, looped) unconditionally
-//                         (no type check on arg1 for the 4-arg form)
-// Retail FUN_0016ca1c normalizes the implicit-pattern form to pattern 0;
-// FUN_0016cd08 stores explicit (pattern, step) coordinates unchanged.
 int SetTriggerImpl(gmThread* a_thread, bool a_sixteenStep) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     gmMachine& m = *a_thread->GetMachine();
@@ -577,9 +521,6 @@ int SetTriggerImpl(gmThread* a_thread, bool a_sixteenStep) {
         GM_INT_PARAM(lp, 2, 1);
         looped = (lp != 0);
     } else {
-        // n == 4: (pattern, step, action, looped) -- always this shape,
-        // regardless of arg1's type (confirmed: the decompiled 4-arg branch
-        // has no type check, unlike the 3-arg branch).
         GM_INT_PARAM(explicitStep, 1, 0);
         pattern = first;
         step = explicitStep;
@@ -601,16 +542,12 @@ int SetTriggerImpl(gmThread* a_thread, bool a_sixteenStep) {
     gmVariable handle = t.handle;
     RootGmVariable(m, t.handle);
     InsertTrigger(*s, std::move(t));
-    // Confirmed real: setTrigger returns a SEQUENCERTRIGGER native handle,
-    // not a bare index (previously PushInt'd our own list index).
     a_thread->Push(handle);
     return GM_OK;
 }
 int GM_CDECL gmf_setTrigger(gmThread* a_thread) { return SetTriggerImpl(a_thread, false); }
 int GM_CDECL gmf_setTrigger16(gmThread* a_thread) { return SetTriggerImpl(a_thread, true); }
 
-// Retail FUN_0016d090 uses FUN_0016cffc to schedule the next boundary
-// for the requested note subdivision, not the literal step named by arg0.
 int GM_CDECL gmf_setTriggerOnNext(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     gmMachine& m = *a_thread->GetMachine();
@@ -634,8 +571,6 @@ int GM_CDECL gmf_setTriggerOnNext(gmThread* a_thread) {
     a_thread->Push(handle);
     return GM_OK;
 }
-// Confirmed real: 1 arg, a SEQUENCERTRIGGER handle returned by one of the
-// trigger-creation methods, not a bare integer index.
 int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -647,10 +582,6 @@ int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
                 triggers[i].handle.m_value.m_ref == handle.m_value.m_ref) {
                 SequencerTrigger t = triggers[i];
                 triggers.erase(triggers.begin() + i);
-                // Retail FUN_0016d240 unlinks the matching native node, then
-                // walks to the insertion point by (pattern, step). Equal
-                // coordinates are passed over, so this moves the handle to
-                // the end of its coordinate group rather than the list head.
                 InsertTrigger(*s, std::move(t));
                 break;
             }
@@ -677,8 +608,6 @@ int GM_CDECL gmf_getWrappedStep(gmThread* a_thread) {
     a_thread->PushInt(WrapStep(step, s->EffectiveLen()));
     return GM_OK;
 }
-// Retail FUN_0016ccbc always resets the pattern. Its optional flag chooses
-// wrapped (default) or direct step assignment; it does not reset timing.
 int GM_CDECL gmf_gotoStep(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
@@ -693,10 +622,9 @@ int GM_CDECL gmf_gotoStep(gmThread* a_thread) {
 }
 int GM_CDECL gmf_getCurrentStep(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    a_thread->PushInt(s->currentStep); // confirmed real: direct field read
+    a_thread->PushInt(s->currentStep);
     return GM_OK;
 }
-// Retail FUN_0016d4d0 divides the current step by two, truncating toward zero.
 int GM_CDECL gmf_getCurrentStep16(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     a_thread->PushInt(s->currentStep / 2);
@@ -704,7 +632,7 @@ int GM_CDECL gmf_getCurrentStep16(gmThread* a_thread) {
 }
 int GM_CDECL gmf_getCurrentPattern(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    a_thread->PushInt(s->currentPattern); // confirmed real: direct field read
+    a_thread->PushInt(s->currentPattern);
     return GM_OK;
 }
 int GM_CDECL gmf_getMSTillNextStep(gmThread* a_thread) {
@@ -719,23 +647,12 @@ int GM_CDECL gmf_getMSTillNextStep16(gmThread* a_thread) {
     a_thread->PushFloat((s->currentStep % 2 == 0) ? remaining * 2.0f : remaining);
     return GM_OK;
 }
-// Retail FUN_0016d3f8 computes the position, but returns the literal
-// float zero at 0x0016d3f4 in this build.
 int GM_CDECL gmf_getMSTillNextNoteStep(gmThread* a_thread) {
     if (!ThisSequencer(a_thread)) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     a_thread->PushFloat(0.0f);
     return GM_OK;
 }
-// Retail's getAllTriggers() wraps the trigger linked list itself with
-// FUN_0031aa10 and a SEQUENCERTRIGGER element type. The native list wrapper
-// keeps the list alive and follows its current nodes, rather than taking a
-// snapshot. Shipped callers walk it with
-// isValid()/get()/goToNext() -- SequencerHelper.gm's
-// SEQUENCERHELPER_printSequencer/_getLastTrigger and ScaleOfTheWorld.gm's
-// noteRecorder_addTrigger all do
-// `for(it=seq.getAllTriggers();it.isValid();it.goToNext()){local tr=it.get(); ...}`
-// then call tr.getStep()/tr.getAction().
 int GM_CDECL gmf_getAllTriggers(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     auto* ref = new SequencerTriggerListRefData();
@@ -805,8 +722,6 @@ void GM_CDECL SequencerGCDestruct(gmMachine* a_machine, gmUserObject* a_object) 
     delete data;
 }
 
-// ---------------------------------------------------------------------
-// ---------------------------------------------------------------------
 
 int GM_CDECL gmf_SEQUENCER_GetAllSequencers(gmThread* a_thread) {
     auto* it = new SequencerListRefData();
@@ -815,20 +730,15 @@ int GM_CDECL gmf_SEQUENCER_GetAllSequencers(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_SEQUENCER_PauseAllSequencers(gmThread* a_thread) {
-    // RETAIL FUN_0016b8a4 clears +0x5c on each currently playing sequencer.
     for (SequencerData* sequencer : AllSequencers())
         if (sequencer) sequencer->isPlaying = false;
     return GM_OK;
 }
 int GM_CDECL gmf_SEQUENCER_UnpauseAllSequencers(gmThread* a_thread) {
-    // RETAIL FUN_0016b954 sets +0x5c on every registered sequencer, including
-    // ones that were already stopped before the global unpause call.
     for (SequencerData* sequencer : AllSequencers())
         if (sequencer) sequencer->isPlaying = true;
     return GM_OK;
 }
-// Retail wrapper 0x000aa7cc calls FUN_0016b87c; PPC at 0x0016b87c is a
-// single `blr`, so this native intentionally has no state or stack effect.
 int GM_CDECL gmf_SEQUENCER_OnNoteCollect(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;
@@ -970,16 +880,6 @@ gmVariable CreateSequencerTriggerHandle(gmMachine& a_machine, int a_pattern,
     return gmVariable(a_machine.AllocUserObject(data, g_sequencerTriggerType));
 }
 
-// Retail SEQUENCERACTION accepts exactly zero or one argument. The optional
-// argument is stored at +0x70, the same field used by setTable(), and is the
-// table used for resolving execute().
-// Retail's four SEQUENCE_* wrappers at 0x000aa83c..0x000aae30 convert
-// script sequence tables. The table form stores sixteen two-bit steps in
-// each 32-bit integer, lowest step in the low bits. The shipped level JSON
-// contains 2, 4, and 16-word patterns (32, 64, and 256 steps). Retail's
-// string alphabet at EBOOT.elf 0x003726f4 is "012" after a leading 'z'.
-// A blank customSequence is allocated by EntityBase.gm before import, so
-// preserve its methods/parent fields and replace only numbered steps.
 gmTableObject* SequenceTable(gmMachine& a_machine, const gmVariable& a_value) {
     return a_value.m_type == GM_TABLE
         ? (gmTableObject*)a_machine.GetObject(a_value.m_value.m_ref) : nullptr;
@@ -1144,11 +1044,6 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
         SequencerData* s = AllSequencers()[sequencerIndex];
         if (!s) continue;
         float msPerStep = s->MsPerStep();
-        // Retail FUN_0016d8c0 decrements the countdown for every sequencer,
-        // even while stopped. It advances at most one step per update and
-        // discards excess lateness beyond a whole step. The PPC routine has
-        // no positive/finite-duration guard, so preserve its behavior for
-        // zero and negative BPM-derived intervals as well.
         s->msTillNextStep -= a_deltaMs;
         if (s->msTillNextStep <= 0.0f) {
             s->msTillNextStep += msPerStep;
@@ -1168,10 +1063,6 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
                     s->currentStep, s->bpm, s->triggers ? s->triggers->values.size() : 0);
             }
 
-            // Prune any trigger a script tagged for removal (SequencerAction.
-            // SequencerAction.c) before firing this step's triggers, e.g.
-            // ScaleOfTheWorld.gm scanning getAllTriggers() and tagging ones
-            // to drop.
             auto& triggers = s->triggers->values;
             for (size_t i = 0; i < triggers.size(); ) {
                 if (IsActionTagged(a_machine, triggers[i].action)) {
@@ -1182,9 +1073,6 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
                 }
             }
 
-            // Retail FUN_0016d580 collects due actions, removes one-shot
-            // triggers, then invokes callbacks. A callback can add or tag a
-            // trigger without invalidating this list walk.
             struct DueAction { gmVariable action; bool restart; };
             std::vector<DueAction> dueActions;
             gmTableObject* dueRoot = nullptr;

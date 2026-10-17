@@ -26,8 +26,6 @@ namespace {
 gmType g_animType = -1;
 struct AnimationData;
 std::unordered_map<std::string, std::shared_ptr<FsaAsset>> s_animationResources;
-// Retail FUN_000b7d74 walks the manager's contiguous animation-pointer range
-// in order. Keep registration order here instead of relying on hash order.
 std::vector<AnimationData*> s_animationInstances;
 // Detached GM Animation objects remain alive when another script or retained
 // draw command references them, but they no longer belong to manager ticking.
@@ -48,9 +46,6 @@ struct AnimationPaletteBank {
     bool texValid = false;
 };
 
-// Retail FUN_000b6e84 stores palette banks on the shared FSA resource at
-// +0x118, not on each Animation instance. Keep only weak global indexing;
-// every live AnimationData holds the resource-owned bank collection.
 struct FsaPaletteResources {
     std::weak_ptr<FsaAsset> asset;
     // Retail keeps a contiguous pointer vector at FSA resource +0x118.
@@ -99,19 +94,12 @@ std::shared_ptr<FsaPaletteResources> PaletteResourcesFor(
     return created;
 }
 
-// Retail FUN_000b6b08 uses the same 16-entry generated palette routine as
-// static textures: fill and outline each have five alpha levels, followed
 struct AnimationData {
     // The retail animation manager owns cached FSA resource references while
     // each Animation object owns a separate reference to its selected data.
     std::shared_ptr<FsaAsset> asset;
     std::shared_ptr<FsaPaletteResources> paletteResources;
 
-    // Retail stores one total duration per selected animation record;
-    // sequence entries within it select images from normalized cursor time.
-    // FUN_000b9438 creates a {record, 1.0f} timing entry for each resource
-    // record, so an untouched record's default duration is exactly 1000 ms.
-    // setPlayTime/setAnimSequence replace that record duration.
     float recordDurationMs = 1000.0f;
     float playTimeSpeed = 1.0f;
     // Retail stores the live cursor in seconds at animation +0x38. Advance it
@@ -126,30 +114,17 @@ struct AnimationData {
     bool hideAfterOneShot = false;
     bool hidden = false; // retail Animation field at +0x4e
     bool reversed = false;
-    // FUN_000b618c caches the image resource selected from the live cursor.
-    // Retail draw-list replay reads that cached resource instead of resolving
-    // the cursor again, so cursor-only setters can leave this one tick behind.
     int selectedFrame = -1;
     int defaultRecord = 0;
     int selectedRecord = 0;
-    // Retail FUN_000b6790 stores record index at +0x2c and stop frame at +0x30,
-    // then selects mode 4. The loader currently only models record 0.
     bool playToFrame = false;
     int stopFrame = 0;
-    // Retail FUN_000b76b4 stores the attached animation pointer at +0x28.
-    // DrawList selects opcode 9 when non-null; the retail dispatcher binds
-    // both frame/palette pairs and draws the primary shape once with
-    // Palette4bOverlayTrans. Keep the raw relationship for this paired path.
     AnimationData* overlay = nullptr;
     // Keep an attached GM animation object alive while a retained primary
     // draw command follows this native pointer during opcode-9 replay.
     gmObject* overlayObject = nullptr;
     bool ownsOverlayObjectRoot = false;
     gmVariable shape = gmVariable::s_null;
-    // DrawList.drawAnimation retains the native animation object until the
-    // recorded command is replaced or destroyed (retail DrawList.c calls
-    // FUN_0031b6ac, which increments the object's reference count). Mirror
-    // that lifetime when Entity.unloadAnimation is called after recording.
     unsigned int deferredDrawRefs = 0;
     bool unloadPending = false;
     bool unloaded = false;
@@ -159,10 +134,6 @@ struct AnimationData {
     unsigned int selectedPaletteBank = 0;
 };
 
-// Font-special FSAs are native Animation instances too (FUN_00041e40 calls
-// Animation.play(0), then reads the selected texture at +0x18). Keep their
-// state in the same ordered manager list as GM-created animations so pause,
-// delta accumulation, frame selection, and looping share one update path.
 std::unordered_map<std::string, std::unique_ptr<AnimationData>> s_fontSpecialAnimations;
 
 AnimationData* ThisAnim(gmThread* a_thread) {
@@ -296,25 +267,18 @@ void BuildFsaDefaultShape(gmMachine& machine,
     const BciFrame& image = asset->frames.front();
     if (image.width <= 0 || image.height <= 0) return;
 
-    // FUN_000b8080 stores five-float position/UV records in the FSA resource
-    // shape. The source image is uploaded into power-of-two texture storage,
-    // so the shape's UV extents are the visible-image fractions.
     const float u = (float)image.width / (float)NextPowerOfTwo(image.width);
     const float v = (float)image.height / (float)NextPowerOfTwo(image.height);
     float xy[10];
     float uv[10];
     int count;
     if (!centeredLayout) {
-        // FUN_000b8080's zero branch: four unit-rectangle corners, submitted
-        // as the retail triangle fan (RSX primitive 7).
         constexpr float kXY[8] = {0, 0, 1, 0, 1, 1, 0, 1};
         const float kUV[8] = {0, 0, u, 0, u, v, 0, v};
         std::copy(std::begin(kXY), std::end(kXY), xy);
         std::copy(std::begin(kUV), std::end(kUV), uv);
         count = 4;
     } else {
-        // Nonzero branch's five vertices and UVs, transcribed from the
-        // 20-byte records emitted by FUN_000b8080.
         constexpr float kXY[10] = {0, 1, -0.5f, 1, -0.5f, 0,
                                     0.5f, 0, 0.5f, 1};
         const float kUV[10] = {u * 0.5f, v, 0, v, 0, 0,
@@ -341,13 +305,6 @@ void BuildFsaDefaultShape(gmMachine& machine,
 }
 
 gmVariable ShapeForAnimation(const AnimationData* animation) {
-    // RETAIL BYTECODE: FUN_000b9438 copies the FSA resource's current +0x124
-    // shape into this Animation's +0x24 only during initialization, and only
-    // when +0x24 is empty. Later FUN_000b7420 writes both slots, but does not
-    // walk or mutate other already-created Animation instances. Therefore
-    // `shape` is a per-instance snapshot, including a shared shape inherited
-    // at load time; looking up the global map here would retroactively change
-    // older instances when another Animation calls setGlobalShape.
     return animation->shape.IsReference() ? animation->shape : gmVariable::s_null;
 }
 
@@ -390,19 +347,13 @@ int NumImages(const AnimationData* a) {
 }
 
 int ApplyReverseFrame(const AnimationData* a, int frame) {
-    // FUN_000b6090 resolves the selected record/cursor first, then applies
-    // reverse as sequenceEntryCount - resolvedFrame - 1.
     return a->reversed ? NumFrames(a) - frame - 1 : frame;
 }
 
 int ComputeFrameIndex(const AnimationData* a) {
-    // FUN_000b6090 resolves the selected record and cursor regardless of the
-    // current playback mode. The draw path uses selectedFrame instead.
     int n = NumFrames(a);
     if (n <= 0) return 0;
     const float durationSeconds = TotalDurationMs(a) * 0.001f;
-    // Retail FUN_00324998 first divides the seconds cursor by the selected
-    // record's seconds duration, then narrows that ratio to float.
     const float normalized = (float)((double)a->playPositionSeconds /
                                      (double)durationSeconds);
     const auto& sequence = CustomSequence(a);
@@ -443,11 +394,6 @@ void RefreshSelectedFrame(AnimationData* a) {
 }
 
 bool ComputeIsDone(const AnimationData* a) {
-    // Retail FUN_000b654c reports done when the selected resource has no
-    // images, or when mode +0x50 is exactly 1 and the current record cursor
-    // has reached its duration. Paused, looping, default, frame-target, and
-    // hide-once modes are not done under this predicate, even if another
-    // mode-specific transition has stopped playback.
     if (NumImages(a) <= 0) return true;
     const bool oneShotMode = a->playing && !a->looping && !a->defaultPlayback &&
                              !a->playToFrame && !a->hideAfterOneShot;
@@ -483,10 +429,6 @@ void RebuildTextures(AnimationData* a, AnimationPaletteBank& bank) {
 
     unsigned char palette[16][4] = {};
     auto byte = [](float value) -> unsigned char {
-        // FUN_000b6b08 uses PPC `fmuls` then `fctidz`, and packs only the
-        // low 8 bits. Do not clamp: retail wraps finite out-of-range channel
-        // values modulo 256. PPC's invalid fctidz result is INT64_MIN, whose
-        // low byte is zero, matching NaN/infinity here as well.
         const float scaled = value * 255.0f;
         if (!std::isfinite(scaled) || scaled >= 0x1p63f || scaled < -0x1p63f)
             return 0;
@@ -495,7 +437,6 @@ void RebuildTextures(AnimationData* a, AnimationPaletteBank& bank) {
     };
     const unsigned char fill[3] = {byte(bank.fillR), byte(bank.fillG), byte(bank.fillB)};
     const unsigned char outline[3] = {byte(bank.outR), byte(bank.outG), byte(bank.outB)};
-    // FUN_00047498's float alpha ramp truncates to these literal bytes.
     constexpr unsigned char alpha[5] = {255, 212, 169, 127, 84};
     for (int i = 0; i < 5; ++i) {
         for (int channel = 0; channel < 3; ++channel) {
@@ -533,17 +474,13 @@ void RebuildTextures(AnimationData* a, AnimationPaletteBank& bank) {
             for (int channel = 0; channel < 4; ++channel)
                 rgba[i * 4 + channel] = colour[channel];
         }
-        // Indexed BCI frames carry their edge coverage in palette alpha
-        // entries. Retail keeps these low-bit-depth images on the nearest
-        // sampler path (FUN_000548b8); filtering the RGBA-expanded palette
-        // across transparent index 0 creates a dark fringe at colored edges.
         bank.frameTex[f] = renderer->CreateTextureFromRGBA(
             rgba.data(), frame.width, frame.height, /*nearestFilter=*/true);
     }
     bank.texValid = true;
 }
 
-int GM_CDECL gmf_anim_finishLoad(gmThread* a_thread) { return GM_OK; } // FUN_000b7410 returns true; no side effects
+int GM_CDECL gmf_anim_finishLoad(gmThread* a_thread) { return GM_OK; }
 
 int GM_CDECL gmf_anim_pause(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
@@ -566,14 +503,10 @@ int GM_CDECL gmf_anim_play(gmThread* a_thread) {
     a->hidden = false;
     a->playing = true;
     StartPlaybackAt(a, position);
-    // FUN_000b629c refreshes the selected image only for an explicit reset.
     if (reset) RefreshSelectedFrame(a);
     return GM_OK;
 }
 
-// Retail FUN_000b62e4 preserves the current position by default, rewinds
-// only when its optional flag is truthy, and forces a clip with fewer than
-// two frame textures to its end. It does not alter reverse direction.
 int GM_CDECL gmf_anim_playOnce(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -589,16 +522,10 @@ int GM_CDECL gmf_anim_playOnce(gmThread* a_thread) {
     a->hidden = false;
     a->playing = true;
     StartPlaybackAt(a, position);
-    // The one-image special case only writes the cursor; otherwise the
-    // optional reset path explicitly calls FUN_000b618c.
     if (NumImages(a) >= 2 && reset) RefreshSelectedFrame(a);
     return GM_OK;
 }
 
-// Animation.playOnceHide (0x000a109c) ignores the supplied argument and
-// calls FUN_000b6370: select one-shot-hide mode, clear playback position,
-// and start the animation. Unlike playOnce, its final frame is not drawn
-// after completion. SauceBase pulses use this form on contact.
 int GM_CDECL gmf_anim_playOnceHide(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -620,12 +547,6 @@ int GM_CDECL gmf_anim_setCurrentFrame(gmThread* a_thread) {
     GM_INT_PARAM(frame, 0, 0);
     const int count = NumFrames(a);
     if (count <= 0) return GM_OK;
-    // Retail FUN_000b6828 changes only the play-position float at +0x38;
-    // it leaves playback mode and hidden state alone. Retail uses a signed
-    // upper-bound check, sums preceding normalized frame weights with float
-    // additions, then adds the selected weight times the double constant
-    // 0.01 (FUN_000b6828 @ 0x000b6820), rounded to float. The result is
-    // written directly as seconds without record-duration scaling.
     if (frame >= count)
         frame = count - 1;
     // A negative index is not handled safely by retail: its signed compare
@@ -646,19 +567,12 @@ int GM_CDECL gmf_anim_setCurrentFrame(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail wrapper 0x000a1dfc forwards (record index, stop frame) to
-// FUN_000b6790. It validates the record against the resource's outer record
-// count, selects that record, stores the stop frame, resets the cursor, and
-// starts mode 4. The current loader only exposes record 0.
 int GM_CDECL gmf_anim_playAnimToFrame(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(record, 0, 0);
     GM_INT_PARAM(stop, 1, 0);
-    // FUN_000b6790 validates argument 0 against the resource record count,
-    // stores it at +0x2c, stores argument 1 at +0x30, then resets the cursor
-    // and refreshes the selected image. This loader currently has one record.
     const int recordCount = NumImages(a) > 0 ? 1 : 0;
     if (record < 0 || record >= recordCount) return GM_OK;
     a->selectedRecord = record;
@@ -697,11 +611,6 @@ int GM_CDECL gmf_anim_attachOverlayAnim(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail wrapper 0x000a25b0 accepts (sequence index, table of alternating
-// frame indices and weights). FUN_000b6920 divides each weight by their sum
-// and stores normalized per-frame weights on the selected animation record.
-// All shipped active calls
-// configure sequence 0 with {0,49.0, 1,50.0, 0,1.0} for a blink.
 int GM_CDECL gmf_anim_setAnimSequence(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -725,8 +634,6 @@ int GM_CDECL gmf_anim_setAnimSequence(gmThread* a_thread) {
         if (frameIndex > NumImages(a))
             return GM_EXCEPTION;
         entries.emplace_back(frameIndex, duration);
-        // FUN_000b6920 accumulates float weights through double additions,
-        // rounding each accumulated result back to float.
         total = static_cast<float>((double)total + (double)duration);
     }
     a->recordDurationMs = total;
@@ -750,9 +657,6 @@ int GM_CDECL gmf_anim_setIsReversed(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail setDefaultAnim (FUN_000b6640) stores an in-range resource-record
-// index at +0x34; an invalid index leaves the old value unchanged. The
-// current FSA loader exposes one animation record per resource.
 int GM_CDECL gmf_anim_setDefaultAnim(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -763,10 +667,6 @@ int GM_CDECL gmf_anim_setDefaultAnim(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail playAnimDefault (FUN_000b668c) selects mode 3, selects the supplied
-// in-range record, clears hidden, resets the cursor, and refreshes the image.
-// The one-record loader cannot select another record, but the clock update
-// retains mode 3's boundary transition before falling into looping mode 2.
 int GM_CDECL gmf_anim_playAnimDefault(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -786,9 +686,6 @@ int GM_CDECL gmf_anim_playAnimDefault(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail resumeAnimDefault (FUN_000b670c) selects mode 3 and clears hidden.
-// A truthy argument mirrors the cursor within the current record and sets the
-// reverse flag; no argument resumes from the existing cursor.
 int GM_CDECL gmf_anim_resumeAnimDefault(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -840,27 +737,16 @@ int GM_CDECL gmf_anim_setIsHidden(gmThread* a_thread) {
     return GM_OK;
 }
 
-// 0x000a118c): takes either a float or int argument (both converted to the
-// same double "position" value) and repositions playback, distinct from
-// setCurrentFrame's discrete frame index -- every real call site (e.g.
-// BlockCannon.gm:64-83, SwayingTree.gm's `this.headAni.setPlayPosition(0);
-// this.headAni.playOnce();`) passes 0.0 immediately after setPlayTime() and
-// before the clip is ever played, to rewind a freshly-loaded/reused clip to
-// its start. It writes the live seconds cursor regardless of mode and
-// immediately refreshes the cached image resource through FUN_000b618c.
 int GM_CDECL gmf_anim_setPlayPosition(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(posMs, 0, 0.0f);
     StartPlaybackAt(a, posMs);
-    // FUN_000b6268 writes the cursor and refreshes +0x18 immediately.
     RefreshSelectedFrame(a);
     return GM_OK;
 }
 
-// Animation.getPlayPosition (EBOOT 0x000a1250) returns the current playback
-// position as a GM float, in the same millisecond units as setPlayPosition.
 int GM_CDECL gmf_anim_getPlayPosition(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -887,9 +773,6 @@ int GM_CDECL gmf_anim_setPlayTime(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// Animation.getPlayTime (EBOOT 0x000a16b8) returns the current playback
-// Retail returns the selected animation record's total duration in
-// milliseconds. If no record is selected, FUN_000b64d0 returns 1000 ms.
 int GM_CDECL gmf_anim_getPlayTime(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -897,10 +780,6 @@ int GM_CDECL gmf_anim_getPlayTime(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail Animation.setPlayTimeSpeed stores a float at +0x3c
-// (FUN_000b63d0). Direct inspection of FUN_000b6ff0 and the manager
-// FUN_000b7d74 shows neither reads that field; keep the stored value without
-// changing playback, matching the observed retail execution path.
 int GM_CDECL gmf_anim_setPlayTimeSpeed(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -910,9 +789,6 @@ int GM_CDECL gmf_anim_setPlayTimeSpeed(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail Animation.setShape (0x000a22c0 -> FUN_000b756c) retains the
-// supplied VMSHAPE at native animation offset +0x24. A script-local shape
-// may disappear after this call, so preserve it as a GM root too.
 int GM_CDECL gmf_anim_setShape(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -924,10 +800,6 @@ int GM_CDECL gmf_anim_setShape(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail FUN_000b7420 replaces the instance shape at animation +0x24 and
-// also retains it in the shared FSA resource at +0x124. The current instance
-// uses its replacement immediately; new Animation instances snapshot the
-// resource slot during load. Existing instances keep their prior +0x24 shape.
 int GM_CDECL gmf_anim_setGlobalShape(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -964,21 +836,15 @@ int GM_CDECL gmf_anim_getNumImages(gmThread* a_thread) {
 int GM_CDECL gmf_anim_getSourcePixelWidth(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
-    // Retail Animation.getSourcePixelWidth (0x000a1f60) pushes GM_FLOAT.
     a_thread->PushFloat(NumImages(a) > 0 ? (float)a->asset->frames[0].width : 0.0f);
     return GM_OK;
 }
 int GM_CDECL gmf_anim_getSourcePixelHeight(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
-    // Retail Animation.getSourcePixelHeight (0x000a203c) also pushes GM_FLOAT.
     a_thread->PushFloat(NumImages(a) > 0 ? (float)a->asset->frames[0].height : 0.0f);
     return GM_OK;
 }
-// Retail Animation.getTextureExt (EBOOT 0x000a2868) pushes a vector2D of
-// the selected frame texture's U/V extents, defaulting to (1,1) if no native
-// frame texture exists. Use the same padded dimensions as texture uploads;
-// this getter is called before the first tint/upload in CraigBoardroomDesk.
 int GM_CDECL gmf_anim_getTextureExt(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
@@ -1007,14 +873,12 @@ int GM_CDECL gmf_anim_isDone(gmThread* a_thread) {
 int GM_CDECL gmf_anim_isPaused(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
-    // Retail FUN_000b65d8 is exactly (play mode +0x50 == 0).
     a_thread->PushInt(!a->playing ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_anim_isPlaying(gmThread* a_thread) {
     AnimationData* a = ThisAnim(a_thread);
     if (!a) return GM_EXCEPTION;
-    // Retail FUN_000b65e8 requires a nonzero mode and a false isDone result.
     a_thread->PushInt((a->playing && !ComputeIsDone(a)) ? 1 : 0);
     return GM_OK;
 }
@@ -1061,8 +925,6 @@ gmFunctionEntry s_animLib[] = {
     {"isPlaying", gmf_anim_isPlaying, nullptr},
     {"isReversed", gmf_anim_isReversed, nullptr},
     {"isHidden", gmf_anim_isHidden, nullptr},
-    // Retail's Animation.unloadAll wrapper invokes the shared animation
-    // manager purge and does not use its receiver (FUN_000b9df8).
     {"unloadAll", gmf_animationModuleUnloadAll, nullptr},
 };
 
@@ -1070,16 +932,10 @@ int GM_CDECL gmf_animationModuleLoad(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2)
         return GM_EXCEPTION;
     GM_STRING_PARAM(path, 0, "");
-    // Retail forwards an optional second argument to FUN_000b8080 only when
-    // exactly two VM parameters were supplied. That helper branches on the
-    // raw selector being zero/nonzero; preserve the union payload test.
     const bool centeredLayout = a_thread->GetNumParams() == 2 &&
         a_thread->Param(1).m_value.m_int != 0;
     std::string resolved;
     if (auto* fileHelper = GetEngineContext().fileHelper) {
-        // RETAIL BYTECODE: FUN_000b8808 probes "PS3_" + FSA path in game-data
-        // area 1 when the graphics override is enabled, then falls back to
-        // the requested path on a miss.
         auto result = ResolvePlatformResourcePath(path, 1);
         if (result) resolved = *result;
     }
@@ -1097,9 +953,6 @@ int GM_CDECL gmf_animationModuleUnload(gmThread* a_thread) {
 
 int GM_CDECL gmf_animationModuleUnloadAll(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(0);
-    // Retail FUN_000b9df8 drops the manager's resource-list references.
-    // AnimationData keeps its own shared reference, so active animations
-    // stay valid while unreferenced cache entries are reclaimed here.
     s_animationResources.clear();
     PurgeExpiredGlobalShapes();
     return GM_OK;
@@ -1131,8 +984,6 @@ void GM_CDECL AnimGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
 } // namespace
 
 void AdvanceAnimationClock(float a_msElapsed) {
-    // FUN_000b7d74 updates active modes, then unconditionally calls
-    // FUN_000b618c to refresh the selected image, including for mode 0.
     for (AnimationData* animation : s_animationInstances) {
         if (!animation || animation->unloaded || !animation->managerAttached) continue;
         if (animation->playing) {
@@ -1146,9 +997,6 @@ void AdvanceAnimationClock(float a_msElapsed) {
                 !animation->playToFrame && !animation->hideAfterOneShot) {
                 animation->playPositionSeconds = std::min(
                     animation->playPositionSeconds, durationSeconds);
-            // Mode 2 wraps the updated cursor with the native float remainder
-            // helper (FUN_001dbf8c); std::fmod's float overload preserves the
-            // same signed remainder for finite, nonzero-duration clips.
             } else if (animation->looping && !animation->defaultPlayback) {
                 animation->playPositionSeconds = std::fmod(
                     animation->playPositionSeconds, durationSeconds);
@@ -1186,9 +1034,6 @@ void DetachAnimationFromManager(gmMachine& a_machine, const gmVariable& a_animVa
     auto* animation = (AnimationData*)((gmUserObject*)object)->m_user;
     if (!animation) return;
 
-    // FUN_000b9dcc first clears Animation+0x28, then FUN_000b9c0c removes
-    // the pointer from the manager and clears +0x4d. It releases the
-    // manager's reference, not the script object's own animation resources.
     ClearAnimationOverlay(a_machine, animation);
     animation->managerAttached = false;
     if (std::find(s_detachedAnimationInstances.begin(), s_detachedAnimationInstances.end(),
@@ -1209,8 +1054,6 @@ void SetAnimationManagerAttached(gmMachine& a_machine, const gmVariable& a_animV
 
     if (a_attached) {
         if (animation->managerAttached) return;
-        // FUN_000b9f40 returns without manager registration for zero- or
-        // one-image animations; its FUN_000b6108 count check is > 1.
         if (NumImages(animation) <= 1) return;
         animation->managerAttached = true;
         s_detachedAnimationInstances.erase(
@@ -1293,10 +1136,6 @@ void PushNewAnimation(gmThread* a_thread, const std::string& a_resolvedPath,
     if (data->asset && a_fsaShapeLayout >= 0)
         BuildFsaDefaultShape(*a_thread->GetMachine(), data->asset,
                              a_fsaShapeLayout != 0);
-    // RETAIL BYTECODE: Animation initialization attaches the shared FSA
-    // resource shape (+0x124) to this instance (+0x24) if it is populated.
-    // Snapshot that pointer now: a later setGlobalShape changes future loads
-    // and its caller instance, not Animations that already hold a shape.
     if (data->asset) {
         auto sharedShape = s_fsaGlobalShapes.find(data->asset.get());
         if (sharedShape != s_fsaGlobalShapes.end() &&
@@ -1305,16 +1144,7 @@ void PushNewAnimation(gmThread* a_thread, const std::string& a_resolvedPath,
         }
     }
     data->paletteResources = PaletteResourcesFor(data->asset);
-    // FUN_000b9f40 registers only animations whose resource has more than
-    // one image. Entity.loadAnimation reaches it only while its owner is
-    // enabled (FUN_000c10ac). The direct AnimationModule loader still uses
-    // this manager path; its retail binding has not yet been mapped.
     data->managerAttached = a_attachToManager && NumImages(data) > 1;
-    // FUN_000b9f40 registers only resources with more than one image. Seed
-    // the initial-image cache for one-image FSAs at load time because they
-    // never receive a manager refresh (e.g. SpawnPoint's
-    // spawnPlayerNoDisc.fsa); the retail one-image assignment path remains
-    // under audit.
     if (NumImages(data) == 1) data->selectedFrame = 0;
     a_thread->PushNewUser(data, g_animType);
     if (data->managerAttached) {
@@ -1369,7 +1199,7 @@ bool GetFontAnimationFrame(const std::string& a_resolvedPath,
         auto created = std::make_unique<AnimationData>();
         created->asset = std::move(asset);
         created->paletteResources = PaletteResourcesFor(created->asset);
-        created->playing = true; // retail FUN_000b629c(anim, 0)
+        created->playing = true;
         created->looping = true;
         created->selectedFrame = 0; // loader's selected first image
         AnimationPaletteBank* bankPtr = EnsurePaletteBank(*created->paletteResources, 0);
@@ -1479,28 +1309,6 @@ int GM_CDECL DC_gmf_drawAnimation(gmThread* a_thread) {
     if (!a) return GM_OK;
     if (a->unloaded || a->unloadPending) return GM_OK;
 
-    // Quad spans LOCAL (0,0)-(1,1) -- bottom-left anchored, NOT centred on
-    // the local origin. Confirmed by the two shared real helpers every
-    // animated entity draws through (Platformer/EntityBase.gm, 104 real
-    // .gm files call one of these): both
-    // `ENTITYBASE_DrawAnimationCentered(x,y,z,w,h,anim,...)` and
-    // `ENTITYBASE_DrawAnimationCenteredUsingBottomLeftMethod(x,y,z,w,h,lw,
-    // lh,anim,...)` do the identical `dl.translate(x-w/2.0,y-h/2.0,z);
-    // dl.scale(w,h); dl.drawAnimation(anim);` -- translating to what would
-    // be the bottom-left corner of a (0,0)-(1,1) quad, then scaling by the
-    // FULL width/height, is only self-consistent (and only actually lands
-    // the sprite centred on (x,y), matching both functions' names) if
-    // drawAnimation's own quad is (0,0)-(1,1). A centred (-0.5,-0.5)-
-    // (0.5,0.5) quad here would double up with that translate, landing
-    // every animated entity in the game a further half-width/half-height
-    // down-left of where it should be.
-    //
-    // Retail draw-list replay reads the image resource cached by the manager
-    // at Animation +0x18. Cursor setters that do not call FUN_000b618c remain
-    // invisible to drawing until the next animation-manager tick.
-    // Palette bank is selected by the script while recording this draw.
-    // Later commands may select another bank on the same animation before
-    // this command replays, so retain this draw's bank index here.
     const bool pairedAnimation = a->overlay != nullptr;
     const unsigned int paletteBankIndex = a->selectedPaletteBank;
     auto keepAlive = machine

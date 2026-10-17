@@ -28,12 +28,6 @@ inline uint32_t FloatBits(float a_value) {
     return bits;
 }
 
-// Verification: the large-angle path in retail FUN_001dd1ac calls
-// FUN_001dbf8c, whose normal-finite reduction loop is traced in Ghidra. It
-// scales the divisor by the difference in binary exponents, backs off until
-// the scaled divisor fits, subtracts once in float, and repeats. Ground
-// angles and 2*pi are ordinary finite float values, so this covers their
-// reachable reduction path without host fmod's different rounding sequence.
 inline float RetailGroundRemainder(float a_value, float a_divisor) {
     if (!std::isfinite(a_value) || !std::isfinite(a_divisor) ||
         a_divisor == 0.0f || std::fpclassify(a_value) == FP_SUBNORMAL ||
@@ -62,15 +56,6 @@ inline float RetailGroundRemainder(float a_value, float a_divisor) {
     return negative ? -remainder : remainder;
 }
 
-// Verification: ordinary finite-positive MATH_POW (`0x1dc1c0`) is traced
-// through PPC instructions and constants in
-// positive bases through 1; audio note pitch also calls it with base 2. The
-// PPC algorithm is generic for positive finite bases, but only the ground
-// domain has numeric stream evidence. This implementation accepts 0 < base
-// <= 2 and -127 < exponent < 127; the audio base-2 path is instruction traced
-// but not yet runtime-compared. Intermediate float operations round to
-// binary32; the reduced exponential's rational expression is binary64 before
-// `frsp`, matching the PPC sequence. Other inputs use the host library.
 inline float RetailGroundPowScaled(float a_base, float a_exponent,
                                    float a_multiplier) {
     if (!(a_base > 0.0f && a_base <= 2.0f &&
@@ -109,16 +94,11 @@ inline float RetailGroundPowScaled(float a_base, float a_exponent,
     if (integerScale == 0) {
         logResidual = exponentProduct * kLn2;
     } else {
-        // FUN_001dcc10(..., 16) clears the low `134 - exponentField` bits
-        // of the positive f32 exponent, producing the high part used by the
-        // compensated product in 0x1dc1c0.
         const uint32_t exponentBits = FloatBits(a_exponent);
         const int exponentField = static_cast<int>((exponentBits >> 23) & 0xffu);
         const int splitBits = 134 - exponentField;
         float exponentHigh = a_exponent;
         if (splitBits > 23) {
-            // FUN_001dcc10 clears both fraction words and preserves only the
-            // exponent sign bit in this branch.
             exponentHigh = FloatFromBits(exponentBits & 0x80000000u);
         } else if (splitBits > 0) {
             exponentHigh = FloatFromBits(exponentBits &
@@ -176,14 +156,8 @@ inline float RetailGroundPowScaled(float a_base, float a_exponent,
                                    static_cast<double>(numeratorTerm) + 1.0;
         result = numerator / denominator;
     }
-    // PPC FUN_001dce40 multiplies its reduced rational result by the
-    // integer-power factor before frsp and exponent scaling. Keeping this
-    // product here preserves that ordering for the player's split exponent.
     result = static_cast<float>(result * static_cast<double>(a_multiplier));
 
-    // FUN_002b75a0 changes the binary exponent directly. Its denormal path
-    // right-shifts the implicit leading bit without rounding, so ldexp() is
-    // not equivalent for subnormal outputs.
     uint32_t resultBits = FloatBits(result);
     const int resultExponent = static_cast<int>((resultBits >> 23) & 0xffu);
     const int adjustedExponent = resultExponent + expScale + integerScale;
@@ -220,13 +194,6 @@ inline float RetailAudioNotePitchRatio(int a_note, int a_referenceNote) {
     return RetailGroundPow(2.0f, exponent);
 }
 
-// Verification: the native MATH_POW branch truncates the exponent, caps the
-// positive integer component at 0xe5 (229), computes it by float-rounded
-// exponentiation by squaring, then passes the fractional exponent and factor
-// to FUN_001dce40. This covers finite [0,1] bases and exponents in
-// (-230,230), including the player's 1.7 and variable [0,7] powers. Negative
-// integer components use the PPC float-rounded reciprocal. Other base domains
-// and exceptional-value classification remain on the host path.
 inline float RetailPlayerPow(float a_base, float a_exponent) {
     if (!(a_base >= 0.0f && a_base <= 1.0f &&
           a_exponent > -230.0f && a_exponent < 230.0f &&
@@ -249,10 +216,6 @@ inline float RetailPlayerPow(float a_base, float a_exponent) {
     return RetailGroundPowScaled(a_base, fractionalExponent, integerPower);
 }
 
-// Verification: retail FUN_001dd1ac's PPC range reduction, quadrant selection,
-// and degree-7 sine/cosine polynomials are instruction-traced. This shared
-// float implementation is used by both ground vertex construction and the
-// entity-facing ground fill helper.
 inline float RetailGroundSinCos(float a_angle, bool a_cosine) {
     constexpr float kInvHalfPi = 0.6366197466850281f;
     constexpr float kTau = 6.2831854820251465f;

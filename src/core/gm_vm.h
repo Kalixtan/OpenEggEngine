@@ -4,10 +4,6 @@
 #include "gmMachine.h"
 #include "file_helper.h"
 
-// Thin wrapper around the vendored gmMachine: owns the VM instance, resolves
-// and compiles scripts through FileHelper (matching GameMonkeyScript.loadScript
-// and drains the compiler/runtime log to stderr the way the retail engine's
-// GameMonkeyScript.getOutput()/logText() surface implies.
 class GmVm {
 public:
     GmVm();
@@ -21,8 +17,6 @@ public:
     // or compile error (details already flushed to stderr).
     bool LoadScript(const std::string& a_relativePath);
 
-    // Ticks all running GM threads by a_deltaMs -- backs GameSystem's simulation
-    // clock (see the confirmed GameSystem.getMSAlive/resetSimulationTimer family).
     void Tick(unsigned int a_deltaMs);
 
     // Flushes any pending compiler/runtime log entries to stderr.

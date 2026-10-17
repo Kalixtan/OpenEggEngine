@@ -13,35 +13,6 @@ bool ReadVec2(gmThread* a_thread, int a_param, float& a_x, float& a_y) {
     return GetVector2D(*a_thread->GetMachine(), a_thread->Param(a_param), a_x, a_y);
 }
 
-// Confirmed real: 3 args (value, min, max) -- clamp. Real usage always
-// float-ish (e.g. `MATHUTIL_GETINRANGE(1-this.fadeInPerc,0,1)`).
-// Widened from the strict GM_FLOAT_OR_INT_PARAM macro (throws GM_EXCEPTION
-// on a non-numeric arg) to the non-throwing ParamFloatOrInt() overload --
-// confirmed real, load-bearing gap: TouchEditProcessPS3.gm's cursorTool
-// state machine reassigns `this.env`/resets other cursor fields across
-// HOVERING/STAMP/MARQUEE state transitions, and ScaleOfTheWorld.gm's own
-// update() (`this.fallPerc = MATHUTIL_GETINRANGE(this.fallPerc,0.0,1.0);`)
-// observably sees `this.fallPerc` as GM_NULL on some frames in practice
-// (confirmed via direct instrumentation: p0.type=0/GM_NULL on a live run) --
-// most likely a transient state during the very first update() tick before
-// a field a different code path expects is fully settled. Whatever the
-// precise cause, a null value being clamped is exactly the "coerce toward
-// a sane default instead of hard-aborting the calling function" situation
-// this codebase's own GETINRANGEI already established the pattern for
-// (see its header comment) -- a null argument is treated as 0.0 rather
-// than throwing, so the calling update()'s LATER statements (this frame's
-// scale animation, camera logic, etc, all previously aborted mid-function
-// by the uncaught exception) keep running instead of silently skipping
-// the rest of the frame.
-//
-// FIXED (this session): was `min(hi, max(lo, v))`, which silently returns
-// a wrong (out-of-order) result whenever hi<lo -- e.g. GETINRANGE(5,10,0)
-// @ 0xa369c (MATHUTIL_GETINRANGE): retail computes
-// `min(max(lo,hi), max(v, (lo<hi) ? max(v,lo) : max(v,hi)))`-shaped algebra
-// that reduces, for lo<=hi, to the ordinary clamp(v,lo,hi), but for lo>hi
-// clamps against [hi,lo] instead of always trusting arg order -- i.e. it's
-// robust to the two bound args being swapped. Reproduced here by min/max-ing
-// the bounds up front, which is algebraically identical for every ordering.
 int GM_CDECL gmf_GETINRANGE(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     float v = a_thread->ParamFloatOrInt(0, 0.0f);
@@ -51,21 +22,6 @@ int GM_CDECL gmf_GETINRANGE(gmThread* a_thread) {
     a_thread->PushFloat(std::min(hi, std::max(lo, v)));
     return GM_OK;
 }
-// Int-typed variant (e.g. `MATHUTIL_GETINRANGEI(tableCount(this.panels),0,n)`).
-// Despite the name/int return, real usage isn't always integer-valued --
-// Platformer/PauseProcessBase.gm:851 calls
-// `MATHUTIL_GETINRANGEI(this.slideInPerc, 0.1, 1.0)` (a 0..1 volume-fade
-// percentage) straight into `this.gameProcess.setGlobalVolume(gv)`, same
-// a strict int-only param threw a blank exception on the very first real
-// non-integer call, permanently breaking that frame's pause-menu update()
-// (and, via the exception aborting mid-function, its own
-// setGlobalVolume() call right after). Widened to accept float args like
-// GETINRANGE does; truncates to int on return to match the other
-// confirmed-integer real call site (array index/count clamping) --
-// FIXED (this session): the code here was pushing a float despite this
-// very comment already saying "truncates to int on return"; ground truth
-// (int), like MATH_MINI/MATH_MAXI. Same bound-order-robustness fix as
-// GETINRANGE above -- identical algebra, just an int return-slot tag.
 int GM_CDECL gmf_GETINRANGEI(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
@@ -83,11 +39,6 @@ int GM_CDECL gmf_DEGTORAD(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 3 args (value, min, max) -- (value-min)/(max-min), NOT
-// clamped (real usage separately wraps it in MATHUTIL_GETINRANGE(...)
-// when clamping is actually wanted, e.g.
-// `MATHUTIL_GETINRANGE(1-MATHUTIL_GetPercentageInRange(...),0,1)`, which
-// would be redundant if this already clamped).
 int GM_CDECL gmf_GetPercentageInRange(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
@@ -98,22 +49,6 @@ int GM_CDECL gmf_GetPercentageInRange(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real 2-arg (percent, peakPercent) -> float shape
-// both args read via the same float-or-int branch as every other MATHUTIL_*
-// function here) -- but the actual curve math lives in an un-decompiled
-// helper (FUN_000c6720), so the exact formula below is still inferred from
-// name + real usage, not read off the decompiled body. Both real call sites
-// feed the result straight into something expecting a plain 0..1 value
-// (EntityPacks/StaticDangerAsteroid.gm:205's
-// `Audio.setVoiceVolume(id, MATHUTIL_GetTrianglePercentage(volPerc,0.5)*0.39)`
-// as a volume multiplier; EntityPacks/SwayingTree.gm:473's
-// `MATH_POW(MATHUTIL_GetTrianglePercentage(perc,0.9),0.7)` feeding a power
-// curve that also expects 0..1). A triangular (linear ramp up, linear ramp
-// down) shape peaking at 1.0 when percent==peakPercent, 0 at percent==0
-// and percent==1, matches both: StaticDangerAsteroid's symmetric 0.5 peak
-// reads as "loudest at the midpoint of some cycle", SwayingTree's 0.9 peak
-// reads as "fast ramp up, fast snap back" (a branch/leaf recoiling from a
-// touch, matching the entity's name).
 int GM_CDECL gmf_GetTrianglePercentage(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(percent, 0, 0.0f);
@@ -129,7 +64,6 @@ int GM_CDECL gmf_GetTrianglePercentage(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 1 vector2D arg. atan2(y,x), range (-pi,pi].
 int GM_CDECL gmf_GetAngleRad(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     float x, y;
@@ -148,8 +82,6 @@ int GM_CDECL gmf_GetAngleRad360(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 2 args (vector2D, angleRad) -- rotates the vector,
-// returns a new vector2D.
 int GM_CDECL gmf_Rotate(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     float x, y;
@@ -160,8 +92,6 @@ int GM_CDECL gmf_Rotate(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 2 vector2D args -- unsigned angle between them, [0,pi],
-// via acos of the normalized dot product.
 int GM_CDECL gmf_GetRadiansBetween(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     float ax, ay, bx, by;
@@ -183,8 +113,6 @@ float WrapAngle(float a_angle) { // wraps to (-pi, pi]
     return a_angle;
 }
 
-// Confirmed real: 2 angle (radian float) args -- signed shortest angular
-// distance from the first to the second, (-pi,pi].
 int GM_CDECL gmf_GetSignedAngleDistance(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(a, 0, 0.0f);
@@ -232,19 +160,6 @@ int GM_CDECL gmf_distance(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 2 args (a point-list-like table, count) -- average of
-// the first n vector2D entries.
-// 5 args (circle1Center vec2, r1, circle2Center vec2, r2, outTable) --
-// standard circle-circle intersection, writes outTable.p1/p2 (vector2D)
-// and outTable.found (int 0/1). Real call site (MainMenu5/
-// CampaignScreenRecordPlayer.gm's turntable tone-arm placement) only
-// reads tmp.p1/tmp.p2 unconditionally right after calling this, so both
-// fields always need a sane (non-null) value even in the degenerate
-// (no-intersection / concentric) case -- the decompiled body's exact
-// register-level math is too mangled by this toolchain to recover
-// function), so this uses the textbook two-circle intersection formula,
-// falling back to the midpoint of the two centers (found=0) when the
-// circles don't actually intersect.
 int GM_CDECL gmf_FindCircleCircleIntersection(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(5);
     float c1x, c1y, c2x, c2y;
@@ -306,8 +221,6 @@ void ClosestPointOnLine(float lpx, float lpy, float dx, float dy, float qx, floa
     outY = lpy + dy * t;
 }
 
-// Confirmed real: 3 vector2D args (a point ON the line, the line's
-// direction, the query point) -- closest point on the INFINITE line.
 int GM_CDECL gmf_FindClosestPointOnLine(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     float lpx, lpy, dx, dy, qx, qy;
@@ -372,10 +285,6 @@ int GM_CDECL gmf_GetMinutes(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 2 args (rate, deltaMs) -- fraction REMAINING after
-// deltaMs at the given rate, exp(-rate*dt). Real usage always
-// `x *= MATHUTIL_CalculateExponentialDecay(rate,msElapsed)`-shaped (decay
-// toward 0).
 int GM_CDECL gmf_CalculateExponentialDecay(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(rate, 0, 0.0f);
@@ -396,37 +305,6 @@ int GM_CDECL gmf_CalculateExponentialDecayReversed(gmThread* a_thread) {
     a_thread->PushFloat(1.0f - std::exp(-rate * dt));
     return GM_OK;
 }
-// FIXED (this session): was `exp(rate*dt) - 1.0`, which is UNBOUNDED and
-// grows past 1.0 for any large frame delta. Its only real call site is
-// PekkoAndJon/Main.gm's
-// `this.transitionPerc = this.transitionPerc + (1 - this.transitionPerc) * local1;`
-// -- the standard `x += (target - x) * fraction` easing idiom, which is
-// only stable when `fraction` stays within [0,1]. A single startup frame
-// hitch (dt ~3800ms under software rendering) made the old formula return
-// 1.815, pushing transitionPerc past 1.0, which in turn made Main.gm's
-// backdrop-position step (`pos = (target - pos) * transitionPerc`, a
-// contraction only while |transitionPerc| < 1) diverge into a violent
-// oscillator. Confirmed by live instrumentation: the backdrop centre was
-// teleporting (35,-20) -> (9678,-5377) -> (-7226,4014) between consecutive
-// frames, which is what made the kaleidoscope render as incoherent
-// scrambled plaid instead of retail's stable concentric vortex.
-//
-// Correct formula is the complement of CalculateExponentialDecay
-// (`exp(-rate*dt)`, 1 -> 0), i.e. `1 - exp(-rate*dt)` (0 -> 1) -- exactly
-// what this function's own original comment described ("mirrors Decay's
-// shape but growing from 0 rather than shrinking from 1"), just not what
-// the code did. Bounded to [0,1) for all dt >= 0, so both easing steps
-// above stay contractions no matter how bad a frame hitch gets.
-//
-// Independently CONFIRMED against the real retail process: a winedbg
-// capture of retail's own first-frame backdrop translate implies
-// transitionPerc = 0.004530 (see RENDER_PIPELINE_VERIFICATION.md). With
-// Main.gm's real rate constant and a 60fps frame (16.67ms):
-//   1 - exp(-0.00027240533381700516 * 16.67) = 0.0045295  -- matches.
-//   exp( 0.00027240533381700516 * 16.67) - 1 = 0.0045501  -- does not.
-// (This makes it numerically identical to CalculateExponentialDecayReversed;
-// that's expected -- they're two names for the same "fraction of the way
-// toward the target" quantity, and the corpus uses both spellings.)
 int GM_CDECL gmf_CalculateExponentialGrowth(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(rate, 0, 0.0f);

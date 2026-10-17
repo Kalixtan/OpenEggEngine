@@ -35,8 +35,6 @@ int GM_CDECL gmf_reset(gmThread* a_thread) {
     return GM_OK;
 }
 
-// addBox(width, height, offsetX, offsetY, angle) -- confirmed real method,
-// game_data/Platformer/EntityPacks/GoAroundGuy.gm (`sd.addBox(w,h,0,0,0)`).
 int GM_CDECL gmf_addBox(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
@@ -47,15 +45,6 @@ int GM_CDECL gmf_addBox(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(offsetY, 3, 0.0f);
     GM_FLOAT_OR_INT_PARAM(angle, 4, 0.0f);
 
-    // Guard against a degenerate (near-zero-area) box: Box2D's own
-    // b2PolygonShape::ComputeMass hard-asserts (`area > FLT_EPSILON`,
-    // aborting the whole process, not a catchable GM exception) rather
-    // than tolerating one. Real level data can produce these (confirmed
-    // crash: Platformer/EntityPacks/BrianMover.gm's constructor chain
-    // eventually creates one) -- clamping to a tiny minimum extent is a
-    // safe stand-in since a hairline-thin collision box is functionally
-    // equivalent to "no real collision" anyway, which is a much better
-    // failure mode than crashing the engine.
     constexpr float kMinBoxExtent = 0.001f;
     float hx = std::max(width * 0.5f, kMinBoxExtent);
     float hy = std::max(height * 0.5f, kMinBoxExtent);
@@ -65,17 +54,6 @@ int GM_CDECL gmf_addBox(gmThread* a_thread) {
     return GM_OK;
 }
 
-// addPolygon(vertices, count) -- confirmed real (real usage:
-// Platformer/EntityPacks/GroundResizeNoRotate.gm/TriangleGround.gm --
-// together 183 of this corpus's confirmed 225-entity tutorial level --
-// both build an arbitrary vector2D point list and call
-// `sd.addPolygon(vertices,tableCount(vertices))`). Was entirely missing,
-// so every ground entity's `pb.appendShapes(sd)` silently added ZERO
-// fixtures (confirmed: 230 live bodies but only 47 real fixtures before
-// this fix) -- ground pieces existed as empty, invisible physics bodies.
-// `vertices` is a plain GM table of vector2D (0-indexed). Retail forwards
-// every entry in order to FUN_00154038, which derives edge normals and the
-// shoelace centroid; it does not convex-hull or reorder the list.
 int GM_CDECL gmf_addPolygon(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
@@ -88,10 +66,6 @@ int GM_CDECL gmf_addPolygon(gmThread* a_thread) {
     const int count = a_thread->ParamInt(1, 0);
     if (count < 1 || count > b2_maxPolygonVertices) return GM_EXCEPTION;
 
-    // addPolygon's own vertex loop): `if (*(int *)(puVar4 + 0x12) != 3)
-    // goto LAB_0008c49c;` -- retail hard-checks EVERY fetched table
-    // element's type tag against 3 (vector2D) and aborts the ENTIRE call
-    // (GM halt) on the first non-vector2D entry, rather than skipping it.
     std::vector<b2Vec2> pts;
     pts.reserve((size_t)count);
     for (int i = 0; i < count; ++i) {
@@ -106,14 +80,6 @@ int GM_CDECL gmf_addPolygon(gmThread* a_thread) {
     return GM_OK;
 }
 
-// addCircle(radius, offsetX, offsetY) -- confirmed real method, real usage
-// `sd.addCircle(this.radius,0,0)` in GoAroundGuy.gm.
-//
-// decompiled arg-count dispatch only accepts EXACTLY 1 or EXACTLY 3 args
-// (`if (sVar1 < 2) { ...1-arg body... } else { if (sVar1 != 3) return
-// 0xffffffffffffffff; ...3-arg body... }`) -- a 2-arg call falls into the
-// `else` branch, fails the `sVar1 != 3` check, and GM-halts. Reject it here
-// too rather than silently defaulting offsetY to 0.
 int GM_CDECL gmf_addCircle(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
@@ -132,17 +98,6 @@ int GM_CDECL gmf_addCircle(gmThread* a_thread) {
     return GM_OK;
 }
 
-// addEdges(vertices, count, loop) -- confirmed real, live call site
-// SafeVine.gm:90: `sd.addEdges(this.verts,this.verts.size,false);` (builds
-// the vine's thin collision line from its own procedurally-generated point
-// list). Was entirely unbound -- hard "getdot failed" aborting the vine's
-// constructor before `pb.appendShapes(sd)` ever ran, leaving it with zero
-// collision. Same 0-indexed vertex-table convention as addPolygon above;
-// maps to individual Box2D edge fixtures, matching retail's per-segment
-// shape construction rather than approximating with addPolygon, since a vine
-// is a thin LINE, not a filled area -- addPolygon's convex-hull/area-based
-// degenerate guards would collapse a near-zero-width shape like this to
-// nothing.
 int GM_CDECL gmf_addEdges(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
@@ -162,23 +117,6 @@ int GM_CDECL gmf_addEdges(gmThread* a_thread) {
     }
     if (pts.size() < (loop ? 3u : 2u)) return GM_OK;
 
-    // addEdges, 0x0008c658 -- see its full decompiled body for the exact
-    // register-level derivation this comment summarizes):
-    //
-    //   loop==false: retail appends points N-1 down through 1 to the forward
-    //   path, yielding 2N-1 vertices. Each consecutive pair is stored as a
-    //   separate retail edge shape. Preserve that shape granularity because
-    //   it determines global shape IDs and collision-map entries.
-    //   Confirmed real, load-bearing case: SafeVine.gm:90's
-    //   `sd.addEdges(this.verts,this.verts.size,false)` -- a vine you'd
-    //   expect to be touchable from either side. Desktop previously stored
-    //   the path in one chain fixture, merging the retail edge shape IDs.
-    //
-    //   loop==true: retail computes a shoelace-style signed area over the
-    //   closed polygon (including the wrap-around edge) and reverses all N
-    //   points when the sum is below DAT_0008c654, which is exactly 0.0f in
-    //   the retail binary. Each consecutive pair and the closing pair are
-    //   separate edge shapes.
     if (loop) {
         float area2 = 0.0f;
         for (size_t i = 0; i < pts.size(); ++i) {
@@ -249,8 +187,6 @@ int GM_CDECL gmf_getMass(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(0);
-    // EBOOT FUN_000380e8 returns the literal float at 0x000380e0 (0.0f).
-    // It does not read the field written by setMass (shape +0x28).
     a_thread->PushFloat(0.0f);
     return GM_OK;
 }
@@ -275,9 +211,6 @@ int GM_CDECL gmf_setCategoriesToCollideWith(gmThread* a_thread) {
     return GM_OK;
 }
 
-// The retail PHYSICSSHAPECOLLECTIONDEF table has getters at 0x42195c and
-// 0x421968. Their wrappers read the collection's 16-bit filter fields
-// through FUN_00038620/FUN_00038628.
 int GM_CDECL gmf_getCollisionCategory(gmThread* a_thread) {
     ShapeDefCollection* c = ThisCollection(a_thread);
     if (!c) return GM_EXCEPTION;
@@ -375,6 +308,5 @@ void RegisterPhysicsBindings(gmMachine& a_machine) {
                                    sizeof(s_shapeDefLib) / sizeof(s_shapeDefLib[0]));
     a_machine.RegisterUserCallbacks(g_shapeDefType, nullptr, ShapeDefGCDestruct, nullptr);
 
-    // The type's own bare name is its constructor (confirmed pattern, see
     a_machine.RegisterLibraryFunction("PHYSICSSHAPECOLLECTIONDEF", gmf_PHYSICSSHAPECOLLECTIONDEF);
 }

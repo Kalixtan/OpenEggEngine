@@ -6,9 +6,6 @@ namespace {
 
 gmType g_triangleLfoType = -1;
 
-// Confirmed real fields (setRate/getRate/setRange/setPhase/setRandomPhase/
-// for update()/getValue() (confirmed real by usage, no decompiled body --
-// see header comment).
 struct TriangleLfoData {
     float periodMs = 1000.0f;  // setRate()/getRate()
     float rangeMin = 0.0f;     // setRange()
@@ -92,7 +89,6 @@ int GM_CDECL gmf_setContour(gmThread* a_thread) {
     return GM_OK;
 }
 
-// --- confirmed-real-by-usage, no decompiled body (see header comment) ---
 
 int GM_CDECL gmf_update(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
@@ -112,8 +108,6 @@ int GM_CDECL gmf_getValue(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real by usage (game_data/Main.gm:899 `this.lfo.reset();`), no
-// decompiled body -- restarts the cycle from phase 0.
 int GM_CDECL gmf_reset(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
     p->phase01 = 0.0f;

@@ -25,17 +25,6 @@ int GM_CDECL gmf_Physics_flush(gmThread*) {
     return GM_OK;
 }
 
-// --- isShapeSensor/getBodyFromShapeID/getEntityFromShapeID --------------
-// All three confirmed real and heavily used (Player.gm's ledge-hang/
-// walk-surface logic, Main.gm's raycast-vs-entity resolution). Decompiled
-// the gmFunctionEntry cross-reference for these three specifically even
-// though the names ARE real registered natives, unlike Video.
-// destroyAllShaders which genuinely has zero occurrences anywhere in the
-// binary): isShapeSensor's body is `LZCOUNT(queryFlags(sid)) >> 5 ^ 1`,
-// the same "x != 0" boolean-cast idiom used elsewhere in this binary
-// (DrawList.setColourMask) -- i.e. `queryFlags(sid) != 0`, which is
-// exactly what b2Fixture::IsSensor() already gives us directly against
-// this engine's real Box2D fixture.
 int GM_CDECL gmf_Physics_isShapeSensor(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(sid, 0, 0);
@@ -70,43 +59,17 @@ int GM_CDECL gmf_Physics_getShapeByID(gmThread* a_thread) {
     return GM_OK;
 }
 
-// RETAIL BYTECODE: Physics.setNumFramesToIgnoreCollisions @ 0x0008b860
-// forwards the integer argument to FUN_00036f34, which stores it at manager
-// +0x5c. FUN_00035d28 decrements positive values and skips post-step
-// collision-pair traversal until the countdown reaches zero.
 int GM_CDECL gmf_Physics_setNumFramesToIgnoreCollisions(gmThread* a_thread) {
     const gmint frames = a_thread->Param(0).m_value.m_int;
     SetPhysicsNumFramesToIgnoreCollisions(frames);
     return GM_OK;
 }
 
-// RETAIL BYTECODE: Physics.getNumFramesToIgnoreCollisions @ 0x0008b8bc
-// reads the signed integer from the same manager field through FUN_00036f3c.
 int GM_CDECL gmf_Physics_getNumFramesToIgnoreCollisions(gmThread* a_thread) {
     a_thread->PushInt(GetPhysicsNumFramesToIgnoreCollisions());
     return GM_OK;
 }
 
-// --- raycasting -----------------------------------------------------------
-// Confirmed real: Physics.raycastOne (85 call sites) and Physics.raycast
-// (16). Argument contract confirmed by usage, not by fully decompiling the
-// ABI-confused double-heavy bodies (FUN_00089d90/FUN_0008a5e0):
-//   raycastOne(startPos, endPos, considerAlreadyColliding, considerSensors,
-//              resultTable, [excludeList], [categoryMask]) -> bool,
-//     filling resultTable.lambda/nx/ny/sid/entity on a hit (field names
-//     confirmed: Player.gm reads result.lambda, result.nx/result.ny
-//     (PhysicsBody.raycast's own result -- same shape), rayResult.sid,
-//     retval.entity).
-//   raycast(startPos, endPos, considerAlreadyColliding, considerSensors,
-//           [excludeList], [categoryMask]) -> entity iterator (confirmed:
-//     TouchEditProcess.gm's `local what=it.get(); ...
-//     this.target.getObjectID()==what.getObjectID()` -- what.get() is a
-//     real entity table, not a shape id or result table).
-// considerSensors=false (the overwhelmingly common case) skips sensor
-// fixtures. considerAlreadyColliding=false skips a fixture the ray START
-// point is already inside (TestPoint) -- the plain-English reading of the
-// name; not decompiled bit-for-bit, but a real, sensible Box2D behavior
-// rather than an invented one.
 std::vector<b2Body*> ReadExcludeList(gmMachine& a_machine, const gmVariable& a_var) {
     std::vector<b2Body*> out;
     if (a_var.m_type != GM_TABLE) return out;
@@ -160,22 +123,6 @@ int GM_CDECL gmf_Physics_raycastOne(gmThread* a_thread) {
 
     std::vector<b2Body*> excludeBodies;
     if (a_thread->GetNumParams() >= 6) excludeBodies = ReadExcludeList(m, a_thread->Param(5));
-    // ENGINE PATCH: categoryMask read from the LAST param, not a hardcoded
-    // index 6, and leniently (ParamInt's default-on-mismatch, not
-    // GM_INT_PARAM's strict throw). Confirmed real, live crash
-    // SwarmKiller.gm:313: `Physics.raycastOne(this.mainpb.getPos(),ppos,
-    // true,false,this.raycastResult,null,null,GROUND_COLLISION_CATEGORY|
-    // STRUCTURE_COLLISION_CATEGORY)` -- an 8-arg call with an extra null
-    // between excludeList and categoryMask this binding's documented
-    // 7-param signature doesn't account for (no decompiled evidence for
-    // what that 7th positional arg is -- possibly a second exclude-style
-    // list, always null in every real call site found). Reading a null
-    // param 6 via the old hardcoded-index/strict-macro combination threw a
-    // blank GM_EXCEPTION every single call, aborting checkAndDoAttack()
-    // (and its update() callers, 3 levels up) for every SwarmKiller enemy,
-    // every frame. Reading the true last argument works for both the
-    // documented 7-arg shape and this real 8-arg one without needing to
-    // know what the unexplained middle arg means.
     uint16 categoryMask = 0;
     if (a_thread->GetNumParams() >= 7) {
         int lastIdx = a_thread->GetNumParams() - 1;
@@ -201,14 +148,6 @@ int GM_CDECL gmf_Physics_raycastOne(gmThread* a_thread) {
     return GM_OK;
 }
 
-// RETAIL PPC: Physics.raycastSimple @ 0x0008ac5c decodes exactly two
-// vector2D arguments, calls FUN_00036a78 with both filter bytes zero, and
-// pushes the helper's hit flag as a GM integer/boolean. The wrapper and
-// return contract and the second flag's sensor behavior are bytecode-
-// verified: the PPC callback at 0x002ff0c8 rejects sensor fixtures when
-// this flag is zero. The first flag's complete filter semantics are still
-// being reconciled; the desktop currently maps it to raycastOne's
-// start-overlap exclusion, which remains an inference.
 int GM_CDECL gmf_Physics_raycastSimple(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     float sx, sy, ex, ey;
@@ -313,9 +252,6 @@ int GM_CDECL gmf_Physics_getShapesWithin(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(halfWidth, 2, 0.0f);
     GM_FLOAT_OR_INT_PARAM(halfHeight, 3, 0.0f);
 
-    // The active TouchEditProcess/Main call sites pass an area center plus
-    // half extents. FUN_00036b68 constructs a rectangle around that center;
-    // its rotation constant DAT_00036b60 is zero in the retail binary.
     if (halfWidth < 0.0f || halfHeight < 0.0f) return PushEmptyShapeQuery(a_thread);
     b2PolygonShape queryShape;
     queryShape.SetAsBox(halfWidth, halfHeight);
@@ -422,10 +358,6 @@ gmFunctionEntry s_physicsLib[] = {
     {"raycastOne", gmf_Physics_raycastOne, nullptr},
     {"raycastSimple", gmf_Physics_raycastSimple, nullptr},
     {"raycast", gmf_Physics_raycast, nullptr},
-    // Retail's native Physics table calls the all-hits iterator function
-    // `raycastShapes` (Physics.raycastShapes @ 0x0008a3a4). The game_data
-    // scripts in this checkout call it `raycast`; keep that compatibility
-    // name while also exposing the retail native entry point.
     {"raycastShapes", gmf_Physics_raycast, nullptr},
     {"getShapesNear", gmf_Physics_getShapesNear, nullptr},
     {"getShapesRoughlyWithin", gmf_Physics_getShapesRoughlyWithin, nullptr},

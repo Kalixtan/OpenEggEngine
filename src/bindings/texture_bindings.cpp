@@ -23,9 +23,6 @@ struct TextureHandleData {
     // decoded pixel dimensions. Native no-override initialization is 1.0;
     // Video's live PS3_ resource-existence override is selected per load.
     float resizeFactor = 1.0f;
-    // Video.createPalette constructs a native TEXTURE with a 256x1, 8-bit
-    // resource (EBOOT FUN_0004bbc4). It has palette storage but no ordinary
-    // image GL handle, so retain the native dimensions separately.
     int nativeWidth = 0;
     int nativeHeight = 0;
 };
@@ -94,10 +91,6 @@ TextureHandleData* ThisTexture(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_getDimensions(gmThread* a_thread) {
-    // BYTECODE VERIFIED: the wrapper multiplies +0x24/+0x28 by +0x3c with
-    // `fmuls`, truncates each result with `fctidz`, and returns the low 32-bit
-    // integer results as floats. FUN_000581a0 writes decoded dimensions into
-    // those fields for ordinary image formats.
     TextureHandleData* t = ThisTexture(a_thread);
     if (!t) return GM_EXCEPTION;
     if (t->handle == 0 && !t->palette) {
@@ -117,13 +110,6 @@ int GM_CDECL gmf_getDimensions(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Not decompiled-confirmed, but the real call site (Platformer/CoryPopup.gm:39,
-// `this[...].isValid()` guarding a call to Video.unloadTextureByHandle so it
-// isn't unloaded twice) only needs to distinguish "still loaded" from
-// "already unloaded" -- GetTextureDimensions is this engine's own ground
-// truth for that (0x0 handle == no live GL texture, whether never loaded
-// or already freed by UnloadTexture), so this is a real state check, not a
-// stub.
 int GM_CDECL gmf_isValid(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread); if (!t) return GM_EXCEPTION;
     int w = 0, h = 0;
@@ -132,8 +118,6 @@ int GM_CDECL gmf_isValid(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail texture.getTextureExt (EBOOT 0x0007add4) returns the same two
-// stored UV-extent floats as one vector2D object.
 int GM_CDECL gmf_getTextureExt(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread); if (!t) return GM_EXCEPTION;
     float u, v;
@@ -146,7 +130,6 @@ int GM_CDECL gmf_getTextureExt(gmThread* a_thread) {
 // Retail's no-override constructor path stores 1.0; Video.getTexture selects
 // the per-resource PS3_ override before constructing the desktop handle.
 int GM_CDECL gmf_getResizeFactor(gmThread* a_thread) {
-    // RETAIL BYTECODE: direct float load from TEXTURE +0x3c (0x7ae68).
     TextureHandleData* t = ThisTexture(a_thread); if (!t) return GM_EXCEPTION;
     a_thread->PushFloat(t->resizeFactor);
     return GM_OK;
@@ -157,9 +140,6 @@ int GM_CDECL gmf_getResizeFactor(gmThread* a_thread) {
 // handle for dimensions/resource identity.
 int GM_CDECL gmf_getSubTexture(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread); if (!t) return GM_EXCEPTION;
-    // RETAIL BYTECODE: getSubTexture returns the object's separate +0x4c
-    // child pointer. Palette-only TEXTUREs own +0x40 palette bytes but have
-    // no image handle/child; do not mistake their own bytes for +0x4c.
     if (t->isSubTextureChild || t->handle == 0) {
         a_thread->PushNull();
         return GM_OK;
@@ -177,19 +157,12 @@ int GM_CDECL gmf_getSubTexture(gmThread* a_thread) {
 // Retail hasSubTexture tests the +0x4c pointer directly.
 int GM_CDECL gmf_hasSubTexture(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread); if (!t) return GM_EXCEPTION;
-    // RETAIL BYTECODE: tests only the native +0x4c child pointer. A
-    // createPalette object has primary palette storage at +0x40, not a child.
     const bool hasChild = !t->isSubTextureChild && t->handle != 0 &&
         GetEngineContext().renderer->GetTextureSubPalette(t->handle) != nullptr;
     a_thread->PushInt(hasChild ? 1 : 0);
     return GM_OK;
 }
 
-// Retail TEXTURE.setTextureShaderType (EBOOT 0x0007aee8) writes the supplied
-// integer directly to texture +0x48 when it is less than 10. The retail
-// check is signed and has no lower-bound check, so negative values are
-// retained too; setShaderBasedOnTexture later maps unknown values to the
-// default render config.
 int GM_CDECL gmf_setTextureShaderType(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread);
     if (!t || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
@@ -206,9 +179,6 @@ float TextureFloatParam(gmThread* a_thread, int index) {
         : (float)value.m_value.m_int;
 }
 
-// Retail TEXTURE.setPaletteColour(index,r,g,b,a), 0x0007aaf8. The native
-// scales normalized channels by 255, truncates, and writes bytes in its
-// palette's stored ABGR order (helper FUN_0031b254).
 int GM_CDECL gmf_setPaletteColour(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread);
     if (!t || a_thread->GetNumParams() < 5) return GM_EXCEPTION;
@@ -246,16 +216,11 @@ int GM_CDECL gmf_setPaletteColour(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail TEXTURE.convertPaletteToAlpha(alpha), 0x0007a9c0. Converts each
-// entry to the same RGB alpha byte and moves its first byte to alpha.
 int GM_CDECL gmf_convertPaletteToAlpha(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread);
     if (!t || a_thread->GetNumParams() < 1) return GM_EXCEPTION;
     std::shared_ptr<PaletteData> palette = TexturePalette(t);
     const uint8_t alpha = (uint8_t)(a_thread->Param(0).m_value.m_int & 0xff);
-    // EBOOT 0x0031b464 first treats an already-converted palette specially:
-    // if entry 0's alpha already equals the requested alpha and entry 0's
-    // final byte is zero, it returns before touching mode/dirty state.
     if (palette && palette->rgba.size() >= 4 && palette->rgba[0] == alpha && palette->rgba[3] == 0) {
         // The child returns without stores, while the recursive parent still
         // stores mode 4 and dirty=1 after that call completes.
@@ -282,7 +247,6 @@ uint8_t PaletteColourByte(float channel) {
 }
 
 void StoreGeneratedPalette(PaletteData& palette, uint32_t c1, uint32_t c2) {
-    // FUN_00047498 explicitly clears entry 0 on each invocation.
     std::fill_n(palette.rgba.begin(), 4, 0);
     auto put = [&](int index, uint32_t bgr, uint8_t alpha) {
         const size_t p = (size_t)index * 4;
@@ -291,8 +255,6 @@ void StoreGeneratedPalette(PaletteData& palette, uint32_t c1, uint32_t c2) {
         palette.rgba[p + 2] = (uint8_t)(bgr >> 8);
         palette.rgba[p + 3] = (uint8_t)bgr;
     };
-    // FUN_00047498 writes five descending-alpha entries for each source
-    // colour, then five opaque blends from colour 1 to colour 2.
     float opacity = 1.0f;
     const float opacityStep = 1.0f / 6.0f;
     for (int i = 0; i < 5; ++i) {
@@ -308,9 +270,6 @@ void StoreGeneratedPalette(PaletteData& palette, uint32_t c1, uint32_t c2) {
         for (int shift : {0, 8, 16}) {
             const int a = (c1 >> shift) & 0xff;
             const int b = (c2 >> shift) & 0xff;
-            // Match FUN_0030ea08's PPC single-precision sequence: scale each
-            // endpoint, fused subtract, fused interpolation, then fused
-            // rescale-plus-half before fctidz truncation.
             const float aScaled = (float)a * byteScale;
             const float delta = std::fma((float)b, byteScale, -aScaled);
             const float interpolated = std::fma(delta, t, aScaled);
@@ -324,19 +283,12 @@ void StoreGeneratedPalette(PaletteData& palette, uint32_t c1, uint32_t c2) {
     palette.dirty = true;
 }
 
-// Retail TEXTURE.setGeneratedPalette(c1,c2), 0x0007a928. The color-object
-// branch fills the native 16-entry generated palette through FUN_0031b320 /
-// FUN_00047498. On a normal image handle, route those two colors through the
-// existing texture recolour path; on Video.createPalette's handle, retain
-// the generated entries and pending draw-list tint.
 int GM_CDECL gmf_setGeneratedPalette(gmThread* a_thread) {
     TextureHandleData* t = ThisTexture(a_thread);
     if (!t || a_thread->GetNumParams() < 2) return GM_EXCEPTION;
     float r1, g1, b1, r2, g2, b2;
     uint32_t c1, c2;
     if (a_thread->Param(0).m_type == GM_INT) {
-        // Retail dispatches integer arguments to FUN_0031b410. Its palette
-        // helpers consume packed 0xBBGGRR values (red in the low byte).
         c1 = (uint32_t)a_thread->Param(0).m_value.m_int;
         c2 = (uint32_t)a_thread->Param(1).m_value.m_int;
         r1 = (c1 & 0xff) / 255.0f; g1 = ((c1 >> 8) & 0xff) / 255.0f; b1 = ((c1 >> 16) & 0xff) / 255.0f;
@@ -390,11 +342,6 @@ void GM_CDECL TextureAsString(gmUserObject* a_object, char* a_buffer, int a_buff
 
 } // namespace
 
-// BYTECODE VERIFIED: Video.getDimensions (EBOOT 0x7ac7c) converts native
-// unsigned dimensions to f32, multiplies by +0x3c using `fmuls`, truncates
-// with `fctidz`, keeps the low 32 bits, then returns that integer as f32.
-// FUN_000581a0 writes decoded dimensions into +0x24/+0x28 for ordinary image
-// formats. PPC's invalid fctidz result has zero in its low 32 bits.
 float RetailScaledTextureDimension(uint32_t a_nativeDimension, float a_factor) {
     const float scaled = static_cast<float>(a_nativeDimension) * a_factor;
     constexpr double kInt64Limit = 9223372036854775808.0;
@@ -422,11 +369,6 @@ void SetGeneratedPaletteColours(PaletteData& a_palette,
     a_palette.outlineR = a_outlineR; a_palette.outlineG = a_outlineG; a_palette.outlineB = a_outlineB;
 }
 
-// RETAIL BYTECODE: FUN_0031b254 first recurses into a child palette at
-// texture+0x4c; otherwise it checks the palette entry count, writes ABGR
-// bytes, then sets the texture dirty byte at +0x78 even when no palette data
-// exists. This is shared by Video.setTexturePaletteColour and TEXTURE's
-// palette mutation methods.
 void SetTexturePaletteColourByHandle(unsigned int a_handle, int a_index,
                                      uint8_t a_r, uint8_t a_g,
                                      uint8_t a_b, uint8_t a_a) {
@@ -599,8 +541,6 @@ unsigned int ResolveTextureHandle(gmMachine& a_machine, const gmVariable& a_var)
     return 0;
 }
 
-// BYTECODE VERIFIED: retail's dimension multiplier is the texture's +0x3c
-// field; the ordinary decoded image dimensions populate +0x24/+0x28.
 float ResolveTextureDimensionScale(gmMachine& a_machine, const gmVariable& a_var) {
     if (a_var.m_type != g_textureType) return 1.0f;
     gmUserObject* object = (gmUserObject*)a_machine.GetObject(a_var.m_value.m_ref);

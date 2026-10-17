@@ -9,7 +9,7 @@
 #include "gmTableObject.h"
 #include "../bindings/process_base_bindings.h"
 #include "../bindings/process_handle_bindings.h"
-#include "../bindings/foe_compat_bindings.h"
+#include "../bindings/script_compat_bindings.h"
 #include "../render/draw_list.h"
 #include "../render/draw_context.h"
 #include "../render/renderer.h"
@@ -23,16 +23,6 @@
 #include <utility>
 #include <unordered_set>
 
-// Real drawList instances now record rather than draw immediately (see
-// draw_list.h's RecordingTarget/DrawListData header comment) -- a process's
-// own preDrawList/postDrawList (set up via setupPreDrawList/
-// setupPostDrawList, process_handle_bindings.cpp) is exactly that kind of
-// instance, so whatever its preDraw()/postDraw() hook just recorded needs
-// an explicit replay to actually reach the screen. Every real hook already
-// calls `this.preDrawList.reset()` as its first statement (confirmed real
-// convention, see draw_list.cpp's gmf_reset header comment), which clears
-// the list for the NEXT frame's rebuild -- so no clear is needed here,
-// only the replay.
 static void QueueDrawList(gmMachine& a_machine, const gmVariable& a_listVar,
                           const char* a_debugLabel,
                           std::vector<DrawListSubmission>& a_lists) {
@@ -52,10 +42,6 @@ ProcessManager::ProcessManager(gmMachine& a_machine) : m_machine(a_machine) {}
 
 namespace {
 
-// Retail GE3_Internal_AnimationPingPongScalarUpdate (FUN_00016810).
-// Preserve the PPC helper boundary: scale delta in double, round to float,
-// clamp by ordered comparisons, then compute the next state in double and
-// round once before endpoint reflection.
 void StepRetailPingPongScalar(float a_deltaMs, float a_scale,
                               float& a_phase, float& a_rate) {
     const float scaledDelta = static_cast<float>(
@@ -84,39 +70,12 @@ int ProcessManager::StartInitialProcess(const std::string& a_name) {
     return CreateProcess(a_name);
 }
 
-// Convention-derived on-demand script load: confirmed for every real case
-// found (Platformer_MainMenu5 -> Platformer/MainMenu5.gm,
-// Platformer_ResizeScreenProcess -> Platformer/ResizeScreenProcess.gm,
-// Platformer_PopupProcess -> Platformer/PopupProcess.gm) by grepping every
-// GameSystem.startNewProcessList/runProcess call site in the corpus
-// against the actual .gm filenames that exist -- but the exact mechanism
-// retail itself uses to reach these ISN'T confirmed: checked via Ghidra
-// string search (EBOOT.elf), and neither "MainMenu5.gm" nor
-// "ResizeScreenProcess.gm" appear anywhere in the retail binary as a
-// loadScript-style string literal the way every other real loadScript
-// argument in the corpus does (they show up as embedded GM source text,
-// e.g. Platformer/MainMenuScriptLoader.gm's own loadScript calls are
-// directly greppable in the binary's string table; these three names
-// are not). Some other mechanism (a directory auto-scan at boot, a
-// precompiled bytecode manifest, ...) is more likely real. This
-// on-demand convention-based load is a substitute: it gets the script
-// loaded before it's needed without hardcoding a native-preload list
-// that risks loading things unrelated scenes don't want -- see
-// main.cpp's isFullRetailTree guard, added after exactly that kind of
-// guess broke diagnostic scene.
 bool ProcessManager::TryAutoLoadScript(const std::string& a_processName) {
     std::string rest = a_processName;
     const std::string prefix = "Platformer_";
     bool hasPrefix = a_processName.compare(0, prefix.size(), prefix) == 0;
     if (hasPrefix) rest = a_processName.substr(prefix.size());
 
-    // Try flat first (e.g. Platformer_ResizeScreenProcess ->
-    // Platformer/ResizeScreenProcess.gm -- confirmed real for every single-
-    // segment case grepped). Some real process names embed an actual
-    // subdirectory level though (Platformer_MainMenu5_PreTutorialScreen ->
-    // Platformer/MainMenu5/PreTutorialScreen.gm, confirmed by the file
-    // only existing at that nested path) -- if flat doesn't exist, retry
-    // with every remaining underscore turned into a path separator.
     std::string source;
     std::string flatPath = hasPrefix ? ("Platformer/" + rest + ".gm") : (a_processName + ".gm");
     std::string path = flatPath;
@@ -135,17 +94,6 @@ bool ProcessManager::TryAutoLoadScript(const std::string& a_processName) {
         return false;
     }
 
-    // Generic form of the same convention, without a fixed "Platformer/"
-    // root to key off of -- same on-demand process-factory-file loading,
-    // just for process names that don't happen to start with that one
-    // prefix (confirmed necessary for "PekkoAndJon_Main" -> PekkoAndJon/
-    // Main.gm; the underscore-as-path-separator convention itself isn't
-    // Platformer-specific, this engine's auto-load just never generalized
-    // past the one prefix it was built against). Try turning each
-    // underscore into a slash, one at a time from left to right, e.g. for
-    // "Foo_Bar_Baz": "Foo/Bar_Baz.gm", then "Foo/Bar/Baz.gm" -- least- to
-    // most-nested, first hit wins. (Flat "a_processName.gm" was already
-    // tried above and failed, so this starts one level deeper.)
     std::string candidate = a_processName;
     for (size_t i = 0; i < candidate.size(); ++i) {
         if (candidate[i] != '_') continue;
@@ -161,24 +109,14 @@ bool ProcessManager::TryAutoLoadScript(const std::string& a_processName) {
 
 int ProcessManager::StartNewProcessList(const std::string& a_name, bool a_cleanupPrevious) {
     if (!a_cleanupPrevious) {
-        // FUN_00186cf8's false branch queues a transition with a null target;
-        // it does not resolve or construct the requested factory. Its queue
-        // dispatcher still flushes the current process registry.
         m_queuedOperations.push_back({QueuedOperation::Type::ResetProcessList, -1, false});
         return -1;
     }
 
     const int id = CreateProcess(a_name);
-    // FUN_00186cf8 constructs the cleanup controller and queues the list
-    // transition even when resolving the target returns null. Controller
-    // construction enters state 0 and requests the entity clear-all.
     RequestEntityManagerDeleteAll();
     if (Process* target = Get(id))
         target->activationGeneration = std::numeric_limits<std::uint64_t>::max();
-    // FUN_00186cf8 queues a distinct start-list transition carrying the
-    // cleanup controller. Its dispatcher resets the old registry, inserts
-    // the controller with updatesEntities=true, and only the controller's
-    // final state queues the target process.
     m_queuedOperations.push_back({QueuedOperation::Type::StartProcessListCleanup, id, false});
     return id;
 }
@@ -200,11 +138,6 @@ int ProcessManager::CreateProcess(const std::string& a_name) {
         return -1;
     }
 
-    // Reserve the process slot (and id) before calling the factory, since
-    // the factory needs a real process handle bound to that id as its `p`
-    // argument -- confirmed real convention: every retail process factory
-    // is `function(p) { return { Process=p, ... }; };` and stores it
-    // itself (e.g. Platformer/OneTrailPlayMode.gm: `t.Process=p;`).
     int id = m_nextId++;
     Process proc;
     proc.id = id;
@@ -272,19 +205,6 @@ void ProcessManager::RunInit(int a_id) {
     gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc->table.m_value.m_ref);
     gmVariable tableVar = proc->table;
 
-    // "expecting init() to return a boolean. Assuming true."
-    // Confirmed real async multi-step init convention (Platformer/Main.gm's
-    // own init(): `if (!?this.groundProcess) { this.groundProcess=this.runProc(...);
-    // return false; }` -- deliberately incomplete on this call, expecting
-    // to be called AGAIN next frame once the dependency it just started
-    // is ready) -- init() returning false must NOT be treated as done.
-    // Previously marked needsInit=false unconditionally after a single
-    // call, so this early-return half of Main.gm's init() ran exactly
-    // once and the rest of its setup (camera position, deleteAllEntities,
-    // etc, gated behind the SAME `if (!?this.groundProcess)` on the next
-    // call) never executed -- update()/preDraw() still ran anyway since
-    // `initialized` was set true regardless, leaving the process in a
-    // half-initialized state for the rest of its life.
     gmCall initCall;
     gmint result = 1;
     if (initCall.BeginTableFunction(&m_machine, "init", table, tableVar)) {
@@ -292,10 +212,6 @@ void ProcessManager::RunInit(int a_id) {
         if (initCall.DidReturnVariable() && initCall.GetReturnedVariable().m_type == GM_INT) {
             initCall.GetReturnedInt(result);
         } else {
-            // Retail FUN_000b02f8 logs this exact warning when init()
-            // exists but does not return the GM boolean/int tag, then
-            // assumes initialization succeeded. Keep that malformed
-            // return case observable while preserving its default.
             const Process* current = Get(a_id);
             std::fprintf(stderr,
                          ": expecting 'init()' to return a boolean.  Assuming true. "
@@ -400,11 +316,6 @@ void ProcessManager::UpdateCleanupControllers() {
                 controller.stateUpdates = 0;
             }
         } else if (state == 2) {
-            // FUN_0004a6bc resets two native Video command buffers. This
-            // renderer submits immediately and has no corresponding queues;
-            // DAT_00f67ba8 also has no local counterpart. Do not clear the
-            // renderer's whole GL cache here: retail resource objects remain
-            // alive until their own references drain in state 6.
             RequestGameMonkeyScriptCleanPasses(4);
             controller.state = 3;
             controller.stateUpdates = 0;
@@ -414,21 +325,12 @@ void ProcessManager::UpdateCleanupControllers() {
                 controller.stateUpdates = 0;
             }
         } else if (state == 4) {
-            // Ghidra finds only the state-4 read of DAT_00432d04 in EBOOT;
-            // any indirect/external writer remains unidentified. Desktop
-            // resource loading is synchronous, so there is no local work
-            // counter to wait on here.
             controller.state = 5;
             controller.stateUpdates = 0;
         } else if (state == 5) {
             controller.state = 6;
             controller.stateUpdates = 0;
         } else if (state == 6 && stateUpdates > 1) {
-            // Retail traverses the sentinel-based tree at DAT_0043b824, then
-            // reaches this transition regardless of whether the tree had
-            // entries. Do not turn that traversal into a resource-empty wait:
-            // the tree contents do not gate activation. Shared ownership
-            // preserves target resources while old process tables retire.
             if (Process* target = Get(controller.targetProcessId))
                 target->updatesEntities = true;
             // Retail queues controller termination followed by target
@@ -442,10 +344,6 @@ void ProcessManager::UpdateCleanupControllers() {
 }
 
 void ProcessManager::ResetProcessList() {
-    // FUN_00186af4 first detaches the complete active registry, then invokes
-    // each native process's destruction slot, and only after that clears the
-    // pause-process pointer. Keep the GM objects rooted while their script
-    // destructors run, but make the registry empty to any reentrant lookup.
     const bool wasResettingProcessList = m_resettingProcessList;
     m_resettingProcessList = true;
     std::vector<Process> retired;
@@ -551,11 +449,6 @@ int ProcessManager::GetCount() const {
         if (process.constructed && process.activationGeneration <= m_dispatchGeneration)
             ++count;
     }
-    // The retail startNewProcessList dispatcher inserts its cleanup
-    // controller into the same counted process registry as ordinary
-    // processes (FUN_0033ece8 -> FUN_0033aeac). Desktop keeps the controller
-    // in a separate vector, so include each controller until it is removed
-    // by the next queue drain.
     count += static_cast<int>(m_cleanupControllers.size());
     return count;
 }
@@ -575,11 +468,6 @@ Process* ProcessManager::GetByName(const std::string& a_name) {
 }
 
 Process* ProcessManager::GetEntityUpdateProcess() {
-    // Retail FUN_00187d24 searches the active process registry first. Only
-    // when that has no match does it inspect queued runProcess and
-    // startNewProcessList entries. Locally, activationGeneration marks the
-    // equivalent queue boundary: processes created after the last drain are
-    // constructed synchronously but are not active until the next update.
     for (NativeCleanupController& controller : m_cleanupControllers) {
         if (controller.processFacade.updatesEntities)
             return &controller.processFacade;
@@ -613,10 +501,6 @@ bool ProcessManager::GetGroundRegistration(int a_entityId, int& a_style,
 void ProcessManager::GetGroundRegistrationsForCamera(float a_cameraX, float a_cameraY,
     std::vector<std::pair<int, Process::GroundRegistration>>& a_out) const {
     a_out.clear();
-    // PPC FUN_001ce4a0 constants at 0x001ce478..0x001ce49c, read directly
-    // from PS3 exes/EBOOT.elf: half-view x/y extents and reciprocal screen
-    // cell dimensions. Keep the same truncation plus negative-coordinate
-    // decrement used by EntityRegistration.registerEntity.
     constexpr float kHalfViewX = 18.91f;
     constexpr float kHalfViewY = 10.37f;
     constexpr float kInvCellX = 0.025614753365516663f;
@@ -637,10 +521,6 @@ void ProcessManager::GetGroundRegistrationsForCamera(float a_cameraX, float a_ca
             continue;
         a_out.reserve(process.groundRegistrationOrder.size());
         std::unordered_set<int> seen;
-        // FUN_001ce4a0 scans x cells outside y cells, then appends entries
-        // from each cell's registered vector, suppressing duplicates in its
-        // temporary draw vector. The per-cell vector preserves registration
-        // insertion order (FUN_001cd798 inserts; unregister removes).
         for (int x = minX; x <= maxX; ++x) {
             for (int y = minY; y <= maxY; ++y) {
                 for (int entityId : process.groundRegistrationOrder) {
@@ -683,22 +563,10 @@ void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_u
     ++m_dispatchGeneration;
     TickAlarms(m_machine, a_deltaMs);
     UpdateCleanupControllers();
-    // FUN_0033ece8 re-registers the cleanup controller with updatesEntities
-    // set. The native manager dispatches the entity event immediately after
-    // that controller's update turn.
     bool entitiesDispatched = !m_cleanupControllers.empty();
     if (entitiesDispatched) a_updateEntities();
-    // FUN_00188608 snapshots the first process with native byte +9 set
-    // before it starts the registry walk. Its event adapter then dispatches
-    // entities immediately after that process, even if the process just ran
-    // init rather than update.
     const Process* selected = GetEntityUpdateProcess();
     const int entityProcessId = selected ? selected->id : -1;
-    // Retail FUN_00188608 walks the process registry once per update event.
-    // Its update adapter calls FUN_0018c8d4, which dispatches init() OR
-    // update() for each process. A separate init pass would initialize later
-    // processes before an earlier process's update callback runs.
-    // Re-read size after callbacks because either callback can add processes.
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
         if (proc.activationGeneration > m_dispatchGeneration) continue;
@@ -745,31 +613,10 @@ void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_u
             entitiesDispatched = true;
         }
     }
-    // FUN_00188608's no-selected-process fallback is guarded by manager
-    // field +0x48, the active pause-process pointer. Without this check,
-    // entities keep updating when a pause process is active but does not
-    // itself own the entity-update flag.
     if (!entitiesDispatched && !m_paused) a_updateEntities();
 }
 
 void ProcessManager::PostUpdateAll(float a_deltaMs) {
-    // postUpdate() is a distinct retail manager event, dispatched after the
-    // process and entity callbacks of the update event
-    // (FUN_0018a2e8 -> FUN_00188608). Its native wrapper
-    // checks only whether the cached callback exists; it does not check the
-    // process init-state byte. Platformer/Main.gm's postUpdate() is where
-    // `this.camera.update(msElapsed)` lives -- the per-frame camera-follow/
-    // pan logic that reads the player's current screen and interpolates
-    // Video.setCameraPos toward it. Without this call, the camera is
-    // positioned exactly once at level load (via finalizeLoad's own direct
-    // setCameraPos call) and then never moves again for the rest of the
-    // level, no matter how far the player actually walks -- confirmed via a
-    // live trace: the player's tracked body position moved ~19 world units
-    // over several seconds of real movement while Video.getCameraPosX/Y()
-    // stayed byte-identical the entire time. Run as its own pass after
-    // update(), and allow it on a constructed process even when init() is
-    // still pending. The same retail dispatcher applies the process pause
-    // selection to both update and postUpdate events.
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
         if (proc.activationGeneration > m_dispatchGeneration) continue;

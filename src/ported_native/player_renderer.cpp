@@ -24,28 +24,6 @@
 #include <memory>
 #include <utility>
 
-// Player geometry is being ported from retail PPC FUN_001a1660.
-// GameMonkey fields are read as native renderer inputs, not as renderer
-// behavior. The particle pass is ported from native FUN_001a0be8 using
-// headless Ghidra evidence. Every field below (radius,
-// maxSpeedX, squintPerc, stickGraphicPerc, lastJumpNormal, drawz) is
-// confirmed still real on the CURRENT live Player.gm too (same formulas:
-// `this.radius = (SW*2-8*BACK_CONVERSION)/2 - 8*BACK_CONVERSION`,
-// `this.maxSpeedX = SW/(60.0-9.0)`, `this.drawz = PLAYER_Z` at
-// construction) -- read directly off the live entity table below rather
-// than reimplemented as a parallel state machine, so this stays correct
-// even where retail's own logic changes those values conditionally
-// (e.g. drawz switching to GROUND_Z+200*BACK_CONVERSION in some states).
-//
-// stickGraphicPerc/lastJumpNormal (wall/ceiling-stick squash) and
-// squintPerc (blink/squint) are all read live off the entity table below,
-// same as radius/maxSpeedX/drawz -- Player.gm's own movement/animation
-// state machine (~5700 lines) computes and stores these on `this` every
-// frame regardless of which code draws them, so reading them here gets
-// the real, currently-live value without reimplementing whatever set
-// them. Each still defaults to its neutral value (matching the
-// reference's own `!?this.X` fallback) for the brief window before a
-// fresh player entity's constructor has run.
 namespace {
 
 // Retail builds the player-owned draw list during the entity traversal, then
@@ -77,23 +55,6 @@ private:
     DrawListData::CommandBuffer* m_previous;
 };
 
-// The native player draw never picks a colour literally -- it selects a
-// NAME, and the active scheme decides what that name looks like. Decoded
-// from FUN_001a1660's three colour-set sites (0x1a1c30, 0x1a22c8,
-// 0x1a2660), each a call to 0x1d11e8(name, drawListHandle); see
-//
-// This is why the aura looked absent from the retail capture and was
-// wrongly disabled here for a while: it is NOT drawn in player_out, it is
-// drawn in ground_fill, and in the tutorial's scheme 150
-// (game_data/Platformer/colours.dat) ground_fill is 255,255,255 -- pure
-// white. Searching the capture for player_out pixels therefore found none
-// and the aura was written off as "retail does not draw this". It does.
-//
-//     s150_ground_fill          255,255,255   <-- the white halo AND the eye
-//     s150_player_fill          215,195,160   <-- the cream body
-//     s150_player_out            76, 59, 52   <-- 0 px in the capture
-//     s150_ground_noClimb_fill   50, 40, 19
-//     s150_danger_fill          220, 88, 82
 float GetFloatField(gmMachine& a_m, gmTableObject* a_t, const char* a_key, float a_default);
 double GetDoubleField(gmMachine& a_m, gmTableObject* a_t, const char* a_key, double a_default);
 
@@ -184,11 +145,6 @@ void SetColourByName(Renderer& a_renderer, const char* a_name) {
         ApplyColourByName(a_renderer, a_name);
         return;
     }
-    // Retail FUN_001d11e8 resolves the colour during native draw-list
-    // construction, then FUN_0003da60 copies {r,g,b,alpha} into the list's
-    // work buffer under opcode 0x0b. Capture those resolved values now;
-    // resolving the name from a deferred closure could observe a later colour
-    // scheme change than retail would.
     float r, g, b;
     if (!ResolveColourByName(a_name, r, g, b)) return;
     Renderer* renderer = &a_renderer;
@@ -197,19 +153,6 @@ void SetColourByName(Renderer& a_renderer, const char* a_name) {
     });
 }
 
-// The Video frame pass records DefaultTrans as the live fallback render
-// config (Video+0x8120). Player-owned VMSHAPEs have no shape-local config, so
-// opcode 6 binds this fallback before drawing them. Ghidra's static fragment
-// descriptor has blend flag 1; FUN_000548b8 maps that to SRC_ALPHA /
-// ONE_MINUS_SRC_ALPHA for RGB and alpha, additive equations, blending enabled,
-// and logic/line/polygon smoothing disabled. Keep the state change in the
-// deferred stream so it runs at the player's sorted replay position, before
-// its particle and retained-shape submissions. The fixed-function path below
-// supplies equivalent operations: current colour to the varying, then the
-// retail y*c257, x*c256+r0, z*c258+r0, c259+r0 position sequence, and
-// interpolated colour to fragment output. This is semantic equivalence only;
-// host GL matrix arithmetic/rounding and raster output have not been matched
-// to the RSX program.
 void ApplyPlayerDefaultTransState() {
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
                         GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -228,20 +171,6 @@ void RecordPlayerDefaultTransState() {
     }
 }
 
-// Verification: retail FUN_001a1660 draws particles before its scale cutoff,
-// then calls FUN_003484f4 at 0x1a18d4 to emit state-save opcode 0x1a and emits
-// restore opcode 0x1b at 0x1a2b78 only on the non-cutoff path. FUN_00044d4c
-// dispatches these through the native render-state stack. FUN_0030a414
-// reapplies the saved stencil function/operations, depth compare/write,
-// colour mask, and front-face/culling configuration; its non-null path enables
-// stencil and depth testing. The desktop adapter restores the captured
-// stencil enable and tuple; this matches the disabled GL state in the observed
-// `VIDEOPARAMS_DISABLE` case. Whether that retail path saves a null/default
-// tuple or an explicit always-pass tuple remains unverified. It also restores
-// the fixed-function matrices changed by immediate rendering. See
-// and player_renderer_state_restore_20261010.md. The player entry inherits
-// the active view. Construct this scope after particles and the scale cutoff:
-// particles are outside retail's saved scope, and the cutoff has no restore.
 class NativePlayerRenderStateScope {
 public:
     NativePlayerRenderStateScope()
@@ -261,12 +190,6 @@ public:
     }
 
     ~NativePlayerRenderStateScope() {
-        // FUN_0030a414 disables stencil for the null/default state and enables
-        // it when restoring an explicit stencil tuple. In this desktop path,
-        // the `VIDEOPARAMS_DISABLE` state has GL stencil disabled at scope
-        // entry; preserve that bit so stale GL compare values (for example
-        // EQUAL/ref 8) cannot become active. Whether retail saves a null/default
-        // or explicit always-pass tuple here remains unverified.
         if (m_stencilEnabled) glEnable(GL_STENCIL_TEST);
         else glDisable(GL_STENCIL_TEST);
         RestoreStencilFace(GL_FRONT, m_stencilFront);
@@ -395,21 +318,10 @@ std::vector<float> FlattenPlayerVertices(const std::vector<b2Vec2>& a_vertices) 
     return xy;
 }
 
-// Verification: retail FUN_00044d4c interprets player opcodes 0x13/0x14 as
-// current-matrix multiplied by translation/rotation, and 0x17/0x18 as a
-// 64-byte matrix push/pop. See SOUND_SHAPES_GROUND_TRUTH.md's player
-// transform trace and player_drawlist_matrix_ops_capstone_20261010.txt.
-// This compact 2D affine stack applies those same operations to the native
-// player's planar shapes before handing their vertices to the desktop GL
-// renderer; it is intentionally local to the player renderer.
 struct PlayerMatrix2D {
     float a = 1.0f, b = 0.0f, c = 0.0f, d = 1.0f;
     float x = 0.0f, y = 0.0f;
 
-    // Verification: FUN_0030ab94 uses `vmaddfp product, lhs, scalar, zero`
-    // for each matrix-product term, then `vaddfp` combines the two partials.
-    // An explicit fma with a zero addend rounds each binary32 product before
-    // the separate sum, independent of host compiler contraction settings.
     static float RetailRoundedProduct(float a_lhs, float a_rhs) {
         return std::fma(a_lhs, a_rhs, 0.0f);
     }
@@ -425,9 +337,6 @@ struct PlayerMatrix2D {
                 RetailRoundedProduct(c, inner.d);
         out.d = RetailRoundedProduct(b, inner.c) +
                 RetailRoundedProduct(d, inner.d);
-        // FUN_0030ab94 builds the translation column as two VMX partial sums:
-        // col0*tx + (col1*ty + col3*1), then adds those partials. Preserve
-        // the fused col1/col3 operation and the final add for retail rounding.
         out.x = (a * inner.x) + std::fma(c, inner.y, x);
         out.y = (b * inner.x) + std::fma(d, inner.y, y);
         return out;
@@ -455,8 +364,6 @@ public:
     // nonzero; all player call sites pop a preceding push.
     void Pop() { if (m_stack.size() > 1) m_stack.pop_back(); }
 
-    // Verification: opcode 0x13 forms a translation matrix and multiplies it
-    // into the current matrix (retail FUN_0030ab94 current * translation).
     void Translate(float x, float y) {
         PlayerMatrix2D t;
         t.x = x;
@@ -464,11 +371,6 @@ public:
         m_stack.back() = m_stack.back().Multiplied(t);
     }
 
-    // Verification: opcode 0x14's FUN_0030ad80 writes column-major columns
-    // (cos,sin,0,0), (-sin,cos,0,0), (0,0,1,0), (0,0,0,1); final VMX permutes
-    // and identity-column loads are traced in player_drawlist_rotate_opcode14
-    // and player_rotation_matrix_decomp_headless_20261010.c. The dispatcher
-    // multiplies current * rotation. Bitwise trig/output comparison remains.
     void Rotate(float angle) {
         const float cosine = GroundRenderMath::RetailGroundSinCos(angle, true);
         const float sine = GroundRenderMath::RetailGroundSinCos(angle, false);
@@ -528,12 +430,6 @@ static std::string PlayerShapeRingField(const char* a_prefix, int a_slot) {
     return std::string(a_prefix) + std::to_string(a_slot);
 }
 
-// Verification: FUN_001dbcb8 and FUN_001dcb70 were decompiled headlessly
-// from the retail EBOOT and checked against PPC instructions at those
-// addresses. Coefficients, reduction threshold, and quadrant offsets are
-// read from the ELF TOC data referenced by the instructions. Keep binary32
-// rounding and fused operations here; this is the vector-angle path used by
-// retail player rendering, not a generic libm replacement.
 float RetailPlayerAtanReduced(float a_ratio, uint32_t a_quadrant) {
     constexpr float kReductionThreshold = 0.2679491937f;
     constexpr float kSqrtThree = 1.7320507765f;
@@ -569,11 +465,6 @@ float RetailPlayerAtanReduced(float a_ratio, uint32_t a_quadrant) {
     return angle;
 }
 
-// Verification: the wrapper classifies both binary32 inputs with retail
-// FUN_001dcd24, forms |y/x| in PPC single precision, and passes the ratio and
-// quadrant flags to FUN_001dcb70. Signed zero is retained through the same
-// sign-bit flags. Retail returns the exceptional operand directly when either
-// input class is NaN/Inf, matching FUN_001dbcb8's early returns.
 float RetailPlayerAtan2(float a_y, float a_x) {
     const auto isExceptional = [](float a_value) {
         return !std::isfinite(a_value);
@@ -603,12 +494,6 @@ float RetailPlayerAtan2(float a_y, float a_x) {
     return RetailPlayerAtanReduced(ratio, quadrant);
 }
 
-// Verification: retail FUN_003488c0 subtracts the input points, computes
-// sqrt(dx*dx + dy*dy) with the PPC order `dy*dy` then `fmadds(dx,dx,...)`,
-// and divides each component by that length when it is positive; a zero
-// length yields (0,0). The aura stretch call at FUN_001a1660 0x1a2030 passes
-// the current vertex and target point to this helper before scaling the unit
-// direction by its falloff and stretch amount. See
 static b2Vec2 RetailPlayerUnitDirection(const b2Vec2& a_from,
                                        const b2Vec2& a_to) {
     const float dy = a_to.y - a_from.y;
@@ -619,9 +504,6 @@ static b2Vec2 RetailPlayerUnitDirection(const b2Vec2& a_from,
     return b2Vec2(dx / length, dy / length);
 }
 
-// Verification: retail FUN_000c5e64 converts a vector to atan2(y,x), and
-// FUN_000c6ca0 wraps (second-first) into [-pi,pi] using the PPC fmod helper;
-// the call sequence used below is at FUN_001a1660 0x1a2584..0x1a2618.
 float RetailWrappedAngleDelta(float a_from, float a_to) {
     constexpr float kTwoPi = 6.2831854820251465f;
     constexpr float kPi = 3.1415927410125732f;
@@ -632,11 +514,6 @@ float RetailWrappedAngleDelta(float a_from, float a_to) {
     return delta;
 }
 
-// FUN_001aa590's native SHAPETYPE_TRIANGLEFAN circle builder. For n=61 it
-// writes one center followed by 61 rim vertices; its angle increment is
-// 2*pi/(n-1), so the last rim point closes the full circle. Keep the angle
-// update as a binary32 addition (`fadds` in retail), and use the retail trig
-// approximation and fused radius multiply for each coordinate.
 static std::vector<b2Vec2> BuildRetailPlayerEyeFan(float a_radius) {
     constexpr int kRimPointCount = 61;
     constexpr float kTwoPi = 6.2831854820251465f;
@@ -658,13 +535,6 @@ static std::vector<b2Vec2> BuildRetailPlayerEyeFan(float a_radius) {
     return vertices;
 }
 
-// Verification: retail FUN_001a1660 reads `mainpbDirOnRun` at native +0x1b8,
-// obtains current mainpb direction, and wraps their angle delta with
-// FUN_000c6ca0. It adds that delta to cached native facing (+0x1f0). For the
-// sticky branch, PPC wraps the adjusted angle back against cached facing,
-// multiplies the result by 2.0 and runPerc, then uses fmadds to add cached
-// facing. Constants and stack input are at 0x1a2604..0x1a2654; runPerc is
-// loaded at 0x1a17a4 and saved at stack +0x1b0.
 float GetRetailPlayerRenderAngle(gmMachine& a_machine,
                                  gmTableObject* a_player,
                                  float a_cachedX, float a_cachedY,
@@ -692,15 +562,6 @@ float GetRetailPlayerRenderAngle(gmMachine& a_machine,
     return std::fma(weightedDelta, a_runPerc, cachedFacingAngle);
 }
 
-// Verification: particle iteration, active-life condition, size/travel
-// curves, particle colour field, mixed-precision ratio and interpolation,
-// and command ordering were checked against read-only headless Ghidra
-// decompilation/instructions for retail FUN_001a0be8
-// (0x001a0be8..0x001a15ab), saved in
-// fallback passes n=61 to FUN_001aa590; that helper's geometry and color
-// selection are also recorded in
-// emitted directly through Renderer instead of replaying native draw-list
-// opcodes; matched runtime pixel comparison remains open.
 void DrawPlayerParticles(gmMachine& a_machine, gmTableObject* a_player,
                          Renderer& a_renderer) {
     gmVariable particlesVar = a_player->Get(&a_machine, "particles");
@@ -714,8 +575,6 @@ void DrawPlayerParticles(gmMachine& a_machine, gmTableObject* a_player,
     // count so the renderer follows that native contract if the pool changes.
     const int particleCount = particles->Count();
     constexpr int kParticleRimPoints = 61;
-    // Native FUN_001a0be8's initial position vector has z=-17.7699986
-    // (constant at 0x001a0bd8), equal to PLAYER_Z + ZINCER.
     constexpr float kParticleZ = -17.7699986f;
     constexpr float kTwoPi = 6.2831854820251465f;
 
@@ -730,9 +589,6 @@ void DrawPlayerParticles(gmMachine& a_machine, gmTableObject* a_player,
         const double lifeTime = GetDoubleField(a_machine, particle, "lifeTime", 0.0);
         if (!(msAlive < lifeTime)) continue;
 
-        // FUN_001a0be8 divides the double-valued GM numbers, rounds that
-        // ratio to binary32, subtracts it from 1.0 in binary64, then rounds
-        // the remaining-life fraction to binary32 (dVar20 in its decompile).
         const float elapsedRatio = static_cast<float>(msAlive / lifeTime);
         const float perc = static_cast<float>(1.0 -
                                               static_cast<double>(elapsedRatio));
@@ -775,10 +631,6 @@ void DrawPlayerParticles(gmMachine& a_machine, gmTableObject* a_player,
             if (colour) SetColourByName(a_renderer, colour->GetString());
         }
 
-        // The native lazy-shape fallback calls FUN_001aa590 with n=61
-        // (li r8,0x3d at 0x1a10ec), creates and caches a unit VMSHAPE, then
-        // submits it with the same T*S transform as the normal cached-shape
-        // route. Keep the cache behavior and circle-builder binary32 math.
         auto buildFallbackUnitCircle = [&] {
             std::vector<float> xy;
             xy.reserve((kParticleRimPoints + 1) * 2);
@@ -841,10 +693,6 @@ float GetFloatField(gmMachine& a_m, gmTableObject* a_t, const char* a_key, float
     return a_default;
 }
 
-// Verification: FUN_001a0be8 reads numeric fields through
-// FUN_000f1b24. Its GM_FLOAT path widens the stored float to double, while
-// GM_INT sign-extends the integer before conversion to double. Keep that
-// distinction for the particle lifetime and interpolation calculations.
 double GetDoubleField(gmMachine& a_m, gmTableObject* a_t, const char* a_key,
                       double a_default) {
     const gmVariable value = a_t->Get(&a_m, a_key);
@@ -853,9 +701,6 @@ double GetDoubleField(gmMachine& a_m, gmTableObject* a_t, const char* a_key,
     return a_default;
 }
 
-// FUN_001a1660 converts runDrawStyle with AsInt semantics before branching:
-// integer payloads pass through, floats truncate toward zero, and other
-// types become zero. The live Player.gm value is integer 1.
 int GetPlayerRunDrawStyle(gmMachine& a_machine, gmTableObject* a_player) {
     const gmVariable value = a_player->Get(&a_machine, "runDrawStyle");
     if (value.m_type == GM_INT) return value.m_value.m_int;
@@ -952,12 +797,6 @@ float RetailAtan2(float a_y, float a_x) {
     return RetailPlayerAtan2(a_y, a_x);
 }
 
-// Verification: the transition flag, reset value, and update formula were
-// traced from retail FUN_001a30c4/FUN_001a3124/FUN_001a0b60 and helper
-// and player_scale_update_helpers_20261010.c. The native callback multiplies
-// scale by MathExpCore(-(float)(0.0140845068 * deltaMs)), clamped to [0,1].
-// Its base FUN_0005d17c runs the cached Player.update callback first. The
-// enabled-entity adapter invokes this immediately after that script callback.
 void TickPlayerNativeRenderer(float a_deltaMs) {
     EngineContext& ctx = GetEngineContext();
     if (!ctx.machine) return;
@@ -969,11 +808,6 @@ void TickPlayerNativeRenderer(float a_deltaMs) {
 
     constexpr float kScaleDecayRate = 0.0140845068f;
     const float exponent = -static_cast<float>(kScaleDecayRate * a_deltaMs);
-    // FUN_000c6988 performs these two ordered strict comparisons in double
-    // precision (0 - exp < 0, then 1 - result < 0). Preserve that sequence:
-    // in particular, its NaN behavior differs from std::clamp, and the
-    // callback multiplies the float scale by the double result before its
-    // final binary32 store. See the saved native decompilation.
     double multiplier = static_cast<double>(RetailPlayerExp(exponent));
     if (0.0 - multiplier < 0.0) {
         // Keep the MathExpCore result.
@@ -992,13 +826,6 @@ void TickPlayerNativeRenderer(float a_deltaMs) {
     }
 }
 
-// Verification: retail native entry FUN_001a1660 is decoded in
-// player_renderer_frame_math_capstone_20261010.txt. Particle ordering,
-// scale cutoff, facing fallback, body ring formula, and color-name sites
-// are traced there; the particle pass and per-vertex geometry are ported from
-// those instructions. Style-0/style-1 transforms now apply their traced
-// matrix command order locally. Native retained draw-list replay and output
-// comparison remain incomplete, so this is not yet a 1:1 renderer.
 void DrawPlayerNative() {
     EngineContext& ctx = GetEngineContext();
     Renderer* renderer = ctx.renderer;
@@ -1058,11 +885,6 @@ void DrawPlayerNative() {
         }
     }
 
-    // radius -- confirmed real: `local s=(SW*2-8*BACK_CONVERSION);
-    // this.radius=s/2-8*BACK_CONVERSION;` (Player.gm ~line 45-47), i.e.
-    // SW - 12*BACK_CONVERSION. Read the live field first (this.radius
-    // isn't reassigned after construction in the corpus, but reading it
-    // live costs nothing and stays correct if that ever changes).
     constexpr float kSW = 0.61f;
     constexpr float kBackConversion = 0.01f;
     float radius = GetFloatField(*machine, player, "radius", kSW - 12.0f * kBackConversion);
@@ -1075,12 +897,6 @@ void DrawPlayerNative() {
                                                                 // Was 60.0 -- a guess that put the
                                                                 // player in FRONT of GROUND_Z.
 
-    // lastJumpNormal -- confirmed real: `!?this.lastJumpNormal` is the
-    // reference's own null-check (set to null on spawn/state-reset,
-    // Player.gm:36/471/2015/etc, and to a real contact normal on
-    // landing/wall-jump elsewhere in its movement state machine), so
-    // absence here means "not touching/stuck to anything", not a value
-    // to default away.
     bool haveStickDir = false;
     b2Vec2 stickDir(0.0f, 0.0f);
     {
@@ -1216,9 +1032,6 @@ void DrawPlayerNative() {
         constexpr float outAngInc = 0.0911061913f;
         constexpr float inAngInc = 0.0659734532f;
         constexpr float ampAngInc = 0.628318548f;
-        // Retail obtains the aura's initial angle from mainpb.getDirRef
-        // (FUN_00031e94): the body's facing vector, distinct from `dir`
-        // above, which is the velocity/logical-facing vector used for stretch.
         float ang = RetailPlayerAtan2(facingY, facingX);
         b2Vec2 stretchDir = -1.0f * dir;
         // Retail calls the fsub/fsel median helper 0x348670 at 0x1a1de8
@@ -1249,9 +1062,6 @@ void DrawPlayerNative() {
                          GroundRenderMath::RetailGroundSinCos(ang, false));
                 float rp = 1.0f;
                 if (stickyOn == 1 && haveStickDir) {
-                    // FUN_000c6030 computes absolute wrapped difference of
-                    // the two vector angles. Keep that angular domain here;
-                    // acos(dot) loses the signed-angle rounding path.
                     float stickAng = RetailPlayerAtan2(stickDir.y, stickDir.x);
                     float vertexAng = RetailPlayerAtan2(d.y, d.x);
                     float sdelta = std::fabs(vertexAng - stickAng);
@@ -1302,12 +1112,6 @@ void DrawPlayerNative() {
         }
         if (haveFirst) verts.push_back(first);
 
-        // Colour: the native draw's first pass (submit @0x1a2288, colour set
-        // @0x1a1c30) selects between three NAMES, and none of them is
-        // player_out:
-        //     dead            -> "danger_fill"
-        //     stickyOn == 1   -> "ground_fill"
-        //     otherwise       -> "ground_noClimb_fill"
         SetColourByName(*renderer, AuraColourName(*machine, player));
         PlayerTransformStack auraTransform(pos);
         auraTransform.Push();
@@ -1345,10 +1149,6 @@ void DrawPlayerNative() {
             float a = (float)i * angInc;
             const float x = GroundRenderMath::RetailGroundSinCos(a, true) * radius;
             const float sine = GroundRenderMath::RetailGroundSinCos(a, false);
-            // Retail takes abs(sin) for FUN_001dc1c0, then uses fsel at
-            // 0x1a24c4..0x1a24cc to restore the original sine sign. Without
-            // this sign restoration the lower half of the ring folds upward,
-            // making the body fan overlap itself and look cut off.
             const float poweredSine = GroundRenderMath::RetailPlayerPow(
                 std::fabs(sine), bodyPower);
             const float signedSinePower = sine < 0.0f
@@ -1371,12 +1171,6 @@ void DrawPlayerNative() {
     // inherits this color, and unsupported style values still record it.
     SetColourByName(*renderer, AuraColourName(*machine, player));
 
-    // Verification: retail FUN_001a1660's style-0 loop at
-    // 0x1a2744..0x1a2a3c builds two 17-vertex ShapeType::TriangleStrip meshes
-    // (`this+0x20c` and `this+0x21c`). PPC supplies the span/radii from the
-    // scalar pool and advances theta with fmadds; each strip is then drawn
-    // under the same player-position/angle transform. The loop writes one
-    // vertex into each mesh per sample (34 total, 17 per shape).
     if (runDrawStyle == 0) {
         const float runBlend = 1.0f - runPerc;
         const float span = std::fma(runBlend,
@@ -1434,11 +1228,6 @@ void DrawPlayerNative() {
         drawRunStrip(movingRadius, GroundRenderMath::FloatFromBits(1));
     }
 
-    // ---- style-1 eye shape -----------------------------------------------
-    // The constructor's FUN_001aa590 builds a center vertex followed by 61
-    // rim points at radius 11/60 R. Its PPC uses RetailGroundSinCos and a
-    // float-accumulated 2*pi/60 increment. The center follows the recovered
-    // style-1 angle logic; native command-buffer replay remains separate.
     if (runDrawStyle == 1) {
         float eyeR = radius * (11.0f / 60.0f);
         float eyePosR = radius / 2.0f;
@@ -1451,12 +1240,6 @@ void DrawPlayerNative() {
             cachedDirX, cachedDirY, facingX, facingY, stickyOn == 1, runPerc);
         PlayerTransformStack eyeTransform(pos);
         eyeTransform.Push();
-        // Retail emits base translation (0x1a2ab8), optional rotation
-        // (0x1a2ac0..0x1a2af8), then FUN_003489e8's local translation
-        // (0x1a2b0c). Since opcode replay multiplies current * opcode, the
-        // half-radius offset is rotated with the eye. Keep that command order.
-        // Retail's fcmpu/beq pair omits opcode 0x14 for either signed zero;
-        // unordered (NaN) angles take the rotation path.
         if (eyeAngle != 0.0f) eyeTransform.Rotate(eyeAngle);
         eyeTransform.Translate(eyePosR, 0.0f);
         std::vector<b2Vec2> verts = BuildRetailPlayerEyeFan(eyeR);
@@ -1471,7 +1254,7 @@ void DrawPlayerNative() {
         // translation at 0x1a2ab8. The body and aura use drawz; the eye is
         // deliberately one native ZINCER step nearer. This is also why the
         // particle helper's fixed z is PLAYER_Z+ZINCER.
-        constexpr float kRetailZincer = 0.03f; // FUN_001a1660 constant pool +0x40
+        constexpr float kRetailZincer = 0.03f;
         const std::string shapeField = PlayerShapeRingField(
             "__nativePlayerEyeShape", ringSlot);
         SubmitRetainedPlayerShape(*machine, player, shapeField.c_str(),
@@ -1485,14 +1268,6 @@ void DrawPlayerNative() {
     }
 }
 
-// Verification: retail `GE3_Internal_VideoDrawNativeMapAndBuffers` calls the
-// native entity vtable's +0x3c draw slot, then queues the entity's DrawList at
-// object +0x14 for the frame sort. `FUN_001a1660` resets its list with
-// `FUN_0003d6d4`; that helper resets the command count and sets order key
-// 0x200000ff. Preserve that placement in the desktop entity-list sort. The
-// recorded callback retains and replays the player's VMSHAPE objects through
-// the standard shape path; individual matrix opcodes are composed into the
-// affine transform and remain an instruction-stream parity gap.
 DrawListSubmission CaptureNativePlayerDrawSubmission() {
     DrawListData playerList;
     playerList.orderKey = 0x200000ffu;

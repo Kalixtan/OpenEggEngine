@@ -2,20 +2,6 @@
 #include "gmMachine.h"
 #include <memory>
 
-// The VMSHAPE native GM type returned by Video.beginShape/SHAPE(). The
-// Video library's beginShape/plotVertex/endShape entries are bytecode-audited
-// separately from VMSHAPE methods: Video.beginShape creates a shape object,
-// Video.plotVertex's helpers are no-ops, and Video.endShape is a no-op.
-// `gmf_Shape_*Current` and the generic beginShape callback remain compatibility
-// handlers for DrawList and are not assumed to match the Video method table.
-//
-// SHAPE()/setAsFilledCircle()/getQuality()/plotVertices()/draw() are NOT
-// part of that -- also no decompiled body, but derived from the SAME
-// retail script file's own dead-but-literal reference implementation
-// (VideoHelper.gm's `if(0){...}` block), a materially stronger evidentiary
-// bar than "we inferred this from how scripts call it" -- see
-// shape_bindings.cpp's gmf_setAsFilledCircle comment for the full
-// reasoning. These stay implemented.
 void RegisterShapeBindings(gmMachine& a_machine);
 
 // Returns the host primitive corresponding to a retained VMSHAPE, or zero
@@ -24,23 +10,11 @@ void RegisterShapeBindings(gmMachine& a_machine);
 unsigned int GetShapePrimitiveMode(gmMachine& a_machine,
                                   const gmVariable& a_shape);
 
-// DrawList.c) but was entirely unregistered on the drawList type (only an
-// unrelated `Video.drawShape` no-op stub existed), silently no-op'ing every
-// real call via gmThread's undefined-method-call leniency. Redraws a
-// shape's stored geometry (built via setAsFilledCircle(), the only
-// vertex-population path left once plotVertex is routed through the trap)
-// under the CURRENT transform/colour. Exposed here (not static in
-// shape_bindings.cpp) so draw_list.cpp can register it directly on
-// VMDRAWLIST's function table, matching how DC_gmf_* functions are shared
-// between the `Video` global and any `drawList` instance.
 int GM_CDECL DC_gmf_drawShape(gmThread* a_thread);
 // See shape_bindings.cpp's header comment on the implementation for the
 // bounding-box-quad approximation this uses.
 int GM_CDECL DC_gmf_drawShapeWithTexture(gmThread* a_thread);
 
-// SHAPETYPE_* constant values are internally assigned here (not decompiled
-// -- real scripts only ever reference them symbolically, never as raw
-// numbers, so any consistent assignment is externally equivalent).
 
 // Compatibility handlers for non-Video callers; their retail ownership and
 // behavior remain under audit.

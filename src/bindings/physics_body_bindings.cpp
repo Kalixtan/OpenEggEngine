@@ -79,10 +79,6 @@ bool CreatureDebugEnabled() {
     return enabled;
 }
 
-// setPos/setVel/setDir all take EITHER (x,y) as two numbers OR a single
-// vector2D (confirmed real: Platformer/Main.gm:1563's
-// `t.pb.setPos(t.pos);` vs Player.gm's own `pb.setDir(...)`-style 2-float
-// calls elsewhere) -- accept both rather than picking one.
 bool ReadVec2Args(gmThread* a_thread, gmMachine& a_machine, float& a_x, float& a_y) {
     if (a_thread->GetNumParams() >= 2) {
         a_x = a_thread->ParamFloatOrInt(0, 0.0f);
@@ -112,19 +108,7 @@ struct PhysicsBodyData {
     // getBodyFromShapeID) can hand the ORIGINAL script-visible PhysicsBody
     // handle back to a script, not just act on the raw Box2D body.
     gmVariable selfVar = gmVariable::s_null;
-    // Confirmed real (Player.gm: `local newAnchorID=pb.getObjectID();
-    // this.anchorBodyID=newAnchorID;` then later
-    // `PHYSICSBODY_GetBodyByID(this.anchorBodyID)` to resolve it back) --
-    // a GLOBALLY unique per-body id, same "assign at creation, registry
-    // both ways" scheme as the shape-id registry above (b2Body's own user
-    // data already holds the owning PhysicsDataObj*, so this can't reuse
-    // that slot -- see g_bodiesByObjectId instead).
     int objectId = 0;
-    // the acceleration setters store their values directly. The two decay
-    // setters store exp(-rate*16.666666), clamped to [0,1], at native
-    // offsets +0x24/+0x28. Their consumers are recovered in
-    // Constructor defaults confirmed from FUN_00031948, cross-checked
-    // against the retail get/set wrappers: maxSpeed +0x34 = 9,999,999.
     float maxSpeed = 9999999.0f;
     // Values after the retail exp(-rate * 16.666666), clamped to [0,1]
     // transform.
@@ -134,25 +118,10 @@ struct PhysicsBodyData {
     float rotationDecayRate = 1.0f;
     // rotateAcc +0x64 = 999 in the retail constructor.
     float rotateAcc = 999.0f;
-    // Ghidra-confirmed real (this session, full PHYSICSDATA method table
-    // sweep, FoE PC binary, 0x00514a30-0x00514c58, 47 entries): every one
-    // of these is a bare vtable dispatch with the exact same "getdot ->
-    // read a float field" / "setdot -> store a float field" shape as
-    // maxSpeed/velocityDecayRate above (opaque past the vtable call, but
-    // structurally identical to the already-confirmed setters). Not used
-    // by the current PekkoAndJon corpus (grepped, 0 call sites for all of
-    // these), but implemented for real 1:1 API completeness rather than
-    // left as silent no-ops, per explicit direction.
-    // Direct getter/setter wrappers map thrustAcc to +0x68 (999) and
-    // brakeAcc to +0x3c (999) in the retail constructor.
     float thrustAcc = 999.0f;
     float brakeAcc = 999.0f;
-    // Retail per-frame excess-speed retention factors used by
-    // FUN_00031f20/FUN_00031d50.
     float maxVelocityDecayRate = 0.0f;
     float maxRotationDecayRate = 0.0f;
-    // Retail movement accumulators and per-frame guard flags. The portable
-    // representation follows the native offsets and reset order documented
     float thrustAccum = 0.0f;
     float rotAccum = 0.0f;
     // Retail keeps a separate rotate velocity on the shape while its
@@ -163,8 +132,6 @@ struct PhysicsBodyData {
     bool brakeFlag = false;
     bool rotLeftFlag = false;
     bool rotRightFlag = false;
-    // State written by the retail rotateTo/stopRotatingTo wrappers and
-    // consumed by FUN_00031f20.
     bool rotateToActive = false;
     float rotateToX = 0.0f;
     float rotateToY = 0.0f;
@@ -174,12 +141,6 @@ struct PhysicsBodyData {
     float dirX = 1.0f, dirY = 0.0f;
 };
 
-// Retail Entity.setIsEnabled(false) and PhysicsData.putToSleep both call
-// FUN_00032e60(0) before setting the native sleep bit. When rotation response
-// is disabled that helper writes the PhysicsShape-local angular velocity
-// (+0x40), which the Box2D fixed-rotation adapter stores separately from the
-// body's angular velocity. Box2D SetAwake(false) clears body velocities and
-// forces but cannot clear this adapter field by itself.
 void SetBodySleeping(PhysicsBodyData* a_body, bool a_sleeping) {
     if (!a_body || !a_body->body) return;
     if (a_sleeping) a_body->fixedRotationVel = 0.0f;
@@ -255,9 +216,6 @@ PhysicsBodyData* ThisBody(gmThread* a_thread) {
 }
 b2Fixture* FixtureAtShapeIndex(b2Body* a_body, int a_index);
 
-// Verification: retail PhysicsBody.getDir/getDirRef route through
-// FUN_00031e94 (0x31ec8, 0x31ee0): angle-to-facing uses the retail PPC
-// sine/cosine helper selectors 1/0. Use the instruction-derived shared port.
 b2Vec2 BodyFacingDirection(const PhysicsBodyData& a_body) {
     if (a_body.body->IsFixedRotation()) return b2Vec2(a_body.dirX, a_body.dirY);
     const float angle = a_body.body->GetAngle();
@@ -280,11 +238,6 @@ std::vector<gmVariable> g_bodiesByObjectId; // index 0 reserved/invalid
 // holds the script-visible gmVariable handles) because the integrator needs
 // the raw struct.
 std::vector<PhysicsBodyData*> g_allPhysicsBodies;
-// Retail FUN_0035d28 iterates physics-data groups, then FUN_0002e860 walks
-// each group's body array in order. PhysicsData construction order is the
-// current local analogue for the retail manager's outer order; the exact
-// native group-registration point is not yet recovered. Flattening bodies
-// loses the verified nested order when entity groups are interleaved.
 struct PhysicsDataObj;
 std::vector<PhysicsDataObj*> g_allPhysicsData;
 std::vector<PhysicsDataObj*> g_orderedPhysicsMovementData;
@@ -292,15 +245,6 @@ bool g_physicsMovementMembershipDirty = true;
 std::vector<b2Body*> g_deferredBodyDestructions;
 std::vector<std::pair<b2Body*, b2Fixture*>> g_deferredFixtureDestructions;
 
-// type is ALWAYS b2_dynamicBody -- confirmed by Ghidra disassembly of the
-// real createBody (0x00092428) and its callees this session: the only
-// script-facing "type"-shaped argument (the single-bool overload, e.g.
-// EntityBase.gm's `createBody(false)`) actually controls fixedRotation,
-// not body type (see below) -- and there is no other script API anywhere
-// in the corpus that creates or queries a body type at all (grepped for
-// setBodyType/isStatic/isDynamic/kinematic -- nothing). Retail's own
-// "immovable ground" comes from zero fixture density on a dynamic body,
-// exactly as represented by the retail scripts and Box2D's mass data.
 gmVariable MakePhysicsBody(gmMachine& a_machine, float a_x = 0.0f, float a_y = 0.0f,
                             bool a_fixedRotation = false, bool a_awake = true) {
     PhysicsBodyData* data = new PhysicsBodyData();
@@ -319,8 +263,6 @@ gmVariable MakePhysicsBody(gmMachine& a_machine, float a_x = 0.0f, float a_y = 0
     return data->selfVar;
 }
 
-// PHYSICSBODY_GetBodyByID(id) -- confirmed real, a global (not type-scoped)
-// native function -- reverse lookup for PhysicsBody.getObjectID's id.
 int GM_CDECL gmf_PHYSICSBODY_GetBodyByID(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(id, 0, 0);
@@ -333,14 +275,6 @@ int GM_CDECL gmf_PHYSICSBODY_GetBodyByID(gmThread* a_thread) {
     return GM_OK;
 }
 
-// --- global shape-ID registry --------------------------------------------
-// 0x0008dccc): a LOCAL per-body shape index is resolved to a SEPARATE
-// integer field already stored on the native shape struct, not just
-// echoed back -- and Physics.isShapeSensor/getBodyFromShapeID/
-// integer with no body/owner context at all, confirming shape ids are
-// globally, not per-body, unique. Assigned sequentially at fixture-
-// creation time (appendShapes) and stashed directly on the b2Fixture's own
-// user data so id<->fixture is O(1) both ways.
 std::vector<b2Fixture*> g_shapesByGlobalId; // index 0 reserved/invalid
 std::vector<float> g_shapePlayerFrictions;
 int RegisterShapeGlobalId(b2Fixture* a_fixture, float a_playerFriction = 0.3f) {
@@ -504,21 +438,12 @@ int GM_CDECL gmf_shape_isSensor(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_shape_setIsSensor(gmThread* a_thread) {
-    // RETAIL PPC VERIFIED: PHYSICSSHAPE.setIsSensor (0x8d630) delegates to
-    // FUN_001572e8, which updates native shape byte +0x44. Desktop maps this
-    // to the fixture sensor state; immediate contact-flag/cache side effects
-    // from FUN_001572e8 remain a documented lifecycle gap.
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(value, 0, 0);
     b2Fixture* fixture = ThisShape(a_thread);
     if (fixture) fixture->SetSensor(value != 0);
     return GM_OK;
 }
-// PhysicsShape.setFrictionForPlayer -- bytecode verified against the retail
-// wrapper at 0x0008cbe4 and helper FUN_00038110: the helper stores the supplied
-// float directly at native shape offset +0x20. That value is consumed by the
-// retail player-contact solver; keep it beside the fixture's stable global ID
-// so PreSolve can apply it without changing ordinary Box2D friction.
 int GM_CDECL gmf_shape_setFrictionForPlayer(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(value, 0, 0.0f);
@@ -739,13 +664,6 @@ int GM_CDECL gmf_pb_setVel(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// getVelRef -- confirmed real (Player.gm's DECISION_STATEID dead-fall
-// branch: `local vel=mypb.getVelRef(); vel->y=vel.y-gravity*msElapsed;`,
-// with no separate setVel() call afterward in that one call site), entirely
-// unregistered before this -- same hard "getdot failed" class of bug as
-// applyForce above, aborting the whole calling function every time it was
-// The vector2D proxy routes component reads/writes to Box2D while retaining
-// the normal vector2D type expected by the rest of the VM.
 int GM_CDECL gmf_pb_getVelRef(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     a_thread->Push(MakeVector2DRef(*a_thread->GetMachine(), b->selfVar, b,
@@ -761,11 +679,6 @@ int GM_CDECL gmf_pb_getVelRef(gmThread* a_thread) {
                                    }));
     return GM_OK;
 }
-// applyForce(force, point) -- bytecode verified against the retail wrapper
-// at 0x000921c8. It adds the supplied force to the native force accumulator
-// and computes torque as (point - bodyPosition) x force, so the second vector
-// is a world-space application point. Preserve that coordinate space when
-// forwarding to Box2D; it is not a body-local offset.
 int GM_CDECL gmf_pb_applyForce(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -809,12 +722,6 @@ int GM_CDECL gmf_pb_getDir(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), dir.x, dir.y));
     return GM_OK;
 }
-// Retail 0x8f4e4 calls 0x31e94 before returning a vector reference to
-// native offsets +0x1c/+0x20. That helper refreshes the stored direction
-// from the body angle only when rotation response is enabled. Subsequent
-// component writes through the reference update those stored floats.
-// Verification: FUN_00031e94 uses PPC helper selectors 1 (cosine) and 0
-// (sine); this uses RetailGroundSinCos for those exact selector meanings.
 int GM_CDECL gmf_pb_getDirRef(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     if (!b->body->IsFixedRotation()) {
@@ -845,15 +752,10 @@ int GM_CDECL gmf_pb_setDir(gmThread* a_thread) {
         b->dirX = dir.x;
         b->dirY = dir.y;
     } else {
-        // Retail also marks native bytes +0x5c and associated object +0x40
-        // in this branch. Their consumers are not mapped yet (see
-        // Physics_Movement_Analysis.md), so don't guess at Box2D state.
         b->body->SetTransform(b->body->GetPosition(), std::atan2(dir.y, dir.x));
     }
     return GM_OK;
 }
-// Retail setter helpers store exp(-float(rate*16.666666)), clamped to
-// [0,1]; the per-frame consumers are FUN_00031f20/FUN_00031d50.
 constexpr float kDecayRateTickMs = 16.666666f;
 float ComputeDecayFactor(float a_rate) {
     float f = std::exp(-a_rate * kDecayRateTickMs);
@@ -861,15 +763,11 @@ float ComputeDecayFactor(float a_rate) {
     if (f > 1.0f) f = 1.0f;
     return f;
 }
-// Retail FUN_00031f20 consumes this accumulator once per update. The guard
-// ensures repeated thrust calls during one script frame accumulate once.
 int GM_CDECL gmf_pb_thrust(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     if (!b->thrustFlag) { b->thrustFlag = true; b->thrustAccum += b->thrustAcc; }
     return GM_OK;
 }
-// Retail wrappers dispatch through the PhysicsShape method table. Their
-// descriptor targets are audited in Physics_Movement_Analysis.md.
 int GM_CDECL gmf_pb_reverseThrust(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     if (!b->reverseFlag) { b->reverseFlag = true; b->thrustAccum -= b->thrustAcc; }
@@ -877,8 +775,6 @@ int GM_CDECL gmf_pb_reverseThrust(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pb_brake(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    // Retail's brake wrapper sets native byte +0x5d; FUN_00031f20 consumes
-    // brakeAcc while this flag is set.
     b->brakeFlag = true;
     return GM_OK;
 }
@@ -919,10 +815,6 @@ int GM_CDECL gmf_pb_rotateTo(gmThread* a_thread) {
     b->rotateToSign = (int)a_thread->ParamFloatOrInt(1, 0.0f);
     return GM_OK;
 }
-// Retail PhysicsShape.computeAngularVel reads two numeric arguments and calls
-// FUN_00031d50, but the native GM wrapper discards that helper's scalar result
-// and pushes no value. Keep the API's observable behavior: consume the args,
-// mutate no body state, and return no GM value.
 int GM_CDECL gmf_pb_computeAngularVel(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     (void)a_thread->ParamFloatOrInt(0, 0.0f);
@@ -1072,17 +964,6 @@ int GM_CDECL gmf_pb_setAllowSleeping(gmThread* a_thread) {
     b->body->SetSleepingAllowed(allowed != 0);
     return GM_OK;
 }
-// setAsCircle(radius) -- confirmed real (Ghidra: retail FUN_0043be80 @
-// 0x0043be80, registered in the PhysicsBody table at 0x00514bb0, right next
-// to setAsRect/getRadius). Real callers: Player.gm:16, Point.gm:332,
-// Thing.gm:232 (all constructor-time), AND Thing.gm:384 which calls it
-// EVERY FRAME during EXPLODING_STATEID to grow a blast radius
-// (`this.PhysicsData.setAsCircle(3 + ...)`) -- so unlike appendShapes
-// (additive), this must replace the body's existing shape outright rather
-// than stack a new fixture on each call. Was completely unbound (silent
-// gmCallNativeFunction failure, matching this codebase's convention of null
-// no-ops on missing script members), so the player/point/blast never had
-// ANY collision shape -- the whole PekkoAndJon collision layer.
 int GM_CDECL gmf_pb_setAsCircle(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1148,8 +1029,6 @@ int GM_CDECL gmf_pb_appendShapes(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_CHECK_USER_PARAM(ShapeDefCollection*, g_physicsShapeDefType, sd, 0);
-    // Retail EBOOT 0x32340 returns body->shapeCount - 1 after appending,
-    // including when the collection contains several shapes.
     for (auto& def : sd->fixtureDefs) {
         b2Fixture* fx = b->body->CreateFixture(&def);
         TrackNewFixture(b, fx);
@@ -1183,12 +1062,6 @@ int GM_CDECL gmf_pb_setCategoriesToCollideWith(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// getCollisionCategory/getCategoriesToCollideWith -- Ghidra-confirmed real
-// (PHYSICSDATA table sweep, this session), simple int-field getters
-// mirroring the setters directly above. Reads the first fixture's filter
-// (matches how setCollisionCategory/setCategoriesToCollideWith apply to
-// ALL fixtures uniformly -- there's no per-fixture distinction anywhere
-// else in this API). 0 real call sites in the current corpus.
 int GM_CDECL gmf_pb_getCollisionCategory(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
@@ -1201,11 +1074,6 @@ int GM_CDECL gmf_pb_getCategoriesToCollideWith(gmThread* a_thread) {
     a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).maskBits : -1);
     return GM_OK;
 }
-// RETAIL PPC VERIFIED: PHYSICSBODY.setCollisionGroup (0x910f4) calls
-// FUN_000333d0, which stores a 32-bit value on the body and applies the
-// category/mask/group record to every existing shape. Desktop mirrors the
-// fixture traversal, but Box2D groupIndex is only int16; full-width parity
-// remains open pending the native contact-filter comparison audit.
 int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1226,12 +1094,6 @@ int GM_CDECL gmf_pb_getCollisionGroup(gmThread* a_thread) {
     a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).groupIndex : 0);
     return GM_OK;
 }
-// 0x0008fafc) and confirmed-live: `this.mainpb.isSleeping()`
-// (SpiralLightBulb.gm:1005,1013; SpiralStaircaseLightBulb.gm:183) and
-// `PHYSICSBODY_GetBodyByID(this.endBody).isSleeping()` (Chain2.gm:402,509,
-// 786). Retail's sleep bit (flags bit 2) is set while asleep and cleared on
-// wake, the inverse of Box2D's awake bit. Return the inverse of Box2D's
-// IsAwake().
 int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBodyRaw(a_thread); if (!b) return GM_EXCEPTION;
     // A body removed by PhysicsData.removeBody can still be held by an
@@ -1242,10 +1104,6 @@ int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
     a_thread->PushInt(b->body->IsAwake() ? 0 : 1);
     return GM_OK;
 }
-// PhysicsShape.putToSleep is the single-body counterpart of
-// PhysicsData.putToSleep. Retail clears velocity/forces and marks the
-// underlying body asleep; FUN_00032e60(0) also zeros the shape-local angular
-// velocity for fixed-rotation bodies, so use the shared retail sleep helper.
 int GM_CDECL gmf_pb_putToSleep(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     SetBodySleeping(b, true);
@@ -1291,8 +1149,6 @@ int GM_CDECL gmf_pb_setFriction(gmThread* a_thread) {
 int GM_CDECL gmf_pb_getFriction(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(0);
-    // Retail FUN_00034008 reads the first appended shape in its tail-linked
-    // list, returning 0.0f when there are no shapes. Box2D prepends fixtures.
     b2Fixture* first = b->body->GetFixtureList();
     while (first && first->GetNext()) first = first->GetNext();
     a_thread->PushFloat(first ? first->GetFriction() : 0.0f);
@@ -1308,23 +1164,11 @@ int GM_CDECL gmf_pb_setRestitution(gmThread* a_thread) {
 int GM_CDECL gmf_pb_getRestitution(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(0);
-    // Retail FUN_00034060 follows the same first-shape convention.
     b2Fixture* first = b->body->GetFixtureList();
     while (first && first->GetNext()) first = first->GetNext();
     a_thread->PushFloat(first ? first->GetRestitution() : 0.0f);
     return GM_OK;
 }
-// setShapeDensity(shapeIndex, density) -- confirmed real 2-arg signature
-// (every real call site in the corpus, e.g. Player.gm's
-// `mypb.setShapeDensity(0,parent.baseDensity)`, passes a LOCAL shape index
-// first and the actual density second). Apply density to just that
-// fixture and recalculate the still-dynamic body's mass. Player.gm changes
-// body density at state transitions, so preserving dynamic body type lets
-// positive densities restore motion. Applies to just the one
-// fixture at that local index, matching the real per-shape-index API
-// shape (falls back to "all fixtures" if no such index exists, so a
-// caller passing an out-of-range index still gets a sane no-crash result
-// rather than silently doing nothing).
 int GM_CDECL gmf_pb_setShapeDensity(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -1338,32 +1182,11 @@ int GM_CDECL gmf_pb_setShapeDensity(gmThread* a_thread) {
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
 }
-// setIsShapeSensor(shapeIndex, bool)/setShapeCategoriesToCollideWith(
-// shapeIndex, mask)/getShapeCategoriesToCollideWith(shapeIndex) --
-// confirmed real, decompiled per-fixture (index-addressed) siblings of the
-// "all fixtures" setIsSensor/setCategoriesToCollideWith/
-// 1761-1832, 0x000912d8/0x00091bec/0x00091d8c -- getShapeCategoriesToCollideWith
-// reads a ushort at the resolved fixture struct's +0x3e, matching Box2D's
-// own b2Filter::maskBits field). Do not infer setShapeDensity's out-of-range
-// fallback for these indexed methods: setIsShapeSensor's signed negative and
-// invalid-high behavior is handled from its own FUN_0003355c disassembly.
-// Invalid-index behavior for the category setters remains unresolved.
 int GM_CDECL gmf_pb_setIsShapeSensor(gmThread* a_thread) {
-    // Verification: retail PhysicsBody.setIsShapeSensor at 0x00091d8c
-    // resolves the indexed shape through FUN_0003355c and updates it through
-    // FUN_001572e8. For valid indices this has the same sensor value as
-    // b2Fixture::SetSensor; retail also updates owning-body state and live
-    // contact sensor flags immediately. Desktop Box2D observes the changed
-    // fixture at its next contact update, so that timing remains open (see
-    // the physics collision audit). Invalid indices use the retail diagnostic
-    // string recovered from FUN_0003355c.
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_INT_PARAM(isSensor, 1, 0);
-    // FUN_0003355c compares the index as signed, then walks the shape list
-    // only while index > 0. A negative index therefore resolves to the first
-    // shape when the body has any shapes; preserve that retail edge case.
     b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex < 0 ? 0 : shapeIndex);
     if (fx) fx->SetSensor(isSensor != 0);
     else std::fprintf(stderr, "PHYSICSBODY::setIsShapeSensor: unknown shape\n");
@@ -1391,9 +1214,6 @@ int GM_CDECL gmf_pb_getShapeCategoriesToCollideWith(gmThread* a_thread) {
     a_thread->PushInt(-1);
     return GM_OK;
 }
-// 1436-1452, 0x0008ff6c, reads flag bit 8), paired with retail
-// setIsBullet (0x00090cd0), which sets/clears that same flag. The desktop
-// Box2D bullet bit represents the recovered native state.
 int GM_CDECL gmf_pb_isBullet(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     a_thread->PushInt(b->body->IsBullet() ? 1 : 0);
@@ -1424,21 +1244,12 @@ int GM_CDECL gmf_pb_setAngularVel(gmThread* a_thread) {
     b->body->SetAngularVelocity(Box2DAngularVelocity(v));
     return GM_OK;
 }
-// 1934-1959, 0x000922dc, reads body fields +0x24/+0x28 directly, i.e. a
-// bare field read with no formula) -- Box2D's own GetWorldCenter() is the
-// direct real equivalent (the body's centroid in world space, matching
-// what those two fields would hold in a real Box2D-backed body).
 int GM_CDECL gmf_pb_getCenterOfMass(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Vec2 c = b->body->GetWorldCenter();
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), c.x, c.y));
     return GM_OK;
 }
-// Retail PhysicsBody.setMass (EBOOT 0x91fe4 -> 0x33c60) passes a mass
-// record to Box2D's SetMassData equivalent at 0x156720. The record keeps
-// the current local center and uses mass + center.x^2 + center.y^2 as its
-// origin inertia. Retail bytecode passes zero through unchanged; the vendored
-// Box2D SetMassData path has been adjusted to preserve its zero inverse mass.
 void SetRetailBodyMass(b2Body* a_body, float a_mass) {
     if (!a_body) return;
     if (a_body->GetMass() != a_mass) {
@@ -1466,20 +1277,11 @@ int GM_CDECL gmf_pb_setMass(gmThread* a_thread) {
     SetRetailBodyMass(b->body, mass);
     return GM_OK;
 }
-// getMass -- Ghidra-confirmed real (PHYSICSDATA table sweep, this
-// session), a getter counterpart to setMass above. Reads Box2D's own
-// computed body mass directly (b2Body::GetMass(), which reflects whatever
-// setMass's density writes above resolve to) rather than a separately
-// tracked field, so it stays consistent regardless of how mass was set.
-// 0 real call sites in the current corpus.
 int GM_CDECL gmf_pb_getMass(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     a_thread->PushFloat(b->body->GetMass());
     return GM_OK;
 }
-// Retail appendShapes returns shapeCount-1 (EBOOT 0x32340), and its index
-// lookup walks the body's shape list from the head (0x32470). Box2D 2.4
-// prepends fixtures, so walk its list backwards to preserve creation order.
 b2Fixture* FixtureAtShapeIndex(b2Body* a_body, int a_index) {
     if (!a_body || a_index < 0) return nullptr;
     int count = 0;
@@ -1517,8 +1319,6 @@ int GM_CDECL gmf_pb_removeShape(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// The retail getShape wrapper at 0x0008dcc4 returns without pushing a GM
-// value. It is distinct from getShapeObjectID/getShapeIndex.
 int GM_CDECL gmf_pb_getShape(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_pb_getShapeIndex(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
@@ -1651,10 +1451,6 @@ int GM_CDECL gmf_pb_getShapeVerts(gmThread* a_thread) {
     return GM_OK;
 }
 void RefreshShapeAfterRetailEdit(PhysicsBodyData* body) {
-    // Retail FUN_000327b0/FUN_000328e8 mark cached shape bounds dirty; the
-    // geometry change itself is immediate. Refresh only Box2D's broadphase
-    // proxies at the next pre-step body update. Retail does not reset mass,
-    // wake the body, or rewrite its motion history here.
     body->geometryDirty = true;
 }
 
@@ -1744,13 +1540,6 @@ int GM_CDECL gmf_pb_getShapeOffset(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getShapeObjectID(gmThread* a_thread) {
-    // 0x0008dccc): resolves the LOCAL per-body shape index (the argument)
-    // to a GLOBALLY unique id stored on the native shape struct -- NOT an
-    // echo of the argument, which was the previous (unconfirmed) guess.
-    // Matters beyond just this getter: Physics.isShapeSensor/
-    // getBodyFromShapeID/getEntityFromShapeID all take that same bare
-    // global id with no body context, so echoing the local index back
-    // would make every body's "shape 0" collide under the same id.
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(localIndex, 0, 0);
@@ -1772,15 +1561,6 @@ int GM_CDECL gmf_pb_isContainsShape(gmThread* a_thread) {
     a_thread->PushInt(fixture && fixture->GetBody() == b->body ? 1 : 0);
     return GM_OK;
 }
-// getShapeWorldCenterPos(localIndex) -- confirmed real, live call site
-// SingleCircleGround.gm:53: `local myPos=this.PhysicsData.getBody(0).
-// getShapeWorldCenterPos(0);` (positions an edit button relative to the
-// ground shape). Was entirely unbound -- hard "getdot failed" aborting
-// removeAllEditButtons()'s caller before any edit buttons could be placed.
-// Same local-index fixture walk as getShapeObjectID above; center computed
-// via Box2D's own per-fixture AABB midpoint (works uniformly across every
-// shape type this engine builds -- circle, polygon, edge chain -- without
-// needing a shape-type switch).
 int GM_CDECL gmf_pb_getShapeWorldCenterPos(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1795,26 +1575,6 @@ int GM_CDECL gmf_pb_getShapeWorldCenterPos(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), 0.0f, 0.0f));
     return GM_OK;
 }
-// disableRestitutionThisFrame() -- REAL, now implemented. Retail body
-// FUN_00034084, which decompiles to:
-//     contact = body->contactList;            // *(this+0x14)+0x6c
-//     while (contact) {
-//         *(u8*)(contact + 0x45) = 1;         // per-contact flag byte
-//         contact = *(int*)(contact + 0x20);  // next in list
-//     }
-// i.e. mark EVERY contact on this body, let the solver honour it this
-// step. Not a PreSolve-only action on one live contact, as this file
-// previously assumed.
-//
-// Live call site Player.gm:4488-4489 (landing-impact handling):
-//     this.mainpb.disableRestitutionThisFrame();
-//     sci.disableContact(i);
-//     ...setVel(v.x, v.y*(1-MATH_ABS(dn.y)));
-// This was stubbed as a "safe no-op" on the reasoning that the setVel on
-// the next line does the real work. That reasoning was wrong: zeroing the
-// velocity component does not stop Box2D's solver applying a restitution
-// impulse for the same contact in the same step, so landings kept a bounce
-// retail does not have.
 int GM_CDECL gmf_pb_disableRestitutionThisFrame(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     DisableRestitutionThisFrameForBody(b->body);
@@ -1856,8 +1616,6 @@ int GM_CDECL gmf_pb_getRotateAcc(gmThread* a_thread) {
     a_thread->PushFloat(b->rotateAcc);
     return GM_OK;
 }
-// These wrappers access native fields directly; FUN_00031f20 consumes both
-// acceleration values during movement updates.
 int GM_CDECL gmf_pb_setBrakeAcc(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1882,11 +1640,6 @@ int GM_CDECL gmf_pb_getThrustAcc(gmThread* a_thread) {
     a_thread->PushFloat(b->thrustAcc);
     return GM_OK;
 }
-// setMaxVelocityDecayRate/setMaxRotationDecayRate -- Ghidra-confirmed real
-// (PHYSICSDATA table sweep, this session), bare field stores; see
-// PhysicsBodyData's own header comment on these two fields for why they
-// aren't wired into ComputeDecayFactor (unconfirmed relationship past the
-// opaque vtable call). 0 real call sites in the current corpus.
 int GM_CDECL gmf_pb_setMaxVelocityDecayRate(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -1901,13 +1654,6 @@ int GM_CDECL gmf_pb_setMaxRotationDecayRate(gmThread* a_thread) {
     b->maxRotationDecayRate = v;
     return GM_OK;
 }
-// setAsRect(width, height) -- Ghidra-confirmed real (retail FUN_0043bdb0 @
-// 0x0043bdb0, registered right next to setAsCircle in the same table),
-// same "replace the body's shape outright" semantics as setAsCircle (see
-// that function's own header comment for the full reasoning -- mirrored
-// here for the box case). 0 real call sites in the current corpus, but
-// implemented for 1:1 completeness alongside setAsCircle rather than left
-// as the one asymmetric gap in an otherwise-complete shape-setter pair.
 int GM_CDECL gmf_pb_setAsRect(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -1989,10 +1735,6 @@ int GM_CDECL gmf_pb_setRotateVel(gmThread* a_thread) {
     else b->body->SetAngularVelocity(Box2DAngularVelocity(v));
     return GM_OK;
 }
-// getObjectID() -- confirmed real (Player.gm: `local newAnchorID=
-// pb.getObjectID(); this.anchorBodyID=newAnchorID;`, later resolved back
-// via the global PHYSICSBODY_GetBodyByID) -- see PhysicsBodyData::objectId
-// and g_bodiesByObjectId above.
 int GM_CDECL gmf_pb_getObjectID(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     a_thread->PushInt(b->objectId);
@@ -2034,15 +1776,6 @@ int GM_CDECL gmf_pb_getAABB(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     const b2AABB aabb = GetBodyWorldAABB(b->body);
     gmTableObject* t = m.AllocTableObject();
-    // Lowercase field names -- confirmed real by exhaustive corpus usage:
-    // every one of the ~220 real `.getAABB().minx/.maxx/.miny/.maxy`
-    // accesses across game_data uses this exact lowercase form, zero use
-    // the camelCase minX/maxX this used to push (e.g. EntityPacks/
-    // SwayingTree.gm:290's `aabb.maxx = MATH_MAX(right.x, aabb.maxx)`
-    // read back null under the old casing -> blank strict-param exception
-    // in MATH_MAX -> that entity's whole configure() step failed every
-    // frame, which is a load-bearing step for every other entity's own
-    // screen-extent registration in the same level).
     t->Set(&m, "minx", gmVariable(aabb.lowerBound.x));
     t->Set(&m, "miny", gmVariable(aabb.lowerBound.y));
     t->Set(&m, "maxx", gmVariable(aabb.upperBound.x));
@@ -2063,11 +1796,6 @@ int GM_CDECL gmf_pb_getMaxPos(gmThread* a_thread) {
     return GM_OK;
 }
 
-// raycast(startPos, endPos, resultTable) -- confirmed real, single call
-// site (Player.gm:1696's hang-time anchor teleport): a raycast against
-// JUST this body's own fixtures (not the whole world), filling
-// resultTable.lambda/nx/ny on a hit -- same result-table shape as
-// Physics.raycastOne (physics_global_bindings.cpp), which this mirrors.
 struct BodyOnlyRayCastCallback : b2RayCastCallback {
     b2Body* onlyBody = nullptr;
     bool hit = false;
@@ -2108,13 +1836,6 @@ struct RaycastShapesOneResult {
     b2Vec2 normal = b2Vec2(0.0f, 0.0f);
 };
 
-// RETAIL BYTECODE VERIFIED: helper 0x339a4 walks one PhysicsBody's native
-// shape list, skips sensors unless its second flag is nonzero, and when its
-// first flag is nonzero rejects shapes whose point-containment virtual
-// (vtable +0x0c) accepts the body's stored +0x0c point. PhysicsShape's
-// isPointWithinShape wrapper (0x91ed0 -> 0x338e0) uses that same virtual slot.
-// The local body origin is the Box2D adapter for that stored point; exact
-// field mapping and fixture-list ordering still need runtime comparison.
 bool RaycastPhysicsBodyShapesOne(PhysicsBodyData* a_body, float a_sx, float a_sy,
                                 float a_ex, float a_ey,
                                 bool a_rejectContainingBodyPoint,
@@ -2398,10 +2119,6 @@ PhysicsBodyData* GetBodyData(gmMachine& a_machine, const gmVariable& a_var) {
     return (PhysicsBodyData*)((gmUserObject*)obj)->m_user;
 }
 
-// getEntity() -- confirmed real (Player.gm: `apb.getEntity().isHangable()`
-// on a body resolved via PHYSICSBODY_GetBodyByID) -- the entity table that
-// owns this body's PhysicsData, same lookup as PhysicsData.
-// getCollidingEntities uses (b2Body's user data = owning PhysicsDataObj*).
 int GM_CDECL gmf_pb_getEntity(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     PhysicsDataObj* owner = (PhysicsDataObj*)(uintptr_t)b->body->GetUserData().pointer;
@@ -2410,20 +2127,6 @@ int GM_CDECL gmf_pb_getEntity(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Every "delegate to body 0" method below mirrors real usage seen calling
-// the same method name directly on PhysicsData (e.g.
-// `this.player.PhysicsData.setSpeed(0)`) as well as via `getBody(0)` --
-// Player.gm treats them as equivalent for the main body.
-//
-// Auto-creates body 0 on first use (this session): confirmed real for FoE
-// -- PekkoAndJon/Player.gm/Point.gm/Thing.gm call `this.PhysicsData.
-// setAsCircle(...)`/`setPos(...)`/etc directly, NEVER calling createBody()
-// first anywhere in the corpus (grepped). Sound Shapes' own Platformer
-// corpus (per this file's existing comments) always calls createBody()
-// explicitly before touching the body, so for that game bodies is already
-// non-empty by the time MainBody is reached and this auto-create path
-// never triggers -- safe for both conventions. Uses createBody()'s own
-// no-args default (fixedRotation=false, awake=true).
 PhysicsBodyData* MainBody(gmThread* a_thread, PhysicsDataObj* a_data) {
     gmMachine& m = *a_thread->GetMachine();
     if (a_data->bodies.empty()) {
@@ -2436,34 +2139,6 @@ PhysicsBodyData* MainBody(gmThread* a_thread, PhysicsDataObj* a_data) {
     return GetBodyData(m, a_data->bodies[0]);
 }
 
-// createBody([bodyDef]) -- confirmed real (Platformer/EntityPacks/
-// GroundResizeNoRotate.gm: `global StandardBodyDef; StandardBodyDef.x=
-// this.configureData.posX; StandardBodyDef.y=this.configureData.posY;
-// local pb=this.PhysicsData.getBody(this.PhysicsData.createBody(StandardBodyDef));`)
-// -- the optional table's x/y fields set the new body's initial world
-// position; this was previously ignored entirely (every body started at
-// world origin), which combined with ground shapes being authored as
-// vertices RELATIVE TO the entity's own position (`vertices[i]-myPos`
-// just before this call) meant every ground piece's fixture, even once
-// addPolygon existed, would have appeared shifted to the wrong place
-// (anchored at (0,0) instead of its real configured position).
-// fixedRotation/sleeping (awake) handling below matches the real
-// decompiled body exactly (Ghidra, this session): createBody's native
-// (0x00092428) builds a ~40-byte body-def-equivalent struct one of two
-// ways depending on the call shape --
-//   - createBody({table}): reads table.x/y (already had this) AND
-//     table.sleeping/table.fixedRotation via 4 confirmed real
-//     FUN_000f1a0c (table-get-with-default) calls -- was dropping the
-//     latter two entirely.
-//   - createBody() [no args] or createBody(bool): builds the SAME struct
-//     inline (FUN_0002ea74, no table involved) with a `cntlzw`+`rlwinm`
-//     "value == 0" idiom on the incoming type byte writing straight into
-//     the struct's fixedRotation slot -- i.e. the single-bool overload's
-//     argument controls fixedRotation, INVERTED (`createBody(false)` ->
-//     fixedRotation TRUE; `createBody(true)`/no-arg, whose default type
-//     byte is 1 -> fixedRotation FALSE). This is NOT a body-type selector
-//     (see MakePhysicsBody's own header comment -- confirmed there's no
-//     such thing anywhere in the real API).
 int GM_CDECL gmf_pd_createBody(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     gmMachine& m = *a_thread->GetMachine();
@@ -2510,15 +2185,6 @@ int GM_CDECL gmf_pd_getBody(gmThread* a_thread) {
     else a_thread->PushNull();
     return GM_OK;
 }
-// 0x0009291c): 0-or-1-arg, index<0 or omitted means "remove all". Real
-// call site (EntityBase.gm:691, entity re-load path: `this.PhysicsData.
-// removeBody(-1);`) tears down every body this entity owns before
-// rebuilding them fresh. Chain2.gm also passes a PhysicsBody object ID here
-// while shortening its linked chain, so resolve an owned object ID before
-// accepting the legacy positional form. Erasing from d->bodies (after
-// UnrootGmVariable).  Destruction cannot wait for collection: scripts keep
-// body references in entity state while checkpoints rebuild vehicle bodies,
-// and those references can be read before the next collection pass.
 int GM_CDECL gmf_pd_removeBody(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     int bodyIdOrIndex = -1;
@@ -2556,11 +2222,6 @@ int GM_CDECL gmf_pd_getNumBodies(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail PhysicsData.raycast (0x00094eec -> FUN_000300d8) visits each body
-// in this PhysicsData and keeps the closest hit. It writes the hit fraction
-// and outward normal to the caller's table, leaving that table alone on a
-// miss. Iterate fixtures directly so unrelated world bodies cannot win and
-// equal-distance hits keep the first body in retail append order.
 int GM_CDECL gmf_pd_raycast(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(3);
@@ -2646,10 +2307,6 @@ int GM_CDECL gmf_pd_raycastShapesOne(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail PhysicsData.getShapeByID (0x000934c0 -> FUN_00030600) searches
-// only bodies held by this PhysicsData, then resolves the global fixture ID
-// within that body. A foreign shape ID returns null even when it exists in
-// the world, as happens in JumperGoomba's other-side collision query.
 int GM_CDECL gmf_pd_getShapeByID(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -2760,12 +2417,6 @@ int GM_CDECL gmf_pd_getCollidingEntities(gmThread* a_thread) {
     return GM_OK;
 }
 
-// allocates a list container, populates it with joints attached to this
-// body, and returns an iterator over it (matching the real
-// ENTITYLISTREFCONTAINER-shaped idiom, e.g. EntityBase.gm:1308's `for(it=
-// this.PhysicsData.getJointsOnMe();it.isValid();it.goToNext()){ local
-// j=it.get(); Physics.deleteJoint(j); }`). A joint registry supplies the
-// returned stable handles while Box2D owns and solves constraints.
 int GM_CDECL gmf_pd_getJointsOnMe(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     PhysicsDataObj* data = ThisData(a_thread);
@@ -2781,25 +2432,9 @@ int GM_CDECL gmf_pd_getJointsOnMe(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getCollisionInfo(otherEntity) -- real Box2D contact/manifold data, not a
-// stub. Usage (Platformer/Player.gm) confirms a 3-level real API:
-//   ci = this.PhysicsData.getCollisionInfo(e)
-//   ci.isBodyColliding(pb)
-//   for (it=ci.getCollidingShapeIDList(reusableIntContainer); it.isValid(); it.goToNext())
-//       sci = ci.getShapeCollisionInfo(it.get())
-//       sci.getNumOfMyShapesColliding() / getMyContactShapeID(i) / getContactNormal(i)
-// "shape ID" matches PhysicsBody.getShapeObjectID's existing confirmed
-// contract (a fixture's creation-order index within its OWN body's
-// fixture list) -- computed here by walking GetFixtureList(). The
-// getCollidingShapeIDList() accepts the reusable IntListRefContainer
-// created by INTLISTREFCONTAINER() and repopulates it with shape IDs.
 gmType g_shapeCollisionInfoType = -1;
 gmType g_intIterType = -1;
 
-// Up to 2 real Box2D manifold contact points per (my shape, other shape)
-// touching pair -- confirmed real (Physics.getContactPos(myShapeIndex,
-// pointIndex), e.g. Player.gm:2050's `cp=sci.getContactPos(j,i)` where `i`
-// genuinely varies, not always 0).
 struct ContactPoints {
     b2Vec2 pts[2] = {b2Vec2(0, 0), b2Vec2(0, 0)};
     int count = 0;
@@ -3341,9 +2976,6 @@ int GM_CDECL gmf_ci_isShapeColliding(gmThread* a_thread) {
     const int shapeId = a_thread->Param(0).m_value.m_int;
     bool found = false;
     for (const ShapeContactEntry& entry : info->contacts) {
-        // Retail FUN_0002dc14 checks the collision-map key first, then
-        // each shape ID in that entry. The key is the other fixture's ID;
-        // checking only myShapeIds misses one orientation of the contact.
         if (entry.otherShapeId == shapeId ||
             std::find(entry.myShapeIds.begin(), entry.myShapeIds.end(), shapeId) != entry.myShapeIds.end()) {
             found = true;
@@ -3426,11 +3058,6 @@ int GM_CDECL gmf_ci_getFirstShapeCollisionInfo(gmThread* a_thread) {
     a_thread->Push(view);
     return GM_OK;
 }
-// RETAIL PPC VERIFIED FROM INSTRUCTIONS: ShapeCollisionInfo.disableContact
-// (0x982f4 -> 0x2d7fc) walks 16-byte records and sets contact flag bit 0
-// when record[3] equals the raw ID argument passed by the script. The wrapper
-// forwards that argument in r4 and the helper compares it directly at 0x2d838.
-// The decompiler's param_2 is correct; the prior local literal-4 check was not.
 int GM_CDECL gmf_sci_disableContact(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
@@ -3466,13 +3093,6 @@ int GM_CDECL gmf_sci_getMyContactShapeID(gmThread* a_thread) {
     a_thread->PushInt((idx >= 0 && idx < (int)sci->myShapeIds.size()) ? sci->myShapeIds[idx] : -1);
     return GM_OK;
 }
-// getNumContacts(myShapeIndex) -- confirmed real (Ghidra decompile,
-// (`local nc=sci.getNumContacts(j);`, part of the player's own ground-
-// contact/landing detection loop) -- was entirely unbound, a HALTING
-// crash (this engine's default GE3_STRICT=halt mode) reached the moment
-// the player pressed R1 (JOYSTICK0_R1, run/dash) and grounded again in
-// ANY level, not level-specific. Backed by the exact same per-shape
-// real Box2D manifold point count for that contact.
 int GM_CDECL gmf_sci_getNumContacts(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
@@ -3509,10 +3129,6 @@ int GM_CDECL gmf_sci_getContactNormal(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), n.x, n.y));
     return GM_OK;
 }
-// Retail bytecode verified: Physics.getContactPos (0x98214) passes both
-// indices to FUN_0002d618. Retail returns (0,0) if either index is negative
-// or out of range; it never substitutes point zero for an invalid point
-// index. Player.gm:2050 confirms pointIndex varies in real gameplay.
 int GM_CDECL gmf_sci_getContactPos(gmThread* a_thread) {
     ShapeCollisionInfoData* sci = (ShapeCollisionInfoData*)a_thread->ThisUserCheckType(g_shapeCollisionInfoType);
     if (!sci) return GM_EXCEPTION;
@@ -3835,14 +3451,6 @@ int GM_CDECL gmf_pd_getRadius(gmThread* a_thread) {
     a_thread->PushFloat(radius);
     return GM_OK;
 }
-// setAsCircle/isCircle/isRect/getWidth/getHeight/setIsSensor/setMaxSpeed/
-// thrust/doesRotationResponse/setVelocityDecayRate -- confirmed real,
-// called directly on PhysicsData by FoE's PekkoAndJon corpus (which never
-// calls createBody() first, see MainBody's header comment above) and by
-// VideoHelper.gm's debug bounding-box drawer. Same "delegate to body 0"
-// pattern as every other gmf_pd_* method in this block; body logic itself
-// lives on PhysicsBody (gmf_pb_setAsCircle etc, above) so this just
-// forwards through MainBody.
 int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -3923,13 +3531,6 @@ int GM_CDECL gmf_pd_setMaxSpeed(gmThread* a_thread) {
     if (b) b->maxSpeed = v;
     return GM_OK;
 }
-// NOTE: this, not gmf_pb_thrust, is the one the real corpus actually calls
-// (Player.gm:88 / Thing.gm:333 both go through PhysicsData). It must use
-// the same accumulator model as gmf_pb_thrust -- see that function's header
-// comment. Leaving the old direct-velocity-write here while the pb_ side
-// moved to accumulators made the player completely immobile: this wrote a
-// velocity, then StepPhysicsBodyMovement's decay pass (which sees no
-// accumulator input) scrubbed it back to zero before it could integrate.
 int GM_CDECL gmf_pd_thrust(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
@@ -3950,10 +3551,6 @@ int GM_CDECL gmf_pd_setVelocityDecayRate(gmThread* a_thread) {
     if (b) b->velocityDecayRate = ComputeDecayFactor(v);
     return GM_OK;
 }
-// Delegates for the rest of the PHYSICSDATA method table added this
-// session (see the matching gmf_pb_* implementations above for the
-// Ghidra evidence/reasoning each one is based on) -- same "forward to
-// MainBody" pattern as every other pd_ method in this file.
 int GM_CDECL gmf_pd_reverseThrust(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
@@ -4073,14 +3670,6 @@ int GM_CDECL gmf_pd_setCategoriesToCollideWith(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// MULTIBODYPHYSICSDATA.setCollisionGroup -- bytecode verified from the
-// retail wrapper at 0x94bd8 and helper 0x2f284. The helper walks the entire
-// PhysicsData body array (+0x50 to +0x54) and calls 0x333d0 for every body;
-// that helper stores the group on the body and applies it to every shape.
-// EntityBase.gm:914 calls this once per entity, so all of an entity's
-// PhysicsData bodies must receive the same negative group. Earlier desktop
-// code only updated body 0, leaving auxiliary bodies at group 0 and allowing
-// contacts between bodies owned by the same entity.
 int GM_CDECL gmf_pd_setCollisionGroup(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -4133,10 +3722,6 @@ int GM_CDECL gmf_pd_setAllowSleeping(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// 0x00094e78): walks every body pointer this PhysicsData owns and clears
-// its "asleep" bit -- i.e. wakes every body this entity has, not just the
-// main one (distinct from the isSleeping()/getPos() etc "just body 0"
-// pattern above). Box2D's SetAwake(true) is the direct real equivalent.
 int GM_CDECL gmf_pd_wakeUp(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     gmMachine& m = *a_thread->GetMachine();
@@ -4146,15 +3731,6 @@ int GM_CDECL gmf_pd_wakeUp(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// appendShapes(index, shapeDefCollection) -- confirmed real 2-arg overload
-// on PhysicsData itself (distinct from the single-body, 1-arg gmf_pb_
-// appendShapes above): CONFIRMED LIVE, game_data/Platformer/EntityPacks/
-// Minimal/SingleDirLaserTurret.gm:445-446 --
-//   `this.PhysicsData.replaceBody(0); this.PhysicsData.appendShapes(0,sd);`
-// -- both uncommented, genuinely reachable. Was entirely missing (only the
-// 1-arg per-body form existed), so any level containing this entity hit
-// "getdot failed" here. Resolves the body at `index` the same way getBody/
-// removeBody do, then does exactly what gmf_pb_appendShapes does to it.
 int GM_CDECL gmf_pd_appendShapes(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -4174,17 +3750,6 @@ int GM_CDECL gmf_pd_appendShapes(gmThread* a_thread) {
     a_thread->PushInt(lastIndex);
     return GM_OK;
 }
-// 88-114, 0x00092810: `FUN_0002ef8c(world, index, 1)`, returns either null
-// or a fresh PhysicsBody wrapper) and CONFIRMED LIVE (see appendShapes
-// comment above -- SingleDirLaserTurret.gm:445, immediately followed by
-// appendShapes(0,sd) re-populating the fresh body's fixtures). Exact
-// semantics of FUN_0002ef8c are AMBIGUOUS -- needs a comment, not a
-// guess: the internals aren't in this decompiled corpus, so "destroy the
-// body at this slot and replace it with a fresh, empty one at the same
-// index/position" is inferred only from the immediately-following
-// appendShapes(0,sd) call needing something to attach fixtures to, not
-// from decompiled proof. Out-of-range index returns null, matching
-// getBody's existing convention.
 int GM_CDECL gmf_pd_replaceBody(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -4368,10 +3933,6 @@ int GM_CDECL gmf_pd_getAABB(gmThread* a_thread) {
     gmTableObject* t = m.AllocTableObject();
     b2AABB aabb;
     if (ComputePhysicsDataAABB(a_thread, d, aabb)) {
-        // Lowercase field names -- see gmf_pb_getAABB's comment above for
-        // the corpus evidence (this PhysicsData variant feeds the exact
-        // same real call sites, e.g. SwayingTree.gm:280's
-        // `this.getPhysicsData().getAABB()`).
         t->Set(&m, "minx", gmVariable(aabb.lowerBound.x));
         t->Set(&m, "miny", gmVariable(aabb.lowerBound.y));
         t->Set(&m, "maxx", gmVariable(aabb.upperBound.x));
@@ -4381,19 +3942,6 @@ int GM_CDECL gmf_pd_getAABB(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getMinPos()/getMaxPos() -- confirmed real by usage only, no decompiled
-// and not caught by strict survey either (calls on GM_USER-typed objects
-// like PhysicsData don't route through the same OnNullCall hook plain
-// GM_TABLE receivers do) -- a real, silent gap found only by tracing a
-// live crash: TouchEditProcessBase.gm:2954's getGroupAABB() (`local min=
-// e.getPhysicsData().getMinPos(); ...; retval.minx=min.x;`) got `min` as
-// null when this method didn't exist, and `null.x` is a hard "getdot
-// failed" that aborted the editor's entire entity-selection keypress
-// handler (confirmed via live repro placing any entity from the editor
-// palette). Same AABB this PhysicsData's own getAABB() already computes
-// (see ComputePhysicsDataAABB) -- min/max are just its lower/upper bound
-// as vector2Ds instead of a 4-field table, matching the (x,y) contract
-// `retval.minx=min.x; retval.miny=min.y;` depends on.
 int GM_CDECL gmf_pd_getMinPos(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     gmMachine& m = *a_thread->GetMachine();
@@ -4551,11 +4099,6 @@ bool GetPhysicsDataAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar
     return true;
 }
 
-// EntityRegistration.registerEntity asks the retail entity-bounds helper for
-// the union of every entity-owned shape (FUN_000302f8 walks the full linked
-// shape list and accumulates each FUN_00032fe8 result). PhysicsData stores
-// those bodies in `bodies`; preserve that full-list behavior here rather than
-// using GetPhysicsDataAABB's intentional main-body query.
 bool GetPhysicsDataAllBodiesAABB(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
                                  float& a_minX, float& a_minY,
                                  float& a_maxX, float& a_maxY) {
@@ -4636,24 +4179,12 @@ b2Body* GetB2BodyFromVar(gmMachine& a_machine, const gmVariable& a_var) {
     return bd ? bd->body : nullptr;
 }
 
-// Verification: mirrors retail getDirRef / FUN_00031e94, including its
-// angle-derived direction refresh and retail PPC sine/cosine helper.
-// For entity_bindings.cpp's native SauceBase draw (see that function's
-// header comment): mirrors gmf_pb_getPos + gmf_pb_getDirRef without needing a
-// gmThread, so the native draw hook can read an entity's mainpb position/
-// facing the same way its own commented-out real draw() would have via
-// `this.mainpb.getPos()`/`getDirRef()`. The reference form refreshes the
-// stored direction when rotation response is enabled.
 bool GetPhysicsBodyPosAndDir(gmMachine& a_machine, const gmVariable& a_var,
                               float& a_x, float& a_y, float& a_dirX, float& a_dirY) {
     PhysicsBodyData* bd = GetBodyData(a_machine, a_var);
     if (!bd || !bd->body) return false;
     b2Vec2 p = bd->body->GetPosition();
     a_x = p.x; a_y = p.y;
-    // RETAIL PPC VERIFIED: PhysicsBody.getDirRef (0x8f4e4) calls
-    // FUN_00031e94, which refreshes +0x1c/+0x20 from body angle when
-    // rotation response is enabled; it never derives facing from velocity.
-    // Match the helper's mutation as well as its returned direction.
     if (!bd->body->IsFixedRotation()) {
         const float angle = bd->body->GetAngle();
         bd->dirX = GroundRenderMath::RetailGroundSinCos(angle, true);
@@ -4722,8 +4253,6 @@ gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity, int a
     return gmVariable(obj);
 }
 
-// FUN_00031d50 is the retail angular-velocity integrator used by
-// FUN_00031f20. Preserve its single-precision fused operations and order.
 float RetailStepAngularVelocity(const PhysicsBodyData& a_body, float a_velocity,
                                 float a_dt) {
     const float decayed = a_velocity * a_body.rotationDecayRate;
@@ -4740,24 +4269,10 @@ float RetailDirectionAngle(float a_x, float a_y) {
     return std::atan2(a_y, a_x);
 }
 
-// Retail FUN_00031f20, called for each PhysicsShape by FUN_0002e860.
-// The native manager passes the same timestep to this method and to the
-// world step; no separate 16.666 ms movement tick is applied here. Values
-// remain in script millisecond units; the stock-Box2D conversion is confined
-// to the body/world adapter boundary.
-// Verification: retail angle-to-direction calls FUN_001dd1ac selectors 1/0;
-// this movement path uses the same instruction-derived math port as
-// getDirRef. The surrounding movement integration retains its separate audit.
 void StepPhysicsBodyMovement(float a_dt) {
     gmMachine* machine = GetEngineContext().machine;
     if (!machine) return;
 
-    // Retail FUN_0035d28 walks the PhysicsManager ordered entity map at
-    // +0x74/+0x78, then passes each entry's PhysicsData to FUN_0002e860.
-    // Entity.setIsEnabled removes/reinserts entries in that same map through
-    // FUN_000370a8/FUN_0003726c. Its key is the native entity object ID
-    // (entity+4), so sort the lifetime registry's eligible owners by the
-    // mirrored __objectID before preserving each PhysicsData body's order.
     if (g_physicsMovementMembershipDirty) {
         struct TickEntry { PhysicsDataObj* data; int objectId; size_t insertionOrder; };
         std::vector<TickEntry> tickEntries;
@@ -5080,26 +4595,7 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
             }
             d->collisionInfoViews.clear();
             for (gmVariable& bv : d->bodies) {
-                // Guard against a body outliving its owning PhysicsData
-                // (e.g. an entity dying without its bodies being destroyed
-                // in the same GC pass): null the back-pointer so any LATER
-                // read of this body's user data sees "no owner" instead of
-                // a dangling PhysicsDataObj* into freed memory -- this is
-                // exactly what crashed gmf_pb_getEntity (SIGSEGV, confirmed
-                // via gdb) before this fix.
                 PhysicsBodyData* bd = GetBodyData(*a_m, bv);
-                // ...but only if that body is still LIVE. On machine
-                // teardown (gmMachine::~gmMachine -> ResetAndFreeMemory ->
-                // gmGCColorSet::DestructAll) the collector destructs objects
-                // in arbitrary order, so the PhysicsBody this PhysicsData
-                // points at may already have been freed -- and then `bd` is
-                // freed memory and `bd->body` a dangling b2Body*, which
-                // segfaulted on exit (confirmed via gdb: SIGSEGV in this
-                // lambda, called from gmUserObject::Destruct).
-                //
-                // Membership in g_allPhysicsBodies is the liveness test:
-                // PhysicsBodyGCDestruct erases from it before freeing, so a
-                // pointer still in the list is still alive.
                 const bool bodyStillLive =
                     bd && std::find(g_allPhysicsBodies.begin(),
                                     g_allPhysicsBodies.end(), bd) != g_allPhysicsBodies.end();

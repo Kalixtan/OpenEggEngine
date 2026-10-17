@@ -43,9 +43,6 @@ bool DecodeBci(const uint8_t* a_data, size_t a_size, BciFrame& a_out) {
             a_out.indices[i++] = (col >> 4) & 0xF;
         }
     }
-    // Short decodes (confirmed real, e.g. the degenerate 2x2 stub frame
-    // documented in FSA_BCI.md) are left zero-padded rather than treated
-    // as an error -- matches the Python reference's own behavior.
     return true;
 }
 
@@ -112,9 +109,6 @@ bool DecodePng(const uint8_t* data, size_t size, BciFrame& out) {
         bitDepth != 8 || (colourType != 2 && colourType != 3) || compressed.empty())
         return false;
 
-    // The shipped indexed PNG frame set has a 256-entry PLTE but pixel
-    // indices only use the 16 slots consumed by FUN_00047498. Preserve the
-    // bytes, not PLTE's template RGB values; alpha comes from that palette.
     if ((colourType == 3 && (!havePalette || palette.size() < 16 * 3)) ||
         (size_t)width > std::numeric_limits<size_t>::max() / height)
         return false;
@@ -201,10 +195,6 @@ bool FsaAsset::LoadFromFile(const std::string& a_path) {
     size_t endOfHead = 0x40 + (size_t)fileCount * 0x80;
     if (endOfHead > size) return false;
 
-    // Keep the relative order of decoded image entries exactly as stored in
-    // the FSA directory. Retail FUN_000b8808 walks those entries in directory
-    // order and appends each decoded image to the animation sequence; sorting
-    // filenames here would change playback for a non-lexically ordered file.
     std::vector<std::pair<std::string, BciFrame>> named;
     for (int i = 0; i < fileCount; ++i) {
         size_t entryOff = 0x40 + (size_t)i * 0x80;

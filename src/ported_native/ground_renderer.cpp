@@ -19,29 +19,13 @@
 #include <vector>
 #include <cmath>
 
-// Verification: retail EntityRegistration.drawGrounds calls
-// FUN_001ce4a0 (FUN_001d0520); palette strings/cell constants are PPC
-// verified and geometry helpers match shipped GroundProcessNEW/VideoHelper
-// source. Retail's per-cell native handoff maps normal and no-climb only to
-// fill lists; their script-stub outline passes are not reproduced here. Fire
-// has a distinct `danger_out` geometry stream. The desktop pass preserves the
-// bytecode-mapped style category order and the
-// fire palette's traced 600 ms ping-pong interpolation, but does not reproduce
-// per-cell command replay, stencil lifetime, or fire shader displacement.
 namespace {
 
 using GroundRenderMath::RetailGroundSinCos;
 using GroundRenderMath::RetailGroundPow;
 
-// Z layer constants -- confirmed real values, constants_bindings.cpp.
 constexpr float kBackConversion = 0.01f;
 
-// GROUND_Z, real retail value (see SOUND_SHAPES_GROUND_TRUTH.md section 8;
-// read out of the bootstrap at 0x19b1c0..0x19b4f0). This was hardcoded
-// +10.0 -- the WRONG SIGN -- and, being a local copy, it did not change
-// when the GM global was corrected, so the ground kept drawing on the
-// wrong side of the player. Every kOutlineZ/kClearZ/... below derives from
-// it, so the whole ground sub-layer stack was mirrored around zero too.
 constexpr float kGroundZ = -10.0f;
 // CLEAR_Z/OUTLINE_Z/NOCLIMB_CLEAR_Z as computed inside GroundProcessNEW's
 // constructor (OUTLINE_Z=GROUND_Z, CLEAR_Z=OUTLINE_Z+60*BACK_CONVERSION,
@@ -53,9 +37,6 @@ constexpr float kNoclimbClearZ = kClearZ - 20.0f * kBackConversion;
 
 
 constexpr int kNoclimbStencilValue = 2;
-// The batch passes DAT_001cc6c8 (-1) to the emitter. In mode zero this
-// selects geometry[+0x24] - geometry[+0x28]; it is a subtraction selector,
-// not a one-unit radius inset. +0x28 is the registration-specific inset.
 constexpr float kRetailGroundEmitterInsetSelector = -1.0f;
 // Base registration constructors pass these float values to
 // BuildRegistrationGeometry: factory IDs 0/2 use +0.02, ID 1 uses -0.01.
@@ -63,8 +44,6 @@ constexpr float kRetailGroundEmitterInsetSelector = -1.0f;
 constexpr float kGroundRegistrationInsetDefault = 0.02f;
 constexpr float kGroundRegistrationInsetId1 = -0.01f;
 
-// VIDEOPARAMS_* -- confirmed real integer values, constants_bindings.cpp
-// (Renderer::SetStencilFunc/SetStencilOp already consume these directly).
 constexpr int kGreater = 4;
 constexpr int kDisable = 8;
 constexpr int kKeep = 100;
@@ -100,9 +79,6 @@ b2Vec2 Normalized(const b2Vec2& a_v) {
 b2Vec2 VecToPointNormalized(const b2Vec2& a_from, const b2Vec2& a_to) {
     return Normalized(a_to - a_from);
 }
-// GM vector2D.getRightNormal() -- confirmed real, (x,y) -> (y,-x) (a
-// clockwise/right-hand perpendicular in this engine's Y-up world space,
-// matching every other confirmed vector2D op ported this session).
 b2Vec2 RightNormal(const b2Vec2& a_v) { return b2Vec2(a_v.y, -a_v.x); }
 
 // The retail PhysicsBody exposes fixtures in creation order. Box2D's linked
@@ -177,9 +153,6 @@ bool GroundShapeLocalBounds(const b2Shape* a_shape, b2Vec2& a_low, b2Vec2& a_hig
     return true;
 }
 
-// GroundProcessNEW.gm::calculateFillVerts -- archived-script helper only.
-// FUN_00195d28's configured-corner branch is handled below; this remains the
-// fallback approximation for its other branches and unconfigured shapes.
 std::vector<b2Vec2> CalculateFillVerts(const std::vector<b2Vec2>& a_verts, float a_distIn) {
     std::vector<b2Vec2> out;
     size_t n = a_verts.size();
@@ -194,9 +167,6 @@ std::vector<b2Vec2> CalculateFillVerts(const std::vector<b2Vec2>& a_verts, float
     return out;
 }
 
-// Verification: follows FUN_000f193c's GM_INT/GM_FLOAT conversion at the
-// FUN_00195d28 field reads. Returns false for other types so callers can
-// preserve the native zero-initialized default.
 bool ReadRetailNumeric(gmMachine& a_machine, gmTableObject* a_table,
                        const char* a_key, float& a_value) {
     const gmVariable value = a_table->Get(&a_machine, a_key);
@@ -218,9 +188,6 @@ float RetailGroundLength(const b2Vec2& a_vector) {
     return GroundRenderMath::RetailGroundLength(a_vector.x, a_vector.y);
 }
 
-// Verification: FUN_00195d28 and FUN_00194c40 initialize each numeric
-// destination to zero, then overwrite it only for GM_FLOAT/GM_INT. Missing or
-// non-numeric corner fields therefore contribute 0.0 to the cached stream.
 float ReadRetailNumericOrZero(gmMachine& a_machine, gmTableObject* a_table,
                               const char* a_key) {
     float value = 0.0f;
@@ -228,11 +195,6 @@ float ReadRetailNumericOrZero(gmMachine& a_machine, gmTableObject* a_table,
     return value;
 }
 
-// Verification: FUN_00195560's PPC instructions build 16 inner contour
-// points, one outer endpoint, 15 reversed normal-offset points, and a closing
-// endpoint (33 total). Field reads, angle progression, transform, and append
-// sites are traced; retail float sine and ground-domain power helpers are
-// ported here.
 bool BuildRetailCurveFill(gmMachine& a_machine, gmTableObject* a_owner,
                           std::vector<b2Vec2>& a_fill) {
     const gmVariable configVar = a_owner->Get(&a_machine, "configureData");
@@ -267,9 +229,6 @@ bool BuildRetailCurveFill(gmMachine& a_machine, gmTableObject* a_owner,
     auto transform = [&](float x, float y) {
         const float sine = RetailGroundSinCos(rotation, false);
         const float cosine = RetailGroundSinCos(rotation, true);
-        // PPC helper 0x000c5f64 rounds y*sin / y*cos with fmuls, then uses
-        // fmsubs / fmadds for the two rotated coordinates. Add the configured
-        // center separately, matching FUN_00195560's caller sequence.
         return b2Vec2(std::fma(x, cosine, -y * sine) + centerX,
                       std::fma(x, sine, y * cosine) + centerY);
     };
@@ -312,11 +271,6 @@ bool BuildRetailCurveFill(gmMachine& a_machine, gmTableObject* a_owner,
     return true;
 }
 
-// Verification: both non-curve branches of retail FUN_00195d28 are traced
-// through their PPC record stores and output loops: FUN_00194c40 reads three
-// configData corners and emits 18 samples; the inline four-corner branch
-// reads owner corners and emits 24. The length/divide/FMA sequence follows
-// the disassembly; PPC fsqrts rounding and matched runtime output remain open.
 bool BuildRetailConfiguredCornerFill(gmMachine& a_machine,
                                      gmTableObject* a_owner,
                                      float a_inset,
@@ -330,8 +284,6 @@ bool BuildRetailConfiguredCornerFill(gmMachine& a_machine,
 
     // A present curve selects the separate 33-point superellipse contour.
     if (config->Get(&a_machine, "curve").m_type != GM_NULL) return false;
-    // Missing dx dispatches to FUN_00194c40, whose three corner pairs live in
-    // configureData. Present dx selects the inline owner-corner branch.
     const bool threeCornerPath =
         a_owner->Get(&a_machine, "dx").m_type == GM_NULL;
 
@@ -476,11 +428,6 @@ bool BuildGeometry(b2Body* a_body, GroundGeometry& a_out) {
     b2Fixture* first = shapes.front(); // retail shape index 0
     const b2Transform& xf = a_body->GetTransform();
 
-    // FUN_00033dc8/FUN_00033ed8 receive the PhysicsBody and walk its full
-    // shape list, unioning each member's local center +/- half its extent.
-    // FUN_001cb3c8 uses half the larger resulting dimension for circle and
-    // polygon registration radius. Edge mode replaces this with its separate
-    // world-space endpoint bounds below.
     b2Vec2 bodyLow(FLT_MAX, FLT_MAX), bodyHigh(-FLT_MAX, -FLT_MAX);
     for (b2Fixture* fixture : shapes) {
         b2Vec2 low, high;
@@ -498,10 +445,6 @@ bool BuildGeometry(b2Body* a_body, GroundGeometry& a_out) {
         a_out.kind = kCircle;
         const b2CircleShape* c = (const b2CircleShape*)first->GetShape();
         a_out.pos = b2Mul(xf, c->m_p);
-        // Retail's GroundRegistration type-0 constructor derives its cached
-        // perimeter count from half the larger registered-body extent instead
-        // of using a fixed 61 points (PPC FUN_001cb3c8). Retail's MATH_POW
-        // ordinary positive path is ported for this clamped extent and .3f.
         const float normalizedExtent = std::clamp(
             (a_out.radius - 0.61f) / (13.42f - 0.61f), 0.0f, 1.0f);
         const int kSegs = static_cast<int>(
@@ -526,9 +469,6 @@ bool BuildGeometry(b2Body* a_body, GroundGeometry& a_out) {
         }
         const b2Shape* shape = first->GetShape();
         if (shape->GetType() == b2Shape::e_polygon) {
-            // FUN_00032a18 calls the shape center virtual and applies the
-            // body transform. Box2D polygon centroid is the matching local
-            // center field; an AABB midpoint is wrong for irregular polygons.
             const auto* polygon = static_cast<const b2PolygonShape*>(shape);
             a_out.pos = b2Mul(xf, polygon->m_centroid);
         } else {
@@ -539,11 +479,6 @@ bool BuildGeometry(b2Body* a_body, GroundGeometry& a_out) {
         a_out.fillVerts = CalculateFillVerts(a_out.verts, a_out.th);
         return true;
     }
-    // PPC FUN_001cb3c8 edge-chain branch uses shape indices
-    // [0, shapeCount-2]. It scans both endpoints for the combined bounds,
-    // but its cached mode-2 vertex stream stores only vertex 0 of each shape.
-    // Preserve those as separate products: deriving the stream from the
-    // perimeter endpoints changes both vertex count and strip ordering.
     a_out.kind = kEdgeChain;
     const size_t edgeCount = shapes.size() - 1;
     a_out.verts.reserve(edgeCount);
@@ -595,13 +530,6 @@ void DrawFill(Renderer& a_r, const GroundGeometry& a_g, float a_z,
     };
 
     if (a_g.kind == kCircle) {
-        // PPC FUN_001cb9b0 mode 0 emits an upper/lower pair at every phase
-        // from zero through ceil(count/2), then emits the leftmost point
-        // twice. Registration +0x24 is the radius, +0x28 is its per-style
-        // inset, and +0x2c/+0x30 are the transformed center. The builder's
-        // raw -1 argument selects radius - registrationInset.
-        // std::fma preserves the retail fused multiply-add shape; the trig
-        // helper's final numeric parity remains separately tracked.
         const int count = (int)verts.size();
         const int halfCount = (count + 1) / 2;
         const float radius = a_g.radius +
@@ -619,10 +547,6 @@ void DrawFill(Renderer& a_r, const GroundGeometry& a_g, float a_z,
         append(leftmost);
         append(leftmost);
     } else {
-        // PPC FUN_001cb9b0 modes 1/2 copy cached float2 records in mirrored
-        // order for the triangle strip: initial record, forward/reverse pairs,
-        // then the center record. This preserves the emitted degenerates at
-        // the strip ends instead of converting the boundary to a fan.
         const int count = (int)verts.size();
         const int halfCount = (count + 1) / 2;
         append(verts.front());
@@ -688,15 +612,6 @@ void SetColourByName(Renderer& a_r, const char* a_name) {
     a_r.SetColour(r, g, b, 1.0f);
 }
 
-// installNormalGround -- confirmed real (the overwhelming majority style,
-// see NORMAL_GROUNDSTYLEID's comment). The grass-tuft decoration block
-// above this in the reference is entirely `if(0){...}`-disabled dead code
-// in the reference itself, so it's not ported here either.
-// The extracted GroundProcessNEW.gm is a reference stub: retail marks the
-// ground draw path as ported to native C++, so its dead script callback is
-// not authoritative for the native fill colour. The live retail level-1
-// capture and scheme-8 palette agree on ground_fill (yellow) for terrain;
-// using clear here aliases the sky colour and makes the terrain disappear.
 void DrawNormalFill(Renderer& a_r, const GroundGeometry& a_g) {
     a_r.SetStencilFunc(kDisable, 0);
     SetColourByName(a_r, "ground_fill");
@@ -734,9 +649,6 @@ void DrawFireFill(Renderer& a_r, const FireGroundGeometry& a_g) {
         a_r.SetColour(r, g, b, 1.0f);
     else
         SetColourByName(a_r, "danger_fill");
-    // Retail FUN_001ce4a0 writes aZ=-10.0 to FireGroundShader2; its paired
-    // Default2d parameter is also -10.0. Do not use the script's computed
-    // FIRE_CLEAR_Z (-9.7) for these native shader-backed streams.
     DrawFill(a_r, a_g.dangerFill, kGroundZ, amp, true);
 }
 
@@ -799,8 +711,6 @@ void DrawGroundsNativeNow() {
     if (!machine || !processManager) return;
 
     GroundRenderStateScope renderStateScope(*renderer);
-    // Retail FUN_001ce4a0 calls FUN_0003e198(drawList, false): use world view
-    // bounds while skipping FUN_0004cea0's camera-rotation branch.
     renderer->SetWorldView(false);
     // This direct native pass submits filled ground strips and polygons.
     // Unlike the retail child-DrawList path, it does not replay a per-list
@@ -809,11 +719,6 @@ void DrawGroundsNativeNow() {
     // geometry is authored as a visible 2D surface; render both windings for
     // this pass and let GroundRenderStateScope restore the caller's state.
     glDisable(GL_CULL_FACE);
-    // Visible cell registrations replay through the 0x1cc448 per-cell path,
-    // which records DrawList opcode 0x1c with index 1. Dispatcher 0x44d4c
-    // selects DAT_00431684[1] = 0x201 (LESS) and enables depth testing. The
-    // separate owner child DrawList at +0x190 has two additional scoped
-    // replays that are not represented by this registration renderer yet.
     renderer->SetDepthTestCompareIndex(1);
     // Colour writes ON for this pass. This is a NATIVE draw pass, the
     // equivalent of retail's own ported-to-C++ ground renderer, so it must

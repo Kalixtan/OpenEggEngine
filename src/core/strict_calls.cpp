@@ -14,7 +14,7 @@ namespace {
 struct RetailSymbol {
     const char* name;   // "Video.setTexture", or a bare global name
     const char* source;
-    const char* address; // EBOOT.elf VMA, e.g. "0x00074c28"
+    const char* address;
 };
 
 #include "retail_symbols.inc"
@@ -166,7 +166,7 @@ std::string FormatReport(gmThread* a_thread, const std::string& a_name, bool a_u
         << "  function     : " << a_name << '\n'
         << "  status       : " << (a_unbound
             ? "never bound -- no implementation of any kind exists"
-            : "fabricated implementation removed -- needs porting from the decompiled body")
+            : "implementation removed -- behavior still needs to be reproduced")
         << '\n';
 
     if (a_haveSite) {
@@ -175,9 +175,6 @@ std::string FormatReport(gmThread* a_thread, const std::string& a_name, bool a_u
         report << "  called from  : <native bootstrap, no script frame>\n";
     }
 
-    // Arguments: the real signature is often the thing you most need to know
-    // before writing the replacement, and the decompiled body only tells you
-    // the arity, not what the values look like in practice.
     int numParams = a_thread->GetNumParams();
     report << "  arguments    : " << numParams << '\n';
     for (int i = 0; i < numParams; ++i) {
@@ -186,13 +183,9 @@ std::string FormatReport(gmThread* a_thread, const std::string& a_name, bool a_u
     }
 
     if (const RetailSymbol* sym = FindRetailSymbol(a_name)) {
-        report << "  retail body  : "
-               << (sym->source[0] ? sym->source : "(no decompiled body clustered)") << '\n'
-               << "  EBOOT.elf    : " << sym->address << '\n';
+        report << "  entry point  : " << sym->address << '\n';
     } else {
-        report << "  retail body  : not in the reveng index -- no decompiled body found\n"
-                  "                 for this name (regenerate with\n"
-                  "                 reveng/generate_retail_symbol_index.py if reveng/ changed)\n";
+        report << "  entry point  : no address recorded\n";
     }
 
     // The GM-side call stack goes through the machine log rather than stderr,
@@ -221,18 +214,6 @@ bool AskToContinue(const std::string& report) {
            g_haltDialogHandler(g_haltDialogContext, report.c_str());
 }
 
-// A small, hand-curated set of retail functions whose decompiled body is a
-// confirmed, literal no-op (`return 0;`, nothing else) -- e.g.
-// EntityBase.update (0x001c8728). These are real, they're just genuinely
-// empty, so a call reaching this engine's null-call leniency for one of
-// them ISN'T a gap to port: the current "do nothing" behavior already
-// matches retail bit-for-bit. Reported anyway (matching a name in
-// retail_symbols.inc) would repeatedly point the halt-mode workflow at a
-// function with nothing left to write, blocking real progress every frame
-// something like a menu widget's `this.widgets[i].update(msElapsed)` loop
-// runs. Keep this list short and only add a name here after actually
-// reading its decompiled body -- this is a targeted exception, not a
-// general "trust the name" allowlist.
 bool IsConfirmedNoOp(const std::string& a_name) {
     static const char* const kNoOps[] = {
         "update",
@@ -242,10 +223,6 @@ bool IsConfirmedNoOp(const std::string& a_name) {
     return false;
 }
 
-// EntityBase.gm calls EntityManager.setEntityUID(uid, null) in its
-// destructor, but the retail EBOOT has no registered `setEntityUID` name
-// (unlike getEntityFromUID/createEntityAsPlayer immediately beside it).
-// This is therefore a retail null-call, not an omitted native binding.
 bool IsKnownRetailNullCall(gmThread* a_thread, const std::string& a_name) {
     auto receiverIsLibrary = [a_thread](const char* a_library) {
         gmMachine* machine = a_thread->GetMachine();
@@ -256,25 +233,8 @@ bool IsKnownRetailNullCall(gmThread* a_thread, const std::string& a_name) {
     };
     if (a_name == "setEntityUID") return receiverIsLibrary("EntityManager");
 
-    // Retail's complete 68-entry AUDIO method table (EBOOT.elf 0x421418-
-    // 0x421744) contains neither of these names. SwayingTree.gm calls
-    // Audio.stopSound, while GoombaCritterGuitar.gm calls Audio.
-    // playSoundWithMixer. The latter is registered on EntityBase instead
-    // (EBOOT.elf method table entry 0x425d8c). Both are retail null calls
-    // on Audio, not missing Audio bindings. Scope these exceptions to that
-    // receiver so a real method gap on another object remains visible.
     if (a_name == "stopSound" || a_name == "playSoundWithMixer")
         return receiverIsLibrary("Audio");
-    // PJInvaderBullet.gm calls this on its PhysicsBody during explosion,
-    // but the retail EBOOT name pool and PhysicsBody registration expose
-    // setRotateVel and setAngularVel, not setRotateSpeed. Preserve the VM's
-    // retail null-call behavior for this one absent method.
-    // MovingAsteroid.gm also calls vector2D.dot, but retail has no "dot"
-    // method string or registration on that native vector type. Keep its
-    // null comparison path rather than inventing a vector operation.
-    // Several shipped entities spell "Categories" as "Catagories" on a
-    // PhysicsBody. Retail registers only the correctly spelled setter, so
-    // these calls also take the GameMonkey null-call path in the original.
     if (a_name == "setRotateSpeed" || a_name == "dot" ||
         a_name == "setCatagoriesToCollideWith") {
         const gmVariable& receiver = a_thread->GetLastNullReceiver();
@@ -301,21 +261,9 @@ bool IsKnownRetailNullCall(gmThread* a_thread, const std::string& a_name) {
 // The VM-side hook: a call on a value that is null because nothing ever bound
 // it. See gmThread.cpp's PushStackFrame.
 void OnNullCall(gmThread* a_thread, const char* a_symbol) {
-    // An unattributable null callee is a script-level null (an optional
-    // callback a level never defined, say), not a missing engine function --
-    // that is real retail behavior (GMSCRIPT_PATCHES.md #4) and must stay
-    // silent, or every '?'-guarded optional hook in the corpus trips the trap.
     if (!a_symbol) return;
     if (IsKnownRetailNullCall(a_thread, a_symbol)) return;
 
-    // Primary signal: was the failed lookup performed ON an object this
-    // engine created (a RegisterLibrary global, an entity/process table, a
-    // factory-returned object)? If so this is unambiguous -- a real API
-    // surface this engine owns is missing a method -- and gets reported
-    // unconditionally, with no need for the name to already be catalogued in
-    // retail_symbols.inc. This is what catches a genuinely-missing native
-    // the first time the game reaches it, instead of only ones already known
-    // about.
     const gmVariable& receiver = a_thread->GetLastNullReceiver();
     bool receiverIsNative = IsNativeTable(a_thread->GetMachine(), receiver);
     bool receiverIsScriptExtensibleNative =
@@ -448,10 +396,9 @@ void DumpSurvey() {
         std::fprintf(stderr, "%3d. %-46s calls=%-8lld %s\n", index++, e.name.c_str(), e.count,
                      e.firstCallSite.c_str());
         if (sym) {
-            std::fprintf(stderr, "     retail: %s %s\n",
-                         sym->source[0] ? sym->source : "(address only)", sym->address);
+            std::fprintf(stderr, "     entry point: %s\n", sym->address);
         } else {
-            std::fprintf(stderr, "     retail: not in the reveng index\n");
+            std::fprintf(stderr, "     entry point: no address recorded\n");
         }
     }
     std::fprintf(stderr, "================================================================================\n");

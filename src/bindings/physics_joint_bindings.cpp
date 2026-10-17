@@ -13,7 +13,6 @@
 
 namespace {
 
-// Retail IDs established from the constructors and type guards documented
 constexpr int kRevolute = 1;
 constexpr int kPrismatic = 2;
 constexpr int kDistance = 3;
@@ -318,7 +317,6 @@ int GM_CDECL gmf_setMotor(gmThread* a_thread) {
     GM_INT_PARAM(enabled, 0, 0);
     GM_FLOAT_OR_INT_PARAM(speed, 1, 0.0f);
     GM_FLOAT_OR_INT_PARAM(maximum, 2, 0.0f);
-    // FUN_00034e8c only writes config for retail types 1, 2 and 9.
     if (j->type != kRevolute && j->type != kPrismatic && j->type != kPin) return GM_OK;
     j->motorEnabled = enabled != 0; j->motorSpeed = speed; j->motorMax = maximum;
     if (j->type == kRevolute || j->type == kPin) {
@@ -346,9 +344,6 @@ int GM_CDECL gmf_setPinMotor(gmThread* a_thread) {
 int GM_CDECL gmf_setRevoluteMotor(gmThread* a_thread) {
     JointData* j = ThisJoint(a_thread);
     if (!j || j->type != kRevolute) { GM_EXCEPTION_MSG("not a revolute joint"); return GM_EXCEPTION; }
-    // Retail accepts its one-argument convenience form and its explicit
-    // enabled/speed/torque form. Its one-argument path writes the binary's
-    // default constant to both speed and torque; DAT_0009675c is 0.0f.
     if (a_thread->GetNumParams() == 3) return gmf_setMotor(a_thread);
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(enabled, 0, 0);

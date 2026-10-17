@@ -3,22 +3,6 @@
 #include <vector>
 #include <functional>
 
-// "Video.* and drawList.* really are (mostly) the same underlying command
-// list"): depth-test/depth-write flags, font render attributes, and the
-// 2D matrix stack (pushMatrix/popMatrix/translate/rotate/scale) are all
-// called interchangeably through both the `Video` global and any `drawList`
-// instance in real scripts (e.g. `drawList.pushMatrix()` +
-// `Video.beginShape(...)` composing together, ConsoleProcess.gm). Rather
-// than modelling a real per-drawList command buffer (out of scope -- this
-// engine executes draws immediately, see draw_list.h), there's exactly one
-// of these, shared by drawList's gmf_* handlers, Video's, and shape
-// plotVertex's transform lookup.
-//
-// The matrix stack and beginShape/plotVertex/endShape have no decompiled
-// instead (500+ call sites across the corpus), not a confirmed decompiled
-// port. depthTest/fontEdge/fontWidth are confirmed real (already used by
-// drawList before this file existed); depthWrite/setupOrthoView/
-// setupAspectRatioOrthoView/printUntranslated are confirmed real via
 struct DrawContext {
     // Depth test defaults ON, to match the GL state Renderer::Init actually
     // establishes (`glEnable(GL_DEPTH_TEST)`). This shadow copy defaulting
@@ -42,8 +26,6 @@ struct DrawContext {
     int stencilRef = 0;
     int stencilSfail = 100, stencilDpfail = 100, stencilDppass = 100; // VIDEOPARAMS_KEEP
     int culling = 0; // setAttrCulling: 0 disabled, 1 back/CW, 2 front/CCW
-    // DrawList's retail renderer attributes as stored by FUN_0003e040.
-    // resetFontRenderAttributes initializes them to 0.5 and 0.45.
     float fontEdge = 0.5f;
     float fontWidth = 0.45f;
     // Native render-config IDs differ from Cg paramno: TextureDist ID 2 is
@@ -52,9 +34,6 @@ struct DrawContext {
     // of range for this five-entry config. Full grouped-pass parity remains
     // open.
     bool distanceTextureEnabled = false;
-    // GE3_Internal_VideoTextureDistParameterRefresh writes 0.5 to native rows
-    // 2/3 (discard/smooth). Keep this live-config baseline distinct from
-    // resetFontRenderAttributes, whose confirmed explicit reset is (0.5,0.45).
     float distanceTextureDiscardLevel = 0.5f;
     float distanceTextureSmoothLevel = 0.5f;
     // Retail ReplayDrawListCommands copies DrawList+0x10 into the render
@@ -62,32 +41,8 @@ struct DrawContext {
     // same scope; shader-config selection consumes it in the renderer port.
     bool selectionFragmentProgram = false;
 
-    // setTextureByHandle/clearTexture -- confirmed real recorded draw-list
-    // opcode into the SAME command list drawShape/setColour/etc. push into,
-    // not an immediate GL state change), see DC_gmf_setTextureByHandle's
-    // own header comment (draw_context.cpp) for the live crash this fixes.
-    // A plain mutable field here (rather than a push/pop stack) matches
-    // every real call site's own bracketing pattern: `setTextureByHandle(t);
-    // drawShape(...); ...; clearTexture();` -- bind, draw N shapes, unbind,
-    // never nested.
     unsigned int currentTextureHandle = 0;
 
-    // pushAttributes/popAttributes -- confirmed real save/restore stack
-    // (Ghidra: DrawList.pushAttributes/popAttributes, 0x0007e434/
-    // 0x0007e4a4, push/pop real opcodes 0x1a/0x1b into the command
-    // buffer), NOT the no-op this engine originally treated it as. Was a
-    // genuine bug, not just an accuracy gap: real screens (e.g.
-    // HomeScreenBase.gm's logo draw) do
-    // `pushAttributes(); ...colourMask(false)...; popAttributes();`
-    // expecting colourMask (and depth/stencil state) to snap back
-    // afterward -- with popAttributes doing nothing, colourMask(false)
-    // stayed off for the rest of the program, hiding everything drawn
-    // after that point forever.
-    // TextureDist/font thresholds are intentionally absent: native setters
-    // enqueue shader-parameter opcode 0x27, while pop opcode 0x1b restores the
-    // separate 14-word raster-state tuple through FUN_0030a414. That restore
-    // emits no TextureDist parameter writes, so thresholds persist until a
-    // later setter/reset or render-config change.
     struct Attrs {
         bool depthTest, depthWrite, colourMask;
         int stencilFunc, stencilRef, stencilSfail, stencilDpfail, stencilDppass;
@@ -95,13 +50,6 @@ struct DrawContext {
     };
     std::vector<Attrs> attrStack;
 
-    // 2D affine: x' = a*x + c*y + e ; y' = b*x + d*y + f
-    // z is a separate plain accumulator, not part of the affine block --
-    // no real usage ever rotates/scales Z (translate(x,y,z) is the only
-    // Z-bearing call in the whole corpus), it just sums through nested
-    // pushMatrix/translate the same way a stack of pure Z-nudges would
-    // (e.g. ConsoleProcess.gm's repeated `drawList.translate(0,0,z);
-    // z-=ZINCER;` per line to draw text slightly nearer each time).
     struct Mat {
         float a = 1, b = 0, c = 0, d = 1, e = 0, f = 0;
         float z = 0;

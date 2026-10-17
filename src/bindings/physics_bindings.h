@@ -46,13 +46,4 @@ struct ShapeDefCollection {
 };
 extern gmType g_physicsShapeDefType;
 
-// confirms addBox/addPolygon/addCircle/addEdges/setFrictionForPlayer as
-// real methods on it). Real scripts build one of these, add shape(s), tune
-// a couple of fixture properties, then hand it to a body
-// (`pb.appendShapes(sd)`, confirmed in game_data/Platformer/EntityPacks/
-// GoAroundGuy.gm) -- i.e. it's a Box2D b2FixtureDef list, not a live
-// physics object. Backed by the real Box2D 2.4.1 (vendor/box2d), per
-// "just import the real lib, no need to overcomplicate" -- this only
-// covers building the fixture-def list; PhysicsData/PhysicsBody are
-// implemented separately in physics_body_bindings.cpp.
 void RegisterPhysicsBindings(gmMachine& a_machine);

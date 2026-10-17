@@ -24,7 +24,7 @@ bool Localization::LoadMoFile(const std::string& a_path) {
     auto readU32 = [&](size_t offset) -> uint32_t {
         uint32_t v;
         std::memcpy(&v, data.data() + offset, sizeof(v));
-        return v; // host is little-endian (x86_64/aarch64); .mo confirmed LE
+        return v;
     };
 
     uint32_t magic = readU32(0);

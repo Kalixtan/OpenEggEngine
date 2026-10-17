@@ -41,23 +41,9 @@
 #undef GetObject
 #endif
 
-// ---------------------------------------------------------------------
-// citations on each binding below) plus recovered method-table wrappers for
-// Audio.getVoiceVolume @ 0x0008603c and Audio.setVoiceVolume @ 0x00086124.
-// EntityBase also has separate voice-volume methods at 0x001c5f50/0x001c5fe0;
-// those operate on receiver-owned voice lists and are not these Audio APIs.
-//
-// The platform audio service plays decoded WAV samples from active voice
-// handles. Retail effects, priority, and exact mixer routing
-// remain to be ported; the script-facing voice registry stays authoritative.
-// ---------------------------------------------------------------------
 
 namespace {
 
-// Retail's audio backend and Slicker voice state both initialize at 48 kHz
-// (EBOOT FUN_00027878 writes 48000 at +0x3c; the normal sound factory and
-// backend stream constructor also store 48000). Keep decoded samples, voice
-// cursors, mixer timing, and SDL output on that native rate.
 constexpr int kOutputRate = 48000;
 struct DecodedSound {
     std::vector<float> stereo;
@@ -93,13 +79,7 @@ uint64_t g_timeStretchCacheClock = 0;
 // strong desktop reference for explicit loads so successful loading actually
 // decodes and retains the sample until unloadSound or shutdown.
 std::unordered_map<std::string, std::shared_ptr<DecodedSound>> g_loadedSoundSamples;
-// Retail FUN_0002679c stores loadSound's optional integer in resource word
-// +0x0c. Its FMOD meaning is not established yet, but preserve it per loaded
-// path so a future backend can consume the same resource mode.
 std::unordered_map<std::string, int> g_loadedSoundModes;
-// FUN_0001bd78 also stores an internal kind in resource word +0x20:
-// default=0, VAG=1, FSB=2. Preserve that classification separately from the
-// script supplied mode at +0x0c.
 std::unordered_map<std::string, int> g_loadedSoundResourceKinds;
 
 struct VoiceState {
@@ -141,9 +121,6 @@ struct VoiceState {
     bool paused = false;
     bool looping = false;
     int loopCount = 0;
-    // Retail increments DAT_004333d0 after a Slicker/Dirac object is created
-    // and decrements it when that object's backing resource is released.
-    // The SDL voice is the local lifetime owner for this partial backend.
     bool ownsDiracPoolEntry = false;
     std::shared_ptr<DecodedSound> sample;
     std::shared_ptr<DecodedSound> timeStretchedSample;
@@ -195,13 +172,6 @@ void ReleaseDiracPoolEntry(VoiceState& a_voice) {
     if (State().diracPoolEntriesUsed > 0) --State().diracPoolEntriesUsed;
 }
 
-// Retail's chain pool returns a generation-tagged handle:
-//   handle = (generation << 8) | slot
-// The headless Ghidra trace of FUN_002e698c shows an 8-bit slot index and a
-// 20-bit pool generation, with 0xffffffff reserved as invalid. Mirror that
-// identity/lifetime separately from the GM table used to expose chain methods.
-// The table remains the script object; the handle is what native playSound
-// and recorder callback routes carry.
 class EffectChainHandlePool {
 public:
     EffectChainHandlePool() { Reset(); }
@@ -386,8 +356,6 @@ void ProcessDeferredEffectCleanup(gmMachine* a_machine,
                                  std::vector<DeferredEffectCleanup>& a_pending,
                                  bool a_chain);
 
-// RETAIL BYTECODE: FUN_0001b718/FUN_0001b768/FUN_0001b7c8 clamp the incoming
-// double to [0,1] with the PPC fsub/fsel sequence before storing an f32.
 float RetailClampAudioVolume(float a_value) {
     const double value = static_cast<double>(a_value);
     const double lowerTest = 0.0 - value;
@@ -778,10 +746,6 @@ bool DecodeVagFile(const std::string& a_filePath, std::vector<float>& a_stereo) 
     std::vector<unsigned char> payload(payloadBytes);
     if (!stream.read(reinterpret_cast<char*>(payload.data()), payload.size())) return false;
 
-    // Exact 16-entry lookup as indexed by the VAG nibble in retail's
-    // `lfsx` sequence at 0x00254618. Indices 5-15 point into adjacent
-    // constants in the retail image; retain their raw bits as well because
-    // those nibble values occur in shipped VAG blocks.
     static constexpr uint32_t coefficientBits[16][2] = {
         {0x00000000, 0x00000000}, {0x3f700000, 0x00000000},
         {0x3fe60000, 0xbf500000}, {0x3fc40000, 0xbf5c0000},
@@ -931,11 +895,6 @@ void QueueMixedVoices(float a_deltaMs) {
     g_fractionalOutputFrames = wanted - std::floor(wanted);
     if (frameCount <= 0) return;
     std::vector<float> mix((size_t)frameCount * 2, 0.0f);
-    // Retail's +0x2c3c flag gates playback/resource entry paths. It is not
-    // read in the retail per-frame voice update, so this mixer must not treat
-    // it as a global mute. The binding-side creation gate remains under audit.
-    // FUN_0001b050 sends requested voice gain multiplied by manager SFX and
-    // master volumes to the backend.
     const float voiceGainScale = RetailF32(
         State().masterVolume * State().sfxVolume);
     for (auto& entry : State().voices) {
@@ -1004,11 +963,6 @@ void QueueMixedVoices(float a_deltaMs) {
 int CreateVoiceState(const std::string& a_path, float a_pan, float a_volume,
                      int a_note = 96, bool a_applyFrequencyMultiplier = false,
                      int a_referenceNote = 48) {
-    // FUN_0001fb98 first checks the loaded resource map, then runs the retail
-    // resource-load path for a missing entry and retries the lookup. Match the
-    // final factory result: a path that resolves but cannot be decoded must
-    // not create a synthetic live voice handle. DecodeSound uses FileHelper's
-    // mounted-resource precedence and shares samples with explicit loadSound.
     auto sample = DecodeSound(a_path);
     if (!sample || sample->stereo.empty()) return 0;
 
@@ -1020,16 +974,8 @@ int CreateVoiceState(const std::string& a_path, float a_pan, float a_volume,
     voice.volume = a_volume;
     voice.pan = a_pan;
     voice.referenceNote = a_referenceNote;
-    // Retail audio-manager constructor at 0x00022528 initializes its
-    // default base note (+0x24) to C4=48. FUN_000236bc then calls
-    // FUN_0001ad48 with the requested note when starting a voice;
-    // 96 is its special "play at the sample's base speed" value.
     const float noteRatio = a_note == 96 ? 1.0f :
         GroundRenderMath::RetailAudioNotePitchRatio(a_note, voice.referenceNote);
-    // Retail FUN_000236bc applies manager +0x30f0 to the backend frequency
-    // after setting the requested note. The voice payload's base frequency
-    // remains unscaled, so later explicit note/speed changes can replace the
-    // creation-time multiplier just as the retail helpers do.
     voice.speed = voice.sourceBaseSpeed * noteRatio;
     if (a_applyFrequencyMultiplier)
         voice.speed *= State().frequencyMultiplier;
@@ -1040,9 +986,6 @@ int CreateVoiceState(const std::string& a_path, float a_pan, float a_volume,
 
 // --- loading ---------------------------------------------------------
 
-// @ 0x00084984: exactly 1 or 2 args; returns whether the native load
-// produced a handle (not the handle itself). The campaign menu branches on
-// failure to select a fallback preview, so an unresolved file must fail.
 int GM_CDECL gmf_loadSound(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 2) return GM_EXCEPTION;
@@ -1054,18 +997,10 @@ int GM_CDECL gmf_loadSound(gmThread* a_thread) {
             ? static_cast<int>(modeArg.GetFloat())
             : modeArg.m_value.m_int;
     }
-    // FUN_0001bd78 returns failure before it resolves the path when the
-    // retail Audio manager's enabled byte (+0x2c3c) is clear.
     if (!State().enabled) {
         a_thread->PushInt(0);
         return GM_OK;
     }
-    // FUN_0001bd78 does more than test whether the path exists: it opens the
-    // resource and asks the audio backend to create a sample. Use the same
-    // decoder as playSound so malformed/unsupported files fail here instead
-    // of being reported as loaded. Retail's integer mode is carried into its
-    // FMOD resource constructor; this backend currently has no equivalent
-    // sample-mode setting (tracked in the API audit).
     auto sample = DecodeSound(path);
     const bool loaded = sample && !sample->stereo.empty();
     if (loaded) {
@@ -1077,8 +1012,6 @@ int GM_CDECL gmf_loadSound(gmThread* a_thread) {
     a_thread->PushInt(loaded ? 1 : 0);
     return GM_OK;
 }
-// Audio.unloadSound(path) -- confirmed real, 0x00084ac4: 1 arg (path
-// string, not a handle), no return value.
 int GM_CDECL gmf_unloadSound(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
@@ -1092,16 +1025,7 @@ int GM_CDECL gmf_unloadSound(gmThread* a_thread) {
     g_decodedSounds.erase(path);
     return GM_OK;
 }
-// Audio.unloadAllSounds() -- retail 0x84be8 only routes the warning
-// "disabled Audio.unloadAllSounds for now because it may crash dirac" through
-// FUN_00186a7c; it does not unload sounds. Keep the disabled behavior. The
-// desktop currently suppresses the diagnostic, so exact logging parity is
-// still open (see FUNCTION_AUDIT_PROGRESS.tsv).
 int GM_CDECL gmf_unloadAllSounds(gmThread* a_thread) { return GM_OK; }
-// FUN_0001cb08 ignores the wrapper's path argument and opens the fixed
-// FILEHELPER_AREA_GAMEDATA resource "sampleList.txt". The retail %s\n scan
-// extracts whitespace-delimited names, each passed to the ordinary enabled
-// loadSound path; the return is the number of successful loads.
 int GM_CDECL gmf_loadSampleList(gmThread* a_thread) {
     FileHelper* files = GetEngineContext().fileHelper;
     std::string contents;
@@ -1129,13 +1053,6 @@ int GM_CDECL gmf_loadSampleList(gmThread* a_thread) {
 
 // --- playback ----------------------------------------------------------
 
-// Retail AUDIO.playSound is the function at EBOOT.elf 0x00085174, reached
-// through AUDIO table entry 0x00421460. Its arity dispatch accepts 1, 3,
-// and 5-8 arguments. The three-argument branch passes two numeric values
-// to a separate playback overload; shipped menu calls use (path, 0, volume),
-// so these are pan and volume, not note and gate. The 5-8 argument branches
-// use (path, note, gate, pan, volume, [priority, effectChain, position]).
-// Rejecting 2 and 4 args matches the retail wrapper's error branch.
 int GM_CDECL gmf_playSound(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 3 && (count < 5 || count > 8)) return GM_EXCEPTION;
@@ -1176,18 +1093,10 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
         }
     }
 
-    // FUN_000236bc records the requested path and queues the ordinary event
-    // before checking Audio's enabled byte, so disabled playback still
-    // contributes to a script recording. The seven/eight-argument overload
-    // uses the separate chain-route callback class captured by FUN_0001cdd0.
     if (State().recordingScript) {
         State().recordedSoundResources.insert(path);
         const bool chainCallback = count >= 7 &&
             IsLocalEffectChain(*a_thread->GetMachine(), a_thread->Param(6));
-        // FUN_0001cdd0 records the 7/8 argument event only when its final
-        // handle is a high-bit SOUNDEFFECTCHAIN. The desktop object model uses
-        // a chain table instead of that native handle; arbitrary/null seventh
-        // arguments therefore must not create a replay callback.
         if (count < 7 || chainCallback) {
             RecordedPlaySoundEvent event;
             event.timeMs = RecordedAudioElapsedMs();
@@ -1217,8 +1126,6 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
         }
     }
 
-    // FUN_000236bc checks manager +0x2c3c before completing voice creation.
-    // Its disabled result is DAT_00432dac, a zero-initialized BSS word.
     if (!State().enabled) {
         a_thread->PushInt(0);
         return GM_OK;
@@ -1239,21 +1146,12 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
                 requestedTable->Get(machine, "__freed").m_type == GM_NULL)
                 chain = requested;
         }
-        // FUN_000236bc resolves an omitted/zero chain handle through manager
-        // +0x30f8, which the retail manager initializes to its master group.
-        // Keep that selected group on the live voice, just as the explicit
-        // chain route is retained until voice removal. The software mixer
-        // still does not execute the chain's DSP graph.
         AttachEffectChainToVoice(*machine, id, voice, chain);
     }
     a_thread->PushInt(id);
     return GM_OK;
 }
 
-// The retail Audio manager advances the recorder scheduler once per manager
-// update with DAT_00017de8 (16.666000366 ms), then dispatches every callback
-// whose timestamp is at or before that accumulated time. Keep that timer
-// separate from the simulation delta passed to the voice mixer.
 void DispatchRecordedPlaySounds() {
     AudioState& state = State();
     if (!state.playingScript) return;
@@ -1299,12 +1197,6 @@ void DispatchRecordedPlaySounds() {
     }
 }
 
-// Audio.spawnSoundSlicker @ EBOOT 0x84dc8. PPC verifies five arguments:
-// (sample, gate ms, note offset, time factor, start position ms), performs
-// the path/resource lookup, then creates and registers a voice via
-// FUN_00024928. The SDL backend cannot reproduce the retail Dirac/FMOD
-// Slicker DSP object, but it can preserve the voice, pitch, gate, and cursor
-// behavior used by EntityBasePS3.gm.
 int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
     if (a_thread->GetNumParams() != 5) return GM_EXCEPTION;
     GM_STRING_PARAM(path, 0, "");
@@ -1327,20 +1219,11 @@ int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
     const float pitchExponent = noteOffset *
         GroundRenderMath::FloatFromBits(0x3daaaaabu);
     const float pitchRatio = GroundRenderMath::RetailGroundPow(2.0f, pitchExponent);
-    // Retail FUN_00024928 does not route this voice through
-    // FUN_000236bc/FUN_0001b050, the path that applies manager +0x30f0.
-    // FUN_00027878 applies its own note-offset pitch ratio instead.
     const int id = CreateVoiceState(path, 0.0f, 0.0f, 96, false);
     if (id != 0) {
         VoiceState& voice = State().voices[id];
         voice.ownsDiracPoolEntry = true;
         ++State().diracPoolEntriesUsed;
-        // FUN_00024928 builds a distinct Slicker/Dirac playback object from
-        // the time-factor argument (EBOOT 0x84dc8 -> 0x24928 -> 0x27878).
-        // Retail's object performs time stretching, while the note-offset
-        // argument controls pitch. Multiplying both into the desktop resample
-        // rate conflated those independent controls and made notes go sharp or
-        // flat whenever the sequencer BPM differed from the source BPM.
         voice.timeStretchFactor = timeFactor;
         voice.timeStretchedSample = BuildTimeStretchedSample(
             path, voice.sample, timeFactor);
@@ -1348,19 +1231,6 @@ int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
         voice.speed *= pitchRatio;
         voice.targetSpeed = voice.speed;
         voice.gateDurationMs = gateMs;
-        // The PS3 script deliberately supplies `position + milliPerStep`.
-        // For one-shots it first sets position to `soundLength - milliPerStep`,
-        // so the actual Slicker cursor is exactly soundLength at the target
-        // sequencer step. Retail's Slicker path treats this as a wrapped sample
-        // cursor. The local mixer previously treated it as an absolute EOF and
-        // skipped every frame, which silenced checkpoint beeps and other
-        // one-shots that start on this boundary.
-        // Retail FUN_00027878 queries the resource's integer length in
-        // milliseconds, then uses divwu/mullw/subc on the raw 32-bit cursor.
-        // Use the same length contract as Audio.getSoundLength; a duration
-        // reconstructed from 48 kHz resampled frames can differ for source
-        // rates such as 44.1 kHz, and signed fmod does not match divwu for a
-        // negative script cursor.
         const int sampleLengthMs = SoundLengthMs(path);
         uint32_t wrappedStartMs = static_cast<uint32_t>(startPositionMs);
         if (sampleLengthMs > 0) {
@@ -1375,11 +1245,6 @@ int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Audio.playSoundSlicker @ EBOOT 0x85008. FUN_000244b8 looks up the existing
-// voice, then applies arg 3 as volume, arg 2 as pan, and arg 1 as gate via
-// the same helpers used by the direct Audio setters. It does not create a
-// voice. The local voice has no Dirac DSP chain, so only those traced voice
-// parameters are applied here.
 int GM_CDECL gmf_playSoundSlicker(gmThread* a_thread) {
     if (a_thread->GetNumParams() != 4) return GM_EXCEPTION;
     const int voiceId = a_thread->Param(0).m_value.m_int;
@@ -1405,10 +1270,6 @@ int GM_CDECL gmf_playSoundSlicker(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Audio.playStream @ EBOOT 0x85940. The accepted overloads converge on
-// FUN_0001b398, which loads a resource, registers a voice, applies its
-// playback parameters, and returns that voice handle. Native FMOD/Dirac
-// resource ownership and the six-argument mode field remain partial.
 int GM_CDECL gmf_playStream(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 3 && count != 6) return GM_EXCEPTION;
@@ -1420,11 +1281,9 @@ int GM_CDECL gmf_playStream(gmThread* a_thread) {
     int referenceNote = 48;
 
     if (count == 1) {
-        // FUN_0001b618 supplies gate=0, pan=0, volume=1 and note=96.
         GM_STRING_PARAM(resource, 0, "");
         path = resource;
     } else if (count == 3) {
-        // FUN_0001b660 takes pan, volume, resource in that order.
         pan = a_thread->ParamFloatOrInt(0, 0.0f);
         volume = a_thread->ParamFloatOrInt(1, 1.0f);
         GM_STRING_PARAM(resource, 2, "");
@@ -1447,11 +1306,6 @@ int GM_CDECL gmf_playStream(gmThread* a_thread) {
         path = resource;
     }
 
-    // FUN_0001b398 returns the native voice handle on success and zero when
-    // sample resolution or registration fails. Retail passes the first value
-    // through FUN_0002679c (+0x0c in its temporary record); FUN_00025fb0 copies
-    // it to voice +0x44, which FUN_0001ad48 uses as the pitch reference.
-    // Native middleware resource ownership and DSP routing remain open.
     if (!State().enabled) {
         a_thread->PushInt(0);
         return GM_OK;
@@ -1473,9 +1327,6 @@ int GM_CDECL gmf_loadSoundSlicker(gmThread* a_thread) {
 // --- voice control -------------------------------------------------------
 
 void StartVoiceFade(VoiceState& a_voice, double a_durationMs) {
-    // Retail FUN_0001d59c stores the double argument into a binary32 field.
-    // Keep that rounding here so integer inputs and large durations reach the
-    // manager update with the same stored value.
     const float retailDurationMs = static_cast<float>(a_durationMs);
     a_voice.stopping = true;
     a_voice.fadeDurationMs = static_cast<double>(retailDurationMs);
@@ -1484,9 +1335,6 @@ void StartVoiceFade(VoiceState& a_voice, double a_durationMs) {
     a_voice.stopRemainingMs = 0.0;
 }
 
-// Audio.stopVoice(voice, [timeMs]) -- 0x00086b20 accepts 1-2 args.
-// Retail FUN_0001d6f0 schedules a timed stop for a positive value. For
-// zero/negative values it calls FUN_0001d59c with a literal 60 ms fade.
 int GM_CDECL gmf_stopVoice(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 1 && count != 2) return GM_EXCEPTION;
@@ -1514,22 +1362,13 @@ int GM_CDECL gmf_stopVoice(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// Bytecode verified against Audio.stopAllVoices 0x86c20 -> FUN_0001dd08:
-// snapshot each active voice ID, then invoke FUN_0001d6f0 with duration 0.
-// That helper maps nonpositive durations to FUN_0001d59c with DAT_0001d6e8
-// (60 ms), so voices fade out and remain valid until their fade completes.
 int GM_CDECL gmf_stopAllVoices(gmThread* a_thread) {
     (void)a_thread;
     StopAllVoicesForProcessListReset();
     return GM_OK;
 }
-// Audio.fadeOutVoice(voice, fadeMs) forwards the duration to FUN_0001d59c
-// (retail wrapper 0x00086994). Keep the voice live while its gain falls.
 int GM_CDECL gmf_fadeOutVoice(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    // The retail wrapper forwards voice-ID payload bits directly. Duration
-    // dispatches only on GM_FLOAT; every other tag is read as signed GM_INT,
-    // widened to double, then FUN_0001d59c stores it as binary32.
     const int voice = a_thread->Param(0).m_value.m_int;
     const gmVariable& durationArg = a_thread->Param(1);
     const double fadeMs = durationArg.IsFloat()
@@ -1539,7 +1378,6 @@ int GM_CDECL gmf_fadeOutVoice(gmThread* a_thread) {
         StartVoiceFade(*v, fadeMs);
     return GM_OK;
 }
-// Audio.isVoiceValid(voice) -- confirmed real, 0x00085bc4.
 int GM_CDECL gmf_isVoiceValid(gmThread* a_thread) {
     // Retail forwards the supplied GM payload raw to the manager's voice map.
     const int voice = a_thread->Param(0).m_value.m_int;
@@ -1563,9 +1401,6 @@ int GM_CDECL gmf_setVoicePause(gmThread* a_thread) {
     if (VoiceState* v = FindVoice(voice)) v->paused = pause;
     return GM_OK;
 }
-// Audio.setVoiceVolume(voice, volume) -- retail wrapper 0x00086124 calls
-// FUN_0001b050, which suppresses the gain mutation while the voice gate is
-// expired. The timer is reset by the retail update after gate expiry.
 int GM_CDECL gmf_setVoiceVolume(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(voice, 0, 0);
@@ -1587,24 +1422,15 @@ int GM_CDECL gmf_getVoiceVolume(gmThread* a_thread) {
         ? RetailFctiwzToInt(voiceArg.GetFloat())
         : voiceArg.m_value.m_int;
     VoiceState* v = FindVoice(voiceId);
-    // FUN_0001d330 reads backend raw gain (+0xac), divides by master*SFX,
-    // and returns zero when that query or scale is unavailable. FUN_00022c78
-    // writes the current fade envelope into that raw gain, so include the
-    // same envelope represented by the local voice state.
     if (!v || !CanQueryVoiceBackend(*v)) {
         a_thread->PushFloat(0.0f);
         return GM_OK;
     }
     const float voiceGainScale = RetailF32(
         State().masterVolume * State().sfxVolume);
-    // Keep the same three binary32 stages as FUN_00022af8:
-    // (SFX*master) * voiceVolume, then * fadeEnvelope. The backend getter
-    // returns this stored raw gain before the wrapper normalizes it.
     const float scaledVoiceGain = RetailF32(voiceGainScale * v->volume);
     const float backendBaseGain = RetailF32(scaledVoiceGain * v->fadeGain);
     const float normalizedGain = RetailF32(backendBaseGain / voiceGainScale);
-    // FUN_0001d330's paired fsel sequence chooses the quotient for positive
-    // and negative scales, and zero for zero or unordered (NaN) scales.
     const float nonpositiveScale = 0.0f - voiceGainScale;
     const float nonnegativeScale = voiceGainScale - 0.0f;
     const float firstSelect = RetailFsel(nonpositiveScale, 0.0f, normalizedGain);
@@ -1622,10 +1448,6 @@ int GM_CDECL gmf_setVoicePan(gmThread* a_thread) {
     if (VoiceState* v = FindVoice(voice)) v->pan = pan;
     return GM_OK;
 }
-// Audio.setVoicePitchBend(voice, targetNote, durationMs) -- wrapper
-// 0x00086354 forwards both values to FUN_0001d3d0. That helper targets
-// source base speed * pow(2, (targetNote - referenceNote) / 12), then interpolates
-// playback speed linearly over the supplied duration.
 int GM_CDECL gmf_setVoicePitchBend(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     // The wrapper passes the voice and target-note payloads through without
@@ -1640,8 +1462,6 @@ int GM_CDECL gmf_setVoicePitchBend(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// FUN_0001abf4 stores the new gate duration without resetting its elapsed
-// timer. The update at 0x00022e0c schedules a default stop when it expires.
 int GM_CDECL gmf_setVoiceGateTime(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     const int voice = a_thread->Param(0).m_value.m_int;
@@ -1653,9 +1473,6 @@ int GM_CDECL gmf_setVoiceGateTime(gmThread* a_thread) {
     if (VoiceState* v = FindVoice(voice)) v->gateDurationMs = gateMs;
     return GM_OK;
 }
-// FUN_0001ad48 sets the voice's pitch immediately. Note 96 is a special
-// request for the sample's base speed; other notes use the same semitone
-// ratio as pitch bend, relative to the voice's reference note.
 int GM_CDECL gmf_setVoiceNote(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     const int voice = a_thread->Param(0).m_value.m_int;
@@ -1670,9 +1487,6 @@ int GM_CDECL gmf_setVoiceNote(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// FUN_0001d8c8 uses zero duration for an immediate set and otherwise
-// interpolates toward sourceBaseSpeed * requested multiplier. The getter at
-// 0x00086620 returns the current multiplier (or zero for a missing voice).
 int GM_CDECL gmf_setVoiceSpeed(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count < 2) return GM_EXCEPTION;
@@ -1681,8 +1495,6 @@ int GM_CDECL gmf_setVoiceSpeed(gmThread* a_thread) {
     const float speed = speedArg.IsFloat()
         ? speedArg.GetFloat()
         : static_cast<float>(speedArg.m_value.m_int);
-    // Retail's wrapper uses DAT_00086548 (0.0f) unless argument 2 is a
-    // GM_FLOAT. Integer and other payload types are ignored for duration.
     float durationMs = 0.0f;
     if (count > 2) {
         const gmVariable& durationArg = a_thread->Param(2);
@@ -1700,12 +1512,6 @@ int GM_CDECL gmf_getVoiceSpeed(gmThread* a_thread) {
         ? v->speed / v->sourceBaseSpeed : 0.0f);
     return GM_OK;
 }
-// Audio.setVoicePosition(voice, msPosition)/getVoicePosition(voice) --
-// confirmed real, 0x000866d8/0x00086764: position is a playback cursor in
-// MILLISECONDS (arg1 read as a plain int, not a spatial coordinate --
-// confirmed both by the decompiled body and by every real call site, e.g.
-// Platformer's sequencer helpers: `Audio.setVoicePosition(vid,
-// step*msPerStep)`), not a stereo/3D position despite the name.
 int GM_CDECL gmf_setVoicePosition(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     // Retail wrapper 0x866d8 forwards the voice ID's raw payload. The
@@ -1752,8 +1558,6 @@ int GM_CDECL gmf_getFrequencyMultiplier(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_setFrequencyMultiplier(gmThread* a_thread) {
-    // RETAIL BYTECODE: float-tagged payload is read as float; all other tags
-    // are sign-extended from the 32-bit payload and converted to float.
     if (a_thread->GetNumParams() > 0) {
         const gmVariable& value = a_thread->Param(0);
         State().frequencyMultiplier = value.m_type == GM_FLOAT
@@ -1770,8 +1574,6 @@ int GM_CDECL gmf_hackSetEnabled(gmThread* a_thread) {
 }
 int GM_CDECL gmf_setVoiceLoop(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    // Retail forwards both raw gmVariable payloads to FUN_0001dbac; its
-    // boolean argument is payload != 0, regardless of the script type tag.
     const int voice = a_thread->Param(0).m_value.m_int;
     const bool loop = a_thread->Param(1).m_value.m_int != 0;
     if (VoiceState* v = FindVoice(voice)) v->looping = loop;
@@ -1779,24 +1581,11 @@ int GM_CDECL gmf_setVoiceLoop(gmThread* a_thread) {
 }
 int GM_CDECL gmf_setVoiceLoopCount(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    // Retail wrapper passes raw 32-bit payloads into FUN_0001d17c.
     const int voice = a_thread->Param(0).m_value.m_int;
     const int count = a_thread->Param(1).m_value.m_int;
     if (VoiceState* v = FindVoice(voice)) v->loopCount = count;
     return GM_OK;
 }
-// Audio.getAllVoices() -- confirmed real, 0x00086c70: pushes a value
-// type-tagged DAT_0043c3a8, the same ref-container type tag Sequencer.
-// getAllTriggers uses (TYPES.md's INTLISTREFCONTAINER family) -- walked
-// with isValid()/get()/goToNext(), NOT foreach/tableCount. Confirmed live:
-// PauseProcess.gm's pause-menu constructor (`for(it=Audio.getAllVoices();
-// it.isValid();it.goToNext()){local vid=it.get();
-// if(!Audio.isVoicePaused(vid)){this.voiceList.pushBack(vid);
-// Audio.setVoicePause(vid,true);}}`) pauses every active voice when the
-// game pauses and restores them on unpause -- a plain indexed table (this
-// engine's previous return value, no isValid/get/goToNext at all) null-
-// called on the very first isValid() check, so pausing the game silently
-// paused NO voices and the restore list on unpause stayed empty.
 int GM_CDECL gmf_getAllVoices(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmTableObject* list = m.AllocTableObject();
@@ -1845,8 +1634,6 @@ int GM_CDECL gmf_getAllVoices(gmThread* a_thread) {
 
 // --- global volume -------------------------------------------------------
 
-// Audio.setMasterVolume/getMasterVolume -- confirmed real, 0x00085c88/
-// 0x00085d18.
 int GM_CDECL gmf_setMasterVolume(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(vol, 0, 1.0f);
@@ -1861,7 +1648,6 @@ int GM_CDECL gmf_setMusicVolume(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_getMusicVolume(gmThread* a_thread) {
-    // FUN_0001b7ac returns musicVolume * masterVolume with fmuls.
     a_thread->PushFloat(State().musicVolume * State().masterVolume);
     return GM_OK;
 }
@@ -1872,45 +1658,26 @@ int GM_CDECL gmf_setSFXVolume(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_getSFXVolume(gmThread* a_thread) {
-    // FUN_0001b03c returns sfxVolume * masterVolume with fmuls.
     a_thread->PushFloat(State().sfxVolume * State().masterVolume);
     return GM_OK;
 }
 
-// --- effect chains / effects: real objects, not stubs ---------------------
-// Confirmed real: createEffectChain/getMasterEffectChain both push a return
-// on the success path), not a plain int. Confirmed by real usage too --
-// EntityBasePS3.gm/EntityBaseNGP.gm (`t.loopTimeStretchChain.addEffect(
-// SOUNDEFFECTTYPE_TIMESTRETCH)`) and Main.gm (`Audio.getMasterEffectChain().
-// freeAllChildEffects();`, `this.globalEffectsChain.addEffect(
-// SOUNDEFFECTTYPE_LOWPASS,FILTER_CUTOFF,300,FILTER_RES,3.3)`) all call
-// .addEffect()/.freeAllChildEffects()/.freeAllChildEffectChains() on the
-// object createEffectChain()/getMasterEffectChain() returned, and
-// .setParam()/.setBypass() on the object addEffect() returned -- method-call
-// syntax a plain int (this engine's previous return value) cannot support,
-// silently null-calling and dropping every real effect-chain/timestretch
-// setup in the corpus. No real DSP backend exists (see file header), so
-// these are genuine GM table objects carrying effect type, parameter, and
-// ownership state, but are not wired to actual DSP processing.
 bool RetailEffectTypeHasParameters(int a_type) {
     return (a_type >= 3 && a_type <= 12) || (a_type >= 15 && a_type <= 20) ||
            a_type == 0x10000;
 }
 gmVariable RetailEffectParameterValue(const gmVariable& a_value, int a_type, int a_paramId) {
-    // FUN_0031a774 interprets GM_INT as signed integer and every other tag as
-    // a float payload. The type-specific adapters then apply these exact
-    // float-rounded unit conversions before calling the DSP setter.
     double value = a_value.m_type == GM_INT
         ? (double)a_value.m_value.m_int : (double)a_value.m_value.m_float;
     bool scaled = false;
     if (a_type == 15 && (a_paramId == 0 || a_paramId == 1)) {
-        value = (double)(float)(value * 100.0); // DAT_0001e9c0 = 0x42c80000
+        value = (double)(float)(value * 100.0);
         scaled = true;
     } else if (a_type == 17 && (a_paramId == 4 || a_paramId == 7 || a_paramId == 9)) {
-        value = (double)(float)(value * 1000.0); // DAT_0001f200 = 0x447a0000
+        value = (double)(float)(value * 1000.0);
         scaled = true;
     } else if (a_type == 17 && (a_paramId == 10 || a_paramId == 11)) {
-        value = (double)(float)(value * 100.0); // DAT_0001f204 = 0x42c80000
+        value = (double)(float)(value * 100.0);
         scaled = true;
     }
     if (a_value.m_type == GM_INT && !scaled)
@@ -1975,18 +1742,10 @@ gmVariable MakeEffectTable(gmMachine& a_machine, int a_effectType) {
         })));
     return gmVariable(t);
 }
-// Confirmed real: 1+ args (effectType, [paramId, value]*) -- 0 args is a
-// "Needs at least EFFECT_TYPE" and returns null). The (paramId, value)
-// pairs starting at arg index 1 are applied immediately, matching every
-// real call site (Main.gm's `addEffect(SOUNDEFFECTTYPE_LOWPASS,
-// FILTER_CUTOFF,300,FILTER_RES,3.3)`).
 int GM_CDECL gmf_chain_addEffect(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
     int n = a_thread->GetNumParams();
     if (n < 1) { a_thread->PushNull(); return GM_OK; }
-    // FUN_00024c18 scans the receiver chain's eight +0x4c effect slots and
-    // returns null when all are occupied. Model those slots on the script
-    // table so add/free/freeAll have the same observable capacity and reuse.
     int freeSlot = -1;
     char slotKey[24];
     gmMachine* machine = a_thread->GetMachine();
@@ -2031,10 +1790,6 @@ void ReleaseEffectChainTable(gmMachine* a_machine, gmTableObject* a_chain) {
     a_chain->Set(a_machine, "__freed", gmVariable((gmint)1));
     const gmVariable nativeHandle = a_chain->Get(a_machine, "__nativeHandle");
     char key[24];
-    // FUN_0001a178 recursively releases all sixteen child chains before
-    // touching this chain's effects or backend group. Keep the local pool
-    // handle live until that same point; recycling it early could make a
-    // child-release callback observe a handle that retail still owns here.
     for (int i = 0; i < 16; ++i) {
         snprintf(key, sizeof(key), "__childChainSlot%d", i);
         gmVariable value = a_chain->Get(a_machine, key);
@@ -2060,9 +1815,6 @@ void ReleaseEffectChainTable(gmMachine* a_machine, gmTableObject* a_chain) {
     a_chain->Set(a_machine, "__parentChain", gmVariable::s_null);
     ReleaseEffectSlots(a_machine, a_chain);
 
-    // The native backend group release (FUN_00208118) migrates voices to the
-    // manager master group after child groups and effects have been released.
-    // Mirror that ordering in the local membership model.
     std::vector<int> attachedVoiceIds;
     if (const auto members = g_effectChainVoiceIds.find(a_chain);
         members != g_effectChainVoiceIds.end()) {
@@ -2104,15 +1856,10 @@ void ProcessDeferredEffectCleanup(gmMachine* a_machine,
             else ReleaseEffectHandleTable(a_machine, object);
         }
         ReleaseAudioGMVariable(*a_machine, cleanup.object);
-        // Retail FUN_00022c78 erases completed records by replacing each with
-        // the vector's last pair, then shrinking the end pointer.
         a_pending[i] = a_pending.back();
         a_pending.pop_back();
     }
 }
-// Confirmed real 0-arg method; EBOOT helper 0x1e2a4 releases all eight
-// receiver-owned effect slots. The table model also marks retained handles
-// freed and makes their slots available for reuse.
 int GM_CDECL gmf_chain_freeAllChildEffects(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
     ReleaseEffectSlots(a_thread->GetMachine(), self);
@@ -2136,9 +1883,6 @@ int GM_CDECL gmf_chain_freeAllChildEffectChains(gmThread* a_thread) {
     }
     return GM_OK;
 }
-// Confirmed real one-argument method. Retail helper 0x19a10 reparents the
-// child chain and links it in a 16-slot list; local tables mirror that
-// ownership while the unavailable backend channel-group routing stays open.
 int GM_CDECL gmf_chain_addEffectChain(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable(); if (!self) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
@@ -2148,7 +1892,6 @@ int GM_CDECL gmf_chain_addEffectChain(gmThread* a_thread) {
     gmTableObject* child = (gmTableObject*)machine->GetObject(value.m_value.m_ref);
     if (!child || child == self || child->Get(machine, "__freed").m_type != GM_NULL)
         return GM_OK;
-    // FUN_00019a10 moves a child from its prior parent before linking it here.
     gmVariable oldParent = child->Get(machine, "__parentChain");
     if (oldParent.m_type == GM_TABLE) {
         gmTableObject* previous = (gmTableObject*)machine->GetObject(oldParent.m_value.m_ref);
@@ -2200,13 +1943,6 @@ int GM_CDECL gmf_freeSoundEffect(gmThread* a_thread) {
     ReleaseEffectHandleTable(machine, effect);
     return GM_OK;
 }
-// DESKTOP APPROXIMATION: retail FUN_0001e508/FUN_0001e63c gate callback-object
-// scheduling on manager mode, large voice IDs, high-bit native handles, and a
-// reentrancy counter, then append records to manager vectors at +0x2c44/+0x2c54.
-// Retail FUN_00022c78 scans each vector after voice updates and releases its
-// object only when the referenced voice ID has left the live-voice map. Locally,
-// mirror that manager-level deferred lifetime with rooted GM tables; the native
-// callback scheduling gates/objects and handle representation remain absent.
 int DeferEffectReleaseUntilVoiceEnd(gmThread* a_thread, bool a_chain) {
     if (a_thread->GetNumParams() < 2) return GM_EXCEPTION;
     gmMachine* machine = a_thread->GetMachine();
@@ -2263,8 +1999,6 @@ gmVariable GetOrCreateMasterEffectChain(gmMachine& a_machine) {
 }
 int GM_CDECL gmf_createEffectChain(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
-    // RETAIL BYTECODE: only one and two argument branches call chain factory
-    // helpers. Zero args and 3+ args push GM_NULL.
     if (count < 1 || count > 2) {
         a_thread->PushNull();
         return GM_OK;
@@ -2283,10 +2017,6 @@ int GM_CDECL gmf_createEffectChain(gmThread* a_thread) {
         return GM_OK;
     }
     gmMachine* machine = a_thread->GetMachine();
-    // FUN_0001deec passes a null parent to FUN_00019d90 for the one-argument
-    // overload. The factory resolves that null to manager +0x30f8 (the master
-    // channel group) before attaching the new group. Mirror the same hierarchy
-    // for the local chain table; the master's own parent remains unset.
     gmVariable parentChain = source
         ? *source : GetOrCreateMasterEffectChain(*machine);
     if (parentChain.m_type != GM_TABLE) {
@@ -2316,9 +2046,6 @@ int GM_CDECL gmf_createEffectChain(gmThread* a_thread) {
     a_thread->Push(chain);
     return GM_OK;
 }
-// Confirmed real: 0 args, returns the same kind of object createEffectChain
-// does (same DAT_0043c3e0 type tag) -- a single persistent master chain,
-// not a fresh one per call.
 int GM_CDECL gmf_getMasterEffectChain(gmThread* a_thread) {
     a_thread->Push(GetOrCreateMasterEffectChain(*a_thread->GetMachine()));
     return GM_OK;
@@ -2339,8 +2066,6 @@ int GM_CDECL gmf_startPlayingScript(gmThread* a_thread) {
     (void)a_thread;
     State().playbackEventIndex = 0;
     State().playbackElapsedMs = 0.0f;
-    // FUN_00017c9c resets the retail reserved voice-ID sentinels; it does not
-    // stop voices that were active before playback starts.
     State().scriptPlaybackVoiceIds.clear();
     State().playingScript = true;
     return GM_OK;
@@ -2348,9 +2073,6 @@ int GM_CDECL gmf_startPlayingScript(gmThread* a_thread) {
 int GM_CDECL gmf_stopPlayingScript(gmThread* a_thread) {
     (void)a_thread;
     State().playingScript = false;
-    // FUN_00017d20 stops recorder-owned voice IDs and releases its temporary
-    // "special" group. The local model has no native group, so remove the
-    // voices tracked as playback-owned.
     StopRecordedPlaybackVoices();
     return GM_OK;
 }
@@ -2368,8 +2090,6 @@ int GM_CDECL gmf_startRecordingScript(gmThread* a_thread) {
 }
 int GM_CDECL gmf_stopRecordingScript(gmThread* a_thread) {
     (void)a_thread;
-    // FUN_00017c20 clears mode +0x30 and snapshots the resettable timer into
-    // +0x2c unconditionally, including repeated stop calls.
     State().recordingStopMs = RecordedAudioElapsedMs();
     State().recordingScript = false;
     return GM_OK;
@@ -2419,8 +2139,6 @@ bool BuildRecordedAudioV4(std::string& a_outText) {
              << event.startPositionMs << '\n';
     }
 
-    // FUN_00017fd0 tokenizes each nonnumeric line. Shared callback signatures
-    // become #indices; resource names use the per-file $ registry.
     std::string tokenized;
     const std::string raw = body.str();
     size_t cursor = 0;
@@ -2656,9 +2374,6 @@ int GM_CDECL gmf_loadScriptFromFile(gmThread* a_thread) {
     State().recordedSoundResources.clear();
     State().playbackEventIndex = 0;
     State().playbackElapsedMs = 0.0f;
-    // FUN_00017810 flushes the event vectors and resets the stop threshold,
-    // but does not clear playback mode byte +0x31. Preserve that mode on both
-    // successful loads and wrapper-triggered failure flushes.
     State().recordingStopMs = 0.0f;
     if (ok) {
         for (auto& event : events) {
@@ -2712,14 +2427,10 @@ int GM_CDECL gmf_saveScriptToFile(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_zeroInt(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
-// Audio manager constructor 0x00022528 stores 48 at +0x24; the retail
-// getDefaultBaseNote wrapper 0x00084d28 returns that exact field.
 int GM_CDECL gmf_getDefaultBaseNote(gmThread* a_thread) {
     a_thread->PushInt(48);
     return GM_OK;
 }
-// Audio.checkDiracPoolIntegrity() returns (DAT_004333d0 == 0) in retail.
-// The SDL-backed Slicker voices own the corresponding local lifetime count.
 int GM_CDECL gmf_checkDiracPoolIntegrity(gmThread* a_thread) {
     a_thread->PushInt(State().diracPoolEntriesUsed == 0 ? 1 : 0);
     return GM_OK;
@@ -2757,7 +2468,6 @@ gmFunctionEntry s_audioLib[] = {
     {"getVoiceSpeed", gmf_getVoiceSpeed, nullptr},
     {"setVoicePosition", gmf_setVoicePosition, nullptr},
     {"getVoicePosition", gmf_getVoicePosition, nullptr},
-    // Retail wrappers 0x0008681c/0x000868d4 return integer milliseconds.
     {"getVoiceLength", gmf_getVoiceLength, nullptr},
     {"getSoundLength", gmf_getSoundLength, nullptr},
     {"setVoiceLoop", gmf_setVoiceLoop, nullptr},
@@ -2771,14 +2481,6 @@ gmFunctionEntry s_audioLib[] = {
     {"setSFXVolume", gmf_setSFXVolume, nullptr},
     {"getSFXVolume", gmf_getSFXVolume, nullptr},
 
-    // Confirmed real: createEffectChain/getMasterEffectChain are genuinely
-    // flat Audio.* calls (this = the Audio singleton, standard pattern).
-    // addEffect/addEffectChain/addVoice/freeAllChildEffect(Chains)/setParam/
-    // setBypass all read "this" from a distinct +0x74 offset instead (see
-    // MakeEffectChainTable/MakeEffectTable above) -- they're real methods on
-    // the chain/effect objects those two return, not flat Audio.* calls, so
-    // they're deliberately NOT registered here (a flat `Audio.addEffect(...)`
-    // has zero real call sites -- confirmed by grep).
     {"createEffectChain", gmf_createEffectChain, nullptr},
     {"getMasterEffectChain", gmf_getMasterEffectChain, nullptr},
     {"freeEffectChain", gmf_freeEffectChain, nullptr},
@@ -2808,7 +2510,6 @@ gmFunctionEntry s_audioLib[] = {
     {"startRetriggering", gmf_noop, nullptr},
     {"stopRetriggering", gmf_noop, nullptr},
     {"isRetriggering", gmf_falseBool, nullptr},
-    // Audio.c 0x00086ee4).
     {"getRetriggerTime", gmf_zeroInt, nullptr},
     {"setRetriggerTime", gmf_noop, nullptr},
 
@@ -2827,10 +2528,6 @@ gmFunctionEntry s_audioLib[] = {
 } // namespace
 
 void CleanupAudioManagerTrackedResources() {
-    // Retail FUN_00022604 empties AudioManager's named-resource list and
-    // releases its manager-owned backend handles. Voice objects can still
-    // retain their resource independently, so leave State().voices intact;
-    // shared sample references provide that same lifetime split here.
     State().loadedSounds.clear();
     State().soundLengthMs.clear();
     g_loadedSoundSamples.clear();
@@ -2866,12 +2563,6 @@ void AdvanceAudioVoices(float a_deltaMs) {
     auto& voices = State().voices;
     for (auto it = voices.begin(); it != voices.end();) {
         VoiceState& voice = it->second;
-        // Retail FUN_00022c78 advances its manager-owned stop/fade envelope
-        // independently of the backend channel's pause bit. In particular,
-        // Audio.stopAllVoices() during a process-list reset must still retire
-        // voices that the pause menu had paused. Keep playback position and
-        // ordinary note-gate timing frozen while paused, but let an explicit
-        // timed stop/fade finish below.
         if (voice.paused && !voice.stopping) {
             ++it;
             continue;
@@ -2881,8 +2572,6 @@ void AdvanceAudioVoices(float a_deltaMs) {
             voice.gateElapsedMs += a_deltaMs;
             if (voice.gateElapsedMs >= voice.gateDurationMs) {
                 StartVoiceFade(voice, 60.0);
-                // FUN_00022c78 hard-resets the embedded gate Alarm after
-                // scheduling its zero-duration stop (FUN_000c47e0).
                 voice.gateElapsedMs = 0.0;
                 // Retail skips the remainder of this voice update after the
                 // gate expires; the new fade starts at 1.0 on the next tick.
@@ -2906,10 +2595,6 @@ void AdvanceAudioVoices(float a_deltaMs) {
                     continue;
                 }
             } else if (voice.fadeDurationMs >= 0.0) {
-                // Retail FUN_00022c78 checks the f32 envelope at the start
-                // of its update. It stops/removes an already-zero voice;
-                // otherwise it subtracts (delta / duration) in double and
-                // stores the result back to the f32 envelope, clamping at 0.
                 if (voice.fadeGain <= 0.0f) {
                     if (State().machine)
                         DetachVoiceFromEffectChain(*State().machine, it->first, voice);

@@ -1,5 +1,5 @@
 #include "gmThread.h"
-#include "foe_compat_bindings.h"
+#include "script_compat_bindings.h"
 #include "gmTableObject.h"
 #include "gmCall.h"
 #include "../core/engine_context.h"
@@ -8,10 +8,6 @@
 #include <cmath>
 #include <vector>
 
-// Flowers of Error compatibility bindings for functions present in the PC
-// build but not directly in the Sound Shapes engine. Ghidra decompilation of
-// the FoE win32 executable (flowers-of-error_win32_may18_08.exe) combined
-// with porting of the Sound Shapes engine's existing equivalent implementations.
 
 namespace {
 float Random01() {
@@ -19,9 +15,6 @@ float Random01() {
 }
 } // namespace
 
-// RANDOM_GetRandomReal(void) or RANDOM_GetRandomReal(float lo, float hi)
-// Decompiled from FoE @ 0x00401910 (via Ghidra on flowers of error.exe)
-// Sound Shapes equivalent: GameSystem.getRandomReal() in gamesystem_bindings.cpp
 int GM_CDECL gmf_RANDOM_GetRandomReal(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     if (n >= 2) {
@@ -40,16 +33,6 @@ int GM_CDECL gmf_RANDOM_GetRandomReal(gmThread* a_thread) {
     return GM_OK;
 }
 
-// RANDOM_GetRandomInteger(lo, hi) -- confirmed real (Ghidra: retail
-// FUN_004414e0 @ 0x004414e0). Was completely unbound despite 12 corpus call
-// sites (Main.gm enemy-type/spawn-chance rolls, Thing.gm split-count/wall-
-// type rolls) -- every one of those silently null-called to null, which
-// then flowed into things like `PekkoAndJon_Thing_SpawnWall(null)` (array
-// index by null -- leniently treated as index 0, so every "random" wall
-// spawn was always the SAME type). Inclusive [lo,hi] range (both endpoints
-// reachable) -- confirmed by the real call sites' own shapes, e.g.
-// `RANDOM_GetRandomInteger(1,2)` (Thing.gm:526) is only meaningful as a
-// binary choice if BOTH 1 and 2 are reachable.
 int GM_CDECL gmf_RANDOM_GetRandomInteger(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(lo, 0, 0.0f);
@@ -60,75 +43,28 @@ int GM_CDECL gmf_RANDOM_GetRandomInteger(gmThread* a_thread) {
     a_thread->PushInt(ilo + (range > 0 ? (std::rand() % range) : 0));
     return GM_OK;
 }
-// RANDOM_GetRandomBoolean() -- confirmed real (Ghidra: retail FUN_004415f0
-// @ 0x004415f0), no corpus call sites yet but added alongside its two
-// RANDOM_ siblings for full parity (this file's whole point is 1:1
-// coverage of the RANDOM_ family, not just what's used today).
 int GM_CDECL gmf_RANDOM_GetRandomBoolean(gmThread* a_thread) {
     a_thread->PushInt((std::rand() % 2) ? 1 : 0);
     return GM_OK;
 }
 
-// REALPOINT type -- SUPERSEDED, see GitHub issue #9.
-//
-// This used to be a working (x,y)-constructing global, ported unmodified
-// from Flowers-of-Error's own, different binary (the decompiled address
-// below, 0x0042d1f0, is FoE's x86 executable, not Sound Shapes' PS3 one --
-// same class of carried-over mistake as the old SetDepthTest).
-//
-// REALPOINT_MakeRandomDir(), and getRef() all unconditionally
-// `return 0xffffffffffffffff` (the GM exception sentinel) with zero
-// argument-count branching -- unlike every other native constructor in the
-// corpus, which at least dispatches on arg count before failing. RealPoint
-// values genuinely exist at runtime (Vector2D's own constructor has a
-// branch that reads one by offset), they just can't be constructed or
-// queried directly from a script; retail keeps RealPoint an internal,
-// opaque C++ value passed between other natives. Zero real `RealPoint(`
-// call sites anywhere in game_data/, so this has no observable gameplay
-// impact -- fixed for correctness, not because anything was broken in
-// practice.
 int GM_CDECL gmf_REALPOINT(gmThread* a_thread) {
     (void)a_thread;
     return GM_EXCEPTION;
 }
 
-// getUniqueAlarmID() -- allocate and return a unique alarm ID
-// Decompiled from FoE @ 0x0043ced0 (via Ghidra on flowers of error.exe)
 static int g_alarmIDCounter = 0;
 int GM_CDECL gmf_getUniqueAlarmID(gmThread* a_thread) {
     a_thread->PushInt(g_alarmIDCounter++);
     return GM_OK;
 }
 
-// getUniqueLFOID() -- similar to getUniqueAlarmID
-// Not found in FoE decompilation (may be FoE-specific or unregistered)
 static int g_lfoIDCounter = 0;
 int GM_CDECL gmf_getUniqueLFOID(gmThread* a_thread) {
     a_thread->PushInt(g_lfoIDCounter++);
     return GM_OK;
 }
 
-// ---------------------------------------------------------------------
-// ALARM -- confirmed real native type (Ghidra: retail ALARM ctor @
-// 0x0042e830, registered right alongside setInterval/hardReset/reset/
-// isAlarming/etc in the same contiguous table as everything else in this
-// file, see reveng_pc/VMSHAPE_VIDEO_VERIFICATION.md). Was a total stub
-// before this pass (addAlarm/getAlarm both unconditionally returned null),
-// so EVERY alarm-driven mechanic in PekkoAndJon never fired at all:
-// Main.gm's SPAWNWALL_ALARMID (enemy spawning), TYPETEXT_ALARMID (the
-// score-text typewriter timing), and Thing.gm's JIGIT_ALARMID (per-enemy
-// wiggle timing) -- i.e. without this, enemies never spawn and the game is
-// unplayable past the title screen.
-//
-// Real usage pattern confirmed across every call site (Main.gm/Thing.gm):
-// `owner.addAlarm(id, intervalMs, repeat)` registers a timer against
-// `owner` (an Entity or Process handle); `owner.onAlarm=function(alarmId)
-// {...}` is a plain script method the SAME owner table defines; when the
-// timer elapses, retail calls `owner.onAlarm(alarmId)`. `owner.getAlarm(id)`
-// returns a live handle to that same timer's state so the callback can
-// retune it in place (`local0=owner.getAlarm(arg0); local0.setInterval(
-// ...); local0.hardReset();`, Main.gm:326/339-340).
-// ---------------------------------------------------------------------
 
 struct AlarmState {
     gmVariable owner;      // the table addAlarm was called on (Entity or Process handle)
@@ -163,9 +99,6 @@ AlarmState* ThisAlarm(gmThread* a_thread) {
     return FindAlarm(*a_thread->GetMachine(), h->owner, h->alarmId);
 }
 
-// setInterval(ms) -- confirmed real (Ghidra FUN_0042ea30 @ 0x0042ea30),
-// bare field store, does NOT reset elapsed (real callers always pair it
-// with an explicit hardReset() right after, e.g. Main.gm:339-340).
 int GM_CDECL gmf_alarm_setInterval(gmThread* a_thread) {
     AlarmState* a = ThisAlarm(a_thread); if (!a) return GM_OK; // leniency: stale/deleted alarm
     GM_CHECK_NUM_PARAMS(1);
@@ -173,10 +106,6 @@ int GM_CDECL gmf_alarm_setInterval(gmThread* a_thread) {
     a->intervalMs = ms;
     return GM_OK;
 }
-// hardReset() -- confirmed real (Ghidra FUN_0042eb90 @ 0x0042eb90): zeroes
-// elapsed time AND re-enables the alarm (so a one-shot alarm that already
-// fired can be restarted, matching real usage restarting the SAME alarm id
-// repeatedly rather than allocating a new one each time).
 int GM_CDECL gmf_alarm_hardReset(gmThread* a_thread) {
     AlarmState* a = ThisAlarm(a_thread); if (!a) return GM_OK;
     a->elapsedMs = 0.0f;
@@ -258,26 +187,6 @@ int GM_CDECL gmf_addAlarm(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(id, 0, 0);
     GM_FLOAT_OR_INT_PARAM(intervalMs, 1, 0.0f);
-    // Third arg is "start already elapsed", NOT "repeat" -- Ghidra-confirmed
-    // from retail's real alarm constructor (0x0044fe90, reached via
-    // Process.addAlarm @ 0x0043f100):
-    //     this->interval = interval;
-    //     this->elapsed  = startReady ? interval : 0;
-    //     this->enabled  = true;
-    // i.e. passing true makes the alarm fire on its very first tick. Alarms
-    // in this engine always repeat (the handler re-arms them via
-    // setInterval/hardReset, exactly as retail's scripts do), so nothing is
-    // lost by dropping the misread `repeat` meaning.
-    //
-    // This was why PekkoAndJon enemies never spawned. Main.gm:111 registers
-    // the spawn alarm as `addAlarm(SPAWNWALL_ALARMID, 9999999, 1)` -- that
-    // 9999999 ms (~2.8h) is a deliberate placeholder that is never meant to
-    // elapse: the `1` makes it fire immediately, and the onAlarm handler
-    // (Main.gm:362) then installs the real 3911-6981 ms interval and
-    // hardResets. Read as `repeat`, the alarm instead sat waiting out the
-    // full 2.8 hours, so onAlarm never ran and no wall of Things was ever
-    // spawned. (Confirmed the 9999999 literal is genuinely in the original
-    // PekkoAndJon/Main.gmc bytecode, not a decompiler artifact.)
     bool startReady = (a_thread->GetNumParams() >= 3) ? (a_thread->ParamInt(2, 0) != 0) : false;
     gmMachine& m = *a_thread->GetMachine();
     gmVariable owner = gmVariable(self);
@@ -372,20 +281,6 @@ void TickAlarms(gmMachine& a_machine, float a_deltaMs) {
     }
 }
 
-// ---------------------------------------------------------------------
-// SAWLFO/PULSELFO/TRIANGLELFO -- confirmed real (Ghidra: retail ctors @
-// 0x0042f130/0x0042f090/0x0042f1d0, all delegate into a shared base
-// constructor FUN_0042d350 -- same "distinct subclasses, shared base"
-// shape as ALARM). Real usage (Player.gm:23, bg.gm:20, Thing.gm:278-288)
-// only ever constructs one and immediately hands it to `owner.addLFO(id,
-// lfoObj)` -- no corpus script reads an LFO's live value (getValue()) or
-// retunes it (setRate/setRange/setPhase), so unlike ALARM this doesn't
-// need a real oscillator tick, just to not be null (a null addLFO return
-// silently no-ops on `this.testlfo1.someMethod()` later via the usual
-// leniency, but `this.testlfo1=...addLFO(...)` itself doesn't crash
-// either way) -- kept as lightweight real objects (not stubs) so any
-// FUTURE corpus script that DOES read one isn't silently wrong.
-// ---------------------------------------------------------------------
 gmType g_lfoType = -1;
 struct LFOData { float phase = 0.0f; float rate = 1.0f; float lo = 0.0f; float hi = 1.0f; int waveform = 0; };
 LFOData* ThisLFO(gmThread* a_thread) { return (LFOData*)a_thread->ThisUserCheckType(g_lfoType); }
@@ -435,13 +330,9 @@ gmVariable MakeLFO(gmMachine& a_machine, int a_waveform) {
 int GM_CDECL gmf_SAWLFO(gmThread* a_thread) { a_thread->Push(MakeLFO(*a_thread->GetMachine(), 0)); return GM_OK; }
 int GM_CDECL gmf_PULSELFO(gmThread* a_thread) { a_thread->Push(MakeLFO(*a_thread->GetMachine(), 1)); return GM_OK; }
 // No gmf_TRIANGLELFO here -- lfo_bindings.cpp registers the real global
-// "TRIANGLELFO" constructor now (see RegisterFoECompatBindings's own
+// "TRIANGLELFO" constructor now (see RegisterScriptCompatBindings's own
 // comment on why this file no longer competes with it).
 
-// addLFO(slotId, lfoObj) -- confirmed real (Player.gm:23:
-// `this.testlfo1=this.Entity.addLFO(0,TRIANGLELFO());`) -- returns the
-// SAME lfo object passed in (matches every real call site assigning the
-// return value directly, never a separate wrapper).
 int GM_CDECL gmf_addLFO(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     a_thread->Push(a_thread->Param(1));
@@ -449,57 +340,6 @@ int GM_CDECL gmf_addLFO(gmThread* a_thread) {
 }
 int GM_CDECL gmf_deleteLFO(gmThread* a_thread) { return GM_OK; }
 
-// ---------------------------------------------------------------------
-// GameBoard -- confirmed real global (Ghidra: getMinPos/getMaxPos/
-// getWidth/getRangeX/getRangeY/makeRandomPos etc all in the same
-// contiguous table, 0x00440960-0x00441230). Was entirely unbound before
-// this pass -- every one of these silently null-called, and Main.gm's own
-// mouse-to-world mapping (`GameBoard.getMinPos().x + Input.getMousePosX()
-// * GameBoard.getRangeX()`) reading null.x/null* is a hard "getdot
-// failed"/leniently-null-propagating chain, so click-and-drag (this
-// game's ENTIRE stated control scheme, see the title screen's own "click
-// and drag everything") never resolved a real world position at all.
-//
-// RETAIL MATCH -- these are the real values, read as literals out of the
-// GameBoard constructor (retail FUN_0040df90):
-//
-//     *param_1   = 0xc515f000;   // minX
-//     param_1[1] = 0xc4a76000;   // minY
-//     param_1[2] = 0x4515f000;   // maxX
-//     param_1[3] = 0x44a76000;   // maxY
-//
-// decoding as IEEE-754 float to exactly:
-//
-//     min = (-2399.0, -1339.0)      max = (+2399.0, +1339.0)
-//     width = 4798.0   height = 2678.0   aspect = 1.7916
-//
-// The GameBoard object itself is a plain 16-byte AABB of four floats
-// (minX, minY, maxX, maxY), reached as ((device + 0x2c)) -> +0xd4c, with
-// FUN_0040dfc0 copying out (minX, minY) and FUN_0040dfe0 copying out
-// (maxX, maxY). Retail also exposes it as an ortho view
-// (FUN_004215a0: gluOrtho2D(minX, maxX, minY, maxY)).
-//
-// This supersedes a guess of half-height 4000 with half-width derived as
-// 4000*16/9 = 7111, on the stated grounds that "retail's actual bounds
-// aren't Ghidra-recoverable -- every GameBoard accessor is an opaque vtable
-// call into a runtime singleton with no visible constant". They were
-// recoverable; the accessors are opaque but the CONSTRUCTOR is not. That
-// guess was ~3x too large on both axes, across the 47 real call sites
-// (getMinPos x22, getMaxPos x18, getWidth x2, getRangeX/Y x4,
-// makeRandomPos x1) that drive mouse-to-world mapping and enemy spawn
-// placement.
-//
-// Note the real board is NOT a 16:9 rectangle (1.7916, not 1.7778), so the
-// two axes are independent literals rather than one constant and a derived
-// aspect.
-//
-// Independent cross-check: the recovered perspective projection (fov
-// 53.13010 deg, so tan(fov/2) is exactly 0.5, i.e. visible world height
-// equals camera Z) predicts visible half-extents of (2389.3, 1344.0) at
-// PekkoAndJon/Main.gm's baseCameraZ = 2688. The constructor's literals are
-// (2399, 1339) -- agreement within 0.4% from two completely independent
-// sources, which corroborates both the projection port and these bounds.
-// ---------------------------------------------------------------------
 constexpr float kGameBoardMinX = -2399.0f;
 constexpr float kGameBoardMinY = -1339.0f;
 constexpr float kGameBoardMaxX = 2399.0f;
@@ -554,10 +394,6 @@ int GM_CDECL gmf_GameBoard_isInGameBoard(gmThread* a_thread) {
     a_thread->PushInt(inBoard ? 1 : 0);
     return GM_OK;
 }
-// setMinPos/setMaxPos -- confirmed real setters but no corpus call site;
-// this engine's GameBoard bounds are fixed constants (see above), so these
-// are honest no-ops rather than a half-implemented mutable-bounds system
-// nothing exercises.
 int GM_CDECL gmf_GameBoard_setBoundsNoop(gmThread* a_thread) { return GM_OK; }
 
 gmFunctionEntry s_gameBoardLib[] = {
@@ -621,7 +457,7 @@ int GM_CDECL gmf_drawTexture(gmThread* a_thread) {
     return GM_OK;
 }
 
-void RegisterFoECompatBindings(gmMachine& a_machine) {
+void RegisterScriptCompatBindings(gmMachine& a_machine) {
     // Global random functions
     a_machine.GetGlobals()->Set(&a_machine, "RANDOM_GetRandomReal",
         gmVariable(a_machine.AllocFunctionObject(gmf_RANDOM_GetRandomReal)));
@@ -633,17 +469,6 @@ void RegisterFoECompatBindings(gmMachine& a_machine) {
         gmVariable(a_machine.AllocFunctionObject(gmf_SAWLFO)));
     a_machine.GetGlobals()->Set(&a_machine, "PULSELFO",
         gmVariable(a_machine.AllocFunctionObject(gmf_PULSELFO)));
-    // TRIANGLELFO deliberately NOT registered here (see gmf_TRIANGLELFO's
-    // issue #2: lfo_bindings.cpp's RegisterLfoBindings (main.cpp, runs
-    // BEFORE this function) already registers a real "TRIANGLELFO" global
-    // backed by a full oscillator matching the confirmed decompiled
-    // setRandomPhase/setContour, all confirmed bodies) -- this file's own
-    // simpler stand-in was clobbering it here since RegisterFoECompatBindings
-    // runs last, making the real implementation permanently dead code.
-    // PulseLfo.c only have their CONSTRUCTOR recovered (no further methods),
-    // and lfo_bindings.cpp doesn't register global constructors for either
-    // -- this file's shared LFOData stand-in is the only implementation
-    // either one has.
 
     // REALPOINT type (2D point/vector)
     a_machine.GetGlobals()->Set(&a_machine, "REALPOINT",

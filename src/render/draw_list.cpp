@@ -64,11 +64,6 @@ DrawListSubmission CaptureDrawListSubmission(DrawListData* a_list,
 }
 
 void ReplayDrawListsInOrder(std::vector<DrawListSubmission>& a_lists) {
-    // Retail FUN_00046a34 is the comparator passed to the native
-    // FUN_0030d488 sort: unsigned(listA+0x30) < unsigned(listB+0x30).
-    // Verification: retail FUN_0030d488 uses stable insertion sort for runs
-    // under 33 records and a recursive stable merge for larger runs. Its
-    // comparator returns false for equal keys, so preserve traversal order.
     std::stable_sort(a_lists.begin(), a_lists.end(), [](const DrawListSubmission& a,
                                                          const DrawListSubmission& b) {
         if (!a.commandBuffer) return static_cast<bool>(b.commandBuffer);
@@ -127,11 +122,6 @@ int GM_CDECL gmf_reset(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Bytecode verified against VMDRAWLIST.releaseReference at EBOOT 0x7bd54.
-// It decrements the refcounted native command buffer at wrapper offset +0x14,
-// destroys/frees the buffer at zero, then clears that pointer. callDrawList
-// holds an independent reference to the same buffer, so a recorded nested
-// list remains replayable after its original wrapper releases ownership.
 int GM_CDECL gmf_releaseReference(gmThread* a_thread) {
     auto* data = static_cast<DrawListData*>(
         a_thread->ThisUserCheckType(g_drawListType));
@@ -140,39 +130,6 @@ int GM_CDECL gmf_releaseReference(gmThread* a_thread) {
     return GM_OK;
 }
 
-// drawList.drawStaticSurface() -- confirmed real (Platformer/Main.gm's
-// preDraw(): `drawList.drawStaticSurface();`, right after clearing the
-// screen and before drawing vibe backgrounds) but with no real
-// static-surface render-to-texture cache implemented (a genuine
-// performance optimization real levels use -- ground doesn't move, so
-// retail renders it once to an offscreen buffer and blits that each
-// frame instead of redrawing every ground piece every frame; out of
-// scope for this pass). This draws every live Box2D body/fixture
-// directly and immediately instead, every frame, no caching -- gives
-// real, physically-accurate level geometry on screen (matching real
-// level data: shapes/positions came from the actual parsed level XML)
-// using simple flat colours keyed off collision category, since no real
-// per-entity-type sprite/texture rendering exists yet either. Sensors are
-// skipped (nothing in the corpus draws a sensor's own shape visibly).
-// Colour categories match the retail bit values in constants_bindings.cpp:
-// PLAYER_COLLISION_CATEGORY (1<<2) and GROUND_COLLISION_CATEGORY (1<<0).
-// Everything else (checkpoints, drones, decorations, ...) gets a neutral
-// fallback colour.
-//
-// Camera: deliberately NOT overridden here -- the real script-side camera
-// (Video.setCameraPos, wired through in video_bindings.cpp, plus
-// drawList.setupWorldView()/setupOrthoView() toggling
-// Renderer::m_useCameraView) is left in full control, matching real
-// retail's own architecture (confirmed via Ghidra: Video.setCameraPos's
-// native body, FUN_00052908, is a raw unconditional store of the 3 args
-// into a VideoState struct -- no native recentre/fit-to-content logic
-// exists anywhere in retail to reproduce). If the script's own camera
-// setup leaves nothing visible (e.g. because Main.gm's
-// `//this.finalizeLoad();` call is commented out for this old-XML-format
-// level, so `this.player.mainpb.setPos(0,0);`'s placeholder position is
-// never corrected -- confirmed real, Main.gm:1501-1502), that's an
-// honest reflection of the real script's own current state, not
-// something this render layer should paper over.
 void DrawEntityMarkers(Renderer& a_renderer, const std::vector<int>& a_skipUids); // defined below
 
 // opaque full-screen background quad, which -- since this whole pass runs
@@ -313,28 +270,6 @@ void DrawEntityMarkers(Renderer& a_renderer, const std::vector<int>& a_skipUids)
     }
 }
 
-// Real retail drawStaticSurface() is a cached render-to-texture of the
-// level's static background (ground, vibe, base colour wash) with real
-// per-entity sprite/texture rendering -- this engine has no such caching
-// pipeline, and the flat bounding-box/diamond debug shapes drawn straight
-// from live Box2D fixtures (DrawPhysicsBodiesImmediate/DrawEntityMarkers
-// above) are an invented visual, not confirmed retail output, so they stay
-// opt-in only (GE3_PHYSICS_DEBUG_DRAW, platform/main.cpp) rather than
-// backing this call.
-//
-// DrawList.c @ 0x000801cc): it takes 0 arguments and does nothing but
-// append a single fixed opcode to the draw-command stream -- no colour,
-// texture, or geometry parameters of its own at all. Combined with Main.gm's
-// real call order (`COLOURSCHEME_SetColour("clear",drawList);` immediately
-// followed by `drawList.drawStaticSurface();`, with the `drawList.clear()`
-// call between them commented out) that confirms retail relies on
-// drawStaticSurface() ITSELF to paint using whatever colour was just set,
-// not a separate clear -- i.e. its one confirmed real effect is "fill the
-// visible area with the current draw colour". That's implemented for real
-// here (a full-screen quad in the renderer's current colour, sized/
-// positioned the same way the debug overlay's background quad already
-// was); the cached ground/vibe/sprite compositing on top of it is the
-// part with no real pipeline to port yet.
 int GM_CDECL gmf_drawStaticSurface(gmThread* a_thread) {
     return DC_RecordOrRun(a_thread, [] {
         Renderer* renderer = GetEngineContext().renderer;
@@ -351,23 +286,6 @@ int GM_CDECL gmf_drawStaticSurface(gmThread* a_thread) {
             cx + halfW, cy + halfH,
             cx - halfW, cy + halfH,
         };
-        // The base colour wash must not participate in depth. It is drawn
-        // first, and its job is "fill the visible area with the current
-        // colour" -- everything else in the frame belongs in front of it,
-        // whatever z that content carries.
-        //
-        // This quad has no z of its own, so it lands at z=0. Once depth
-        // testing was enabled (see ground_renderer.cpp / draw_context.h),
-        // that silently hid every piece of world content BEHIND z=0 --
-        // most visibly all tutorial text, which TutorialMessage.gm draws at
-        // PLAYER_MODE_NOTE_Z + ZINCER*3 = -19.91. The text was being
-        // recorded and drawn correctly the whole time (12307 print calls
-        // per run, at correct world positions and correct z); this quad was
-        // painting over it.
-        //
-        // Disabling both test and write, rather than picking some far z,
-        // avoids inventing a depth value retail does not have: the
-        // drawStaticSurface opcode (0x000801cc) takes no arguments at all.
         renderer->SetDepthTest(false);
         renderer->SetDepthWrite(false);
         renderer->DrawPolygon(GL_TRIANGLE_FAN, quad, 4);
@@ -376,27 +294,11 @@ int GM_CDECL gmf_drawStaticSurface(gmThread* a_thread) {
     });
 }
 
-// confirmed a genuine retail no-op: the decompiled body is exactly
-// `undefined8 setDebugID(void) { return 0; }`, discarding whatever it's
-// called with (real corpus call sites all pass a single label string, e.g.
-// `drawList.setDebugID("QUADSHADOWED")`, purely for whatever debug tooling
-// retail's dev builds had -- nothing here reads it back).
 int GM_CDECL gmf_setDebugID(gmThread* a_thread) {
     if (!a_thread->ThisUserCheckType(g_drawListType)) return GM_EXCEPTION;
     return GM_OK;
 }
 
-// callDrawList(other) -- bytecode verified at EBOOT 0x80788. Retail increments
-// the called DrawList's native command-buffer reference, then stores that
-// reference in the caller's opcode stream. The shared command buffer below
-// preserves that ownership after the source wrapper calls releaseReference.
-// Every real call site (QuadShadowed.gm:50's
-// `drawList.callDrawList(this.shadowDrawList)`, EntityMenu_*Cell.gm's
-// `parentDrawList.callDrawList(this.drawList)`, ...) agree unambiguously on
-// the contract: replay another drawList's recorded commands into this one.
-// Called through a real drawList receiver itself (never bare `Video.
-// callDrawList(...)` anywhere in the corpus), so it follows the same
-// record-vs-execute rule as everything else here.
 int GM_CDECL gmf_callDrawList(gmThread* a_thread) {
     gmUserObject* obj = a_thread->ParamUserObject(0);
     if (!obj || obj->m_userType != g_drawListType) return GM_OK; // tolerant-null, same convention as drawShape
@@ -416,10 +318,6 @@ int GM_CDECL gmf_callDrawList(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail 0x000809d8 accepts (shaderOrEntity, index, value) and
-// (entity, slot, index, value). Its last argument is converted to a float
-// and a four-byte parameter command is appended to this draw list. Apply
-// that command during replay, before the following drawShape commands.
 int GM_CDECL gmf_setVertexShaderParam(gmThread* a_thread) {
     const int argc = a_thread->GetNumParams();
     if (argc != 3 && argc != 4) return GM_EXCEPTION;
@@ -448,14 +346,8 @@ int GM_CDECL gmf_setVertexShaderParam(gmThread* a_thread) {
     });
 }
 
-// Bytecode verified: retail VMDRAWLIST.setAttrAlphaBlend at EBOOT 0x7e644
-// is `li r3,-1; blr`, so every call returns the native invalid-result value.
 int GM_CDECL gmf_setAttrAlphaBlend(gmThread*) { return -1; }
-// Bytecode verified: retail VMDRAWLIST.setStencil/setDefaultStencil at
-// EBOOT 0x804c8/0x80710 are each `li r3,-1; blr`.
 int GM_CDECL gmf_invalidStencilSetter(gmThread*) { return -1; }
-// Bytecode verified: retail VMDRAWLIST.nop appends {opcode=0,arg=0}; the
-// retail draw-list dispatcher skips opcodes 0 and 1 without side effects.
 int GM_CDECL gmf_nop(gmThread* a_thread) {
     DrawListData* data = RecordingTarget(a_thread);
     if (!data) return GM_EXCEPTION;
@@ -470,9 +362,6 @@ struct RetailSplitGlyph {
     float advance;
 };
 
-// `FUN_00044074` derives UTF-8 length from the leading byte, accepts legacy
-// five/six-byte forms, and does not validate continuation bytes. Bound reads
-// to the desktop string allocation while preserving its decoded value rules.
 uint32_t DecodeSplitGlyph(const std::string& a_text, size_t& a_offset) {
     const uint8_t lead = static_cast<uint8_t>(a_text[a_offset++]);
     const size_t length = lead < 0x80 ? 1 : lead < 0xe0 ? 2 : lead < 0xf0 ? 3 :
@@ -502,11 +391,6 @@ bool IsRetailSplitOpportunity(uint32_t a_cp) {
 
 struct RetailTextRange { size_t start; size_t length; };
 
-// Translates the line-boundary state in retail FUN_00040e90. Its output
-// ranges index UTF-8 bytes (not Unicode scalar values), as the caller uses
-// them in STRING.Mid(). Glyph advances are the retail font records' +8 value
-// multiplied by the supplied scale. The comparison deliberately retains the
-// retail strict '<' boundary and its empty range for an over-wide first glyph.
 std::vector<RetailTextRange> SplitTextLikeRetail(const BitmapFont* a_font,
                                                   const std::string& a_text,
                                                   float a_width, float a_scale) {
@@ -595,10 +479,6 @@ std::vector<RetailTextRange> SplitTextLikeRetail(const BitmapFont* a_font,
     return ranges;
 }
 
-// Retail bytecode: splitString@0x81e38 and splitStringMidWord@0x821e0 have
-// identical argument dispatch/return construction, including zero float
-// defaults. Both call FUN_00040e90; the helper's line state is translated
-// below from its PPC-derived Ghidra body, including its byte-offset quirks.
 int GM_CDECL gmf_splitStringRetail(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     const gmVariable& leftArg = count > 0 ? a_thread->Param(0) : gmVariable();
@@ -651,11 +531,6 @@ gmFunctionEntry s_drawListLib[] = {
     {"setFragmentShaderParam", gmf_setFragmentShaderParam, nullptr},
     {"hack_setFragmentShaderParam", gmf_hackSetFragmentShaderParam, nullptr},
     {"drawShapeWithTexture", DC_gmf_drawShapeWithTexture, nullptr},
-    // Same shared drawList/Video vocabulary as the rest of this table --
-    // confirmed real NAMES (see draw_context.cpp/shape_bindings.h for the
-    // EBOOT.elf method-table evidence), but no decompiled body reachable
-    // without live Ghidra cross-reference access -- routed through the
-    // strict-call trap rather than the previous corpus-inferred bodies.
     {"beginShape", gmf_Shape_beginShape, nullptr},
     {"plotVertex", gmf_Shape_plotVertexCurrent, nullptr},
     {"endShape", gmf_Shape_endShapeCurrent, nullptr},
@@ -666,7 +541,6 @@ gmFunctionEntry s_drawListLib[] = {
     {"popAttributes", DC_gmf_popAttributes, nullptr},
     {"setAttrDepthTest", DC_gmf_setAttrDepthTest, nullptr},
     {"setAttrDepthWrite", DC_gmf_setAttrDepthWrite, nullptr},
-    // Bytecode verified: retail PPC at EBOOT 0x7e644 is `li r3,-1; blr`.
     {"setAttrAlphaBlend", gmf_setAttrAlphaBlend, nullptr},
     {"setStencil", gmf_invalidStencilSetter, nullptr},
     {"setDefaultStencil", gmf_invalidStencilSetter, nullptr},
@@ -761,8 +635,6 @@ void GM_CDECL DrawListGCMark(gmMachine* a_machine, gmUserObject* a_object, gmuin
 } // namespace
 
 gmType RegisterDrawListType(gmMachine& a_machine) {
-    // Confirmed real retail type name (Ghidra, EBOOT.elf's native type
-    // here, an invented name; only affects typeName()/exception text.
     g_drawListType = a_machine.CreateUserType("VMDRAWLIST");
     a_machine.RegisterTypeLibrary(g_drawListType, s_drawListLib,
                                    sizeof(s_drawListLib) / sizeof(s_drawListLib[0]));

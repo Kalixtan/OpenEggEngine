@@ -17,15 +17,8 @@ struct PaletteData {
     float outlineR = 1.0f, outlineG = 1.0f, outlineB = 1.0f;
 };
 
-// Retail FUN_00421a40 rounds each upload dimension to a power of two.
-// Shared with Animation.getTextureExt, which may run before its first frame
-// has been uploaded to GL.
 int NextPowerOfTwo(int a_value);
 
-// Loose confirmed contract: Video.getTexture(path, area) returns a handle;
-// drawList.drawTextureByHandle(...) draws it. We use the raw GL texture id
-// as the "handle" value seen by GM scripts -- good enough until/unless we
-// need handles to survive texture-atlas repacking.
 struct Texture {
     GLuint id = 0;
     // Desktop source identity, used by renderer compatibility paths whose
@@ -52,25 +45,6 @@ struct Texture {
     float vMax = 1.0f;
 
     bool grayscale = false; // single-channel source (font atlas); see LoadFromFile
-    // ENGINE PATCH (2026-08-17): chroma-key "paint by numbers" template
-    // detection. Confirmed real, widespread asset convention across this
-    // corpus's decorative sprites (EntityPacks/DangerVine/petal_big-1.png,
-    // gameAssets/SwayTree/petal.png + sway_tree_idle.png, EntityPacks/
-    // MarshmallowTree/marshmellow_*_idle.png -- all indexed PNGs whose
-    // background is EXACTLY pure (0,255,0) at all 4 corners, contrasted
-    // against a genuinely photographic asset like levels/vic1_ver2.png
-    // whose corners are ordinary non-primary colours): these textures are
-    // masks, not literal art -- pure green marks "background/transparent",
-    // other flat regions mark shape areas meant to be tinted by whatever
-    // colour-scheme colour is active at draw time (COLOURSCHEME_SetColour),
-    // not the mask's own baked RGB. Drawing them through the plain
-    // `texture * uColour` shader left the green background fully opaque
-    // (visible as a solid green box) and tinted the shape by multiplying
-    // uColour against the mask's arbitrary stencil hue (e.g. pure blue)
-    // instead of replacing it outright -- confirmed wrong both ways (a real
-    // "danger_fill" red scheme colour multiplied against a pure-blue mask
-    // pixel can never produce red). detectedKeyColour is sampled once at
-    // load time from the texture's 4 corners.
     bool isChromaKeyMask = false;
     float keyR = 0.0f, keyG = 0.0f, keyB = 0.0f;
 
@@ -100,15 +74,6 @@ struct Texture {
     float secondaryR = 0.0f, secondaryG = 0.0f, secondaryB = 0.0f;
     bool hasOutlineMask = false;
     float outlineMaskR = 0.0f, outlineMaskG = 0.0f, outlineMaskB = 0.0f;
-    // Persistent per-texture tint set by COLOURSCHEME_SetGeneratedPaletteColour
-    // -- unlike COLOURSCHEME_SetColour's target drawList (transient, timing-
-    // sensitive record/replay state), this native takes no drawList at all
-    // and instead recolours the TEXTURE itself, so storing the override
-    // here (keyed by texture identity, read fresh at every future draw of
-    // this handle, no record/replay staleness possible) is the direct,
-    // literal reading of its own real call shape -- confirmed real
-    // signature (this texture handle, colour1, colour2), no drawList
-    // parameter to defer onto.
     bool hasGeneratedTint = false;
     float fillTintR = 1.0f, fillTintG = 1.0f, fillTintB = 1.0f;
     float outlineTintR = 1.0f, outlineTintG = 1.0f, outlineTintB = 1.0f;

@@ -36,13 +36,6 @@ int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushString(a_thread
 int GM_CDECL gmf_GoOnline(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_GoOffline(gmThread*) { return GM_OK; }
 
-// ---------------------------------------------------------------------
-// PSN/PS Store/PS Vita Near platform features with no real backend here. The
-// real script call sites use safe offline results. Three DLC APIs are also
-// bound because the packaged DLCHelper.gm and entity-menu scripts call
-// Network_IsDLCAvailable during normal startup/menu setup; see their local
-// EDAT-entitlement fallback below.
-// ---------------------------------------------------------------------
 
 // Network_Store* -- desktop has no PlayStation Store service. These preserve
 // the retail wrapper return types so archived store/DLC scripts can cleanly
@@ -99,11 +92,6 @@ int GM_CDECL gmf_NetworkUnavailable(gmThread* a_thread) {
 }
 int GM_CDECL gmf_NetworkNoOp(gmThread*) { return GM_OK; }
 
-// Network_TrophyUnlock(trophyId) -- confirmed real 1-arg, int return
-// WinScreenProcessBase.gm, TrophyWinProcess.gm, SaveDataHelper.gm), none
-// check the return value. No real trophy backend here; 0 (matching this
-// codebase's "no error" convention elsewhere, e.g. OnlineCoordinator_
-// GetLastError above) is a safe stand-in for "unlock succeeded".
 int GM_CDECL gmf_Network_TrophyUnlock(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(trophyId, 0, 0);
@@ -111,26 +99,15 @@ int GM_CDECL gmf_Network_TrophyUnlock(gmThread* a_thread) {
     a_thread->PushInt(0);
     return GM_OK;
 }
-// Network_TrophySetup() -- confirmed real 0-arg action, no return value.
 int GM_CDECL gmf_Network_TrophySetup(gmThread* a_thread) { (void)a_thread; return GM_OK; }
-// Network_GetIsTrophyQueueFull() -- confirmed real bool getter; never full
-// since nothing is ever actually queued.
 int GM_CDECL gmf_Network_GetIsTrophyQueueFull(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 
-// Network_ActivityStreamPost(messageTable, url[, icon1, icon2, icon3]) --
-// confirmed real 2-6 arg action, no return value read by any real call
-// site (10 call sites: CommunityLevelInfoPopupTableBase.gm, WinScreen*.gm,
-// PauseProcessBase.gm, EditScreenSidePanel.gm, CommunityScreenSidePanel.gm
-// -- all "share this to the activity feed" fire-and-forget calls). No real
-// PSN activity feed here; logged and dropped.
 int GM_CDECL gmf_Network_ActivityStreamPost(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     std::fprintf(stderr, "[Network_ActivityStreamPost] (no-op, no activity feed backend)\n");
     return GM_OK;
 }
 
-// Network_WebBrowserLaunch(url) -- confirmed real 1-arg, bool return
-// SidePanel.gm), return value not checked. Logged; no in-game browser here.
 int GM_CDECL gmf_Network_WebBrowserLaunch(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(url, 0, "");
@@ -139,13 +116,6 @@ int GM_CDECL gmf_Network_WebBrowserLaunch(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Network_NearDeleteGift(giftId) -- confirmed real 1-arg action, no return
-// value. Network_NearGetExternalGiftDetails(giftId, resultsTable) --
-// confirmed real 2-arg, returns a table with "id"/"description" and a 3rd
-// field (name unconfirmed exactly, DAT_ label only) populated from a real
-// PS Vita Near gift lookup. No real Near backend here (WatermelonHelperNew.gm's
-// 1 real call site for each is part of a PS Vita local-social feature this
-// PC/PS3 reimplementation has nothing to back); returns empty strings.
 int GM_CDECL gmf_Network_NearDeleteGift(gmThread* a_thread) { (void)a_thread; return GM_OK; }
 int GM_CDECL gmf_Network_NearGetExternalGiftDetails(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
@@ -158,22 +128,12 @@ int GM_CDECL gmf_Network_NearGetExternalGiftDetails(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Network_LiveAreaReplaceFrame(frameTable, target) -- confirmed real
-// 2-arg, and confirmed to ALWAYS return true (1) unconditionally in retail
-// decompiled body). A PS Vita LiveArea (home-screen widget) feature with
-// no equivalent here; 1 real call site (Main.gm), return value not
-// checked either way.
 int GM_CDECL gmf_Network_LiveAreaReplaceFrame(gmThread* a_thread) {
     (void)a_thread;
     a_thread->PushInt(1);
     return GM_OK;
 }
 
-// Network_GetNetworkLanguageCode() -- confirmed real 0-arg, STRING return
-// (a locale name like "en-US", not literally a numeric "code" despite the
-// (localeName="")/ClearNetworkLanguageFont() -- confirmed real, no return
-// value, set/reset a system font by locale for network-UI text. No system
-// font subsystem here; Get returns "en", Set/Clear are no-ops.
 int GM_CDECL gmf_Network_GetNetworkLanguageCode(gmThread* a_thread) {
     a_thread->PushNewString("en");
     return GM_OK;

@@ -169,7 +169,7 @@ add_library(OpenEgg_backend STATIC
   src/bindings/physics_body_bindings.cpp
   src/bindings/physics_joint_bindings.cpp
   src/bindings/physics_global_bindings.cpp
-  src/bindings/foe_compat_bindings.cpp
+  src/bindings/script_compat_bindings.cpp
   src/core/physics_world.cpp
   src/core/localization.cpp
 )

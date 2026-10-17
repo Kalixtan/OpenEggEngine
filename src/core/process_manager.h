@@ -8,25 +8,6 @@
 #include "gmThread.h"
 #include "gmMachine.h"
 
-// The incremental GC (GM_USE_INCGC, gmConfig.h) only scans roots it knows
-// about: thread stacks, the globals table, and anything registered via
-// AddCPPOwnedGMObject (gmMachine::ScanRootsCallBack, gmMachine.cpp) -- it
-// has no way to see gmVariables held inside plain C++ structs like
-// Process::table below. Confirmed the hard way: a large script (see
-// game_data_testcart/) compiles enough new allocations in one pass to
-// trigger an incremental GC step between a process's constructor() and
-// init(), and without this, the process's own table gets swept out from
-// under it -- init()/update() then silently can't find any of the
-// process's own methods (BeginTableFunction just returns false, table
-// enumerates as empty) because the table object was freed. Any gmVariable
-// a C++ struct holds onto past the call frame that produced it needs this.
-// Idempotent in both directions: the underlying registry is a plain set
-// (gmMachine::m_cppOwnedGMObjs), not a refcount, and AddCPPOwnedGMObject
-// asserts (GM_DEBUG_BUILD) if called twice for the same object -- e.g. the
-// same table can legitimately end up passed to RootGmVariable more than
-// once (a process's own table doubling as its "handle" now that
-// InjectProcessHandleMethods puts handle methods directly on it too, see
-// process_base_bindings.h).
 inline void RootGmVariable(gmMachine& a_machine, const gmVariable& a_var) {
     if (a_var.IsReference() && !a_machine.IsCPPOwnedGMObject(a_machine.GetObject(a_var.m_value.m_ref))) {
         a_machine.AddCPPOwnedGMObject(a_machine.GetObject(a_var.m_value.m_ref));
@@ -38,16 +19,6 @@ inline void UnrootGmVariable(gmMachine& a_machine, const gmVariable& a_var) {
     }
 }
 
-// Owns every live script "process" and drives its lifecycle hooks each tick
-// -- this is the native counterpart to the retail GameSystem.* API confirmed
-// init() to return a boolean. Assuming true." plus the reserved-key list:
-// init, destructor, update, postUpdate, preDraw, postDraw, initialDraw,
-// finalDraw, onEntityCollide*, onTouchDown/Up, constructor).
-//
-// Implemented hooks include constructor/init/update/postUpdate/preDraw/
-// postDraw, keyboard dispatch, and entity contact dispatch in physics_world.
-// initialDraw/finalDraw and process-level touch dispatch still need a retail
-// caller-path audit; native cleanup-controller resource ownership remains
 struct Process {
     struct GroundRegistration {
         int style = 0;
@@ -87,15 +58,6 @@ struct Process {
     // into (e.g. call .configure(...) on it) -- true as soon as
     // StartNewProcessList()/RunProcess() returns.
     bool constructed = false;
-    // init() hasn't run yet. Deliberately NOT run inside FinishBringUp
-    // alongside constructor() -- confirmed real convention,
-    // Platformer/PopupProcess.gm's own header comment: "1. start the
-    // process  2. call configure". Callers are expected to synchronously
-    // configure the just-returned table before init() ever sees it (e.g.
-    // PopupProcessBase.gm's init() unconditionally reads
-    // this.popupsTable, which only exists after configure() sets it) --
-    // running init() immediately, as this engine originally did, breaks
-    // that ordering. Consumed by ProcessManager::UpdateAll's init pass.
     bool needsInit = true;
     // init() has run (successfully or not "assume true")
     // update()/preDraw() only run once this is true.
@@ -105,22 +67,9 @@ struct Process {
     // frame's dispatches until that queued entry is consumed.
     bool terminationQueued = false;
 
-    // The manager registry is populated by queued run/list operations.
-    // Factories still return a usable table synchronously, but an object
-    // created after a manager queue drain cannot receive lifecycle, draw, or
-    // input dispatch until the following drain. This is the local equivalent
-    // of the retail queue-entry boundary recovered in
-    // GameSystem_Process_Flow_Analysis.md.
     std::uint64_t activationGeneration = 0;
 
-    // Backing state for the native process handle (`p`/`this.Process`,
-    // see process_handle_bindings.h) -- confirmed real methods
-    // setIsStealsInputFocus/setupPreDrawList/setupPostDrawList/
-    // getPreDrawList/getPostDrawList read and write these.
     bool stealsInputFocus = false;
-    // Entity.setIsUpdatesEntities -- native process flag at object byte +9
-    // FUN_0018c558 zeros it; GameSystem.getEntityUpdateProcess's
-    // FUN_00187d24 returns a registered process with this flag set.
     bool updatesEntities = false;
     // EntityRegistration.registerEntity/unregisterEntity own the ground draw
     // list in retail. Keep only stable script entity IDs here; the GM table
@@ -159,7 +108,6 @@ public:
     // requests termination of an existing same-name instance first.
     int RunProcess(const std::string& a_name, bool a_replaceExisting = false);
 
-    // GameSystem.isProcessRunning/getProcess/getProcessCount/getProcessByIndex
     bool IsRunning(int a_id) const;
     // Mirrors Entity.terminate: queue removal for the next manager drain
     // rather than ending the process in the current dispatch frame.
@@ -171,16 +119,8 @@ public:
     // counts as an indexable null slot, so out-of-range indices wrap;
     // negative indices walk backward starting from the first item.
     Process* GetByIndex(int a_index);
-    // getProcess(id_or_name) accepts either type in the confirmed decompiled
-    // body (branches on GM_INT vs. the retail string tag) -- this is the
-    // string half.
     Process* GetByName(const std::string& a_name);
-    // Returns the first registered process enabled by
-    // Entity.setIsUpdatesEntities, matching FUN_00187d24's primary search.
     Process* GetEntityUpdateProcess();
-    // Desktop lookup for the retail EntityRegistration registry. The wrapper
-    // arguments/entity-ID flow are bytecode verified at 0x001d0430/0x001d04bc;
-    // the private native registry's exact storage format remains unknown.
     bool GetGroundRegistration(int a_entityId, int& a_style, bool& a_selected) const;
     void GetGroundRegistrationsForCamera(float a_cameraX, float a_cameraY,
         std::vector<std::pair<int, Process::GroundRegistration>>& a_out) const;
@@ -219,21 +159,8 @@ public:
 
     Process* Get(int a_id);
 
-    // GameSystem.setAsPauseProcess(active, process) / process.setAsPauseProcess(active)
-    // actual mechanism every real pause/menu/popup overlay in the corpus
-    // uses to freeze gameplay (PauseProcessBase.gm, PopupProcessBase.gm,
-    // WinProcess.gm, DebugMenu*.gm, ...): the process that should keep
-    // running while everything else freezes marks itself (or is marked by
-    // GameSystem) as THE pause process. a_exemptProcessId < 0 means "no
-    // exemption" -- freeze every process (WinProcess.gm's bare
-    // `GameSystem.setAsPauseProcess(true)`, no process arg, for the
-    // win-screen's total freeze). Retail queues this operation for the next
-    // manager drain. Draw calls keep showing the frozen world.
     void QueuePauseState(bool a_active, int a_exemptProcessId);
     bool IsPaused() const { return m_paused; }
-    // True only while the full-list reset is invoking process destructors.
-    // Retail's DAT_0042489c guards its temporary native-object teardown set
-    // across this interval; entity teardown uses the same scope.
     bool IsResettingProcessList() const { return m_resettingProcessList; }
 
 private:
@@ -295,16 +222,6 @@ private:
     void ApplyPauseState(bool a_active, int a_exemptProcessId);
     void DestroyProcess(int a_id);
 
-    // If a_processName's global factory function isn't defined yet, tries
-    // an on-demand load of the .gm file that conventionally defines it
-    // (e.g. "Platformer_MainMenu5" -> "Platformer/MainMenu5.gm") --
-    // several real process names are used by GameSystem.
-    // startNewProcessList/runProcess without ever being loaded via an
-    // explicit GameMonkeyScript.loadScript(...) call anywhere in the
-    // corpus. See the .cpp for why this is a convention-derived
-    // substitute rather than a confirmed native mechanism. Returns true
-    // if a script was found and loaded without compile errors (the
-    // caller still needs to re-check the global afterward).
     bool TryAutoLoadScript(const std::string& a_processName);
     int CreateProcess(const std::string& a_name);
 };

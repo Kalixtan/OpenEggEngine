@@ -132,14 +132,6 @@ bool DecodeIndexedPng(const std::string& path, int expectedW, int expectedH,
     return true;
 }
 
-// Retail FUN_000581a0 stores texture filter enums in TEXTURE +0x70 and wrap
-// enums in +0x74. FUN_000548b8 submits them through RSX texture methods
-// 0x1a14 (filter) and 0x1a08 (address): the 8-bit and 24/32-bit constructor
-// paths store filter enum 2; indexed paths store enum 1. The 8-bit path is
-// conditional: the constructor selects enum 2 for the 8-bit grayscale source
-// class, but keeps enum 1 for the other 8-bit class (including indexed PNGs).
-// The desktop GL enum mapping is linear for 2 and nearest for 1.
-// These are translated here because desktop textures are expanded to RGBA.
 GLint RetailTextureFilterForSource(int channels, int sourceBitsPerPixel, bool indexedSource) {
     const bool retailLinearFormat = sourceBitsPerPixel == 24 || sourceBitsPerPixel == 32;
     const bool retailLinearGray8 = sourceBitsPerPixel == 8 && channels == 1 && !indexedSource;
@@ -240,13 +232,6 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
         sourcePaletteEntries, indexedSource, sourceBitsPerPixel);
     if (sourceBitsPerPixel <= 0) sourceBitsPerPixel = channels * 8;
 
-    // RETAIL PPC: FUN_000581a0 assigns texture selector 8 (TextureDist) to
-    // the decoded 8-bit grayscale class. The other 8-bit class gets selector
-    // 3; indexed formats use selector 5 in their separate constructor path.
-    // NOTE_BASS/NOTE_DRUM/NOTE_SYNTH are non-indexed 8-bit grayscale PNGs.
-    // Keeping the default selector 0 here silently routes direct draws of
-    // these distance fields through TextureTrans unless a script-side flag
-    // happens to force the desktop shader.
     const int retailShaderType = sourceBitsPerPixel == 8 && channels == 1 && !indexedSource
         ? 8
         : (sourceBitsPerPixel == 8 && !indexedSource ? 3
@@ -292,14 +277,6 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
         }
     }
 
-    // See texture.h's hasSecondaryMask comment. These templates use a fixed
-    // hue convention, not an area convention: pure-red-dominant pixels are
-    // always the fill mask (colour1 slot) and pure-blue-dominant pixels are
-    // always the outline mask (colour2 slot), regardless of which region
-    // covers more of the sprite -- confirmed across the asset corpus (e.g.
-    // sway_tree_idle.png has blue covering the majority of the sprite yet
-    // blue is still the outline/colour2 slot, matching SwayingTree.gm's
-    // "struct_out" petal colour).
     bool hasSecondaryMask = false;
     float secondaryR = 0.0f, secondaryG = 0.0f, secondaryB = 0.0f;
     bool hasOutlineMask = false;
@@ -344,15 +321,6 @@ bool Texture::LoadFromFile(const std::string& a_path, Texture& a_out) {
         }
     }
 
-    // Retail Video's native texture constructor stores the decoded width and
-    // height in both the logical and hardware dimensions, then stores their
-    // ratios as +0x34/+0x38. For the ordinary RGB/RGBA/GREY formats these are
-    // the same dimensions, so getTextureExtX/Y return 1.0. Upload NPOT images
-    // at their actual dimensions too; padding introduced transparent edge
-    // texels and changed those bytecode-verified extents.
-    //
-    // One-channel sources become white RGB with coverage in ALPHA for text
-    // atlas sampling under the desktop backend's color modulation path.
     const int potW = w;
     const int potH = h;
     std::vector<unsigned char> rgba((size_t)potW * potH * 4, 0);

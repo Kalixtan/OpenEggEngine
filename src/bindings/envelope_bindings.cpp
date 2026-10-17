@@ -76,10 +76,6 @@ int GM_CDECL gmf_setCurve(gmThread* a_thread) {
     e->curve = c;
     return GM_OK;
 }
-// Confirmed real: 2 numeric args -- real usage always appends points in
-// increasing time order (`appendPoint(0,1); appendPoint(1000,1);`), so
-// (time, value) is the structurally obvious reading (matches "append" --
-// adds to the end of the sequence, unlike addPoint which may insert).
 int GM_CDECL gmf_appendPoint(gmThread* a_thread) {
     EnvelopeData* e = ThisEnvelope(a_thread); if (!e) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -109,7 +105,6 @@ int GM_CDECL gmf_copy(gmThread* a_thread) {
     return GM_OK;
 }
 
-// --- confirmed-real-by-usage only, no decompiled body (see header comment) ---
 int GM_CDECL gmf_update(gmThread* a_thread) {
     EnvelopeData* e = ThisEnvelope(a_thread); if (!e) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(dt, 0, 0.0f);
@@ -131,24 +126,6 @@ int GM_CDECL gmf_reset(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getValue() -- confirmed real by usage only, no decompiled body (same
-// Envelope.c at all, but Envelope's entire purpose per every other real
-// binding here (a sorted (time,value) point list + a currentTime the
-// script advances via update()) is to be SAMPLED at that currentTime, and
-// nothing else in this binding ever did that -- a genuine, load-bearing
-// gap: TouchEditProcessPS3.gm's cursorTool pulsing-scale envelope
-// (`this.env.appendPoint(0,1.0); this.env.appendPoint(31,1.7); this.env.
-// appendPoint(61,1.0);`) calls `parent.env.getValue()` every single draw
-// frame to size the edit cursor -- with no getValue() at all, that call
-// null-called to null, then `drawList.scale(null,null)` threw a real
-// exception (GM_FLOAT_OR_INT_PARAM's blank-message GM_EXCEPTION) every
-// frame, aborting the cursor's own draw() before drawShape() ever ran --
-// the edit cursor was invisible on screen even though its position/state
-// tracking underneath was working fine. Standard piecewise-linear
-// interpolation between the two points bracketing currentTime -- held
-// flat at the first/last point's value outside the envelope's own time
-// range, matching every other real envelope/curve implementation in this
-// codebase (e.g. PulsePerc).
 int GM_CDECL gmf_getValue(gmThread* a_thread) {
     EnvelopeData* e = ThisEnvelope(a_thread); if (!e) return GM_EXCEPTION;
     if (e->points.empty()) { a_thread->PushFloat(0.0f); return GM_OK; }

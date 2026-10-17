@@ -8,10 +8,6 @@ namespace {
 
 gmType g_pulsePercType = -1;
 
-// State layout and playback behavior recovered from retail EBOOT.elf:
-// constructor FUN_000161a8; setByRate FUN_000161f0; setByTime
-// FUN_00016218; update FUN_00016284; pulse FUN_000163fc; isDone
-// FUN_00016414; reset FUN_00016500. The public wrappers are in
 struct PulsePercData {
     float attackRate = 171.0f;
     float attackTime = 131.0f;
@@ -26,8 +22,6 @@ struct PulsePercData {
 };
 
 float RetailExp(float rate, float deltaMs) {
-    // FUN_000c6988 clamps exp(-rate * dt) to [0,1]. FUN_000c69e8
-    // returns 1 minus that factor.
     return std::clamp(std::exp(-rate * deltaMs), 0.0f, 1.0f);
 }
 
@@ -92,7 +86,6 @@ int GM_CDECL gmf_setSustainTime(gmThread* a_thread) {
     p->sustainTime = v;
     return GM_OK;
 }
-// Retail FUN_000161f0 stores the reciprocal of each argument.
 int GM_CDECL gmf_setByRate(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -101,16 +94,11 @@ int GM_CDECL gmf_setByRate(gmThread* a_thread) {
             ? static_cast<double>(value.m_value.m_float)
             : static_cast<double>(value.m_value.m_int);
     };
-    // FUN_000161f0 promotes the native 1.0f constant and both GM arguments
-    // to double for division, then rounds each reciprocal to float on store.
     p->attackRate = static_cast<float>(1.0 / asDouble(a_thread->Param(0)));
     p->decayRate = static_cast<float>(1.0 / asDouble(a_thread->Param(1)));
     p->byRate = true;
     return GM_OK;
 }
-// Confirmed real: 2 args (attackTime, decayTime) in ms -- real usage
-// `setByTime(msPerStep*2*2, msPerStep*2*2)` (Main.gm:653) confirms ms units
-// (msPerStep comes straight from SEQUENCER's BPM-derived timing).
 int GM_CDECL gmf_setByTime(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
@@ -140,10 +128,6 @@ int GM_CDECL gmf_update(gmThread* a_thread) {
             p->value *= RetailExp(p->decayRate, deltaMs);
         }
     } else if (p->phase >= 1.0f) {
-        // Retail FUN_00016284 computes a single-precision reciprocal first,
-        // then uses `fmadds reciprocal, deltaMs, value`, followed by an
-        // fsel clamp at 1.0. Keep that rounding path for repeatable visual
-        // pulse widths and decay timing.
         const float attackReciprocal = 1.0f / p->attackTime;
         const float attackValue = std::fma(attackReciprocal, deltaMs, p->value);
         p->value = attackValue >= 1.0f ? 1.0f : attackValue;
@@ -167,9 +151,6 @@ int GM_CDECL gmf_getValue(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail method-table entry PULSEPERC.getDir (wrapper 0x0006c3f4) calls
-// FUN_00016264, which loads the object's float at +0x18. That is `phase`:
-// +1 while attacking, -1 while decaying/idle.
 int GM_CDECL gmf_getDir(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     a_thread->PushFloat(p->phase);
@@ -180,10 +161,6 @@ int GM_CDECL gmf_isDone(gmThread* a_thread) {
     PulsePercData* p = ThisPulsePerc(a_thread); if (!p) return GM_EXCEPTION;
     const bool done = p->byRate
         ? p->phase < 0.0f && p->value * RetailExp(p->decayRate, p->lastDeltaMs) < 0.01f
-        // Retail FUN_00016418 compares the time-mode value against the
-        // zero float at DAT_00016410. Its <= 0 test follows the phase < 0
-        // test; using <= 1 here incorrectly reported completion as soon as
-        // decay began, cutting off time-based note/checkpoint animations.
         : p->phase < 0.0f && p->value <= 0.0f;
     a_thread->PushInt(done ? 1 : 0);
     return GM_OK;

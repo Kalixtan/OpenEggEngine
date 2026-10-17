@@ -5,52 +5,6 @@
 #include "rapidjson/document.h"
 #include <cstdio>
 
-// This engine's boot sequence and Platformer/SaveDataHelper.gm are both
-// unmodified, real retail code -- but they draw from two DIFFERENT real
-// data sources for the campaign album list, and those two sources disagree:
-//
-//   - Platformer/recordList.gm's global RECORD_LIST drives
-//     SAVEDATAHELPER_UpdateRecords(), which is what actually seeds
-//     saveData.campaign.asides[recordName][baseFilename] the first time a
-//     save is created (SAVEDATAHELPER_GetSaveData() -> MakeNewSave() ->
-//     UpdateRecords()). It only knows about 6 records (VicLand,
-//     superbrothers, Colin, pixeljam, Beck, Tutorials) -- "Credits" is
-//     present but explicitly commented out, and "Trophy Challenges" isn't
-//     in the file at all.
-//
-//   - Platformer/MainMenu5/recordList.json is what
-//     CampaignScreenAlbumSelect.gm's loadRecords() actually reads to build
-//     the on-screen album list (the file's own commented-out "NEW SHIT"
-//     block shows retail deliberately chose the JSON source over
-//     RECORD_LIST.gm for display). It has 8 records -- the same 6 plus
-//     "Trophy Challenges" and "Credits" -- and its Tutorials entry uses the
-//     bare basename "editorTutorial", while RECORD_LIST.gm computes
-//     "editorTutorial"+RECORDHELPER_GetTutorialPostfix(), which is
-//     "editorTutorialPS3" on this engine's simulated platform (OSID_PS3).
-//
-// loadRecords() does `saveData.campaign.asides[recordList[i].recordName]
-// [recordList[i].tracks[j].baseFilename].completion` with no `?` guard, so
-// for any of these 3 gaps (Trophy Challenges, Credits, editorTutorial) the
-// lookup hits GM_NULL and BC_GETIND kills the thread (confirmed real GM
-// behavior, unpatched -- see vendor/GMSCRIPT_PATCHES.md #1: only `?`-guarded
-// chains survive a null intermediate). That aborts
-// CampaignScreenAlbumSelect's constructor before it ever assigns
-// this.parent.albumSelectWidget, which then makes every subsequent frame's
-// CampaignScreenRecordPlayer.gm preDraw() (`this.parent.albumSelectWidget.
-// isVisible()`) hit the same fate -- and since drawing is one flat
-// painter's-algorithm list, one draw call throwing mid-frame takes the
-// whole main menu down with it (the observed all-white screen).
-//
-// Not a native-vs-script gap to "reimplement" -- both real files already
-// exist unmodified. This just applies UpdateRecords' own defensive pattern
-// (`if (!?saveData.campaign.asides[x]) { ...create stub... }`, its comment
-// literally reads "these should def already exist at this point buuuuut
-// script errors are doing crazy things to my globals?") using the SAME
-// data source loadRecords() itself reads, so every key it will ever index
-// is guaranteed to exist by the time it runs. Runs once, right after
-// SAVE_DATA first exists, from the main loop (see main.cpp) -- there's no
-// native call site inside the .gm boot sequence to hook this off of
-// instead.
 namespace {
 
 bool g_done = false;
@@ -114,11 +68,6 @@ void EnsureCampaignSaveDataComplete() {
             stats->Set(machine, "totalDeaths", gmVariable((gmint)0));
             stats->Set(machine, "totalPlayTime", gmVariable((gmint)0));
             entry->Set(machine, "stats", gmVariable(stats));
-            // Matches UpdateRecords' own convention for a record's first
-            // track (completion=1, i.e. unlocked-not-yet-played) -- the
-            // safest default for a stub this project has no decompiled or
-            // corpus evidence to pick more precisely for these specific
-            // gap-filled categories.
             entry->Set(machine, "completion", gmVariable((gmint)1));
             recordAsides->Set(machine, baseFilename, gmVariable(entry));
         }

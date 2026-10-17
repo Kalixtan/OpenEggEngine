@@ -2,13 +2,6 @@
 #include "gmMachine.h"
 #include <string>
 
-// Real Animation type backing entity.loadAnimation(path) -- .fsa/.bci
-// sprite-sheet animations (engine/src/render/fsa_bci.h,
-// entity_bindings.cpp (getSourcePixelWidth/Height always 0, isDone()
-// always false, no drawAnimation at all -- every animated entity in the
-// corpus, e.g. Platformer/EntityPacks/SpawnPoint.gm's player spawner,
-// silently drew nothing). See animation_bindings.cpp for the playback
-// timing and palette-tinting design.
 void RegisterAnimationBindings(gmMachine& a_machine);
 
 // Advances the shared animation clock by the frame delta. Retail's animation

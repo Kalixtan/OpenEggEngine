@@ -1,23 +1,6 @@
 #pragma once
 #include <string>
 
-// Real save data storage -- backs SAVEDATA_*/SPLASHSCREEN_FinalizeSplash-
-// ScreenAndGetResults/GameMonkeyScript.*SaveRequest (see savedata_bindings.cpp,
-// system_bindings.cpp, gamemonkeyscript_bindings.cpp).
-//
-// Retail's real save path is Sony's SaveData API: an async ticket/request
-// queue (SAVEDATA_reqSaveString/reqLoadFile/doRequest/isRequestDone/...,
-// block. None of that block format or protocol is public or meaningfully
-// portable -- there's nothing to "match" there beyond the script-visible
-// contract each function upholds (see each binding's own comment for the
-// call-by-call reasoning), so this reimplementation swaps the storage itself
-// for what the user actually wants to work with: plain, uncompressed JSON
-// files, at a fixed real path next to the built executable rather than
-// hidden inside a save-data block, directly readable/editable in any text
-// editor. Script-visible filenames are unchanged (game_data/Main.gm/
-// SaveDataHelper.gm/MyLevelsTOC.gm all reference "save.json"/
-// "myLevels/toc.json" literally) -- only where those bytes physically live
-// changed.
 namespace SaveData {
 
 // Directory containing the running executable, independent of the process
@@ -44,10 +27,6 @@ bool FileExists(const std::string& a_relativePath);
 // exist / can't be stat'd. Backs SAVEDATA_reqGetFileSize's ticket.
 long long FileSize(const std::string& a_relativePath);
 
-// Deletes a_relativePath under the save directory. True if it existed and
-// was removed, or didn't exist to begin with (matches the real
-// SAVEDATA_reqDelete contract of "not an error if already gone" -- retail's
-// file being missing).
 bool DeleteFile(const std::string& a_relativePath);
 
 } // namespace SaveData

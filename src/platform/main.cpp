@@ -1,7 +1,3 @@
-// Engine entry point. Boots the GameMonkeyScript VM, registers the confirmed
-// native bindings (see src/bindings/), loads the retail game_data/Main.gm
-// entry point from the retail PSARC archives beside the executable and drives
-// the render loop.
 #include "platform_window.h"
 #include <cstdio>
 #include <cstdlib>
@@ -63,25 +59,9 @@
 #include "../bindings/audio_bindings.h"
 #include "../bindings/mathutil_bindings.h"
 #include "../bindings/math_bindings.h"
-#include "../bindings/foe_compat_bindings.h"
+#include "../bindings/script_compat_bindings.h"
 #include "gmCall.h"
 
-// GAME_Update/GAME_PostDraw -- reserved top-level script hooks (Main.gm:
-// `global GAME_Update=function(msElapsed){...}`, `global GAME_PostDraw=
-// function(){...}`), confirmed real and load-bearing: GAME_Update drives
-// GAMEUPDATEDATA.update(), which is the ONLY thing that advances the save
-// state machine (SAVESTATE_SAVING -> SAVEDATA_isRequestDone() poll ->
-// SAVESTATE_CHECKERRORS -> SAVESTATE_SAVECOMPLETE -> SAVESTATE_READY) --
-// see bindings/savedata_bindings.cpp. Never being called meant any script
-// path that kicks off a save (Screen Scale confirm, Editor's "Create
-// Panels" GAMEUPDATEDATA.isSaveBusy() gate, etc.) got permanently stuck
-// reporting busy, since the state machine that would clear that flag never
-// (unlike per-process update()/draw(), these aren't dispatched through
-// ProcessManager -- they're fixed, well-known globals the native engine
-// core calls directly every frame, same convention as GAME_GetPreDrawList/
-// GAME_GetPostDrawList already used by GM script). GAME_PreDraw is left
-// uncalled: Main.gm only defines a commented-out stub for it ("commented
-// out until it's needed"), so there is nothing real to invoke there.
 namespace {
 bool SetEnvironmentIfUnset(const char* a_name, const char* a_value) {
     if (std::getenv(a_name)) return true;
@@ -158,10 +138,6 @@ int main(int argc, char** argv) {
     // headless_harness.h. Disabled and zero-cost when the env var is unset.
     HeadlessHarness harness;
 
-    // Optional overrides for probing against another data root, entry script,
-    // or process:
-    //   OpenEgg [dataRoot] [entryScript] [processName]
-    // With no args, launches the retail game_data/Main.gm entry point.
     if (trace) fprintf(trace, "[TRACE] parsing args\n"), fflush(trace);
     const std::filesystem::path executableDirectory =
         std::filesystem::u8path(SaveData::ExecutableDirectory());
@@ -217,22 +193,12 @@ int main(int argc, char** argv) {
     harness.Init(*hostFrontend);
     Renderer renderer;
     if (trace) fprintf(trace, "[TRACE] calling renderer.Init()...\n"), fflush(trace);
-    // 800x600 -- confirmed real retail default (live Wine capture of the
-    // actual "flowers of error.exe", this session). This is deliberately 4:3,
-    // not the game's 16:9 content aspect, which is why retail letterboxes at
-    // this default size. Main.gm's restartVideo key handler passes dimensions,
-    // but retail PPC ignores those arguments; they are not the source of this
-    // initial window size.
     if (!renderer.Init(*hostFrontend, 800, 600)) {
         if (trace) fprintf(trace, "[TRACE] renderer.Init() failed\n"), fflush(trace);
         return 1;
     }
     if (trace) fprintf(trace, "[TRACE] renderer.Init() succeeded\n"), fflush(trace);
 
-    // RETAIL BYTECODE: graphics-mode setup at EBOOT 0x574a0 writes 1 to
-    // Video+0x8184 while installing its 1280x720 mode. This enables the
-    // per-path PS3_ texture-factor lookup; the desktop enters its equivalent
-    // initialized Video mode here, before any scripts can request textures.
     GetEngineContext().video.textureResizeOverrideEnabled = true;
 
     // Arm the strict-call tripwire before anything can run script. Any call to
@@ -256,13 +222,6 @@ int main(int argc, char** argv) {
     // case, and game_data ships the corresponding bitmap atlas. Keep it on
     // the same metrics/atlas path as retail instead of falling back to TTF.
     bool haveRussian = loadBitmapFont(russianFont, "Helvetica_NeueLTCyrillic55_Russian.json");
-    // FoE's PC build ships no retail JSON+PNG atlas at all (a Sound Shapes-
-    // only format) -- it has grayscale-bold.ttf instead (see
-    // reveng_pc/README.TXT's file listing / bitmap_font.h's LoadTTF header
-    // comment). Falls back to baking that TTF ourselves rather than leaving
-    // every Video.print() call invisible, which is how FoE's whole title
-    // screen (PekkoAndJon/Main.gm's postDraw() instructions/settings text)
-    // was rendering as nothing at all.
     if (!haveNormal) {
         if (auto ttfPath = vm.Files().Resolve("grayscale-bold.ttf")) {
             haveNormal = normalFont.LoadTTF(*ttfPath, 64.0f, renderer);
@@ -356,25 +315,14 @@ int main(int argc, char** argv) {
     RegisterOnlineCoordinatorBindings(vm.Machine());
     RegisterWatermelonBindings(vm.Machine());
     RegisterVideoHelperBindings(vm.Machine());
-    RegisterFoECompatBindings(vm.Machine());
+    RegisterScriptCompatBindings(vm.Machine());
 
-    // ENGINE PATCH: tag every native-registered library global so
-    // StrictCalls::OnNullCall can recognize "method missing on Video/
-    // GameSystem/..." as a real engine gap and report it unconditionally,
-    // without needing the method name pre-catalogued in retail_symbols.inc
-    // (see strict_calls.cpp's MarkNative/IsNativeTable). RegisterLibrary
-    // doesn't hand back the table it created, so these are looked up by name
-    // from globals after all registration above has run.
     for (const char* lib : {"GameMonkeyScript", "GameSystem", "Video", "Physics",
                              "ColourManager", "EntityManager", "Input", "Audio"}) {
         gmVariable v = vm.Machine().GetGlobals()->Get(&vm.Machine(), lib);
         StrictCalls::MarkNative(vm.Machine(), v);
     }
 
-    // No .gm script anywhere assigns "MainSequencer =" (confirmed by
-    // grepping the whole game_data corpus) -- it has to come from the
-    // native engine bootstrap, exactly like retail's must, and has to
-    // exist before Main.gm loads since Main.gm references it directly.
     {
         gmVariable mainSequencer = CreateSequencerInstance(vm.Machine(), 98);
         vm.Machine().GetGlobals()->Set(&vm.Machine(), "MainSequencer", mainSequencer);
@@ -386,34 +334,12 @@ int main(int argc, char** argv) {
     ctx.processManager = &processManager;
     if (trace) fprintf(trace, "[TRACE] ProcessManager created\n"), fflush(trace);
 
-    // The real FontHelper.gm now compiles clean (see engine/vendor/GMSCRIPT_PATCHES.md
-    // for the '?'/'->'  operator patches that fixed this) and overrides the
-    // gmf_FONTHELPER_SetNormalLargeFont native stand-in registered above --
-    // that stand-in stays registered as a fallback in case this ever fails
-    // to load in some environment.
     if (trace) fprintf(trace, "[TRACE] loading FontHelper.gm\n"), fflush(trace);
     if (!vm.LoadScript("FontHelper.gm")) {
         std::fprintf(stderr, "main: FontHelper.gm failed to load, using native stand-in\n");
     }
     if (trace) fprintf(trace, "[TRACE] FontHelper.gm loaded\n"), fflush(trace);
 
-    // real game_data/Main.gm's constructor() calls CoryPopup(...) directly
-    // (Main.gm:474) with no GameMonkeyScript.loadScript(
-    // "Platformer/CoryPopup.gm") anywhere ahead of it in the whole corpus
-    // -- confirmed by grepping every loadScript call site. Unlike process
-    // factories (GameSystem.startNewProcessList/runProcess, which now
-    // auto-load their .gm file on demand by naming convention -- see
-    // ProcessManager::TryAutoLoadScript), CoryPopup is called as a plain
-    // function, so that mechanism doesn't cover it; it still needs a
-    // native preload here. Checked via Ghidra string search (EBOOT.elf,
-    // see ProcessManager::TryAutoLoadScript's comment) whether retail's
-    // real mechanism is recoverable this way -- it isn't ("CoryPopup.gm"
-    // doesn't appear as a string literal anywhere in the binary either),
-    // so this stays a native preload rather than a confirmed match for
-    // whatever retail actually does.
-    //
-    // Gate the preload on the retail tree containing Platformer/Main.gm.
-    // This avoids applying retail bootstrap behavior to custom data roots.
     bool isFullRetailTree = vm.Files().Resolve("Platformer/Main.gm").has_value();
     if (isFullRetailTree) {
         if (trace) fprintf(trace, "[TRACE] loading Platformer/CoryPopup.gm\n"), fflush(trace);
@@ -448,9 +374,6 @@ int main(int argc, char** argv) {
     uint64_t lastPerformanceCounter = hostFrontend->PerformanceCounter();
     unsigned int simulationTickCount = 0;
     float simulationAccumulatorMs = 0.0f;
-    // FUN_0018a2e8 uses these exact float constants: f23=0x41855555
-    // (16.666666 ms) and the accumulated-delta cap=0x42480001
-    // (50.0000038 ms). See timing_manager_loop_18a2e8.disasm.
     constexpr float kRetailSimulationStepMs = 16.666666f;
     constexpr float kRetailSimulationDeltaCapMs = 50.0000038f;
     // Temporary slow-motion diagnostic: keep the effective simulation speed
@@ -641,38 +564,17 @@ int main(int argc, char** argv) {
         static const char* s_fixedStepEnv = std::getenv("GE3_FIXED_TIMESTEP_MS");
         if (s_fixedStepEnv) elapsedMs = std::strtof(s_fixedStepEnv, nullptr);
 
-        // RETAIL PPC: FUN_0019bbb0 calls FUN_0018a2e8 once as the retail main
-        // loop (direct branch at 0x0019cbfc). The loop initializes f25 to
-        // zero once, then carries its remainder across rendered frames,
-        // accumulating elapsed*simulationSpeed, capping the total at
-        // 50.0000038 ms, and dispatching 16.666666 ms updates. This desktop
-        // accumulator has the same lifetime and tick threshold.
         const float speed = 1.0f;
-        // RETAIL PPC: FUN_0018a2e8 uses `fmadds f25,f24,f1,f25` (one
-        // single-precision fused multiply-add) to add scaled elapsed time to
-        // the carried remainder, then `fsel` caps the total at 50.0000038 ms.
-        // Keep that fused rounding and total-cap order: splitting multiply
-        // and add can move a frame across the 16.666666 ms tick threshold.
         const float accumulatedElapsedMs = std::fma(
             elapsedMs, speed, simulationAccumulatorMs);
         const float timeUntilCapMs = kRetailSimulationDeltaCapMs - accumulatedElapsedMs;
         simulationAccumulatorMs = timeUntilCapMs >= 0.0f
             ? accumulatedElapsedMs : kRetailSimulationDeltaCapMs;
-        // RETAIL PPC: GameSystem.isLoading (field +0xf3c) replaces the
-        // accumulator with exactly one 16.666666 ms tick each outer-loop
-        // pass. This prevents load work from catching up with multiple
-        // simulation ticks after a slow frame. It is separate from
-        // shouldUpdateEntities (+0xda2); see the field-helper decomp and
         if (GetEngineContext().gameSystem.isLoadingFlag)
             simulationAccumulatorMs = kRetailSimulationStepMs;
         recordPhase(0); // frontend input and event dispatch
         while (simulationAccumulatorMs >= kRetailSimulationStepMs) {
             const float simDtMs = kRetailSimulationStepMs;
-            // Retail's AudioManager is GameSystem field +0xe24 (constructed
-            // by FUN_00188b00 via FUN_000225cc). FUN_0018a2e8 dispatches its
-            // virtual +0x18 update with the fixed dVar15 step from inside this
-            // loop, so voice envelopes and playback state advance per sim
-            // tick rather than once per rendered frame.
             AdvanceAudioVoices(simDtMs);
             // The vendored GameMonkey scheduler takes integer milliseconds;
             // distribute the retail 50 ms / 3 tick cadence as 17,17,16 so
@@ -704,15 +606,6 @@ int main(int argc, char** argv) {
             const bool gamePaused = processManager.IsPaused();
             const bool updateEntities = GetEngineContext().gameSystem.shouldUpdateEntities
                 && !gamePaused;
-            // Retail calls PhysicsManagerTick when the pause target (+0x48),
-            // loading flag (+0xf3c), and startup suppression flag (+0x350)
-            // are clear. Its bytecode does not gate that call on
-            // shouldUpdateEntities (+0xda2), so keep the independent entity
-            // dispatch flag from suppressing physics by itself. Desktop has
-            // no separate +0x350 field: retail's only setter call is behind
-            // a startup flag initialized to zero with no later write in that
-            // path (see PHYSICS_TIMING_CROSSWALK.md). Revisit if another
-            // startup entry or build provides a writer.
             const bool stepPhysics = !gamePaused
                 && !GetEngineContext().gameSystem.isLoadingFlag;
             if (stepPhysics) {
@@ -764,21 +657,8 @@ int main(int argc, char** argv) {
             DrawEntitiesWithNativeDrawAlphaHook();
         }
         recordPhase(6); // entity and player rendering
-        // postDraw() -- confirmed real, reserved lifecycle key (see
-        // ProcessManager::PostDrawAll's header comment) -- was never called
-        // at all until now, silently dropping any script content drawn
-        // there (e.g. Platformer/Main.gm's "press {ACCEPT} to continue"
-        // loading-gate screen, which draws into this.postDrawList from
-        // inside its own postDraw()). Run after PreDrawAll() every frame,
-        // same as real retail's two-pass draw order.
         processManager.PostDrawAll();
         CallGlobalHookIfPresent(vm.Machine(), "GAME_PostDraw", 0, false);
-        // Opt-in only (GE3_PHYSICS_DEBUG_DRAW=1) -- no real Video/DrawList
-        // "debug draw" mode exists in retail to piggyback on (checked
-        // Video.setDebugID, which is just a drawList display-name tag, not
-        // a rendering mode). This flat-colour Box2D/entity-marker overlay
-        // is an ad-hoc position/scale/rotation verification aid now that
-        // entities draw themselves for real above, not the normal path.
         if (physicsDebugDraw) {
             DrawAllPhysicsBodies(nativeDrawnUids);
         }
@@ -790,10 +670,6 @@ int main(int argc, char** argv) {
         renderer.DrawLetterboxBars();
         recordPhase(7); // process postDraw and final overlays
 
-        // Debug: GE3_SCREENSHOT_FRAME=<n> dumps that frame (0-based) to
-        // OpenEgg_frame<n>.ppm in the system temp directory before swap,
-        // for visual
-        // comparison against the real FoE PC build.
         static int s_frameIndex = 0;
         static const char* s_screenshotFrameEnv = std::getenv("GE3_SCREENSHOT_FRAME");
         if (s_screenshotFrameEnv && s_frameIndex == std::atoi(s_screenshotFrameEnv)) {
@@ -865,16 +741,6 @@ int main(int argc, char** argv) {
             profiledFrames = 0;
         }
 
-        // 60fps frame limiter -- retail runs at a real, vsync-locked 60fps
-        // (confirmed by the winedbg frame-timing capture: ~1689 SwapBuffers
-        // over an 8s run). Without a limiter this engine free-runs, so its
-        // wall-clock frame rate (and therefore the real deltaMs feeding
-        // every animation) has no relationship to retail's -- making
-        // side-by-side timing comparisons unreliable. Sleeps out the
-        // remainder of each 16.67ms budget rather than busy-waiting.
-        // Disable with GE3_NO_FPS_LIMIT=1 (useful for headless batch
-        // screenshot capture, where running flat-out is preferable and
-        // GE3_FIXED_TIMESTEP_MS already decouples animation from wall time).
         static const char* s_noLimit = std::getenv("GE3_NO_FPS_LIMIT");
         if (!s_noLimit) {
             const uint32_t kFrameBudgetMs = 16; // 1000/60 = 16.67, floor to stay >= 60fps

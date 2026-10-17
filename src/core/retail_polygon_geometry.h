@@ -4,11 +4,6 @@
 #include <cmath>
 #include <vector>
 
-// Retail FUN_00154038 stores polygon vertices in authored order, creates a
-// right-hand normal for every consecutive edge, and computes the centroid
-// with FUN_00153f20. Box2D's public Set() convex-hulls and reorders vertices;
-// initialize its equivalent fields directly so its solver sees retail's
-// geometry layout for the supported vertex count.
 inline void SetRetailPolygonGeometry(b2PolygonShape* polygon,
                                     const std::vector<b2Vec2>& vertices) {
     const int count = (int)vertices.size();

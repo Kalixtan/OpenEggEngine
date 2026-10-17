@@ -137,19 +137,11 @@ gmVariable MakeOfflineCommunityProcess(gmMachine& a_machine) {
     return gmVariable(stub);
 }
 
-// ---------------------------------------------------------------------
-// Bookkeeping flags (isBeingNice/isShouldUpdateEntities/setALevelLoaded/
-// isLoading/debug_setStop -- all confirmed real getter/setter pairs over
-// see core/game_system_state.h for what each flag means and why.
-// ---------------------------------------------------------------------
 
 int GM_CDECL gmf_getCurrentTick(gmThread* a_thread) {
     a_thread->PushInt((gmint)GetEngineContext().gameSystem.currentTick);
     return GM_OK;
 }
-// Retail 0x00070ec8 calls FUN_00188130, which returns whether the process
-// manager's pause target at +0x48 is non-null. The target is installed by
-// the queued pauseProcess operation, so pending requests remain invisible.
 int GM_CDECL gmf_isPaused(gmThread* a_thread) {
     ProcessManager* pm = GetEngineContext().processManager;
     a_thread->PushInt(pm && pm->IsPaused() ? 1 : 0);
@@ -208,9 +200,6 @@ int GM_CDECL gmf_debug_isStopped(gmThread* a_thread) {
     return GM_OK;
 }
 
-// ---------------------------------------------------------------------
-// Process management -- confirmed real, all backed by ProcessManager.
-// ---------------------------------------------------------------------
 
 gmType g_processListRefType = -1;
 
@@ -226,10 +215,6 @@ int GM_CDECL gmf_processListRef_isValid(gmThread* a_thread) {
 }
 int GM_CDECL gmf_processListRef_goToNext(gmThread* a_thread) {
     auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
-    // Retail FUN_0031f13c advances cursor = cursor->next when initialized.
-    // The copied list is circular: the last node reaches the sentinel, and a
-    // further call wraps sentinel->next to the first node. Modulo size+1
-    // models the same cursor transitions, including empty/end states.
     if (it) it->index = (it->index + 1) % (it->processes.size() + 1);
     return GM_OK;
 }
@@ -241,8 +226,6 @@ int GM_CDECL gmf_processListRef_get(gmThread* a_thread) {
 }
 int GM_CDECL gmf_processListRef_reset(gmThread* a_thread) {
     auto* it = (ProcessListRefData*)a_thread->ThisUserCheckType(g_processListRefType);
-    // Retail FUN_0031f184 sets cursor = sentinel.next, which is the first
-    // item (or the sentinel itself for an empty snapshot).
     if (it) it->index = 0;
     return GM_OK;
 }
@@ -262,10 +245,6 @@ gmFunctionEntry s_processListRefLib[] = {
     {"size", gmf_processListRef_size, nullptr},
 };
 
-// Confirmed real: flushProcesses' decompiled body is literally `return 0;`
-// with no calls at all -- a genuine no-op in retail too, not a decompile
-// gap (compare every other "empty-looking" function here, which all call
-// at least one FUN_ helper).
 int GM_CDECL gmf_flushProcesses(gmThread* a_thread) {
     return GM_OK;
 }
@@ -346,9 +325,6 @@ int GM_CDECL gmf_popupProcessConfigureOfflineCompat(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail runProcess defaults its replacement flag to false. When true,
-// FUN_00187360 finds and terminates an existing same-name process before
-// constructing a new instance; it never returns that existing instance.
 int GM_CDECL gmf_runProcess(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     if (a_thread->GetNumParams() > 2) { GM_EXCEPTION_MSG("expecting 1 or 2 param(s)"); return GM_EXCEPTION; }
@@ -392,9 +368,6 @@ int GM_CDECL gmf_runProcess(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail passes its sole argument to FUN_001876e8 as a process name. That
-// helper searches queued process entries; it does not test init state or a
-// termination-request flag. A match remains running until teardown drains.
 int GM_CDECL gmf_isProcessRunning(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     ProcessManager* pm = GetEngineContext().processManager;
@@ -410,9 +383,6 @@ int GM_CDECL gmf_isProcessRunning(gmThread* a_thread) {
     return GM_OK;
 }
 
-// PPC/decomp verified against GameSystem.getProcess at 0x70a24: accepts an
-// int process ID (GM tag 1) or string name (tag 0x25), then calls the
-// corresponding native lookup helper. Other tags, including null, return
 int GM_CDECL gmf_getProcess(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     const gmVariable& p = a_thread->Param(0);
@@ -432,13 +402,6 @@ int GM_CDECL gmf_getProcess(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed native selection: FUN_00187d24, called by the retail wrapper,
-// first walks the registered process objects and returns the first with
-// byte +9 set. If that search fails, it also examines queued runProcess and
-// startNewProcessList entries. Entity.setIsUpdatesEntities writes that byte,
-// and FUN_0018c558 initializes it to zero. The desktop lookup preserves the
-// retail ordering: active processes first, then synchronously constructed
-// processes waiting at the next local activation boundary.
 int GM_CDECL gmf_getEntityUpdateProcess(gmThread* a_thread) {
     ProcessManager* pm = GetEngineContext().processManager;
     Process* proc = pm ? pm->GetEntityUpdateProcess() : nullptr;
@@ -488,24 +451,11 @@ int GM_CDECL gmf_quit(gmThread* a_thread) {
     return GM_OK;
 }
 
-// openConsole() -- confirmed real (PS3 dev-kit debug/TTY console toggle),
-// live call sites BaseNotePlant.gm:549 and Player.gm:4455, both inside
-// "ERROR: how did i..." diagnostic branches (`GameSystem.trace("ERROR:
-// ...");GameSystem.openConsole();`) -- was entirely unbound, meaning
-// hitting either error branch hard-crashed ("getdot failed") instead of
-// just logging and continuing, turning a soft diagnostic warning into a
-// fatal abort. This reimplementation already prints every GameSystem.trace
-// straight to stderr with no separate console UI to open, so genuine
-// no-op -- consumed rather than left as a null-call.
 int GM_CDECL gmf_openConsole(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;
 }
 
-// ---------------------------------------------------------------------
-// Timers -- confirmed real, backed by GameSystemState's steady_clock
-// timers. See game_system_state.h for the resetSimulationTimer note.
-// ---------------------------------------------------------------------
 
 int GM_CDECL gmf_resetSimulationTimer(gmThread* a_thread) {
     GetEngineContext().gameSystem.ResetPlayTimer();
@@ -519,20 +469,6 @@ int GM_CDECL gmf_getMSSincePlayStart(gmThread* a_thread) {
     a_thread->PushFloat(GetEngineContext().gameSystem.GetMsSincePlayStart());
     return GM_OK;
 }
-// under the GameMonkeyScript class generically like several other
-// GameSystem.* getters in that index, but called script-side as
-// `GameSystem.getUpdateInterval()` -- e.g. EntityPacks/VicVolcano.gm:200's
-// `local tinc=GameSystem.getUpdateInterval();` feeding a fixed-step
-// trajectory precompute loop) -- but never bound to the GameSystem
-// library table at all, so the call resolved to null (a valid table with
-// an absent key, not a strict-trap-covered case) and every arithmetic use
-// of the result threw a real "operator X undefined for type null" script
-// exception, breaking that entity's whole configure() step. The
-// decompiled body itself is opaque (single call into an unnamed FUN_
-// helper, no traceable formula) but a getter with no args, returning a
-// float, whose real call sites all use it as a fixed per-tick time delta
-// -- the standard PS3-era 60Hz assumption already implicit everywhere
-// else in this engine (frontend-clock-driven deltaMs updates).
 int GM_CDECL gmf_getUpdateInterval(gmThread* a_thread) {
     a_thread->PushFloat(1000.0f / 60.0f);
     return GM_OK;
@@ -542,15 +478,7 @@ int GM_CDECL gmf_resetPlayTimer(gmThread* a_thread) {
     return GM_OK;
 }
 
-// ---------------------------------------------------------------------
-// Random -- backed by the shared retail MT19937 stream (seed 1; see
-// GameSystemState::NextRandom01 and EBOOT.elf's manager constructor).
-// ---------------------------------------------------------------------
 
-// Confirmed real: TWO args (min, max) -- not one. An earlier version of
-// this binding only took a single "max" argument; fixed after re-checking
-// the decompiled body, which clearly reads two argument slots (param base
-// and param base+0xc, i.e. arg0 and arg1) before calling the native RNG.
 int GM_CDECL gmf_getRandomInteger(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(lo, 0, 0.0f);
@@ -564,16 +492,6 @@ int GM_CDECL gmf_getRandomBoolean(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Confirmed real: 0 args, returns a vector2D (retail type tag 3 -- two
-// gmVariable type-tag table). This engine DOES have a native vector2D type
-// (vector2d_bindings.h's MakeVector2D, used throughout Player.gm etc) --
-// this used to return a plain {x=,y=} table instead, which superficially
-// worked for field access (`dir.x`) but not for vector2D operators/methods
-// (`dir*scalar`, `.length()`, `.normalize()`...). Confirmed a real crash,
-// not just theoretical: EntityPacks/BrianMover.gm's particle spawner does
-// `GameSystem.getRandomDir()*GameSystem.getRandomReal(...)`, which threw
-// "operator mul undefined for type table and float" once entity update()
-// dispatch actually started running (see UpdateEntitiesWithNativeUpdateHook).
 int GM_CDECL gmf_getRandomDir(gmThread* a_thread) {
     float angle = Random01() * 6.28318530718f;
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), std::cos(angle), std::sin(angle)));
@@ -590,13 +508,6 @@ int GM_CDECL gmf_getRandomSign(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Arity (1 or 2 args) and formula now fully decompiled
-// helpers FUN_0018bd38 (1-arg)/FUN_0018bdd0 (2-arg)): both are
-// `randomSign() * uniform(lo,hi)` where the 1-arg form's lo is a fixed
-// 0.0 constant (DAT_0018bd34) and hi is the sole argument, and randomSign
-// is its own independent coin-flip draw (FUN_000c8ee0(state,0,1)==0 -> +1
-// else -1) -- a SEPARATE random draw from the magnitude's, not derived
-// from it, exactly matching this engine's existing gmf_getRandomSign.
 int GM_CDECL gmf_getRandomSignAndReal(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     float lo, hi;
@@ -616,16 +527,6 @@ int GM_CDECL gmf_getRandomSignAndReal(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Arity (0, 2, or 4 args) and formula now fully decompiled
-// native helpers FUN_0018bb74/FUN_0018bba0/FUN_0018bbcc -> FUN_000c8e90/
-// FUN_000c9080, which bottom out in `rand01() = rawUint32 * DAT_000c8e8c`
-// and `uniform(min,max) = min + (max-min)*rand01()`):
-//   0 args: rand01()
-//   2 args (min,max): min + (max-min)*rand01()
-//   4 args (min,max,biasMin,biasMax): min + (max-min)*uniform(biasMin,biasMax)
-//     i.e. the interpolation factor itself is drawn from [biasMin,biasMax]
-//     instead of [0,1] -- confirmed by FUN_0018bbcc's body, which is
-//     exactly `(max-min)*FUN_000c9080(biasMin,biasMax) + min`.
 int GM_CDECL gmf_getRandomReal(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     if (n >= 4) {
@@ -645,10 +546,6 @@ int GM_CDECL gmf_getRandomReal(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Fixed arity 3 (min, max, shaping exponent) -- confirmed decompiled
-// (FUN_0018bc20 -> FUN_001dc1c0, PowerPC libm's pow(x,y) special-case
-// wrapper): result = min + (max-min)*pow(rand01(), exponent). This
-// matches the engine's earlier (previously unconfirmed) guess exactly.
 int GM_CDECL gmf_getRandomRealExp(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     GM_FLOAT_OR_INT_PARAM(lo, 0, 0.0f);
@@ -666,23 +563,14 @@ int GM_CDECL gmf_getSimulationSpeed(gmThread* a_thread) {
 int GM_CDECL gmf_setSimulationSpeed(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(requestedSpeed, 0, 1.0f);
-    // Retail GameSystem.setSimulationSpeed stores its argument directly at
-    // GameSystem +0xe68 (PPC setter FUN_0018bb40).
     GetEngineContext().gameSystem.simulationSpeed = requestedSpeed;
     return GM_OK;
 }
 
-// ---------------------------------------------------------------------
-// Temporary storage (entity copy/paste clipboard) -- confirmed real 0-GM-
-// arg functions (no gmThread param reads, no gmThread pushes in the
-// decompiled body), so they must operate on an implicit value rather than
-// an explicit argument/return. See game_system_state.h for why `this`
-// (the calling table) is that implicit value.
-// ---------------------------------------------------------------------
 
 int GM_CDECL gmf_TemporaryStorageCopy(gmThread* a_thread) {
     gmTableObject* thisTable = a_thread->ThisTable();
-    if (!thisTable) return GM_EXCEPTION; // confirmed: real body returns exception on failure
+    if (!thisTable) return GM_EXCEPTION;
     GetEngineContext().gameSystem.temporaryStorage = *a_thread->GetThis();
     return GM_OK;
 }
@@ -701,12 +589,6 @@ int GM_CDECL gmf_TemporaryStoragePaste(gmThread* a_thread) {
     return GM_OK;
 }
 
-// ---------------------------------------------------------------------
-// Autoload (dev/debug "jump straight into a level") -- confirmed real,
-// all read-only getters here (no setters in this class -- real retail
-// almost certainly set these from command-line args before the VM boots).
-// Defaults to "off"; see game_system_state.h.
-// ---------------------------------------------------------------------
 
 int GM_CDECL gmf_isAutoLoadLevel(gmThread* a_thread) {
     a_thread->PushInt(GetEngineContext().gameSystem.isAutoLoadLevel ? 1 : 0);
@@ -720,9 +602,6 @@ int GM_CDECL gmf_getAutoLoadPath(gmThread* a_thread) {
     a_thread->PushNewString(GetEngineContext().gameSystem.autoLoadPath.c_str());
     return GM_OK;
 }
-// Confirmed real: returns null when the underlying value is unset/zero,
-// a string otherwise (see the decompiled body's explicit branch on the
-// native getter's return value).
 int GM_CDECL gmf_getAutoLoadMode(gmThread* a_thread) {
     const std::string& mode = GetEngineContext().gameSystem.autoLoadMode;
     if (mode.empty()) a_thread->PushNull();
@@ -734,39 +613,6 @@ int GM_CDECL gmf_getAutoLoadArea(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Not part of the confirmed GameSystem.c decompile (address-clustering
-// filed it under a different cluster) but confirmed real via direct
-// retail script usage (game_data/Main.gm's InitGame() save-state machine
-// calls GameSystem.trace(...) directly). Kept alongside the 40 confirmed
-// functions since real scripts call it on this table.
-// ENGINE PATCH (2026-08-17): flood guard. `stderr` is unbuffered by design
-// (so trace output survives a crash) -- fine for normal, occasional real
-// script traces, but confirmed to cause a genuine ~37-SECOND level-load
-// stall once a script-level bug (BaseNotePlant.gm's loop-graphic cell-index
-// started calling this thousands of times per second during incremental
-// level load. Each call is a real unbuffered write() syscall; at that
-// volume the syscall overhead alone dwarfs actual game logic, and from the
-// player's side a 37-second black screen is functionally indistinguishable
-// from a hang/crash. Rather than chase the exact retail multi-screen
-// coordinate math that triggers it (unconfirmed, low-confidence), this
-// throttles at the sink: more than 200 calls within any running 1-second
-// window get silently dropped (with a single "suppressing" notice) until
-// the rate drops back down -- a systemic safety net against ANY future
-// runaway trace() burst, not just this one script's bug. Legitimate,
-// occasional real traces (the overwhelming majority of real call sites)
-// are completely unaffected.
-// ENGINE PATCH: the whole body below had been short-circuited by an
-// unconditional `return GM_OK; // ignore for now.` on the first line, which
-// silently disabled the game's OWN diagnostic channel -- retail scripts
-// trace their state machines through this (game_data/Main.gm's InitGame
-// traces "initing mixer", the splash/save state machine reports its
-// progress, etc), and with it dead there is no way to see how far the boot
-// sequence actually got. Restored, but OPT-IN via GE3_TRACE=1 rather than
-// on by default: the flood guard below exists because a real script bug
-// once drove thousands of unbuffered stderr writes per second and stalled a
-// level load for ~37 seconds, and a default-on trace channel also buries
-// the engine's own diagnostics. The dead code was also a trap -- it read as
-// a working implementation to anyone grepping for it.
 int GM_CDECL gmf_GameSystem_trace(gmThread* a_thread) {
     static const bool s_enabled = std::getenv("GE3_TRACE") != nullptr;
     if (!s_enabled) return GM_OK;
@@ -850,20 +696,6 @@ gmFunctionEntry s_gameSystemLib[] = {
     {"trace", gmf_GameSystem_trace, nullptr},
 };
 
-// Confirmed real by widespread usage (30+ real .gm files) -- a bare
-// global debug-dump utility, not GameSystem-scoped. No decompiled body,
-// but every real call site (CampaignScreenAlbumSelect.gm:314 etc.) is a
-// bare statement whose return value is never used -- it's a debug print,
-// not something script logic branches on. Implemented as a one-level
-// key/value dump to stderr, reusing gmf_GameSystem_trace's AsString
-// convention; nested tables are named by address rather than recursed
-// into, matching a typical debug dumper and avoiding infinite loops on
-// self-referential tables (e.g. `DumpObject(GameMonkeyScript)`).
-// see strict_calls survey; real call site Main.gm:10703
-// `ClearTable(killList);`, a real bare-global 1-arg action) empties a table
-// in place, matching gmTableObject::RemoveAndDeleteAll exactly (the real
-// decompiled body's single call, FUN_000f24d0, takes the table + machine +
-// a 0 flag -- the same 2-arg shape as this real gm API).
 int GM_CDECL gmf_ClearTable(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     gmVariable v = a_thread->Param(0);
@@ -871,13 +703,6 @@ int GM_CDECL gmf_ClearTable(gmThread* a_thread) {
         gmMachine* m = a_thread->GetMachine();
         gmTableObject* t = (gmTableObject*)m->GetObject(v.m_value.m_ref);
         if (t) {
-            // RemoveAndDeleteAll is private (gmMachine-only) -- same
-            // observable effect (every key reads back null afterward,
-            // matching Main.gm:10703's `while (?this.panels[this.counter])`
-            // guard pattern used right after a ClearTable call elsewhere in
-            // this corpus) via the public Set() API instead: collect keys
-            // first since Set() while iterating would invalidate the
-            // iterator.
             std::vector<gmVariable> keys;
             gmTableIterator it;
             for (gmTableNode* node = t->GetFirst(it); !t->IsNull(it); node = t->GetNext(it)) {
@@ -911,18 +736,6 @@ int GM_CDECL gmf_DumpObject(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Watermelon_Prepare_Screenshot()/Watermelon_Clear_Prepared_Screenshot() --
-// confirmed real, bare global functions (PS3 "Watermelon" grief-report
-// subsystem: captures a framebuffer snapshot to attach to a community-level
-// abuse report). Live call sites PauseProcessBase.gm:101 ("we may want to
-// post a grief report from this menu so let's take a screenshot now"),
-// OnlineStartMenu.gm:15/67, CommunityLevelInfoPopupTableBase.gm:89 -- both
-// were entirely unbound, hard "getdot failed" aborting PauseProcessBase's
-// own init() (see CreateEntityFromFactory-era bugs this session for what
-// an aborted init this early does to everything downstream) every single
-// time a level was paused. This reimplementation has no grief-report
-// backend to attach a screenshot to -- genuine no-op pair, consumed rather
-// than left as null-calls.
 int GM_CDECL gmf_Watermelon_Prepare_Screenshot(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;

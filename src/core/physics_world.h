@@ -23,12 +23,8 @@ struct PhysicsContactRecordView {
 // usage.
 b2World& GetPhysicsWorld();
 
-// Bytecode-verified PhysicsManager +0x5c. FUN_00035d28 decrements a positive
-// value after the world step and skips the post-step contact-pair traversal.
 void SetPhysicsNumFramesToIgnoreCollisions(int a_frames);
 int GetPhysicsNumFramesToIgnoreCollisions();
-// Retail FUN_00036f48 removes contact records involving this Entity from all
-// PhysicsData maps. Mirror its observable pair-membership cleanup by ID.
 void RemovePhysicsContactPairsForEntity(int a_entityId);
 // Remove only contacts owned by a body (a PhysicsData can own multiple bodies).
 void RemovePhysicsContactPairsForBody(b2Body* a_body);
@@ -54,37 +50,10 @@ bool PhysicsDataHasAnyCollisionPairs(uintptr_t a_myPhysicsData);
 bool PhysicsDataPairIsColliding(uintptr_t a_myPhysicsData,
                                 uint32_t a_otherEntityId);
 
-// PhysicsShape.disableRestitutionThisFrame (retail 0x0008fd14) and
-// Physics.disableContact (retail 0x000982f4). Both are real -- the engine
-// previously stubbed them as "safe no-ops".
-//
-// Retail's bodies, decompiled:
-//   FUN_00034084(body):   walks body->contactList setting a per-contact
-//                         flag byte on EVERY contact of that body
-//   FUN_0002d7fc(sci, id): compares each record's +0x0c other-shape ID with
-//                         the raw argument and ORs bit 0 into matching
-//                         contact flags at +4
-//
-// The local adapter applies them through Box2D PreSolve. disableContact is
-// retained for the contact's lifetime and cleared at EndContact, matching the
-// native contact-object flag and the packed owner-pass wrapper's until-
-// separation behavior. disableRestitutionThisFrame remains one-step scoped.
-//
-// Real call site, Player.gm:4488-4489 (landing-impact handling):
-//     this.mainpb.disableRestitutionThisFrame();
-//     sci.disableContact(i);
-// With both stubbed, landings kept their restitution and the contact was
-// never suppressed, so the player bounced where retail does not.
 void DisableRestitutionThisFrameForBody(b2Body* a_body);
 void MarkContactDisabled(b2Contact* a_contact);
 
-// Retail Entity teardown (FUN_000bfdb0 -> FUN_00037120 -> FUN_00036f48)
-// removes contact records referencing the entity without dispatching a script
-// separate callback. Suppress Box2D's synthetic EndContact during that body's
-// destruction window; these hooks bracket immediate or deferred body removal.
 void MarkEntityPhysicsBodyForTeardown(b2Body* a_body);
 void ClearEntityPhysicsBodyTeardown(b2Body* a_body);
 
-// Steps the shared world once with the incoming frame delta and retail's
-// (2, 2) solver iteration counts recovered from FUN_0035d28 -> FUN_0015a140.
 void StepPhysicsWorld(float a_dt);

@@ -25,8 +25,6 @@
 
 namespace {
 
-// Retail GameMonkeyScript.clean stores a pending per-frame GC pass count;
-// FUN_0018ab1c services one pass and decrements it in the engine update.
 int g_cleanPassesRemaining = 0;
 
 // Retail has separate raw and compressed table loaders. The compressed
@@ -95,18 +93,6 @@ void SetJsonObjectKey(gmMachine& a_machine, gmTableObject* a_table,
     a_table->Set(&a_machine, a_key, a_value);
 }
 
-// Whole numbers ("3", "-12", not "3.0"/"3e1") parse to GM_INT, not
-// GM_FLOAT -- confirmed load-bearing: GM table indexing distinguishes int
-// and float keys (gmTableObject.cpp's VarKeysEqual requires
-// `a_varA.m_type == a_varB.m_type`, and GetAtHashPos hashes the raw
-// `m_value` bit pattern, so `t[3]` and `t[3.0]` are DIFFERENT entries in
-// stock GM). Level XML/JSON integer fields (uid, pngIndex, scaleIndex,
-// ...) previously always parsed as GM_FLOAT here, so looking them up
-// against tables populated with plain int keys (e.g. ArrayHelper's
-// `pushBack`: `this[this.size]=thing;`, `size` always an int) silently
-// found nothing -- e.g. `TutorialGraphics_PNGList[this.configureData.pngIndex]`
-// always returned null even for a genuinely in-range pngIndex, crashing
-// several lines later on the null result ("getdot failed").
 bool IsWholeNumber(const char* a_value, size_t a_len) {
     size_t i = (a_len > 0 && (a_value[0] == '-' || a_value[0] == '+')) ? 1 : 0;
     if (i >= a_len) return false;
@@ -130,17 +116,6 @@ gmVariable ParseLeafValue(gmMachine& a_machine, const char* a_value,
     return gmVariable(a_machine.AllocStringObject(a_value));
 }
 
-// a_fallbackIndex: real level XML uses <tableElement key="entities"> for
-// keyed/named tables but plain, key-less <tableElement>/<element> children
-// for ARRAY-style tables (confirmed: campaignTutorial.xml.z's "entities"
-// and "screenData" both hold a bare sequence of unkeyed <tableElement>
-// items, one per array entry -- GM itself has no separate array type,
-// just tables keyed 0..n-1, matching JsonToGmVariable's IsArray() case
-// just below). Every such child used to be silently dropped entirely
-// (`if (!key) return;`), which meant every real level's entities/screenData
-// arrays loaded as consistently EMPTY tables -- level data parsed
-// "successfully" (no XML error) but described a level with no ground, no
-// entities, nothing to render.
 void ParseXmlElementInto(gmMachine& a_machine, gmTableObject* a_table,
                          const tinyxml2::XMLElement* a_elem, int a_fallbackIndex,
                          bool a_forceStringValues) {
@@ -161,8 +136,6 @@ void ParseXmlElementInto(gmMachine& a_machine, gmTableObject* a_table,
         if (key) SetTableKey(a_machine, a_table, key, v);
         else a_table->Set(&a_machine, a_fallbackIndex, v);
     }
-    // Any other/unrecognised tag (e.g. <indexSize/>) is skipped -- not part
-    // of the confirmed vocabulary above.
 }
 
 gmTableObject* ParseXmlTable(gmMachine& a_machine, const std::string& a_text,
@@ -201,12 +174,6 @@ bool ReadGameMonkeyScriptFile(int a_area, const std::string& a_path,
     return false;
 }
 
-// Retail wrapper at 0x6d708 accepts path and an optional raw file-area
-// payload. Maps JSON objects/arrays onto GM tables
-// (array elements keyed 0..n-1, matching how GM itself has no separate
-// array type), numbers to GM_FLOAT, strings to GM_STRING, null to
-// GM_NULL. kParseTrailingCommasFlag for the same reason bitmap_font.cpp
-// needs it -- real retail data files aren't strict JSON.
 gmVariable JsonToGmVariable(gmMachine& a_machine, const rapidjson::Value& a_v) {
     if (a_v.IsObject()) {
         gmTableObject* table = a_machine.AllocTableObject();
@@ -242,19 +209,6 @@ int GM_CDECL gmf_GameMonkeyScript_loadScript(gmThread* a_thread) {
     EngineContext& ctx = GetEngineContext();
     std::string source;
     if (!ctx.fileHelper->ReadTextFile(path, source)) {
-        // Log-and-continue (GM_EXCEPTION_MSG here is just LogEntry, not a
-        // thread-killing exception -- returns GM_OK below) is confirmed
-        // real retail behavior, not just a convenient shortcut: a real PS3
-        // command-line capture shows retail hitting genuinely missing files
-        // this exact way and continuing straight on to the splash screen
-        // and main menu ("Error - Failed to load file
-        // [Platformer/CommunityLevelInfo.gm] -2147416315" / "ERROR: Could
-        // not load script ... because file does not exist.", followed by
-        // normal boot continuing). Several of the files our own game_data
-        // corpus is missing (CommunityLevelInfo.gm, RunStoreProcess.gm,
-        // OfflineLevelsTOC.gm, PatchfileHelper.gm, CommonCommunityStuff.gm,
-        // PersistentDataHelper.gm) are confirmed missing in retail too, by
-        // that same log -- not gaps in our reveng corpus.
         GM_EXCEPTION_MSG("GameMonkeyScript.loadScript: could not find '%s'", path);
         a_thread->PushInt(0);
         return GM_OK;
@@ -326,8 +280,6 @@ int GM_CDECL gmf_GameMonkeyScript_loadTableFromXMLFile(gmThread* a_thread) {
     return LoadTableFromXMLFile(a_thread, false);
 }
 
-// Retail 0x0006e184 accepts (path, [area], [parseFlag]) and requires zlib
-// inflation before applying the XML loader's string-value option.
 int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedXMLFile(gmThread* a_thread) {
     return LoadTableFromXMLFile(a_thread, true);
 }
@@ -376,8 +328,6 @@ int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedXMLSaveRequest(
     return LoadTableFromXMLSaveRequest(a_thread, true);
 }
 
-// Retail 0x0006d708 accepts 1 or 2 args (path, [area]); its optional area
-// payload follows the same FILEHELPER_AREA_* convention as the XML loader.
 int LoadTableFromJsonFile(gmThread* a_thread, bool a_compressed) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
@@ -554,19 +504,6 @@ std::string GmTableToJsonString(gmMachine& a_machine, const gmVariable& a_var) {
     return buf.GetString();
 }
 
-// GameMonkeyScript.saveTableToJsonSaveRequest(filename, table) -- confirmed
-// real (game_data/Platformer/SaveDataHelper.gm's SAVEDATAHELPER_SaveToFile,
-// Platformer/MyLevelsTOC.gm's t.save() -- the two real save-write call
-// sites). Retail's real body queues an async ticket into Sony's SaveData
-// SaveData.c) that scripts never inspect beyond handing straight back to a
-// loader -- nothing here needs to reproduce that protocol, only its
-// script-visible contract. Writes the JSON immediately (this engine's save
-// path is synchronous; SAVEDATA_doRequest below just confirms completion)
-// to SaveData::Dir() -- a real "savedata/" folder next to the built
-// executable, so it's a plain text file, not a save-data block -- and
-// returns the relative filename itself as the "ticket": every real call
-// site only ever forwards it to loadTableFromJsonSaveRequest() or discards
-// it, so a filename satisfies the contract with nothing invented beyond it.
 int GM_CDECL gmf_GameMonkeyScript_saveTableToJsonSaveRequest(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_STRING_PARAM(filename, 0, "");
@@ -582,13 +519,6 @@ int GM_CDECL gmf_GameMonkeyScript_saveTableToJsonSaveRequest(gmThread* a_thread)
     return GM_OK;
 }
 
-// GameMonkeyScript.loadTableFromJsonSaveRequest(ticket) -- confirmed real
-// (Main.gm's InitGame(), MyLevelsTOC.gm's t.load()), the read-side
-// counterpart to saveTableToJsonSaveRequest above: resolves a ticket (a
-// relative filename supplied by a SaveRequest ticket) against SaveData::Dir()
-// rather than FileHelper's game_data-rooted resolve, since save data
-// intentionally lives outside the game_data tree entirely. Legacy string
-// tickets remain accepted for saveTableToJsonSaveRequest callers.
 int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonSaveRequest(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     std::string ticket;
@@ -636,22 +566,11 @@ int GM_CDECL gmf_GameMonkeyScript_loadTableFromCompressedJsonSaveRequest(
     return GM_OK;
 }
 
-// GameMonkeyScript.setIsCheckingInfiniteLoop(bool) -- confirmed real
-// setter). Real call site (Main.gm:3226's setupLevelFromJsonFile():
-// `GameMonkeyScript.setIsCheckingInfiniteLoop(false);`) toggles the GM VM's
-// own infinite-loop watchdog off before a long synchronous level-load pass
-// -- this reimplementation has no such watchdog to disable, so genuine
-// no-op.
 int GM_CDECL gmf_GameMonkeyScript_setIsCheckingInfiniteLoop(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;
 }
 
-// GameMonkeyScript.clean([n]) -- retail sets a request count (default 4,
-// clamped to at least 1); FUN_0018ab1c consumes one request per frame.
-// Retail's collector manager performs an update with its force flag set.
-// The local VM exposes a full-collection operation rather than that manager,
-// so service each request with its corresponding forced collection.
 int GM_CDECL gmf_GameMonkeyScript_clean(gmThread* a_thread) {
     const int argc = a_thread->GetNumParams();
     if (argc == 0) {
@@ -669,16 +588,10 @@ int GM_CDECL gmf_GameMonkeyScript_isCollectingGarbage(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail 0x0006f800 and 0x0006f808 are empty wrappers that return zero.
-// They are used by menu screen-state code as checkpoint markers, but do not
-// actually snapshot or restore VM state in this build.
 int GM_CDECL gmf_GameMonkeyScript_scriptCheckpointNoop(gmThread*) {
     return GM_OK;
 }
 
-// Retail 0x0006f77c pushes the collector's m_numAllocated field at +0x60.
-// The bundled GameMonkey collector already tracks that field under
-// GM_GC_STATS; keep the existing counter enabled in Release builds too.
 int GM_CDECL gmf_GameMonkeyScript_getNumObjectsInGC(gmThread* a_thread) {
     a_thread->PushInt(a_thread->GetMachine()->GetGC()->GetNumAllocated());
     return GM_OK;
@@ -722,19 +635,11 @@ void ServiceGameMonkeyScriptCleanPass(gmMachine& a_machine) {
     --g_cleanPassesRemaining;
 }
 
-// Exposed for Debug.GameMonkey2JSON/JSON2GameMonkey (confirmed real bare
-// around the private implementations above rather than moving them out of
-// the anonymous namespace (which would touch everything else in this
-// file) or duplicating the JSON<->gmVariable mapping in system_bindings.cpp,
-// which would drift independently over time.
 gmVariable JsonStringToGmVariable(gmMachine& a_machine, const std::string& a_json, const gmVariable* a_extra) {
     rapidjson::Document doc;
     doc.Parse(a_json.c_str());
     if (doc.HasParseError()) return gmVariable::s_null;
     if (a_extra && a_extra->m_type == GM_TABLE && doc.IsObject()) {
-        // JSON2GameMonkey(jsonString, extraTable): confirmed real 2-arg
-        // overload merges the decoded object into the caller-supplied
-        // table rather than allocating a fresh one.
         gmTableObject* table = (gmTableObject*)a_machine.GetObject(a_extra->m_value.m_ref);
         for (auto it = doc.MemberBegin(); it != doc.MemberEnd(); ++it) {
             SetJsonObjectKey(a_machine, table, it->name.GetString(),

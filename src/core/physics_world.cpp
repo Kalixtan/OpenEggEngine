@@ -21,43 +21,8 @@
 
 namespace {
 b2World* g_world = nullptr;
-// Retail PhysicsManager +0x5c. FUN_00035d28 decrements a positive value and
-// skips its post-step collision-pair traversal for that tick.
 int g_numFramesToIgnoreCollisions = 0;
 
-// ENGINE PATCH (2026-08-16): dispatches Box2D contact events to script
-// entities -- previously entirely missing, the same class of gap as
-// onKeyPress/onKeyRelease was before this session's DispatchKeyEventToEntities
-// fix (entity_bindings.cpp/main.cpp). Confirmed real and load-bearing:
-// Player.gm's top-level `onEntityTouch=function(who){ this.state.call(...);
-// if (!this.checkDeath(who)) {...} }` / `onEntityCollide=function(who,
-// itToMe){ ... }` (~line 4440-4461) is what checkDeath() (~line 4372) hooks
-// to fire the real "KillPlayer" event when touching a DANGER/FIRE-styled
-// ground piece -- with NOTHING in this engine ever calling onEntityCollide/
-// onEntityTouch on any entity, touching a hazard silently did nothing at
-// all, no matter how solid the danger-ground rendering fix made it look.
-// Retail's cached-callback trampoline passes only `who`; `itToMe` is not a
-// callback argument and scripts obtain contact normals from PhysicsData.
-// Box2D fixture contacts are aggregated into unordered entity pairs. Retail
-// stamps each active PhysicsData pair with the GameSystem update counter: its
-// creation update queues onEntityCollide, and later updates queue
-// onEntityTouch while the pair remains active. Retail also applies a manager
-// countdown and shouldUpdateEntities gate, checks per-side contact-record
-// eligibility at contact creation, and dispatches both endpoints without a
-// receiver-membership filter. Contact-add onEntityCollidePreSolve runs once per
-// eligible side, not on every Box2D PreSolve pass. Pair order and exact native
-// manager-list traversal remain open; see
-// PHYSICS_CONTACT_LIFECYCLE_CROSSWALK.md. Retail EndContact removes each
-// directed PhysicsData pair and synchronously calls the owning Entity's vtable
-// +0x5c (onEntitySeparate) when that pair becomes empty. This adapter mirrors
-// the final entity-pair transition before returning from EndContact.
-// Entity teardown is a distinct confirmed case: FUN_000bfdb0 -> FUN_00037120
-// -> FUN_00036f48 removes matching contact-map records without invoking the
-// script trampoline. Mark Entity-owned bodies before DestroyBody so Box2D's
-// synthetic EndContact during that cleanup cannot fabricate onEntitySeparate.
-// disableRestitutionThisFrame is step-scoped. disableContact is retained per
-// contact until EndContact and reapplied from PreSolve because Box2D resets
-// SetEnabled(false) at the start of each step.
 static std::set<b2Body*> g_restitutionDisabledBodies;
 // Retail disableContact ORs a bit into the native contact object. Keep the
 // local equivalent for the lifetime of that contact; Box2D resets its own
@@ -111,11 +76,6 @@ int EntityCollisionId(gmMachine* a_machine, const gmVariable& a_entity) {
 }
 
 bool IsNativeContactRecordMember(gmMachine* a_machine, const gmVariable& a_entity) {
-    // Retail FUN_000374e0 adds a per-side contact record only when Entity+0xc
-    // is clear and PhysicsData+0x49 is set. Entity+0xc is the manual-membership
-    // byte (FUN_000bfac8 sets it); PhysicsData+0x49 is represented here by
-    // __noPhysicsCollide. The enabled byte Entity+0xd is a later manager-tick
-    // traversal gate, not a per-side callback or pair-dispatch receiver gate.
     if (!a_machine || a_entity.m_type != GM_TABLE) return false;
     auto* table = (gmTableObject*)a_machine->GetObject(a_entity.m_value.m_ref);
     if (!table) return false;
@@ -133,10 +93,6 @@ bool IsEntityEnabledForPhysicsManager(gmMachine* a_machine, const gmVariable& a_
     return enabled.m_type == GM_INT && enabled.m_value.m_int != 0;
 }
 
-// Retail's 12-byte pair queue deduplicates Entity pointers in both
-// orientations (FUN_0033cba0); dispatch-time active-map lookup uses the first
-// Entity's PhysicsData and the other Entity ID (FUN_00031544). Keep the queue
-// key pointer-based; object IDs belong to the directed PhysicsData map.
 using EntityPairKey = std::pair<uintptr_t, uintptr_t>;
 struct PairContactMembership {
     bool firstSide = false;
@@ -428,9 +384,6 @@ void DispatchContactEvent(gmMachine* a_machine, const DeferredContactEvent& a_ev
     if (rootSelf) a_machine->AddCPPOwnedGMObject(selfObject);
     if (rootOther) a_machine->AddCPPOwnedGMObject(otherObject);
     if (call.BeginTableFunction(a_machine, a_event.method, table, a_event.self)) {
-        // Retail's cached callback trampoline (FUN_0005a084) pushes exactly
-        // one explicit argument: the other Entity. Contact normals are read
-        // separately through PhysicsData.getContactNormal().
         call.AddParam(a_event.other);
         call.End();
     }
@@ -533,11 +486,6 @@ public:
         g_disabledContacts.erase(a_contact);
         std::vector<SeparateContactEvent> separateEvents;
         RemovePairContact(a_contact, separateEvents);
-        // Retail's entity destructor removes the corresponding contact-map
-        // records through FUN_00036f48; this is cleanup, not an
-        // onEntitySeparate event. Box2D emits EndContact from DestroyBody, so
-        // suppress that synthetic callback while Entity-owned bodies are
-        // being removed. Genuine separation remains dispatched normally.
         if (g_entityPhysicsBodiesBeingDestroyed.count(
                 a_contact->GetFixtureA()->GetBody()) != 0 ||
             g_entityPhysicsBodiesBeingDestroyed.count(
@@ -572,9 +520,6 @@ public:
         }
     }
     void PreSolve(b2Contact* a_contact, const b2Manifold*) override {
-        // Retail contact solver at 0x0015b5d0 mixes ordinary fixture
-        // friction unless one fixture's owner has Entity.isPlayer. Then
-        // it uses the other fixture's +0x30 player-friction value.
         if (gmMachine* m = GetEngineContext().machine) {
             b2Fixture* a = a_contact->GetFixtureA();
             b2Fixture* b = a_contact->GetFixtureB();
@@ -640,12 +585,6 @@ public:
                     ? b2Vec2(-manifold.normal.x, -manifold.normal.y) : manifold.normal;
                 const b2Vec2 playerPos = playerBody->GetPosition();
                 const b2Vec2 playerVel = playerBody->GetLinearVelocity();
-                // The active Player.gm PreSolve uses the player's main shape
-                // ID and `climbing` state; the local ballMode branch is
-                // hard-disabled in shipped source. These opt-in values help
-                // distinguish visual rolling from an actual ball-mode path.
-                // State/field meaning here is source-verified, not a claim
-                // that this C++ trace itself reproduces retail callbacks.
                 std::fprintf(stderr,
                     "[contact] ids=%d/%d shapes=%u/%u player=(%.3f,%.3f) "
                     "velMs=(%.4f,%.4f) angle=%.3f climbing=%d "
@@ -739,12 +678,6 @@ ScriptContactListener g_contactListener;
 
 b2World& GetPhysicsWorld() {
     if (!g_world) {
-        // Real scripts drive velocity explicitly every frame (setSpeed/
-        // setVel/setMaxSpeed/setVelocityDecayRate -- see
-        // Platformer/Player.gm's constructor) rather than reading/setting
-        // any global gravity value (no such call site exists anywhere in
-        // the corpus) -- zero gravity avoids silently adding an unconfirmed
-        // force on top of that.
         g_world = new b2World(b2Vec2(0.0f, 0.0f));
         g_world->SetContactListener(&g_contactListener);
     }
@@ -908,11 +841,6 @@ void StepPhysicsWorld(float a_dt) {
         }
     }
 
-    // Retail FUN_00035d28 always performs the world step, then traverses the
-    // persistent contact records only when PhysicsManager +0x5c is below one
-    // and GameSystem.shouldUpdateEntities is set. A positive countdown is
-    // decremented and skips that traversal. Contact-add callbacks have already
-    // populated/removed g_activeEntityPairs during Box2D's Begin/End callbacks.
     std::vector<ContactPairDispatch> pairEvents;
     if (g_numFramesToIgnoreCollisions > 0) {
         --g_numFramesToIgnoreCollisions;

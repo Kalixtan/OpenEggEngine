@@ -11,7 +11,7 @@
 #include "../ported_native/ground_renderer.h"
 #include "audio_bindings.h"
 #include "physics_body_bindings.h"
-#include "foe_compat_bindings.h"
+#include "script_compat_bindings.h"
 #include "vector2d_bindings.h"
 #include "sequencer_bindings.h"
 #include <algorithm>
@@ -28,12 +28,6 @@ struct ShaderHandleData {
     bool isDefaultPostProcess;
 };
 
-// BYTECODE VERIFIED: retail SHADER.getVertexShaderParamIndex selects the
-// wrapped shader's +4 vertex descriptor and calls FUN_000552d8. That helper
-// returns the matching zero-based name index; on a miss it logs and returns 0.
-// These seven names are recovered from the sound-preview Cg reflection. The
-// Process constructor's GM value is {type=GM_INT (1), payload=0}, so the sole
-// SoundPreview entry is selected with shader ID 0. See PROCESS_SHADER_AUDIT.md.
 int GM_CDECL gmf_shader_getVertexShaderParamIndex(gmThread* a_thread) {
     ShaderHandleData* shader = (ShaderHandleData*)a_thread->ThisUserCheckType(g_shaderType);
     if (!shader || a_thread->GetNumParams() != 1 || a_thread->Param(0).m_type != GM_STRING)
@@ -49,8 +43,6 @@ int GM_CDECL gmf_shader_getVertexShaderParamIndex(gmThread* a_thread) {
         for (int i = 0; i < 7; ++i) {
             if (std::strcmp(name, params[i]) == 0) { a_thread->PushInt(i); return GM_OK; }
         }
-        // Retail FUN_000552d8 logs "Param <name> not found in shader" and
-        // returns zero, which the native wrapper pushes as the result.
         a_thread->GetMachine()->GetLog().LogEntry(
             "Error: Param %s not found in shader (GetShaderParamID)", name);
         a_thread->PushInt(0);
@@ -61,9 +53,6 @@ int GM_CDECL gmf_shader_getVertexShaderParamIndex(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_shader_test(gmThread* a_thread) {
-    // BYTECODE VERIFIED at 0x6b3e0: retain/release the wrapped shader holder;
-    // the ordinary live-handle path has no net state change and pushes no
-    // return value. Userdata lifetime remains owned by the desktop VM.
     (void)a_thread;
     return GM_OK;
 }
@@ -88,10 +77,6 @@ Process* LookupProcess(gmThread* a_thread, gmTableObject* a_self) {
     return GetEngineContext().processManager->Get(idVar.m_value.m_int);
 }
 
-// PROCESS.getShader(index), retail 0x0019f6bc. Native Process constructor
-// 0x19e850 actively writes SOUNDPREVIEW_SHADERID as a GM_INT with payload 0.
-// It appends the sole SoundPreview shader at index 0, which the retail selector
-// resolves directly.
 int GM_CDECL gmf_process_getShader(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* process = self ? LookupProcess(a_thread, self) : nullptr;
@@ -113,15 +98,6 @@ int GM_CDECL gmf_process_getShader(gmThread* a_thread) {
     return GM_OK;
 }
 
-// callMethod(name, ...args) -- confirmed real (Ghidra: retail FUN_0043e1f0,
-// same generic string-dispatch native as the Entity-handle version in
-// entity_bindings.cpp -- see its header comment for the full cross-type
-// rationale). Real call site: Point.gm:393's
-// `GameSystem.getProcess("PekkoAndJon_Main").callMethod("addScore",1)`.
-// Simpler than the Entity version -- no __behaviorOwner fallback needed,
-// since a process handle IS the same table as its own behavior table here
-// (dual injection, see this file's header comment above on why a
-// DelegateToProcessTable() attempt caused infinite recursion).
 int GM_CDECL gmf_process_callMethod(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     if (!self) return GM_EXCEPTION;
@@ -168,22 +144,12 @@ int GM_CDECL gmf_process_isBeingEdited(gmThread* a_thread) {
     return GM_OK;
 }
 
-// classes/EntityRegistration.c 0x001d0520), real call site Main.gm:4424
-// `this.groundProcess.drawGrounds(drawList);` on the GroundProcessNEW
-// process handle. Record the native ground pass into the supplied list at
-// this call site, preserving the graphics -> grounds -> sticky-ground order.
-// Retail implementation: FUN_001d0520 -> FUN_001ce4a0.
 int GM_CDECL gmf_process_drawGrounds(gmThread* a_thread) {
     gmUserObject* object = a_thread->ParamUserObject(0);
     if (!object || object->m_userType != GetDrawListType()) return GM_EXCEPTION;
     RecordGroundsNative(static_cast<DrawListData*>(object->m_user));
     return GM_OK;
 }
-// EntityRegistration.onMusicTrigger (EBOOT 0x1d065c -> FUN_001ceb88) resets
-// both embedded ping-pong scalars (+0xbc/+0xdc) to 1 on every eighth step,
-// then retimes +0xbc to eight MainSequencer steps. GroundProcessNEW's native
-// fire/danger renderer consumes these values. Script callbacks already
-// present on a returned process table take priority over this native base.
 int GM_CDECL gmf_process_onMusicTriggerDefault(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
@@ -195,14 +161,10 @@ int GM_CDECL gmf_process_onMusicTriggerDefault(gmThread* a_thread) {
     proc->fireAmplitudePhase = 1.0f;
     const float eightStepPeriod =
         GetMainSequencerMsPerStep(*a_thread->GetMachine()) * 8.0f;
-    // FUN_00015cb0 stores 2/max(input, 1) in the scalar's time-scale field.
     proc->fireAmplitudeScale = 2.0f / std::max(eightStepPeriod, 1.0f);
     return GM_OK;
 }
 
-// Retail EBOOT also exports refreshFunctionCache on Process. This port's
-// ProcessManager resolves callback fields when dispatching each event, so a
-// changed method is visible immediately without a separate pointer cache.
 int GM_CDECL gmf_process_refreshFunctionCache(gmThread*) { return GM_OK; }
 
 // EntityRegistration.setFireThickness(value), retail wrapper 0x1d07cc:
@@ -240,21 +202,11 @@ int GM_CDECL gmf_process_setRefreshDrawListsOnChange(gmThread* a_thread) {
     return GM_OK;
 }
 
-// EntityRegistration.setupDrawLists is retail 0x1d0700 -> FUN_001cec38.
-// The desktop currently has no persistent native ground child-draw-list
-// cache: RecordGroundsNative rebuilds the camera-visible batches during each
-// render pass. Keep the call harmless until that cache is ported; replacing
-// this with a guessed cache invalidation would change state without matching
-// the recovered owner/cell batch handoff.
 int GM_CDECL gmf_process_setupDrawLists(gmThread* a_thread) {
     (void)a_thread;
     return GM_OK;
 }
 
-// EntityRegistration.registerEntity(entity,style,selected)/unregisterEntity
-// (entity,style) -- real wrappers at EBOOT 0x001d0430/0x001d04bc. GroundBase
-// calls these when a ground enters/leaves the native ground list. Store the
-// entity's stable object ID so the registry does not hold an unrooted GM ref.
 int GM_CDECL gmf_process_registerGround(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
@@ -286,11 +238,6 @@ int GM_CDECL gmf_process_registerGround(gmThread* a_thread) {
     proc->groundRegistrations.erase(entityId);
     auto& drawOrder = proc->groundRegistrationOrder;
     drawOrder.erase(std::remove(drawOrder.begin(), drawOrder.end(), entityId), drawOrder.end());
-    // RETAIL PPC 0x001cd798 computes the union of the entity's complete
-    // shape list through FUN_000302f8/FUN_00032fe8, converts each edge to a
-    // screen-cell index using reciprocals at 0x001cd778, then inserts the
-    // entity into each inclusive cell. Match the full shape union and
-    // fctiwz truncation plus the explicit decrement for negative positions.
     gmVariable physicsData = entity->Get(&machine, "PhysicsData");
     if (physicsData.m_type == GM_NULL)
         physicsData = entity->Get(&machine, "__physicsData");
@@ -328,12 +275,6 @@ int GM_CDECL gmf_process_unregisterGround(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getGroundCountOnScreen(screenX,screenY) -- wrapper and native nested-map
-// lookup/count are bytecode verified (EntityRegistration.c 0x001d0920 and
-// FUN_001ced4c). The desktop registry counts registered grounds whose
-// cached inclusive screen-cell bounds contain this cell. Those bounds are
-// derived at registration from fixture AABBs; exact parity for multi-body or
-// native entity-bounds cases still depends on matching FUN_000302f8.
 int GM_CDECL gmf_process_getGroundCountOnScreen(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
@@ -347,16 +288,6 @@ int GM_CDECL gmf_process_getGroundCountOnScreen(gmThread* a_thread) {
     return GM_OK;
 }
 
-// isLoading() on a process handle -- confirmed real call site (Main.gm
-// :1666: `local gp=GameSystem.getProcess(this.parentProcessID); if
-// (gp.isLoading()) {...}`, where parentProcessID is Main's OWN process id,
-// so `gp` here is Main's own returned table, which never defines
-// "isLoading" itself -- only GameSystem.isLoading()/setIsLoading() do (see
-// game_system_state.h's isLoadingFlag). Reads the exact same shared flag
-// directly (not a cross-table delegate/lookup -- see gmf_setScaleIndex's
-// header comment above for why that pattern is unsafe for process tables)
-// so this always agrees with whatever GameSystem.setIsLoading(...) last
-// set, regardless of which process handle it's read through.
 int GM_CDECL gmf_process_isLoading(gmThread* a_thread) {
     a_thread->PushInt(GetEngineContext().gameSystem.isLoadingFlag ? 1 : 0);
     return GM_OK;
@@ -382,14 +313,6 @@ int GM_CDECL gmf_setupPreDrawList(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
     if (!proc) return GM_EXCEPTION;
-    // 0-arg tolerant: real call sites are 2-arg (`this.setupPreDrawList(w,h)`)
-    // EXCEPT the bare "setupDrawList" alias (ScaleOfTheWorld.gm:20's
-    // `this.drawList=this.setupDrawList();`, no args at all) that also
-    // routes through this same function -- see that registration's own
-    // header comment. A strict 2-arg GM_CHECK_NUM_PARAMS threw on every
-    // real 0-arg call, aborting ScaleOfTheWorld's own constructor() before
-    // it finished (same "blank exception aborts the whole calling chain"
-    // class of bug as this session's other GM_CHECK_NUM_PARAMS fixes).
     int w = (int)a_thread->ParamInt(0, 0);
     int h = (int)a_thread->ParamInt(1, 0);
     PushNewDrawList(a_thread, w, h);
@@ -403,13 +326,6 @@ int GM_CDECL gmf_setupPostDrawList(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
     if (!proc) return GM_EXCEPTION;
-    // 0-arg tolerant, matching retail: the decompiled body accepts 0..2
-    // setupPreDrawList above, which was already fixed for the same reason.
-    // A hard GM_CHECK_NUM_PARAMS(2) here throws a blank exception on any
-    // real 0- or 1-arg call and aborts the whole calling chain -- the same
-    // failure mode that broke ScaleOfTheWorld's constructor via
-    // setupDrawList(). This mismatch stayed invisible until check_arity.py
-    // learned the Set(...AllocFunctionObject(...)) registration form.
     int w = (int)a_thread->ParamInt(0, 0);
     int h = (int)a_thread->ParamInt(1, 0);
     PushNewDrawList(a_thread, w, h);
@@ -487,33 +403,10 @@ int GM_CDECL gmf_process_rename(gmThread* a_thread) {
     auto* stringObject = static_cast<gmStringObject*>(
         a_thread->GetMachine()->GetObject(arg.m_value.m_ref));
     if (!stringObject) return GM_EXCEPTION;
-    // Retail strlen (FUN_002b6af4) and native string assignment
-    // (FUN_0018c83c) both operate on the GM string's NUL-terminated bytes.
     proc->name.assign(stringObject->GetString());
     return GM_OK;
 }
 
-// MusicTheory.c 0x001a4d28/0x001a4d9c), real call sites all on
-// `this.worldScaleProcess` (ScaleOfTheWorld.gm's own returned table).
-// NOTE ON WHY THIS ISN'T A CROSS-TABLE DELEGATE: InjectProcessHandleMethods
-// is called BOTH on the bare process handle `p` (CreateProcessHandle) AND,
-// via InjectProcessBaseMethods (video_bindings.cpp), directly on a
-// process's OWN returned behavior table (FinishBringUp, process_manager.cpp)
-// -- i.e. for a process, "the handle" and "the behavior table" are dual-
-// injected with the SAME method set, unlike entities where a genuinely
-// separate __behaviorOwner has to be looked up. A first attempt at a
-// DelegateToProcessTable() helper (look up proc->table, forward the call to
-// whatever method is defined there) crashed with a stack-overflowing
-// infinite recursion: since InjectProcessHandleMethods runs directly on
-// proc->table too, "the method defined on proc->table" WAS the delegate
-// itself, calling itself forever. Fixed by writing directly to whichever
-// table the call landed on (`self`, via ThisTable()) instead of forwarding
-// anywhere -- matches the exact field ScaleOfTheWorld.gm's own real
-// getScaleIndex/transposeUp read (`this.currentScaleIndex`/
-// `this.transposeValue`), and is guarded (only fires if the table doesn't
-// already define a real one) so it can never stomp ScaleOfTheWorld.gm's
-// own real setScaleIndex when InjectProcessBaseMethods dual-injects onto
-// its returned table.
 int GM_CDECL gmf_setScaleIndex(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
@@ -525,17 +418,12 @@ int GM_CDECL gmf_setTranspose(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    // MusicTheory.setTranspose (0x001a4d9c) converts a float argument to
-    // int before storing the native transpose word at +0xae0.
     const gmVariable value = a_thread->Param(0);
     const gmint transpose = value.m_type == GM_FLOAT
         ? (gmint)value.m_value.m_float : value.m_value.m_int;
     self->Set(a_thread->GetMachine(), "transposeValue", gmVariable(transpose));
     return GM_OK;
 }
-// MusicTheory.getTranspose (0x001a4e10) returns that word as GM_INT.
-// ScaleOfTheWorld.gm keeps the same value in transposeValue and does not
-// define its own getter, so supply the native method to both process tables.
 int GM_CDECL gmf_getTranspose(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
@@ -566,12 +454,6 @@ int GM_CDECL gmf_getScaleIndex(gmThread* a_thread) {
     return GM_OK;
 }
 
-// MusicTheory.nextScale/lastScale/getCurrentScaleDescription are retail
-// methods on the ScaleOfTheWorld process table (0x001a4b48, 0x001a4b94,
-// 0x001a4be0). The script copies are explicitly commented out because these
-// are native in retail. Without the description getter, EditorStartMenu's
-// Scale button receives null and its width-measurement print aborts the
-// entire menu draw; without the step methods, selecting that setting fails.
 int GM_CDECL gmf_nextScale(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_EXCEPTION;
@@ -621,14 +503,6 @@ int GM_CDECL gmf_getCurrentScaleDescription(gmThread* a_thread) {
     return GM_OK;
 }
 
-// MusicTheory.getNoteWithPositionAndOffset (retail 0x001a51fc) accepts a
-// vector and optional integer offset. The native helpers at 0x001a3358 and
-// 0x001a3454 use a 21.96-unit vertical cycle, 2.44 units per pitch step,
-// current scale's note list, mode, and transpose, then clamp to MIDI 0..95.
-// Both float constants were read from EBOOT.elf at 0x001a3348/0x001a3350.
-// The C++-marked reference in ScaleOfTheWorld.gm confirms the note-list
-// indexing and offset-minus-one rule. Scale data itself is the unchanged
-// script's scaleList, which its constructor fills before gameplay calls.
 int GM_CDECL gmf_getNoteWithPositionAndOffset(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
     gmMachine& machine = *a_thread->GetMachine();
@@ -692,35 +566,6 @@ int GM_CDECL gmf_getTable(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getScreenWidth/getScreenHeight -- confirmed real (Platformer/Main.gm
-// calls `this.getScreenWidth()`/`this.getScreenHeight()` directly on its
-// own process table, e.g. `t.height=this.getScreenHeight();` while setting
-// up the tutorial level's boundary walls) but Main.gm's OWN script-side
-// definitions for them (same file, ~line 2351) are dead code sitting
-// inside a `/* C++ ... */` comment block -- the comment is retail's own
-// note that these got moved to a native engine implementation. video_bindings.cpp
-// already exposes the equivalent as `Video.getScreenWidth/getScreenHeight`;
-// these thin wrappers put the same values on every process handle/table so
-// `this.getScreenWidth()` resolves the way retail's native version did,
-// instead of silently no-op'ing to null via GM's null-call leniency (which
-// is exactly what was happening before: `t.height=this.getScreenHeight()`
-// evaluated to null, then crashed several lines later at
-// `sd.addBox(t.width,t.height,...)` since a native float param can't be a
-// null argument).
-// raw PIXEL dimensions (1280x720-ish), reusing Video.getScreenWidth/Height
-// directly -- wrong for this call. "screen" here means one of Sound
-// Shapes' logical level-grid cells, sized in WORLD units (the same units
-// entity positions/physics use), not literal window pixels. The
-// commented-out original script version confirms the formula
-// (Platformer/Main.gm ~line 2351: `return this.getNumCellsX()*SW*2*2;`) --
-// getNumCellsX()/getNumCellsY() are the confirmed 16/9 logical grid
-// (video_bindings.cpp), SW is the confirmed 0.61 real constant
-// (constants_bindings.cpp). Getting this wrong matters a lot more than it
-// looks: `initForReal()`'s `Video.setCameraPos(this.getScreenWidth()/2,
-// this.getScreenHeight()/2, ...)` was placing the camera at world
-// (640,360) -- pixel-scale, nowhere near the real level geometry
-// (typically within +/-100 world units of the origin) -- so nothing was
-// ever in view even once entity/level setup finished with zero errors.
 int GM_CDECL gmf_getScreenWidth(gmThread* a_thread) {
     a_thread->PushFloat(16.0f * 0.61f * 2.0f * 2.0f);
     return GM_OK;
@@ -730,35 +575,6 @@ int GM_CDECL gmf_getScreenHeight(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getScreenX(x) / getScreenY(y) -- "which screen index does this world
-// coordinate fall on". Same "dead script code in a /* C++ */ comment, moved
-// to a native implementation" situation as getScreenWidth/getScreenHeight
-// above (Platformer/Main.gm 5856-5873 -- the commented-out reference reads
-//
-//     getScreenX=function(x) {
-//         local sx=MATH_INT(x/this.getScreenWidth());
-//         if (x<0) { sx-=1; }
-//         return sx;
-//     },
-//
-// ) and these were the last two of that family still unimplemented.
-//
-// 0x0019f478 / 0x0019f5a0), which computes
-//
-//     iVar4 = (int)(x / ((float)field[0xd4] * DAT_0019f468
-//                        * DAT_0019f46c * DAT_0019f46c));
-//     if (x < DAT_0019f470) iVar4 = iVar4 + -1;
-//
-// with those three constants reading 0.61f, 2.0f and 0.0f out of EBOOT.elf
-// -- i.e. exactly `numCells * SW * 2 * 2` as the divisor (the same
-// expression getScreenWidth uses) and a compare against 0.0 for the
-// negative adjustment. The int cast truncates toward zero, so subtracting
-// one for negative inputs turns it into a floor -- screen -1 is the screen
-// immediately left of the origin, not a second copy of screen 0.
-//
-// Real call site: Main.gm's per-frame "did we change screens?" check
-// (`cx=this.getScreenX(ppos.x); cy=this.getScreenY(ppos.y);`), which drives
-// the camera's screen-to-screen panning during play.
 int GM_CDECL gmf_getScreenX(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
@@ -778,21 +594,6 @@ int GM_CDECL gmf_getScreenY(gmThread* a_thread) {
     return GM_OK;
 }
 
-// getCurrentScreenX/getCurrentScreenY -- same "dead script code in a /*
-// C++ */ comment, moved to a native implementation" situation as
-// getScreenWidth/getScreenHeight above, a few thousand lines further into
-// the same file (Platformer/Main.gm ~4213: `getCurrentScreenX=function() {
-// return this.currentScreenX; }` commented out). This crashed
-// Platformer/Main.gm's own getScreenData(csx,csy) (line 6665's `if
-// (!?csy) { csy=this.getCurrentScreenY(); }` guard, meant to fill in a
-// missing csy, silently no-op'd instead since the call resolved to
-// nothing) -- csy stayed null all the way to
-// `this.screenData[csx][csy]`, a null table index, which is a hard error
-// unlike null property access. `this.currentScreenX`/`currentScreenY` are
-// real plain fields on the same table (confirmed:
-// `currentScreenX=0,currentScreenY=0,` in the table literal, ~line 1887),
-// so this just reads them back the same way the commented-out script
-// version did.
 int GM_CDECL gmf_getCurrentScreenX(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     if (!self) return GM_EXCEPTION;
@@ -842,12 +643,6 @@ int GM_CDECL gmf_setCurrentScreenY(gmThread* a_thread) {
     return GM_OK;
 }
 
-// setGlobalVolume -- confirmed real call site (PauseProcessBase.gm:
-// `this.gameProcess.setGlobalVolume(gv)`, called every update() while the
-// pause menu slides in/out); not otherwise found in the corpus with a
-// disambiguated implementation, so it delegates to the same master-volume
-// state Audio.setMasterVolume/getMasterVolume already track (see
-// audio_bindings.h).
 int GM_CDECL gmf_setGlobalVolume(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
@@ -858,25 +653,6 @@ int GM_CDECL gmf_setGlobalVolume(gmThread* a_thread) {
     return GM_OK;
 }
 
-// setAsPauseProcess -- confirmed process method at 0x0019f850 (misclassified
-// wrapper at 0x00070e48. The native queue operation is the mechanism that
-// pause/menu/popup overlays in the corpus use to freeze gameplay
-// (PauseProcessBase.gm, PopupProcessBase.gm, ResizeScreenProcess.gm,
-// DebugMenu*.gm, TrophyWinProcess.gm, WinProcess.gm, ...). Three call shapes
-// found across the corpus, all handled here:
-//   1. `someProcess.setAsPauseProcess(true)` -- self-target: ThisTable() IS
-//      the process to exempt from the freeze (TrophyWinProcess.gm:192).
-//   2. `GameSystem.setAsPauseProcess(active, process)` -- explicit target,
-//      the overwhelmingly common form (PauseProcessBase.gm and friends).
-//   3. `GameSystem.setAsPauseProcess(true)` -- no target at all
-//      (WinProcess.gm's win-screen). Every real call site that reaches this
-//      form also calls setIsStealsInputFocus(true) on itself first (see
-//      WinProcess.gm's constructor), so falling back to whichever process
-//      currently holds input focus recovers the same target without this
-//      engine needing to track "the calling process" generically.
-// See ProcessManager::QueuePauseState for what "exempt" actually does: every
-// OTHER process's update()/postUpdate() stops running (draw is untouched --
-// the frozen world stays visible behind the overlay).
 int GM_CDECL gmf_setAsPauseProcess(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(active, 0, 0);
@@ -995,9 +771,6 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     setNativeIfMissing("isInited", gmf_isInited);
     setNativeIfMissing("setupPreDrawList", gmf_setupPreDrawList);
     setNativeIfMissing("setupPostDrawList", gmf_setupPostDrawList);
-    // setupDrawList -- confirmed real (ScaleOfTheWorld.gm:20's
-    // `this.drawList=this.setupDrawList();`), same un-disambiguated-alias
-    // convention as getDrawList aliasing getPreDrawList above.
     setNativeIfMissing("setupDrawList", gmf_setupPreDrawList);
     setNativeIfMissing("getPreDrawList", gmf_getPreDrawList);
     setNativeIfMissing("getPostDrawList", gmf_getPostDrawList);
@@ -1019,7 +792,6 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     setNativeIfMissing("setAsPauseProcess", gmf_setAsPauseProcess);
     setNativeIfMissing("isBeingEdited", gmf_process_isBeingEdited);
 
-    // FoE compatibility methods (alarm/LFO management) -- injected from foe_compat_bindings
     setNativeIfMissing("getUniqueAlarmID", gmf_getUniqueAlarmID);
     setNativeIfMissing("addAlarm", gmf_addAlarm);
     setNativeIfMissing("deleteAlarm", gmf_deleteAlarm);

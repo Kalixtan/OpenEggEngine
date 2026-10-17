@@ -17,7 +17,6 @@ int GM_CDECL gmf_MATRIX4(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Retail MATRIX4.test at 0x00082d8c returns immediately without a value.
 int GM_CDECL gmf_test(gmThread* a_thread) {
     if (!ThisMatrix4(a_thread)) return GM_EXCEPTION;
     return GM_OK;
@@ -26,7 +25,6 @@ int GM_CDECL gmf_test(gmThread* a_thread) {
 int GM_CDECL gmf_translate(gmThread* a_thread) {
     Matrix4Handle* handle = ThisMatrix4(a_thread);
     if (!handle) return GM_EXCEPTION;
-    // Retail 0x00082e00 reads three stack values without an arity branch.
     const float x = a_thread->ParamFloatOrInt(0, 0.0f);
     const float y = a_thread->ParamFloatOrInt(1, 0.0f);
     const float z = a_thread->ParamFloatOrInt(2, 0.0f);
@@ -41,7 +39,6 @@ int GM_CDECL gmf_translate(gmThread* a_thread) {
 int GM_CDECL gmf_rotateZ(gmThread* a_thread) {
     Matrix4Handle* handle = ThisMatrix4(a_thread);
     if (!handle) return GM_EXCEPTION;
-    // Retail 0x00083010 likewise reads the first value unconditionally.
     const float angle = a_thread->ParamFloatOrInt(0, 0.0f);
     const float c = std::cos(angle), s = std::sin(angle);
     DrawContext::Mat rotation;
@@ -56,8 +53,6 @@ int GM_CDECL gmf_rotateZ(gmThread* a_thread) {
 int GM_CDECL gmf_scale(gmThread* a_thread) {
     Matrix4Handle* handle = ThisMatrix4(a_thread);
     if (!handle) return GM_EXCEPTION;
-    // Retail 0x00083280 reads two values with no count check; absent GM
-    // slots contain zero, not an implicit uniform-scale value.
     const float x = a_thread->ParamFloatOrInt(0, 0.0f);
     const float y = a_thread->ParamFloatOrInt(1, 0.0f);
     DrawContext::Mat scale;

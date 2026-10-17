@@ -61,22 +61,11 @@ int GM_CDECL gmf_getNormalized(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), nx, ny));
     return GM_OK;
 }
-// Confirmed real: swaps components and negates the new y (rotate -90deg).
-// Was pushing (v.x, -v.y) -- a Y-axis mirror, not a rotation at all, and not
-// what the comment above (already present before this fix) describes. For
-// flat ground (normal (0,1)) this produced (0,-1) -- straight back down into
-// the ground -- instead of (1,0), so every left/right walk-direction
-// comparison against a contact normal (checkHangTime's core mechanism,
-// Player.gm) was comparing against a nonsense vector, making the walk-
-// direction pick effectively random/unstable frame to frame instead of
-// tracking input direction. Real rotate-by--90deg is (y,-x), matching
-// getLeftNormal's own (correctly implemented) +90deg sibling below.
 int GM_CDECL gmf_getRightNormal(gmThread* a_thread) {
     Vector2DData* v = ThisVec2(a_thread); if (!v) return GM_EXCEPTION;
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), v->y, -v->x));
     return GM_OK;
 }
-// Confirmed real: swaps components and negates the new x (rotate +90deg).
 int GM_CDECL gmf_getLeftNormal(gmThread* a_thread) {
     Vector2DData* v = ThisVec2(a_thread); if (!v) return GM_EXCEPTION;
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), -v->y, v->x));
@@ -103,16 +92,10 @@ int GM_CDECL gmf_distance(gmThread* a_thread) {
     a_thread->PushFloat(std::sqrt(dx * dx + dy * dy));
     return GM_OK;
 }
-// FIXED (this session): epsilon was a guessed 0.0001f. Confirmed real
-// `DAT_000e56f4 / (DAT_000e56f0 ^ 5)` via an inlined fast-exponentiation
-// loop, where DAT_000e56f4=1.0f and DAT_000e56f0=2.0f were read directly
-// out of the retail EBOOT.elf -- i.e. epsilon = 1.0/(2.0^5) = 1/32 =
-// 0.03125 exactly, compared independently against |dx| and |dy| (not a
-// combined distance).
 int GM_CDECL gmf_isPrettyMuchEqual(gmThread* a_thread) {
     Vector2DData* v = ThisVec2(a_thread); if (!v) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_CHECK_USER_PARAM(Vector2DData*, g_vector2DType, other, 0);
-    const float kEpsilon = 0.03125f; // 1.0f / (2.0f^5), confirmed via EBOOT.elf constant extraction
+    const float kEpsilon = 0.03125f;
     a_thread->PushInt((std::fabs(v->x - other->x) <= kEpsilon && std::fabs(v->y - other->y) <= kEpsilon) ? 1 : 0);
     return GM_OK;
 }
@@ -135,13 +118,6 @@ int GM_CDECL gmf_vectorProjectOnto(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), nx * scalar, ny * scalar));
     return GM_OK;
 }
-// no `this` pointer read, matching the `vector2D(...)` constructor's own
-// registration style below): a uniform-random unit vector. Retail calls
-// its random-real helper with bounds (0.0, 6.28) -- not 2*pi (6.283185...)
-// -- then takes (cos, sin) of the result, both constants read directly out
-// of the EBOOT.elf. Reproduced bug-for-bug with the same slightly-truncated
-// upper bound rather than a precise 2*pi. Not registered until now (no
-// corpus call sites found either, same class as RANDOM -- see Random.c).
 int GM_CDECL gmf_MakeRandomDir(gmThread* a_thread) {
     static thread_local std::mt19937 rng{std::random_device{}()};
     std::uniform_real_distribution<float> dist(0.0f, 6.28f);
@@ -155,21 +131,11 @@ int GM_CDECL gmf_isvector2D(gmThread* a_thread) {
     a_thread->PushInt(a_thread->Param(0).m_type == g_vector2DType ? 1 : 0);
     return GM_OK;
 }
-// Confirmed real decompiled body always returns the GM exception sentinel
-// -- not modeled (no real corpus call sites either, see vector2d_bindings.h).
 int GM_CDECL gmf_normalize(gmThread* a_thread) {
-    GM_EXCEPTION_MSG("normalize: not a real callable method (matches confirmed decompiled body)");
+    GM_EXCEPTION_MSG("normalize: unavailable");
     return GM_EXCEPTION;
 }
 
-// --- vector2D(...) constructor -- confirmed real 0/1/2-arg overload set,
-// (confirmed: tag-3 branch copies fields directly with no transform), or
-// treats a plain number as an angle in radians and builds a unit vector
-// (cos, sin) -- the trig call itself (FUN_001dd1ac) wasn't independently
-// decompiled, but this is the only interpretation consistent with real
-// usage (GroundProcessNEW.gm: `t.pos+vector2D(ang)*t.radius` for placing
-// points around a circle; Main.gm: `this.pos+=vector2D(this.dirAng)*this.speed*msElapsed`
-// for directional movement).
 int GM_CDECL gmf_vector2D(gmThread* a_thread) {
     int n = a_thread->GetNumParams();
     if (n > 2) { GM_EXCEPTION_MSG("vector2D: expecting 0-2 params"); return GM_EXCEPTION; }
@@ -226,19 +192,6 @@ bool GetOperandAsScalar(const gmVariable& a_var, float& a_out) {
     if (a_var.m_type == GM_INT) { a_out = (float)a_var.m_value.m_int; return true; }
     return false;
 }
-// ENGINE PATCH (2026-08-16): vector2D+scalar/scalar+vector2D broadcast
-// (scalar added to both components) -- confirmed real via Player.gm:3548's
-// `vector2D(jumpNormal+GameSystem.getRandomReal(d,d))` (jumpAction's jump-
-// particle spawn, GameSystem.getRandomReal returns a plain float). Only
-// vector+vector was previously supported, so this nullified to GM_NULL and
-// the enclosing vector2D(null) constructor threw "expecting param 0 as
-// vector2D, float, or int", aborting jumpAction() before it could call
-// finalizeJump()/finishStickyJump() -- which is what transitions the player
-// OUT of HANG_STATEID. So the jump velocity set a few lines earlier
-// (pb.setVel(v)) never got to stick: still-active HANG_STATEID per-frame
-// ground-anchoring logic immediately re-pinned the player back down within
-// a frame or two, making jump look like a no-op even though state said
-// "grounded" and a real jump velocity had briefly been applied.
 void GM_CDECL OpAdd(gmThread* a_thread, gmVariable* a_operands) {
     Vector2DData a, b; float s;
     if (GetOperandAsVec(*a_thread->GetMachine(), a_operands[0], a) && GetOperandAsVec(*a_thread->GetMachine(), a_operands[1], b)) {
@@ -261,8 +214,6 @@ void GM_CDECL OpSub(gmThread* a_thread, gmVariable* a_operands) {
         a_operands[0].Nullify();
     }
 }
-// Confirmed real usage is always vector*scalar or scalar*vector (never
-// vector*vector componentwise -- no corpus call sites for that shape).
 void GM_CDECL OpMul(gmThread* a_thread, gmVariable* a_operands) {
     Vector2DData a; float s;
     if (GetOperandAsVec(*a_thread->GetMachine(), a_operands[0], a) && GetOperandAsScalar(a_operands[1], s)) {
@@ -273,8 +224,6 @@ void GM_CDECL OpMul(gmThread* a_thread, gmVariable* a_operands) {
         a_operands[0].Nullify();
     }
 }
-// Confirmed real usage: vector/scalar only (Platformer/GroundProcessNEW.gm:
-// `p1.getVectorToPoint(p2)/MATH_REAL(q-1)`).
 void GM_CDECL OpDiv(gmThread* a_thread, gmVariable* a_operands) {
     Vector2DData a; float s;
     if (GetOperandAsVec(*a_thread->GetMachine(), a_operands[0], a) && GetOperandAsScalar(a_operands[1], s) && s != 0.0f) {
