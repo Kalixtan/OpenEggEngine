@@ -1,20 +1,19 @@
 # OpenEgg development plan
 
-This list distills the highest-priority open work from the project's earlier
-reverse-engineering notes. It contains task summaries only; no retail scripts,
-assets, or extracted implementation code are included.
+Open work is grouped by engine area. Retail compatibility remains incomplete.
 
-## First: make progress measurable
+## API documentation and evidence
 
-- [ ] Add a local API inventory with one row per registered native function.
-- [ ] Track implementation state separately from parity state: `missing`,
-      `stub`, `implemented`, `partially verified`, and `matched`.
-- [ ] Record the behavior under review, the evidence used, the validation run,
-      known differences, and the next step for each row.
-- [ ] Reconcile the provisional API inventory with registration tables before
-      treating percentages as project-wide totals.
-- [ ] Recalculate [COMPATIBILITY_STATUS.md](COMPATIBILITY_STATUS.md) from that
-      inventory whenever its data is updated.
+- [x] Keep one reference row for each registered script function and method.
+- [x] Check names, required fields, and parameter records against the current
+      bindings when generating the API site.
+- [ ] Record implementation state separately from runtime verification and
+      retail parity for each entry.
+- [ ] Audit every entry's behavior, arguments, return value, and custom types
+      against the binding source and available retail evidence.
+- [ ] Recalculate [COMPATIBILITY_STATUS.md](COMPATIBILITY_STATUS.md) from
+      per-entry evidence before reporting implementation percentages.
+- [ ] Expand the recovered retail type and missing-method inventories.
 
 ## Runtime and physics
 

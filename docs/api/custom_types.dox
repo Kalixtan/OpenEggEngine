@@ -16,6 +16,23 @@ An OpenEgg table returned by `Audio.createEffectChain()` or `Audio.getMasterEffe
 */
 
 /**
+\page api_type_rayhitentityiterator RayHitEntityIterator
+
+An OpenEgg user type returned by `Physics.raycast()` and `Physics.raycastShapes()`. It stores the unique entity handles found by one ray query. Retail exposes an `ENTITYLISTREFCONTAINER` type, and the recovered `raycastShapes` wrapper builds a reference-container result. The exact returned GM type and iterator behavior have not been matched, so this local type is not claimed to be retail-equivalent.
+
+| Method | Result | Description |
+| --- | --- | --- |
+| `isValid()` | int | Returns 1 while the iterator points to an entity, otherwise 0. |
+| `get()` | Entity or null | Returns the current entity, or null when the iterator is invalid. |
+| `goToNext()` | no value pushed | Advances one entry. The iterator does not wrap. |
+
+The result list is a snapshot created by the ray query. Duplicate hits for the same entity are removed. The user object releases its storage when collected.
+
+`ENTITYLISTREFCONTAINER` is documented separately in the retail type inventory. OpenEgg's ray-hit iterator currently exposes only the three methods listed here.
+
+*/
+
+/**
 \page api_type_soundeffect SoundEffect
 
 An OpenEgg table returned by `EffectChain.addEffect()`. It stores the selected effect type and local parameter state; it is not a retail DSP object, and audio effect processing is not implemented.

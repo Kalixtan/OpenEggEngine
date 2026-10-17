@@ -881,15 +881,66 @@ def signature(name: str, owner: str, params, result: str):
     return f"{prefix}{name}({', '.join(arguments)}) -> {result}"
 
 
-def load_function_notes():
+def load_function_notes(expected_names=None):
     path = ROOT / "docs/api/function_notes.tsv"
     if not path.exists():
+        if expected_names:
+            raise SystemExit(f"Missing API notes file: {path}")
         return {}
+    notes = {}
+    errors = []
     with path.open(encoding="utf-8") as handle:
         rows = csv.DictReader(handle, delimiter="\t")
-        return {row["name"]: {key: ("" if value == "-" else value)
-                              for key, value in row.items()}
-                for row in rows}
+        required_fields = ("description", "return_type", "returns_note",
+                           "parameters_json", "signature")
+        for line, row in enumerate(rows, start=2):
+            name = (row.get("name") or "").strip()
+            if not name:
+                errors.append(f"line {line}: missing API name")
+                continue
+            if name in notes:
+                errors.append(f"line {line}: duplicate API name {name}")
+                continue
+            for field in required_fields:
+                if not (row.get(field) or "").strip() or row[field] == "-":
+                    errors.append(f"line {line}: {name} has no {field}")
+            try:
+                parameters = json.loads(row.get("parameters_json", ""))
+            except json.JSONDecodeError as exc:
+                errors.append(f"line {line}: {name} has invalid parameters_json ({exc})")
+                parameters = None
+            if parameters is not None:
+                if not isinstance(parameters, list):
+                    errors.append(f"line {line}: {name} parameters_json must be a list")
+                else:
+                    indexes = []
+                    for parameter in parameters:
+                        if not isinstance(parameter, dict):
+                            errors.append(f"line {line}: {name} has a non-object parameter")
+                            continue
+                        index = parameter.get("index")
+                        if not isinstance(index, int) or isinstance(index, bool):
+                            errors.append(f"line {line}: {name} has a parameter without an integer index")
+                        else:
+                            indexes.append(index)
+                        for field in ("name", "type", "description"):
+                            if not str(parameter.get(field, "")).strip():
+                                errors.append(f"line {line}: {name} parameter is missing {field}")
+                    if indexes != list(range(len(parameters))):
+                        errors.append(f"line {line}: {name} parameter indexes must be ordered from zero")
+            notes[name] = {key: ("" if value == "-" else value)
+                           for key, value in row.items()}
+
+    if expected_names is not None:
+        missing = sorted(expected_names - notes.keys(), key=str.casefold)
+        stale = sorted(notes.keys() - expected_names, key=str.casefold)
+        errors.extend(f"missing API notes row: {name}" for name in missing)
+        errors.extend(f"notes row has no registered API: {name}" for name in stale)
+    if errors:
+        details = "\n".join(f"- {error}" for error in errors[:30])
+        extra = f"\n- ... and {len(errors) - 30} more" if len(errors) > 30 else ""
+        raise SystemExit(f"Invalid script API notes:\n{details}{extra}")
+    return notes
 
 
 def main():
@@ -1075,7 +1126,13 @@ def main():
         for owner, name, handler in registrations:
             handler_path, body, line, description = handlers.get(handler, (path, "", 0, ""))
             families[path.stem][owner][name].append((handler_path, handler, body, line, description))
-    function_notes = load_function_notes()
+    registered_names = {
+        f"{owner}.{name}"
+        for owners in families.values()
+        for owner, methods in owners.items()
+        for name in methods
+    }
+    function_notes = load_function_notes(registered_names)
 
     target = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "docs/api/_generated"
     target.mkdir(parents=True, exist_ok=True)
