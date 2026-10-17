@@ -48,28 +48,6 @@ struct Texture {
     bool isChromaKeyMask = false;
     float keyR = 0.0f, keyG = 0.0f, keyB = 0.0f;
 
-    // ENGINE PATCH (2026-08-17): a second, distinct "pure" mask colour,
-    // present in some of these templates alongside the background key
-    // (e.g. gameAssets/SwayTree/sway_tree_idle.png: pure green background +
-    // pure BLUE canopy body (857 sampled px) + pure RED trunk/outline (92
-    // sampled px), not just a single background/shape split) -- detected
-    // the same way as the background key (a histogram of "pure" -- one
-    // channel >=200, other two <=40 -- pixel colours, picking the two most
-    // common non-background ones). Real script usage confirms this is
-    // meaningful, not incidental anti-aliasing noise:
-    // EntityPacks/SwayingTree.gm:493's `COLOURSCHEME_SetGeneratedPaletteColour(
-    // this.headTexture,this.colour1,this.colour2)` explicitly passes TWO
-    // colour names (colour1 -> fill/body, colour2 -> outline/trunk) for
-    // this exact texture. secondaryR/G/B holds the second mask colour's
-    // detected RGB; hasSecondaryMask is false for single-tone templates
-    // (e.g. DangerVine/petal_big-1.png, which only has background+one
-    // shape colour) so they keep using the single uColour tint unchanged.
-    // fillMask = the MOST common non-background pure colour (the shape's
-    // main body -- "colour1" target, also what single-tone masks like
-    // DangerVine/petal_big-1.png use as their only shape colour).
-    // outlineMask = the SECOND most common non-background pure colour, if
-    // one exists in real enough quantity (the "colour2" target, e.g. the
-    // sway tree's trunk/outline) -- absent for genuinely single-tone masks.
     bool hasSecondaryMask = false;
     float secondaryR = 0.0f, secondaryG = 0.0f, secondaryB = 0.0f;
     bool hasOutlineMask = false;

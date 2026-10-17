@@ -1,5 +1,6 @@
 # CMake and IDE output
 /build/
+/docs/api/_generated/
 /build-*/
 /cmake-build-*/
 /out/

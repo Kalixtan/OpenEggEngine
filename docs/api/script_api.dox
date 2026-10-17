@@ -1,0 +1,5 @@
+/**
+ * \defgroup script_api GameMonkeyScript API
+ * Public functions registered for game scripts.
+ */
+ * OpenEgg-specific values: \ref api_type_shapevertex `SHAPEVERTEX`.

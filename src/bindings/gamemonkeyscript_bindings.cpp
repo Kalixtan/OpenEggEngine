@@ -56,20 +56,6 @@ bool SaveTicketFilename(gmMachine& a_machine, const gmVariable& a_ticket, std::s
     return true;
 }
 
-// Retail wrapper at 0x6ceb8 accepts path, optional raw file-area payload, and
-// optional force-string flag. Its XML converter selects GM_INT/GM_FLOAT for
-// numeric leaf values by default and GM_STRING when that flag is nonzero.
-// Real data files (Platformer/mixer.dat) use a small, consistent tag
-// vocabulary -- nested `<tableElement key="...">...</tableElement>` and
-// leaf `<element key="..." value="..."/>`, no XML declaration, no single
-// root (mixer.dat is a bare sibling sequence, which tinyxml2 tolerates:
-// XMLDocument itself just acts as a node with multiple children rather
-// than enforcing single-root well-formedness). Numeric-looking keys (e.g.
-// "99") become GM_INT keys rather than strings, matching real Mixer.gm's
-// `if (typeName(id)!="int")` check on exactly this data. Leaf values are
-// parsed as a float when the whole string is numeric, else kept as a
-// string. Originally a hand-rolled parser for just this tag vocabulary;
-// request for a compatible, still-maintained library instead.
 bool IsAllDigits(const std::string& a_s) {
     if (a_s.empty()) return false;
     size_t i = (a_s[0] == '-') ? 1 : 0;
@@ -496,9 +482,6 @@ std::string GmTableToJsonString(gmMachine& a_machine, const gmVariable& a_var) {
     rapidjson::Document doc;
     GmVariableToJson(a_machine, a_var, doc, doc.GetAllocator());
     rapidjson::StringBuffer buf;
-    // PrettyWriter, not the compact Writer -- this file is meant to be
-    // hand-editable (the whole point of moving off the PS3 SaveData block),
-    // and pretty-printed JSON is what makes that actually pleasant.
     rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
     doc.Accept(writer);
     return buf.GetString();

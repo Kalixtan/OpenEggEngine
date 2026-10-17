@@ -16,35 +16,16 @@ int GM_CDECL gmf_IsReadyGoOffline(gmThread* a_thread) { a_thread->PushInt(1); re
 int GM_CDECL gmf_IsLoggedIntoPlatform(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_HasChatPermissions(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_IsSendQueueFull(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
-// Script-only compatibility shim used by LoginPopup.gm and the offline
-// Community launcher. It is not exported by retail's OnlineCoordinator API;
-// no desktop EULA handshake exists, so the wait state is always false.
 int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
     a_thread->PushInt(0);
     return GM_OK;
 }
-// LoginPopup.gm/CloudSaveHelper.gm read this as a signed error code
-// (`OnlineCoordinator_GetLastError() < 0` means "there was an error");
-// 0 is the genuine "no error" value, matching an always-offline-but-not-
-// erroring state (this reimplementation never attempts a PSN connection in
-// the first place, so there's never a connection error to surface).
 int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
-// CloudSaveHelper.gm treats this as a display/log string ("My Online Id is
-// X"); empty string is the honest answer for a player who was never
-// actually signed into PSN here.
 int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushString(a_thread->GetMachine()->AllocStringObject("")); return GM_OK; }
 int GM_CDECL gmf_GoOnline(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_GoOffline(gmThread*) { return GM_OK; }
 
 
-// Network_Store* -- desktop has no PlayStation Store service. These preserve
-// the retail wrapper return types so archived store/DLC scripts can cleanly
-// take their unavailable/error path if one is reached. RunStoreProcess.gm
-// treats nonzero GetLastError as a failed store request and checkout result 2
-// as an error; product enumeration is empty and checkout/download/install
-// state remains false. The stock Music Shop follows its offline login failure
-// UI; PopupProcess's native configure boundary supplies a no-op only for the
-// empty LoginPopup error callback. No store request runs.
 int GM_CDECL gmf_NetworkStoreUnavailable(gmThread* a_thread) {
     a_thread->PushInt(0);
     return GM_OK;
@@ -157,9 +138,6 @@ int GM_CDECL gmf_Network_IsDLCCheckComplete(gmThread* a_thread) {
 int GM_CDECL gmf_Network_IsDLCAvailable(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(dlcPack, 0, "");
-    // The opt-in local development setting emulates the entitlement result
-    // for the retail pack IDs (DLCHelper.gm: "1" through "15"). It is off
-    // by default and does not fetch, mount, or supply DLC assets.
     bool available = false;
     if (SystemConfig::Get().debugAllDlcAvailable && dlcPack[0] != '\0') {
         char* end = nullptr;

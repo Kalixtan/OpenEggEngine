@@ -1344,18 +1344,6 @@ int GM_CDECL DC_gmf_drawAnimation(gmThread* a_thread) {
         DC_TransformPoint(m, 1.0f, 0.0f, x1, y1);
         DC_TransformPoint(m, 1.0f, 1.0f, x2, y2);
         DC_TransformPoint(m, 0.0f, 1.0f, x3, y3);
-        // RebuildTextures already bakes the final fill/outline colours
-        // into this frame's RGBA pixels (the whole point of the
-        // fill->outline palette-index ramp) -- the plain quad shader still
-        // multiplies every texture draw by the drawList's current
-        // SetColour state though (kQuadFS: texture * uColour), so leftover
-        // colour from an earlier same-frame SetColour call (e.g. a stem/
-        // leaf outline drawn with COLOURSCHEME_SetColour("bg_out",...)
-        // right before this same entity's head, MarshmallowTree.gm:185)
-        // silently re-tints the already-correct texture a second time.
-        // Same bug class as the SauceBase cloud tint fix (entity_bindings.
-        // cpp's DrawSauceBaseEntityNative) -- force white RGB (keep alpha,
-        // for real fade in/out effects) around this draw, then restore.
         Renderer* renderer = GetEngineContext().renderer;
         float pr, pg, pb, pa;
         renderer->GetColour(pr, pg, pb, pa);

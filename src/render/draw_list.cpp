@@ -132,24 +132,7 @@ int GM_CDECL gmf_releaseReference(gmThread* a_thread) {
 
 void DrawEntityMarkers(Renderer& a_renderer, const std::vector<int>& a_skipUids); // defined below
 
-// opaque full-screen background quad, which -- since this whole pass runs
-// AFTER every real draw call for the frame (main.cpp: DrawGroundsNative/
-// DrawEntitiesWithNativeDrawHook/DrawPlayerNative/PostDrawAll all run
-// first) -- completely hid the real gameplay behind it instead of
-// overlaying on top of it; (2) filled every fixture at alpha=1, same
-// problem; (3) coloured fixtures by collision category to vaguely resemble
-// the real tutorial level's own palette, which is exactly backwards for a
-// DEBUG view -- the point of this overlay is to see simulation bounds
-// clearly against the real rendered scene, not to imitate it. Now: no
-// background quad at all, every live fixture in the sim is drawn (sensors
-// included -- this must show literally everything Box2D is simulating,
-// not a filtered subset), translucent fill + an opaque outline on top for
-// a crisp boundary, dynamic bodies in green (the user's own ask -- lets
-// the player body and any moving/pushable object read at a glance),
-// static/kinematic bodies in cyan, and sensors in yellow (dashed-effect
-// impossible with GL_LINE_LOOP alone, so just lower alpha to distinguish
-// "not actually solid" from real collision bounds) all so this reads as an
-// overlay, not a replacement view.
+// Draw collision geometry after the scene without obscuring the frame.
 void DrawPhysicsBodiesImmediate(const std::vector<int>& a_nativeDrawnUids) {
     Renderer* renderer = GetEngineContext().renderer;
     if (!renderer) return;
@@ -162,6 +145,7 @@ void DrawPhysicsBodiesImmediate(const std::vector<int>& a_nativeDrawnUids) {
     // z (this renderer is purely 2D -- every shape is drawn at z=0), so
     // only the very first fixture in the loop below would ever actually
     // reach the framebuffer.
+    // Ignore script draw-list depth state while rendering the overlay.
     renderer->SetDepthTest(false);
     // Same reasoning as the old background quad's own comment (now
     // removed): drawStaticSurface() runs after PostDrawAll, which can
@@ -170,6 +154,7 @@ void DrawPhysicsBodiesImmediate(const std::vector<int>& a_nativeDrawnUids) {
     // on so every position/radius below lines up with the real gameplay
     // it's overlaid on, regardless of what the last script draw call left
     // active.
+    // Use world coordinates regardless of the last script draw state.
     renderer->SetUseCameraView(true);
 
     auto drawShape = [&](const b2Fixture* fx, const b2Transform& xf, float a_r, float a_g, float a_b, float a_fillA, float a_outlineA) {
@@ -208,9 +193,6 @@ void DrawPhysicsBodiesImmediate(const std::vector<int>& a_nativeDrawnUids) {
         const b2Transform& xf = body->GetTransform();
         bool isDynamic = (body->GetType() == b2_dynamicBody);
         for (b2Fixture* fx = body->GetFixtureList(); fx; fx = fx->GetNext()) {
-            // of red/green's usual green -- red-green colour-blindness is
-            // the most common form, so avoid relying on a red-vs-green
-            // distinction anywhere in this overlay.
             if (fx->IsSensor()) {
                 drawShape(fx, xf, 1.0f, 0.95f, 0.15f, 0.12f, 0.55f); // yellow, faint fill -- "here but not solid"
             } else if (isDynamic) {
@@ -225,34 +207,11 @@ void DrawPhysicsBodiesImmediate(const std::vector<int>& a_nativeDrawnUids) {
         }
     }
 
-    // Real, script-authored per-entity draw hooks (EntityPacks/*.gm's
-    // `t.draw=function(){...}`) are called for real, unconditionally,
-    // every frame from main.cpp now -- NOT from here (see that call site's
-    // comment for why: this whole function is opt-in debug-only
-    // (GE3_PHYSICS_DEBUG_DRAW), and entity draw hooks calling real script
-    // code must not depend on a debug flag). a_nativeDrawnUids is that
-    // same frame's already-computed list, passed in just so the debug
-    // marker overlay below doesn't double up on entities that already drew
-    // themselves for real.
     renderer->SetDepthTest(false);
     renderer->SetUseCameraView(true);
     DrawEntityMarkers(*renderer, a_nativeDrawnUids);
 }
 
-// Plots every entity in the native EntityManager registry
-// (entity_bindings.cpp's GetAllEntityDebugPositions) at its
-// configureData.posX/posY, independent of whether it has a Box2D body at
-// all -- most real entity types (Note, BG_Mob, spawnpoints, triggers,
-// decorations, ...) never touch physics, so DrawPhysicsBodiesImmediate's
-// body/fixture loop above never sees them. Drawn as a small diamond
-// marker (deliberately distinct in shape/colour from the physics-body
-// fills above) so overlap with a real physics-backed entity's own fill is
-// still visible underneath, per the same "flat bounding box, not real
-// sprites" scope as the rest of this file. Position convention matches
-// physics bodies exactly (no Y-flip) -- both ultimately come from the
-// same untouched configureData.posX/posY read (see MakePhysicsBody /
-// GAME_CalculateFillVerts), unlike the user's separate JS level-viewer
-// reference which flips Y for its own canvas coordinate system.
 void DrawEntityMarkers(Renderer& a_renderer, const std::vector<int>& a_skipUids) {
     constexpr float kHalf = 0.45f;
     for (const EntityDebugInfo& e : GetAllEntityDebugPositions()) {

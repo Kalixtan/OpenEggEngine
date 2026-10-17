@@ -1,0 +1,8 @@
+type	method	status	description	parameters	returns
+MULTIBODYPHYSICSDATA	getBodyPos	Not implemented	Returns the position associated with a body in the physics data.	Not yet recovered.	Not yet recovered.
+MULTIBODYPHYSICSDATA	setBodyPos	Not implemented	Sets the position associated with a body in the physics data.	Not yet recovered.	Not yet recovered.
+MULTIBODYPHYSICSDATA	getBodyBBox	Not implemented	Returns the bounding box associated with a body in the physics data.	Not yet recovered.	Not yet recovered.
+MULTIBODYPHYSICSDATA	getBodyIndex	Not implemented	Returns the body index stored in the physics data.	Not yet recovered.	Not yet recovered.
+MULTIBODYPHYSICSDATA	getEntitiesJoinedToMe	Not implemented	Returns entities joined to the receiving physics body.	Not yet recovered.	Not yet recovered.
+MULTIBODYPHYSICSDATA	getNearestCollidingEntity	Not implemented	Returns the nearest entity reported as colliding with the receiving body.	Not yet recovered.	Not yet recovered.
+PHYSICSSHAPE	getExteriorDir	Not implemented	Returns the exterior direction associated with the physics shape.	Not yet recovered.	Not yet recovered.

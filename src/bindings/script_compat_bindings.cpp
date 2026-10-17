@@ -232,20 +232,7 @@ int GM_CDECL gmf_getAlarm(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Ticks every live alarm and fires owner.onAlarm(alarmId) for any that
-// elapsed this frame. ONE registry, called ONCE per frame from
-// ProcessManager::UpdateAll -- covers both process-owned alarms (e.g.
-// this.Process.addAlarm in Main.gm) and entity-owned alarms (e.g.
-// this.Entity.addAlarm in Thing.gm) since `owner` is stored generically at
-// addAlarm() time, whichever handle type it was called on. Entity handles
-// split method/state across __behaviorOwner in this engine (unlike
-// retail), so onAlarm is looked up there first if the bare handle doesn't
-// define it directly -- mirrors gmf_callMethodByName's exact fallback.
 void TickAlarms(gmMachine& a_machine, float a_deltaMs) {
-    // Snapshot ids, not pointers -- onAlarm() can itself call addAlarm/
-    // deleteAlarm (real usage: Main.gm's onAlarm handler calls hardReset()
-    // on the SAME alarm it's handling), which would reallocate g_alarms
-    // out from under a live loop.
     struct FireEvent { gmVariable owner; int id; };
     std::vector<FireEvent> toFire;
     for (auto& a : g_alarms) {

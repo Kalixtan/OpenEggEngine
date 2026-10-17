@@ -1,0 +1,15 @@
+/**
+\page api_type_shapevertex SHAPEVERTEX
+
+A vertex proxy returned by `shape.getVertex(index)`. It refers to the indexed vertex in its owning `VMSHAPE`; it is not a detached value.
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `x` | number | Vertex x position. |
+| `y` | number | Vertex y position. |
+| `u` | number | Texture u coordinate. |
+| `v` | number | Texture v coordinate. |
+
+Reading or writing these properties accesses the owning shape's arrays. Use the proxy while its shape remains alive.
+
+*/

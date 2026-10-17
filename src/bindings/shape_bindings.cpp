@@ -144,13 +144,6 @@ struct ShapeData {
     // the shader selected on this shape determines their meaning.
     std::vector<float> vertexData;
     std::vector<float> colors;
-    // Per-vertex uv, aligned 1:1 with verts -- populated by getVertex(i)'s
-    // live SHAPEVERTEX handle (PekkoAndJon/bg.gm's update(): `this.
-    // shapePoints[i].vertex.u = 0.5 + cos(ang)*this.amt;` etc, animating the
-    // UV radius each frame to "zoom" the sampled texture outward). Without
-    // real per-vertex UVs, DrawPolygonGradient derives UVs from the mesh
-    // bounds, which is a flat single-texture-copy stretch, not the animated
-    // radial sampling that produces bg.gm's kaleidoscope look.
     std::vector<float> uvs;
     float localZ = 0.0f;
     // True right after a completed draw (endShape or drawShape), until the
@@ -263,15 +256,6 @@ void DrawShapeData(ShapeData* s, bool a_defaultTransVertexOrder = false) {
                          (int)(s->colors.size() == (size_t)count * 4));
         }
     }
-    // A VMSHAPE's saved colour samples can all be identical even though the
-    // draw-list supplies its actual flat colour later. This occurs for
-    // SwayingTree.gm: the stem mesh is built during configure(), then drawn
-    // under a deferred COLOURSCHEME_SetColour("bg_out", drawList). Reusing
-    // the renderer colour from mesh construction bakes a stale value (often
-    // black) into every vertex and multiplying it by the draw-list colour
-    // still produces black. A uniform vertex stream carries no gradient, so
-    // let the current draw-list colour provide the flat shader input, as it
-    // does for shapes built by the native VideoHelper path.
     const bool hasCapturedColours =
         s->colors.size() == static_cast<size_t>(count) * 4;
     bool uniformCapturedColour = hasCapturedColours;
@@ -316,13 +300,6 @@ void DrawShapeData(ShapeData* s, bool a_defaultTransVertexOrder = false) {
     // (colors left empty) still fall through to the plain untextured path.
     if (s->shaderEntityId < 0 && (int)s->colors.size() == count * 4) {
         const float* realUv = ((int)s->uvs.size() == count * 2) ? s->uvs.data() : nullptr;
-        // GE3_UV_DEBUG=1 dumps per-layer geometry/UV state for bg.gm's fan
-        // (vertex count, whether real per-vertex UVs survived, UV radius,
-        // transformed centre, ring radius, Z, centre/rim alpha). This is
-        // what caught the backdrop-position divergence traced to
-        // MATHUTIL_CalculateExponentialGrowth -- kept (env-gated, zero cost
-        // when unset) since static reading of this path had repeatedly
-        // failed to find that class of bug.
         if (const char* dbgEnv = std::getenv("GE3_UV_DEBUG")) {
             static int s_dbg = 0;
             int atFrame = std::atoi(dbgEnv);
@@ -409,17 +386,6 @@ int GM_CDECL gmf_Shape_beginShape(gmThread* a_thread) {
     data->retailShapeType = shapeType;
     data->glMode = ToGLMode(shapeType);
     data->capacity = 0x40;
-    // Lenient float-or-int read, not the strict GM_INT_PARAM macro:
-    // VideoHelper.gm's VIDEOHELPER_DrawFilledDonut can be called with one
-    // extra leading arg (Platformer/MainMenu5/CampaignScreenRecordPlayer.
-    // gm:1072's `VIDEOHELPER_DrawFilledDonut(t.grooveShape,0,0,0,t.r,t.r,
-    // th,th,q)` against the function's 8 declared params), which shifts
-    // every positional param by one -- this capacity arg ends up bound to
-    // a FLOAT (a thickness value) rather than the int literal a normal
-    // call site passes. GM_INT_PARAM's strict type check throws a blank-
-    // message exception the instant that happens; reading it leniently
-    // instead just uses that float's rounded value, which is a real
-    // (if slightly-off-intent) capacity rather than a dead thread.
     if (a_thread->GetNumParams() >= 2) {
         data->capacity = (int)a_thread->ParamFloatOrInt(1, 0x40);
     }
@@ -651,13 +617,6 @@ int GM_CDECL gmf_plotVertices(gmThread* a_thread) {
         g_currentShape->uvs.clear();
         g_currentShape->needsClearOnNextPlot = false;
     }
-    // The source ring (`s`, from setAsFilledCircle) has no per-vertex colour
-    // of its own -- every copied vertex gets whatever Video.setColour() had
-    // set as of THIS call, same as a plain plotVertex() would (see
-    // PlotVertexOn) -- this is what lets bg.gm's `setColour(...,0.97);
-    // plotVertex(0,0); setColour(...,0); shape.plotVertices(1,quality);`
-    // idiom produce a real two-stop gradient (bright centre, transparent
-    // ring) instead of a flat wash.
     float cr, cg, cb, ca;
     GetEngineContext().renderer->GetColour(cr, cg, cb, ca);
     int count = (int)(s->verts.size() / 2);
@@ -673,10 +632,6 @@ int GM_CDECL gmf_plotVertices(gmThread* a_thread) {
         g_currentShape->colors.push_back(cg);
         g_currentShape->colors.push_back(cb);
         g_currentShape->colors.push_back(ca);
-        // Real per-vertex UV if the source shape has one (getVertex(i).u/v,
-        // see ShapeVertexData's header comment -- PekkoAndJon/bg.gm's
-        // update() populates exactly this), else the same 0.5,0.5 default
-        // PlotVertexOn uses so the array stays in lockstep with verts.
         g_currentShape->uvs.push_back(srcHasUv ? s->uvs[idx * 2] : 0.5f);
         g_currentShape->uvs.push_back(srcHasUv ? s->uvs[idx * 2 + 1] : 0.5f);
     }
@@ -1153,13 +1108,6 @@ int GM_CDECL DC_gmf_drawShape(gmThread* a_thread) {
     }
     ShapeData* s = (ShapeData*)obj->m_user;
     auto shapeLease = MakeDeferredShapeLease(a_thread, obj);
-    // Checked at REPLAY time (inside the lambda), not here -- setTextureByHandle
-    // (draw_context.cpp) is itself a recorded op in the SAME command list, so
-    // by the time THIS native call runs, any preceding setTextureByHandle in
-    // the same script sequence hasn't actually mutated DrawContext yet, only
-    // queued a command to do so later. See DC_gmf_setTextureByHandle's own
-    // header comment for the live crash (SafeVine.gm:291) this whole texture-
-    // binding pair fixes.
     auto draw = [s, shapeLease] {
         DrawShapeData(s);
     };

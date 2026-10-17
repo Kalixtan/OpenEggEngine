@@ -67,9 +67,6 @@ gmVariable GetPhysicsDataMainBodyVar(gmMachine& a_machine, const gmVariable& a_p
 // already removed every body.
 bool PhysicsDataHasBodies(gmMachine& a_machine, const gmVariable& a_physicsDataVar);
 
-// Entity.setIsEnabled mirrors the retail wake/sleep transition across every
-// body owned by that entity's PhysicsData (EntityBase.gm calls it after
-// rebuilding bodies specifically to restore their enabled/sleep state).
 void SetPhysicsDataAwake(gmMachine& a_machine, const gmVariable& a_physicsDataVar,
                          bool a_awake);
 

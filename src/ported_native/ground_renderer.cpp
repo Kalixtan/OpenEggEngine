@@ -902,9 +902,6 @@ void DrawGroundsNativeNow() {
 
 void RecordGroundsNative(DrawListData* a_drawList) {
     if (!a_drawList || !a_drawList->commandBuffer) return;
-    // Main.gm calls EntityRegistration.drawGrounds(drawList) between its
-    // graphics preDraw pass and sticky-ground pass. Preserve that exact
-    // command position when the owning list is replayed later this frame.
     a_drawList->commandBuffer->commands.emplace_back([] {
         DrawGroundsNativeNow();
     });
