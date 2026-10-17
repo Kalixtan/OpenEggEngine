@@ -50,11 +50,6 @@ bool SetAnimationPaletteBank(gmMachine& a_machine, const gmVariable& a_animVar,
 // itself must be unit-sized).
 int GM_CDECL DC_gmf_drawAnimation(gmThread* a_thread);
 
-// For entity_bindings.cpp's native SauceBase draw hook (see that function's
-// header comment) -- SauceBase.gm's own commented-out real draw() picks
-// between pulseAnimData/idleAnimData based on `anim.isPlaying()`; this lets
-// the native equivalent make the same choice without a gmThread. False if
-// a_animVar isn't actually an Animation object.
 bool IsAnimationPlayingNow(gmMachine& a_machine, const gmVariable& a_animVar);
 
 // For entity_bindings.cpp's native SauceBase draw hook: draws a_animVar's

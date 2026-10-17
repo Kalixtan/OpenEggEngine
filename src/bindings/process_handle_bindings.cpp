@@ -351,10 +351,6 @@ int GM_CDECL gmf_getPostDrawList(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Real usage (Platformer/TouchEditProcessBase.gm, commented out) calls this
-// with no further disambiguation between pre/post -- aliased to the pre
-// list, matching how the un-suffixed this.setupPreDrawList/drawList is the
-// "main" one in every real process that only sets up a single list.
 int GM_CDECL gmf_getDrawList(gmThread* a_thread) {
     gmTableObject* self = ThisHandleTable(a_thread);
     Process* proc = self ? LookupProcess(a_thread, self) : nullptr;
@@ -435,17 +431,6 @@ int GM_CDECL gmf_getTranspose(gmThread* a_thread) {
     a_thread->PushInt(transpose);
     return GM_OK;
 }
-// getScaleIndex() -- native fallback, same guarded shape as setScaleIndex
-// above (only fires if the process's own table doesn't already define a
-// real one -- ScaleOfTheWorld.gm:247 DOES define its own real
-// `getScaleIndex=function(){return this.currentScaleIndex;}`, so this
-// should be redundant in principle, but strict survey caught a genuine
-// live "unbound: getScaleIndex" (Main.gm:10938: `this.origScaleIndex=
-// this.worldScaleProcess.getScaleIndex();`, part of the player-death
-// music-rewind flow) -- meaning some real call path reaches this method on
-// a table where the script's own version wasn't found. Cheap, safe,
-// guarded insurance reading the exact same `currentScaleIndex` field
-// either version would.
 int GM_CDECL gmf_getScaleIndex(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) { a_thread->PushInt(0); return GM_OK; }
@@ -609,25 +594,6 @@ int GM_CDECL gmf_getCurrentScreenY(gmThread* a_thread) {
     return GM_OK;
 }
 
-// setCurrentScreenX/setCurrentScreenY -- the setters matching the two
-// getters above, and the same "dead script code in a /* C++ */ comment,
-// moved native" family as getScreenWidth/getScreenX (Platformer/Main.gm's
-// own commented reference stores straight into this.currentScreenX).
-//
-// Real call site is Main.gm's per-frame screen-change handler, immediately
-// after the getScreenX/getScreenY pair that computes the new indices:
-//
-//     this.setCurrentScreenX(cx);
-//     this.setCurrentScreenY(cy);
-//     this.destroyBullets();
-//
-// so leaving these unbound meant the game recomputed which screen the
-// player had moved to and then never recorded it -- getCurrentScreenX/Y
-// kept reporting the old screen forever, and every "did we change screens?"
-// comparison downstream stayed permanently true.
-//
-// Stored on the process's own script table under the same key the getters
-// read, so the two sides cannot drift apart.
 int GM_CDECL gmf_setCurrentScreenX(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     gmTableObject* self = ThisHandleTable(a_thread);
@@ -706,13 +672,6 @@ gmVariable CreateDefaultPostProcessShaderHandle(gmMachine& a_machine) {
 
 void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int a_processId) {
     a_table->Set(&a_machine, "__id", gmVariable((gmint)a_processId));
-    // Process behavior tables are authored GameMonkey tables. Native process
-    // helpers fill methods that the behavior does not define, but must not
-    // replace an authored method with the same name. Main.gm and
-    // GroundProcessNEW.gm both define entity registration methods; replacing
-    // those with the generic ground-process no-op silently leaves active
-    // screens without entities, which also strands the player's first-spawn
-    // state behind a disabled SpawnPoint.
     auto setNativeIfMissing = [&](const char* name, gmCFunction function) {
         if (a_table->Get(&a_machine, name).m_type != GM_FUNCTION) {
             a_table->Set(&a_machine, name,
@@ -746,9 +705,6 @@ void InjectProcessHandleMethods(gmMachine& a_machine, gmTableObject* a_table, in
     setNativeIfMissing("setIsRefreshDrawListOnChange",
         gmf_process_setRefreshDrawListsOnChange);
     setNativeIfMissing("setupDrawLists", gmf_process_setupDrawLists);
-    // Guarded: never stomp ScaleOfTheWorld.gm's own real setScaleIndex when
-    // dual-injected onto its returned table -- see gmf_setScaleIndex's
-    // header comment above.
     if (a_table->Get(&a_machine, "setScaleIndex").m_type != GM_FUNCTION) {
         setNativeIfMissing("setScaleIndex", gmf_setScaleIndex);
     }

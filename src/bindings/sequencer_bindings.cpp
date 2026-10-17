@@ -424,13 +424,6 @@ int GM_CDECL gmf_setPan(gmThread* a_thread) {
 int GM_CDECL gmf_setBPM(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
-    // Retail branches on the exact GM_FLOAT tag, applying fctiwz to floats
-    // and loading the raw word for every other type. Real callers pass a value
-    // straight from level XML/JSON data (Platformer/ScaleOfTheWorld.gm's
-    // setMinBPM -> MainSequencer.setBPM(this.minBPM), fed by
-    // levelData.bpm), and every XML/JSON leaf number parses to a GM_FLOAT
-    // (gamemonkeyscript_bindings.cpp's ParseLeafValue/JsonToGmVariable) --
-    // so float input is required even though the native field is integer.
     const gmVariable& bpmArg = a_thread->Param(0);
     s->bpm = bpmArg.m_type == GM_FLOAT
         ? RetailFctiwz(bpmArg.m_value.m_float)

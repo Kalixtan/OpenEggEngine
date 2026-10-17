@@ -9,8 +9,6 @@ public:
     // holds PO header metadata, not a real string).
     bool LoadMoFile(const std::string& a_path);
 
-    // Plain-text scan of ExtraStrings.gm (or any file) for `_("...")`
-    // literals; each one not already present gets an identity entry.
     bool LoadExtraStringsFile(const std::string& a_path);
 
     // Returns the translation for a_key, or a_key itself if not found --

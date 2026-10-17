@@ -4,18 +4,6 @@
 #include <functional>
 
 struct DrawContext {
-    // Depth test defaults ON, to match the GL state Renderer::Init actually
-    // establishes (`glEnable(GL_DEPTH_TEST)`). This shadow copy defaulting
-    // to false meant every script-recorded draw ran with no depth test, so
-    // the *_Z values those draws carry were ignored -- e.g. SpawnPoint.gm
-    // sets `this.drawZ = PLAYER_Z-ZINCER` (-17.83) and translates by it,
-    // which should place the spawner just behind the player and BEHIND the
-    // ground (-10), but it drew over the ground instead.
-    //
-    // The z itself was always plumbed correctly (shape_bindings.cpp passes
-    // `ctx.Top().z + s->localZ` into DrawPolygon); nothing was consuming
-    // it. Scripts still turn the test off explicitly via setAttrDepthTest
-    // where they mean to, which is what that opcode is for.
     bool depthTest = true;
     bool depthWrite = true;
     // "is the colour mask enabled", i.e. true = colour writes BLOCKED (see

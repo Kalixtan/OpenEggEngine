@@ -97,12 +97,6 @@ int GM_CDECL gmf_ticket_getIfError(gmThread* a_thread) {
     return GM_OK;
 }
 
-// A ticket exposing .getSize()/.getFilename(), for reqGetFileSize/
-// reqOSFreeSpace/reqCreateSave/reqSaveScreenShot-shaped "just give the
-// script something with the right methods" returns. size<0 means "file
-// doesn't exist" -> real call sites (Main.gm) test getSize() as a bool, so
-// stat-style tickets report 0 (falsy) either way. reqLoadFile opts into exact
-// requested-size preservation because retail getSize() returns request+0x4c.
 gmVariable MakeSizeTicket(gmMachine& a_machine, const std::string& a_filename, long long a_size,
                           bool a_done = true, bool a_error = false,
                           bool a_preserveSize = false) {

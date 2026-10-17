@@ -531,8 +531,6 @@ void RegisterInputBindings(gmMachine& a_machine, PlatformFrontend& a_frontend) {
     // Retail's exact integer values are not yet recovered. Keep keyboard
     // and controller codes in distinct ranges so their actions stay distinct.
     gmTableObject* g = a_machine.GetGlobals();
-    // Numbered buttons follow ControllerConfig.gm's active Xbox mapping:
-    // A/B/X/Y, LB/RB, Back/Start, stick clicks, then the D-pad.
     for (int i = 0; i < kNumberedButtonCount; ++i)
         g->Set(&a_machine, ("JOYSTICK0_BUTTON" + std::to_string(i)).c_str(), gmVariable((gmint)(kNumberedButtonBase + i)));
     int crossCode = kAliasBase;
