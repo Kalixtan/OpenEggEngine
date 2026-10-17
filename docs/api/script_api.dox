@@ -1,5 +1,6 @@
 /**
  * \defgroup script_api GameMonkeyScript API
  * Public functions registered for game scripts.
+ *
+ * OpenEgg-specific values: \ref api_type_audiosaverequest `AudioSaveRequest`, \ref api_type_effectchain `EffectChain`, \ref api_type_savedataticket `SaveDataTicket`, \ref api_type_shapevertex `SHAPEVERTEX`, \ref api_type_soundeffect `SoundEffect`, and \ref api_type_voiceiterator `VoiceIterator`.
  */
- * OpenEgg-specific values: \ref api_type_shapevertex `SHAPEVERTEX`.

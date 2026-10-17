@@ -13,4 +13,6 @@ Edit `function_notes.tsv`; do not edit generated pages. Keep one row per registe
 - `parameters_note`: overload details or evidence that does not fit a single parameter record
 - `signature`: the displayed script signature
 
-Use `-` for an empty optional field. Describe what the current binding does, then state separately what retail evidence confirms and what remains unknown. Do not infer retail parity from a successful local build. Custom types and recovered-but-unimplemented retail methods are tracked in `retail_types.tsv` and generated from the binding inventory.
+Use `-` for an empty optional field. Describe what the current binding does, then state separately what retail evidence confirms and what remains unknown. Do not infer retail parity from a successful local build. Retail type counts are in `retail_types.tsv`; recovered methods missing from OpenEgg are in `retail_missing.tsv`. Registered type pages are generated from the bindings.
+
+OpenEgg-specific values with notable field or proxy behavior are listed in `custom_types.tsv`; document their fields in a matching Doxygen page under `docs/api/`. Registered methods also get individual generated pages.

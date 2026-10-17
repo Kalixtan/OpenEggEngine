@@ -1108,6 +1108,14 @@ def main():
         type_page = reference_page_id("type", display_name, type_symbol)
         type_pages.append((path, type_symbol, table, display_name, type_page))
         index.append(f"- \\ref {type_page} `{display_name}`")
+    manual_types_path = ROOT / "docs/api/custom_types.tsv"
+    if manual_types_path.exists():
+        with manual_types_path.open(encoding="utf-8") as handle:
+            manual_types = list(csv.DictReader(handle, delimiter="\t"))
+        if manual_types:
+            index += ["", "OpenEgg-specific custom values:", ""]
+            for item in manual_types:
+                index.append(f"- \\ref {item['page']} `{item['type']}` — {item['description']}")
     index += ["", "\\section script_retail_types Retail native type inventory", "",
               "All 52 type names and method counts below come from recovered retail registration data.",
               "Names absent from OpenEgg are listed with their unrecovered method signatures.", ""]
@@ -1183,8 +1191,6 @@ def main():
                     authored_params = json.loads(notes["parameters_json"])
                     params = {item["index"]: (item["name"], item)
                               for item in authored_params}
-                if notes.get("parameters_note"):
-                    out.append(notes["parameters_note"])
                 if params:
                     for key in sorted(params, key=lambda item: (isinstance(item, str), item)):
                         param, info = params[key]
@@ -1200,16 +1206,18 @@ def main():
                     if (match := CHECK_PARAMS.search(body))))
                 if checks:
                     out += ["", "Minimum required argument count: " + ", ".join(f"`{n}`" for n in checks) + "."]
-                if not params and not notes.get("parameters_note"):
+                if not params:
                     bodies = [body for _, _, body, _, _ in records]
                     reads_params = any(re.search(r"\b(?:Param|Read[A-Za-z0-9_]*Args?)\s*\(", body)
                                        for body in bodies)
                     checks_count = any("GetNumParams" in body or "GM_NUM_PARAMS" in body
                                        for body in bodies)
-                    if not reads_params and not checks_count:
+                    if notes.get("parameters_json") == "[]" or (not reads_params and not checks_count):
                         out.append("None.")
                     else:
                         out.append("The wrapper inspects arguments dynamically; parameter names and types are not fully recovered.")
+                if notes.get("parameters_note"):
+                    out += ["", "**Note:** " + notes["parameters_note"]]
                 possible_types = list(dict.fromkeys(
                     kind for _, _, body, _, _ in records for kind in return_types(name, body)))
                 signature_params = [params[key] for key in sorted(

@@ -1,7 +1,69 @@
 /**
+\page api_type_effectchain EffectChain
+
+An OpenEgg table returned by `Audio.createEffectChain()` or `Audio.getMasterEffectChain()`. It groups child chains, effects, and voices. Retail scripts use it to assemble audio routes; OpenEgg stores the graph locally, but retail DSP processing is not implemented.
+
+| Method | Description |
+| --- | --- |
+| `addEffect(effectType, parameterPairs...)` | Creates an effect in an available slot and applies optional parameter/value pairs. Returns `SoundEffect` or null. |
+| `addEffectChain(child)` | Moves a child chain from its old parent into a free slot. Each chain has 16 child slots. |
+| `addVoice(voiceId)` | Routes an active voice through this chain. |
+| `freeAllChildEffects()` | Releases effects and makes their slots available again. Each chain has 8 effect slots. |
+| `freeAllChildEffectChains()` | Releases unprotected child chains and clears the child slots. |
+
+`Audio.createEffectChain(name)` attaches the new chain to the master chain by default; an optional parent can be supplied. Each parent has 16 child slots. If all are occupied, the new chain is still returned but is not stored in a child slot. `addEffectChain()` has the same slot limit; when full it changes the child’s parent link without storing the child in a slot. `Audio.freeEffectChain()` releases non-master chains. The master chain is protected. Internal keys beginning with `__` are implementation details, not script API fields.
+
+*/
+
+/**
+\page api_type_soundeffect SoundEffect
+
+An OpenEgg table returned by `EffectChain.addEffect()`. It stores the selected effect type and local parameter state; it is not a retail DSP object, and audio effect processing is not implemented.
+
+| Method | Description |
+| --- | --- |
+| `getType()` | Returns the effect type identifier supplied to `addEffect()`. |
+| `setBypass(bypass)` | Stores whether bypass is enabled. |
+| `setParam(parameterId, value)` | Stores the parameter value after the effect-type-specific conversion. |
+
+`Audio.freeSoundEffect()` releases the effect's owning chain slot. Internal keys beginning with `__` are implementation details, not script API fields.
+
+*/
+
+/**
+\page api_type_voiceiterator VoiceIterator
+
+The local table returned by `Audio.getAllVoices()`. It contains a snapshot of voice IDs present when the function is called; later voice changes do not update that snapshot. Ordering is unspecified.
+
+| Method | Result |
+| --- | --- |
+| `isValid()` | Returns 1 while the current index is within the snapshot, otherwise 0. |
+| `get()` | Returns the current voice ID, or null when the index is past the snapshot. |
+| `goToNext()` | Advances the index by one and returns no script value. |
+
+Retail scripts use these methods to iterate voices. Retail evidence identifies a native reference-container iterator; OpenEgg currently emulates its script interface with a table, so iterator parity is not verified.
+
+*/
+
+/**
+\page api_type_audiosaverequest AudioSaveRequest
+
+The OpenEgg result table returned by `Audio.saveScriptToFile()`. It is separate from `SaveDataTicket` and from the retail asynchronous save-request object.
+
+| Field or method | Type or result | Description |
+| --- | --- | --- |
+| `size` | int | Compressed file size in bytes when writing succeeds; 0 when serialization, compression, or writing fails. |
+| `error` | int | 0 when the save succeeds; 1 when it fails or the requested file area is unsupported. |
+| `getSize()` | int | Returns the table's current `size` field. |
+
+Retail scripts use `getSize()` when building level metadata. OpenEgg's V4 recorder format and synchronous write path are local behavior; full retail request-object parity is not verified.
+
+*/
+
+/**
 \page api_type_shapevertex SHAPEVERTEX
 
-A vertex proxy returned by `shape.getVertex(index)`. It refers to the indexed vertex in its owning `VMSHAPE`; it is not a detached value.
+An OpenEgg proxy returned by `shape.getVertex(index)`. It refers to the indexed vertex in its owning `VMSHAPE`; it is not a detached value or a retail engine object.
 
 | Property | Type | Description |
 | --- | --- | --- |
@@ -10,6 +72,29 @@ A vertex proxy returned by `shape.getVertex(index)`. It refers to the indexed ve
 | `u` | number | Texture u coordinate. |
 | `v` | number | Texture v coordinate. |
 
-Reading or writing these properties accesses the owning shape's arrays. Use the proxy while its shape remains alive.
+Reading or writing a property accesses the owning shape's arrays. Looking up a nonnegative index grows the vertex storage as needed and zero-initializes new values. Assigning an integer or float stores that value; other assigned types become `0`. Unknown property names read as null and ignore writes. The proxy holds a raw pointer to its shape, so only use it while that shape is alive.
+
+*/
+
+/**
+\page api_type_savedataticket SaveDataTicket
+
+An OpenEgg compatibility table returned by local save-data request functions. It is not a native GameMonkey type or the retail asynchronous request object. The fields are mutable, and the accessor methods read their current values.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `filename` | string | Path associated with the request; empty for constructors without a file path. |
+| `size` | int | Reported byte count or requested size, depending on the request function. |
+| `done` | int | Completion flag. Current ticket constructors set this to 1. |
+| `error` | int | Error flag. `SAVEDATA_reqLoadFile` sets it when the target file is missing; `SAVEDATA_reqSaveString` sets it when writing fails. Other current constructors leave it at 0. |
+
+| Method | Result |
+| --- | --- |
+| `getSize()` | Returns the `size` field. |
+| `getFilename()` | Returns the `filename` field. |
+| `getIfDone()` | Returns 1 when `done` is nonzero, otherwise 0. |
+| `getIfError()` | Returns 1 when `error` is nonzero, otherwise 0. |
+
+All current constructors set `done` to 1 and return immediately. Retail request-manager timing, failure handling, and ticket lifetime are not verified. `Audio.saveScriptToFile` returns a smaller result table and does not provide all of these fields or methods.
 
 */

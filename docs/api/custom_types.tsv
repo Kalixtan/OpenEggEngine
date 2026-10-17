@@ -1,0 +1,7 @@
+type	page	description
+AudioSaveRequest	api_type_audiosaverequest	Result table returned by Audio.saveScriptToFile, with compressed byte size, error flag, and getSize().
+EffectChain	api_type_effectchain	OpenEgg effect-chain table with child chains, effects, voices, and explicit release methods.
+SaveDataTicket	api_type_savedataticket	Synchronous save-data request result with filename, byte count, completion status, and error status.
+SHAPEVERTEX	api_type_shapevertex	Live vertex proxy with x, y, u, and v properties; see the type page for lifetime and mutation behavior.
+SoundEffect	api_type_soundeffect	OpenEgg effect table returned by EffectChain.addEffect; exposes type, bypass, and parameter methods.
+VoiceIterator	api_type_voiceiterator	Iterator table returned by Audio.getAllVoices; snapshots voice IDs and exposes three iterator methods.
