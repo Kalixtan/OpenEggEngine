@@ -47,6 +47,10 @@ ignored by Git. To run, place user-provided game archives next to the
 executable; see [PLATFORM_BACKENDS.md](PLATFORM_BACKENDS.md) for Windows,
 cross-compilation, and frontend details.
 
+## Development status
+
+See [COMPATIBILITY_STATUS.md](COMPATIBILITY_STATUS.md) for the API audit baseline and its limits. The development plan is in [TODO.md](TODO.md).
+
 ## Project layout
 
 - `src/core`, `src/render`, `src/bindings`: runtime, renderer, and native API
