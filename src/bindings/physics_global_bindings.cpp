@@ -372,5 +372,9 @@ void RegisterPhysicsGlobalBindings(gmMachine& a_machine) {
     a_machine.RegisterTypeLibrary(g_rayIterType, s_rayIterLib, sizeof(s_rayIterLib) / sizeof(s_rayIterLib[0]));
     a_machine.RegisterUserCallbacks(g_rayIterType, nullptr, RayIterGCDestruct, nullptr);
 
+    // RegisterPhysicsJointBindings created the retail Physics global above.
+    // RegisterLibrary defaults to replacing the named table, which discarded
+    // createJoint/deleteJoint/getJoint and left live EntityBase.gm calls
+    // unbound. Extend that table with the global query helpers instead.
     a_machine.RegisterLibrary(s_physicsLib, sizeof(s_physicsLib) / sizeof(s_physicsLib[0]), "Physics", false);
 }

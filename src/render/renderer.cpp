@@ -292,6 +292,10 @@ void main() {
     if (!m_textureDistSelectionShaderReady)
         std::fprintf(stderr, "Renderer: TextureDistSelection_f unavailable; selected distance fields use their base shader\n");
 
+    // FontHelper.gm's atlas is a grayscale distance field stored in the
+    // alpha channel by Texture::LoadFromFile (single-channel sources become
+    // white RGB + source coverage alpha). Glyph rendering uses the same
+    // smooth coverage operation as the note distance-texture path.
     m_glyphMaskShaderReady = m_glyphMaskShader.Compile(
         kDistanceTextureVS, kGlyphDistanceFS);
     if (!m_glyphMaskShaderReady)
@@ -753,6 +757,15 @@ bool Renderer::SetTexturePalette(unsigned int a_handle, const unsigned char* a_p
             unsigned char* dst = rgba.data() + ((size_t)y * tex.potWidth + x) * 4;
             dst[0] = src[3]; dst[1] = src[2]; dst[2] = src[1]; dst[3] = src[0];
 
+            // Some retail sprite PNGs are indexed RGB masks with a solid
+            // green background instead of a PNG tRNS alpha channel (for
+            // example sway_tree_idle.png). LoadFromFile converts that exact
+            // source key to transparent alpha. Palette rebuilds must retain
+            // the same mask: rebuilding from the new palette alone would
+            // make the background opaque again, drawing a rotated square
+            // around the sprite. The key is a property of the source image,
+            // so test its original PLTE entry rather than the replacement
+            // palette colour.
             if (tex.isChromaKeyMask && tex.sourcePaletteRgba.size() >= (size_t)(index + 1) * 4) {
                 const unsigned char* source = tex.sourcePaletteRgba.data() + index * 4;
                 if (source[0] == keyR && source[1] == keyG && source[2] == keyB)
@@ -903,6 +916,27 @@ void Renderer::SetLineWidth(float a_width) {
 }
 
 
+// drawList.setColourMask(enabled) -- the argument is "is the colour MASK
+// enabled", i.e. true means colour writes are BLOCKED, so it maps to
+// glColorMask(GL_FALSE...). This was inverted, which blanked the entire
+// game: WorldMapProcess.gm/TouchEditProcessBase.gm both use the mask to
+// bracket stencil-only geometry --
+//
+//     drawList.setColourMask(true);                       // colour OFF
+//     drawList.setAttrStencil(VIDEOPARAMS_ALWAYS, VIDEOPARAMS_REPLACE, 10);
+//     drawList.drawShape(this.clearScreenShape);          // stencil only
+//     ...
+//     drawList.setColourMask(false);                      // colour back ON
+//
+// -- and those shapes are pure stencil geometry that must not appear on
+// screen. With the old polarity, `setColourMask(true)` enabled colour
+// writes and the trailing `setColourMask(false)` disabled them for
+// everything drawn afterwards. Nothing per-frame resets glColorMask, so
+// one pass through a world-map/edit draw left colour writes off forever:
+// every later frame still submitted its full ~50 draw calls (6 textured
+// quads, 13 gradient polys, 31 text glyphs, verified by instrumenting the
+// submission path) with a valid GL context and no GL error, and every
+// captured frame came out pure black.
 void Renderer::SetColourMask(bool a_maskEnabled) {
     const GLboolean writeColour = a_maskEnabled ? GL_FALSE : GL_TRUE;
     glColorMask(writeColour, writeColour, writeColour, writeColour);

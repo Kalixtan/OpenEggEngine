@@ -2488,6 +2488,14 @@ gmFunctionEntry s_audioLib[] = {
     {"onVoiceEndFreeEffectChain", gmf_onVoiceEndFreeEffectChain, nullptr},
     {"onVoiceEndFreeSoundEffect", gmf_onVoiceEndFreeSoundEffect, nullptr},
 
+    // Script recording and save/load have live shipped callers (Main.gm
+    // records audio while saving user levels and calls saveScriptToFile for
+    // the .jef payload). The legacy startRecording/stopRecording/isRecording
+    // methods above are separately audited: the first two call retail no-op
+    // helpers and the query always returns false. The script recorder APIs
+    // below implement the captured playSound subset of FunctionObjectRecorder;
+    // other callback classes, native SAVEREQUEST identity, and non-savedata
+    // write areas remain open.
     {"startRecording", gmf_noop, nullptr},
     {"stopRecording", gmf_noop, nullptr},
     {"isRecording", gmf_falseBool, nullptr},

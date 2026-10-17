@@ -1,5 +1,7 @@
 # Compatibility status
 
+> **OpenEgg is very WIP!** 
+
 OpenEgg aims to reproduce the observable behavior of the GameEngine3 runtime
 used by *Sound Shapes*. These figures describe a provisional inventory of
 1,469 native API wrapper records from the project's earlier audit. The raw

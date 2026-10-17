@@ -271,6 +271,52 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledRectCentered(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_VIDEOHELPER_DrawRect(gmThread* a_thread) {
+    gmMachine& machine = *a_thread->GetMachine();
+    gmUserObject* existing = GM_NUM_PARAMS > 0
+        ? AsShapeObject(machine, a_thread->Param(0)) : nullptr;
+    const int base = existing ? 1 : 0;
+    if (GM_NUM_PARAMS < base + 5) return GM_EXCEPTION;
+
+    const float x1 = a_thread->ParamFloatOrInt(base + 0, 0.0f);
+    const float y1 = a_thread->ParamFloatOrInt(base + 1, 0.0f);
+    const float x2 = a_thread->ParamFloatOrInt(base + 2, 0.0f);
+    const float y2 = a_thread->ParamFloatOrInt(base + 3, 0.0f);
+    const float z = a_thread->ParamFloatOrInt(base + 4, 0.0f);
+    const float xy[10] = {
+        x1, y1, x2, y1, x2, y2, x1, y2, x1, y1
+    };
+    PushShapeFromVerts(a_thread, kShapeTypeLineStrip, xy, 5, z, existing,
+                       /*preserve existing primitive*/ existing != nullptr,
+                       /*retail pushes only newly created shapes*/ existing == nullptr);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_VIDEOHELPER_DrawRectCentered(gmThread* a_thread) {
+    gmMachine& machine = *a_thread->GetMachine();
+    gmUserObject* existing = GM_NUM_PARAMS > 0
+        ? AsShapeObject(machine, a_thread->Param(0)) : nullptr;
+    const int base = existing ? 1 : 0;
+    if (GM_NUM_PARAMS < base + 5) return GM_EXCEPTION;
+
+    const float x = a_thread->ParamFloatOrInt(base + 0, 0.0f);
+    const float y = a_thread->ParamFloatOrInt(base + 1, 0.0f);
+    const float z = a_thread->ParamFloatOrInt(base + 2, 0.0f);
+    const float halfWidth = a_thread->ParamFloatOrInt(base + 3, 0.0f) * 0.5f;
+    const float halfHeight = a_thread->ParamFloatOrInt(base + 4, 0.0f) * 0.5f;
+    const float xy[10] = {
+        x - halfWidth, y - halfHeight,
+        x + halfWidth, y - halfHeight,
+        x + halfWidth, y + halfHeight,
+        x - halfWidth, y + halfHeight,
+        x - halfWidth, y - halfHeight
+    };
+    PushShapeFromVerts(a_thread, kShapeTypeLineStrip, xy, 5, z, existing,
+                       /*preserve existing primitive*/ existing != nullptr,
+                       /*retail pushes only newly created shapes*/ existing == nullptr);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_VIDEOHELPER_DrawFilledCircle(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmUserObject* existing = (GM_NUM_PARAMS > 0)
@@ -391,6 +437,8 @@ int GM_CDECL gmf_VIDEOHELPER_DrawFilledDonut(gmThread* a_thread) {
 
 void RegisterVideoHelperBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawFilledRect", gmf_VIDEOHELPER_DrawFilledRect);
+    a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawRect", gmf_VIDEOHELPER_DrawRect);
+    a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawRectCentered", gmf_VIDEOHELPER_DrawRectCentered);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawRoundedRectCentered", gmf_VIDEOHELPER_DrawRoundedRectCentered);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawFilledRoundedRectCentered", gmf_VIDEOHELPER_DrawFilledRoundedRectCentered);
     a_machine.RegisterLibraryFunction("VIDEOHELPER_DrawThickLine2D", gmf_VIDEOHELPER_DrawThickLine2D);

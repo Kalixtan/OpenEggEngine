@@ -975,6 +975,10 @@ int GM_CDECL DC_gmf_drawTextureByHandle(gmThread* a_thread) {
         drawContext.currentTextureHandle = handle;
         const DrawContext::Mat& m = GetDrawContext().Top();
         Renderer* renderer = GetEngineContext().renderer;
+        // Opt-in diagnostic for the loading-screen matrix audit: record both
+        // the script-space corners and the matrix active when the deferred
+        // draw command executes. This separates Main.gm's dimension math from
+        // DrawList matrix replay without changing either path.
         if (std::getenv("GE3_TRACE_UI_QUADS")) {
             const std::string& sourcePath = renderer
                 ? renderer->GetTextureSourcePath(handle) : std::string{};

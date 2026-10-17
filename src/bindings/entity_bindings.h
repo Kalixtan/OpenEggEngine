@@ -57,10 +57,36 @@ void PreDrawEntitiesWithNativeHook();
 // this exists (nothing else in the engine drives entity-side update logic).
 void UpdateEntitiesWithNativeUpdateHook(float a_msElapsed);
 
+// Calls entity.postUpdate(a_msElapsed) after the update event has completed.
+// Player.gm uses this distinct phase to commit state-machine velocity and
+// sensor changes before Platformer/Main.gm's process postUpdate moves camera.
 void PostUpdateEntitiesWithNativeHook(float a_msElapsed);
 
+// Force-configures any entity that has configureData but whose configure()
+// was never invoked -- see the long header comment on the definition
+// (entity_bindings.cpp) for why Main.gm's level-load loop leaves most placed
+// entities in that state and why retail's lazy "configure once it scrolls on
+// screen" system, which finishes the job there, has no equivalent here.
+//
+// The definition was written to run once per frame and then never called
+// from anywhere, so nothing drove it at all: every entity kept the fields
+// its configure() would have assigned as null. That surfaced as a steady
+// drip of null-field script errors from draw(), each one aborting that
+// entity's ENTIRE draw call -- `-this.width` (BlockCannon), `this.dirSign`
+// (GoombaCritterGuitar), `this.fillcn` (BrianMover).
 void ConfigureUnconfiguredEntities();
 
+// Calls entity.onKeyPress(kc)/onKeyRelease(kc) on every registered entity
+// that defines one -- the key-event counterpart to
+// UpdateEntitiesWithNativeUpdateHook above. Same gap, same reason: nothing
+// else in this engine ever called it. ProcessManager::DispatchKeyEventNamed
+// (process_manager.cpp) only broadcasts to Processes, never to Entities()
+// -- and Player is a registered Entity, not a Process, so its own real
+// onKeyPress (Player.gm: `onKeyPress=function(kc){ ...
+// this.state.call("onKeyPress",kc,this); }`, which is what HANG_STATEID's
+// onKeyPress uses to trigger doJump()/jumpAction()) was never being called
+// at all -- jump silently never fired, with no exception/getdot to signal
+// it, because the call site itself was simply never reached.
 void DispatchKeyEventToEntities(int a_keycode, bool a_isPress);
 
 // First live entity with __isPlayer set (createEntityAsPlayer's marker --

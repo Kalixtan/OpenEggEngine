@@ -54,6 +54,11 @@ uint32_t DecodeRetailCodepoint(const std::string& a_text, size_t& a_offset) {
     return codepoint;
 }
 
+// Lazily loads Platformer/extFont/<NAME>.png, or asks the shared animation
+// runtime for the current frame when retail's FSA-first path is present.
+// Returns 0 (drawn as nothing, not a black quad) for unknown tokens --
+// same "don't crash, don't draw garbage" leniency as the rest of this
+// engine's native-binding gaps.
 unsigned int GetIconTexture(const std::string& a_token, Renderer& a_renderer) {
     static std::unordered_map<std::string, unsigned int> s_cache;
     const char* alias = ResolveIconAlias(a_token);

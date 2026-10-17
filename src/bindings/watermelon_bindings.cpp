@@ -173,11 +173,18 @@ int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(0); return GM_
 
 int GM_CDECL gmf_NoOp(gmThread*) { return GM_OK; }
 
+// WatermelonGlobals_GetFeaturedSearches() -> table of featured-search
+// entries pushed by the server with the session handshake. Empty table
+// offline (CommunityScreenNavBar.gm iterates it to build "more" buttons;
+// zero entries is handled).
 int GM_CDECL gmf_Globals_GetFeaturedSearches(gmThread* a_thread) {
     a_thread->PushTable(a_thread->GetMachine()->AllocTableObject());
     return GM_OK;
 }
 
+// WatermelonGlobals_GetNews() -> array of news-item tables from the server
+// handshake. CommunityScreenSidePanel.gm indexes `[0]` unconditionally, so
+// offline this returns one empty news table rather than an empty array.
 int GM_CDECL gmf_Globals_GetNews(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     gmTableObject* arr = m.AllocTableObject();

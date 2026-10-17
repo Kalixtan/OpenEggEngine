@@ -136,25 +136,9 @@ void DrawEntityMarkers(Renderer& a_renderer, const std::vector<int>& a_skipUids)
 void DrawPhysicsBodiesImmediate(const std::vector<int>& a_nativeDrawnUids) {
     Renderer* renderer = GetEngineContext().renderer;
     if (!renderer) return;
-    // Defensive: whatever the script's own preceding draws left the
-    // depth-test/depth-write state at
-    // (`drawList.setAttrDepthTest`/`setAttrDepthWrite`, both real, e.g.
-    // used for real ground/vibe z-layering) must not affect this. Left
-    // enabled from an earlier same-frame draw, GL_DEPTH_TEST's default
-    // func (GL_LESS) silently discards every later fragment at the SAME
-    // z (this renderer is purely 2D -- every shape is drawn at z=0), so
-    // only the very first fixture in the loop below would ever actually
-    // reach the framebuffer.
-    // Ignore script draw-list depth state while rendering the overlay.
+    // Draw the overlay independently of script depth state.
     renderer->SetDepthTest(false);
-    // Same reasoning as the old background quad's own comment (now
-    // removed): drawStaticSurface() runs after PostDrawAll, which can
-    // legitimately leave the renderer in screen-space UI mode
-    // (setupAspectRatioOrthoView) -- force world/camera-relative mode back
-    // on so every position/radius below lines up with the real gameplay
-    // it's overlaid on, regardless of what the last script draw call left
-    // active.
-    // Use world coordinates regardless of the last script draw state.
+    // The overlay uses world coordinates, regardless of the last script draw.
     renderer->SetUseCameraView(true);
 
     auto drawShape = [&](const b2Fixture* fx, const b2Transform& xf, float a_r, float a_g, float a_b, float a_fillA, float a_outlineA) {

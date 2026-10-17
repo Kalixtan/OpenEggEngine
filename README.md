@@ -1,37 +1,29 @@
 # OpenEgg
 
+> **Very early development. Not a release.** OpenEgg is incomplete and may not
+> build or run. Full game playability has not been established.
+
 OpenEgg is an independent reimplementation of the GameEngine3 runtime used by
-*Sound Shapes*. The project studies the engine's observable behavior and aims
-to run the original game natively on desktop systems, without a console
-emulator, while maintaining compatibility with retail scripts and assets.
-This is a work in progress; compatibility and playability are goals, not a
-claim that every feature currently works.
+*Sound Shapes*. The goal is native desktop play with retail scripts and assets.
 
 ## Game content and rights
 
-This repository does not distribute *Sound Shapes* game assets, retail scripts,
-disc images, console firmware, or extracted proprietary game code. OpenEgg's
-runtime requires a user's own legally obtained game data at launch; none is
-downloaded or copied into the build by CMake. Keep local game data out of Git.
+This repository contains no game assets, retail scripts, disc images, firmware,
+or extracted game code. OpenEgg needs game data supplied by the user; keep it
+out of Git.
 
 *Sound Shapes* was developed by Queasy Games and published by Sony Computer
-Entertainment ([official PlayStation listing](https://store.playstation.com/en-gb/product/EP9000-CUSA00040_00-SOUNDSHAPES00000)).
-We acknowledge and thank the original developers and artists for their work.
-Copyright in the game and its materials, and rights to *Sound Shapes*,
-GameEngine3, and related marks, remain with their respective owners. OpenEgg is
-an independent, unofficial project and is not affiliated with or endorsed by
-them. This notice does not claim ownership of or grant rights to their work.
-
-OpenEgg's source code is an independent implementation. The repository does
-include separately licensed third-party middleware; see
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and each component's included
-license. Those notices apply to the middleware only.
+Entertainment ([PlayStation listing](https://store.playstation.com/en-gb/product/EP9000-CUSA00040_00-SOUNDSHAPES00000)).
+Thanks to the original developers and artists.
+All rights to the game, GameEngine3, and related marks remain with their owners.
+OpenEgg is unofficial, unaffiliated, and does not claim rights to that material.
+Third-party middleware licenses are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Build
 
-Requirements: CMake 3.16+, a C++17 compiler, SDL2, GLEW, FreeType, OpenGL, and
-zlib. GameMonkey Script, Box2D, TinyXML2, RapidJSON, stb, and minimp3 are
-included under `vendor/` and wired into the CMake build.
+Requires CMake 3.16+, C++17, SDL2, GLEW, FreeType, OpenGL, and zlib. Other
+dependencies are in `vendor/`.
 
 On Debian or Ubuntu:
 
@@ -42,26 +34,27 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-The executable is `build/OpenEgg`. Build output and local game data are
-ignored by Git. To run, place user-provided game archives next to the
-executable; see [PLATFORM_BACKENDS.md](PLATFORM_BACKENDS.md) for Windows,
-cross-compilation, and frontend details.
+The executable is `build/OpenEgg`. Place your game archives beside it to run.
+See [PLATFORM_BACKENDS.md](PLATFORM_BACKENDS.md) for other build options.
+
+## Script API reference
+
+Install Doxygen and run `./tools/build_api_docs.sh`. Open
+`build/docs/api/html/script_api_index.html`. The reference covers registered
+script names and recovered retail methods that are not implemented yet. The
+retail list is incomplete; behavior and compatibility still need verification.
 
 ## Development status
 
-See [COMPATIBILITY_STATUS.md](COMPATIBILITY_STATUS.md) for the API audit baseline and its limits. The development plan is in [TODO.md](TODO.md).
+No stable release is available. See [COMPATIBILITY_STATUS.md](COMPATIBILITY_STATUS.md)
+for provisional compatibility figures and [TODO.md](TODO.md) for open work.
 
 ## Project layout
 
-- `src/core`, `src/render`, `src/bindings`: runtime, renderer, and native API
-- `src/platform`: desktop frontend and executable entry point
-- `src/ported_native`: native runtime components implemented for OpenEgg
-- `vendor`: third-party middleware and its notices
-- `*.md`: build, backend, and runtime configuration notes
+Runtime code is under `src/`; third-party dependencies are under `vendor/`.
+Build and status notes are linked above.
 
 ## Contributing
 
-Do not commit game dumps, retail scripts, extracted assets, firmware, local
-save data, or generated builds. Keep compatibility work in OpenEgg's own
-implementation and document third-party changes with their applicable
-licenses.
+Keep game data, firmware, saves, and build output out of Git. Include licenses
+for any new third-party code.

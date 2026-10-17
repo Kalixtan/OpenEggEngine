@@ -369,6 +369,15 @@ struct TelescopeData {
         a_uy = dlen > 0.0001f ? dirY / dlen : 0.0f;
     }
 
+    // Repositions the body to match the tracked anchor (posX,posY) and
+    // direction -- called any time either changes (setPosition/
+    // setupPhysics), independent of whether the fixture itself needs
+    // rebuilding. Shape grows FROM the anchor outward along the direction
+    // vector, so the body's transform sits half the CURRENT fixture's own
+    // length along that axis, not at the bare anchor -- same "anchor is
+    // one end, not the middle" convention every real call site's own
+    // (pos,dir) construction implies (LaserDoor.gm etc. pass the door's
+    // fixed mount point as pos and the direction it extends INTO as dir).
     void UpdateTransform() {
         if (!body) return;
         float ux, uy; UnitDir(ux, uy);
@@ -693,6 +702,17 @@ int GM_CDECL gmf_entity_delegate_isInvincible(gmThread* a_thread) {
     return GM_OK;
 }
 
+// Generic version of the die/isWizard/isInvincible delegate pattern above --
+// same root cause (script "Install" mixins like GroundBase.gm's
+// Platformer_GroundBase_Install(t) attach methods like getStyle/isGround
+// directly to the returned behavior table `t`, but real call sites
+// (GroundBase.gm's own destructor(): `this.Entity.getStyle()`) call them on
+// `this.Entity`, the bare native handle -- valid in real retail where the
+// native entity object and its script behavior table are the same
+// underlying object, invalid here where this engine splits them). Reused
+// for any bare-handle method with no dedicated native implementation that
+// should instead forward to whatever real script method the behavior
+// table defines.
 int GM_CDECL DelegateToBehaviorOwner(gmThread* a_thread, const char* a_methodName) {
     gmTableObject* self = a_thread->ThisTable();
     gmMachine& m = *a_thread->GetMachine();
@@ -1448,6 +1468,13 @@ int GM_CDECL gmf_entity_setIsEnabled(gmThread* a_thread) {
         std::fprintf(stderr, "[entity-enable] retail rejected bodyless enable: id=%d type=%s physicsDataType=%d\n",
                      objectId.m_type == GM_INT ? objectId.m_value.m_int : -1,
                      typeText, physicsData.m_type);
+        // DESKTOP LAZY-CONFIG BRIDGE (not a change to retail's native
+        // setter): Main.gm can activate a newly entered screen before this
+        // port's ConfigureUnconfiguredEntities fallback has built its bodies.
+        // Retail has already constructed the entity before the native screen
+        // membership update. Preserve the activation request only for a
+        // populated, not-yet-configured level entity; the sweep replays it
+        // after configure() creates the native PhysicsData body array.
         gmVariable configured = GetEntityNativeField(machine, self, "__nativeConfigured");
         // The handle can carry an empty configureData placeholder while its
         // paired behavior table owns the level's populated record. Inspect
@@ -1989,10 +2016,22 @@ int GM_CDECL gmf_entity_is_getAudibilityPerc_neverOnScreen(gmThread* a_thread) {
     a_thread->PushInt((v.m_type == GM_INT && v.m_value.m_int != 0) ? 1 : 0);
     return GM_OK;
 }
+// Compatibility bridge for note-state calls made on raw EntityManager
+// handles. BaseNotePlant.gm defines setGot()/isGot() on its behavior table;
+// the native handle and behavior table are separate desktop objects, so these
+// calls must read/write the behavior's `got` field as well. The shipped
+// Main.gm also calls isGetting(), but no matching native method appears in the
+// recovered retail EntityBase method inventory, and BaseNotePlant has no
+// `getting` field or transition setter. Keep this false-valued shim for the
+// local note-list workaround, without claiming it is a retail native method.
 int GM_CDECL gmf_entity_setGot(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_OK;
     gmMachine& machine = *a_thread->GetMachine();
+    // BaseNotePlant.gm's script setter calls onGot() when the requested state
+    // is true. The native Entity facade is a separate table in this port, so
+    // preserve that retail script path when a raw Entity handle receives the
+    // call; the behavior method is saved before native methods are injected.
     gmVariable owner = self->Get(&machine, "__behaviorOwner");
     gmTableObject* ownerTable = owner.m_type == GM_TABLE
         ? static_cast<gmTableObject*>(machine.GetObject(owner.m_value.m_ref))
@@ -2016,6 +2055,10 @@ int GM_CDECL gmf_entity_setGot(gmThread* a_thread) {
 
     gmint flag = a_thread->ParamInt(0, 0);
     gmVariable value((gmint)(flag ? 1 : 0));
+    // BaseNotePlant.gm owns its public collected state in `this.got`, while
+    // the native Entity facade also exposes setGot/isGot. Keep both views
+    // synchronized so calls routed through the native method cannot leave the
+    // script renderer seeing a stale `got=true` after level retry.
     SetEntityNativeField(machine, self, "got", value);
     SetEntityNativeField(machine, self, "__got", value);
     return GM_OK;
@@ -2146,6 +2189,11 @@ int GM_CDECL gmf_entity_forceAudibilityRecalc(gmThread* a_thread) {
     SetEntityNativeField(*a_thread->GetMachine(), self, "__lastAudibilityTick", gmVariable::s_null);
     return GM_OK;
 }
+// EntityBase.gm's C++ reference computes an entity's current screen from
+// PhysicsData.getBody(0).getPos(), then gameProcess.getScreenX/Y(). Retail
+// native getCurrentScreenX/Y call separate entity-position helpers. The
+// previous implementation read the CAMERA'S current screen, so every entity
+// appeared to be on screen for audibility and screen-specific callbacks.
 int EntityScreenCell(gmMachine& m, gmTableObject* self, bool xAxis) {
     gmVariable pd = self->Get(&m, "PhysicsData");
     if (pd.m_type == GM_NULL) pd = self->Get(&m, "__physicsData");
@@ -2182,6 +2230,10 @@ int GM_CDECL gmf_entity_getAudibilityPerc(gmThread* a_thread) {
 
     int cameraX = 0, cameraY = 0;
     gmVariable gp = self->Get(&m, "gameProcess");
+    // Main.gm's music-trigger lists store the raw Entity handle. Retail has
+    // one entity object, but this port keeps gameProcess on its behavior
+    // table; use that owner when the handle has no direct field. Otherwise
+    // every off-screen audibility query compares against screen (0,0).
     if (gp.m_type == GM_NULL) {
         gmVariable owner = self->Get(&m, "__behaviorOwner");
         if (owner.m_type == GM_TABLE) {
@@ -2550,6 +2602,10 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "getNumParticles", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getNumParticles)));
     a_table->Set(&a_machine, "getPhysicsData", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getPhysicsData)));
     a_table->Set(&a_machine, "refreshFunctionCache", gmVariable(a_machine.AllocFunctionObject(gmf_entity_refreshFunctionCache)));
+    // EntityBase installs these script methods on the returned behavior
+    // table. Main.gm's globalEntitiesMap stores raw Entity handles and calls
+    // isAlwaysMusicTriggered on them during the music tick. Retail has one
+    // object for both views; delegate through our split handle/owner pair.
     if (a_table->Get(&a_machine, "isAlwaysMusicTriggered").m_type != GM_FUNCTION)
         a_table->Set(&a_machine, "isAlwaysMusicTriggered",
             gmVariable(a_machine.AllocFunctionObject(gmf_entity_delegate_isAlwaysMusicTriggered)));
@@ -2655,6 +2711,10 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "setupDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setupDrawList)));
     a_table->Set(&a_machine, "setupStaticDrawList", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setupStaticDrawList)));
     a_table->Set(&a_machine, "getVertexShaderParamIndex", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getVertexShaderParamIndex)));
+    // Only ever the bare handle's own fallback -- InjectEntityHandleMethods
+    // also runs on the RETURNED behavior table (dual injection, see
+    // CreateEntityFromFactory), which for Player.gm already defines its own
+    // real die/isWizard/isInvincible; never stomp those.
     if (a_table->Get(&a_machine, "die").m_type != GM_FUNCTION) {
         a_table->Set(&a_machine, "die", gmVariable(a_machine.AllocFunctionObject(gmf_entity_delegate_die)));
     }
@@ -2841,6 +2901,11 @@ gmVariable CreateEntityFromFactory(gmMachine& a_machine, const std::string& a_ty
     // gmf_entity_getPhysicsData's header comment), not just the handle.
     InjectEntityHandleMethods(a_machine, table, a_uid, a_typeName, a_physicsType);
 
+    // Link the bare handle back to its real behavior table -- see
+    // gmf_entity_delegate_die's header comment for why this exists: real
+    // call sites (Main.gm's KillPlayer handler) call die()/isWizard()/
+    // isInvincible() directly on `this.Entity` (the handle), expecting the
+    // same object identity retail's own unified Entity/Player has.
     handleTable->Set(&a_machine, "__behaviorOwner", entityTable);
     // Retail exposes one unified Entity object, so dynamically installed
     // EntityBase methods are callable through either `this` or `this.Entity`.
@@ -2880,6 +2945,11 @@ gmVariable CreateEntityFromFactory(gmMachine& a_machine, const std::string& a_ty
     if (ctorCall.BeginTableFunction(&a_machine, "constructor", table, entityTable)) {
         ctorCall.End();
     }
+    // Main.gm stores raw Entity handles in each screen's musicTriggerEntities
+    // table, while gameplay classes define onMusicTrigger on the behavior
+    // table returned by their factory. Install the forwarding method only
+    // for classes that actually have the callback, preserving Main.gm's
+    // `?e.onMusicTrigger` registration check.
     if (table->Get(&a_machine, "onMusicTrigger").m_type == GM_FUNCTION) {
         handleTable->Set(&a_machine, "onMusicTrigger",
             gmVariable(a_machine.AllocFunctionObject(gmf_entity_delegate_onMusicTrigger)));
@@ -4051,6 +4121,11 @@ int GM_CDECL gmf_GAME_SetIsSelectionPulseEnabled(gmThread* a_thread) {
     return GM_OK;
 }
 
+// GAME_SetIsUsingSelectionFragmentProgram(bool, entity) -- retail resolves
+// entity.setupDrawList() to native Entity+0x14, then writes this flag to
+// DrawList+0x10. Preserve the raw GM payload != 0 test used by the PPC
+// wrapper. The draw-config shader-variant consumer is documented in the API
+// trace TODO and is still pending.
 int GM_CDECL gmf_GAME_SetIsUsingSelectionFragmentProgram(gmThread* a_thread) {
     if (!a_thread || a_thread->GetNumParams() < 2) return GM_OK;
     const gmVariable& enabledArg = a_thread->Param(0);
@@ -4240,6 +4315,13 @@ void DrawSauceBaseEntityNative(gmMachine& m, gmTableObject* t, const gmVariable&
         float fillR = 1, fillG = 1, fillB = 1, outR = 1, outG = 1, outB = 1;
         if (!c1.empty()) GetNamedColourRGB(c1, fillR, fillG, fillB);
         if (!c2.empty()) GetNamedColourRGB(c2, outR, outG, outB);
+        // ResolveAnimColour's real param order is (outColourName, fillColourName)
+        // -- see colour_bindings.cpp's own gmf_COLOURSCHEME_SetAnimationPaletteColour --
+        // but SauceBase's colour1/colour2 map the OPPOSITE way (colour1=fill,
+        // matching EntityBase.gm:241's `COLOURSCHEME_SetAnimationPaletteColour(
+        // anim,cn1,cn2)` where cn1 is literally this entry's own "colour1"),
+        // so pass (out=colour2, fill=colour1) to match SetAnimationPaletteColour's
+        // own (out,fill) parameter order.
         SetAnimationPaletteBank(m, animVar, paletteBank);
         SetAnimationPaletteColour(m, animVar, outR, outG, outB, fillR, fillG, fillB);
         GetEngineContext().renderer->SetColour(1.0f, 1.0f, 1.0f, 1.0f);
@@ -4577,6 +4659,30 @@ void ConfigureUnconfiguredEntities() {
 
         gmVariable configuredVar = t->Get(m, "__nativeConfigured");
         if (configuredVar.m_type == GM_INT && configuredVar.m_value.m_int != 0) {
+            // Already configured -- but NOT necessarily still valid.
+            // EntityBase.gm's ENTITYBASE_killBodiesIfItShould() tears an
+            // entity's bodies down when it leaves the screen:
+            //     me.PhysicsData.removeBody(-1);
+            //     me.mainpb = null;
+            // Retail pairs that with a lazy RE-configure when the entity
+            // scrolls back into view. This sweep only ever configured each
+            // entity once, so after a kill the entity was skipped forever
+            // and left with a permanently null mainpb.
+            //
+            // That single defect produced two separate visible symptoms:
+            //   - every tutorial string drew at the world origin, because
+            //     TutorialMessage.gm does
+            //     `drawList.translate(this.mainpb.getPos(), z)` and a null
+            //     vector translate keeps z but zeroes x/y (measured: 24766
+            //     null-vector translates, 12810 text draws at world(0,0)
+            //     with correct z of +-19.91)
+            //   - MATHUTIL_GetAngleRad's "expecting a vector2D" storm from
+            //     GoAroundGuy/BrianMover's `this.mainpb.getDir()`,
+            //     ~2420 errors per run
+            //
+            // Only re-configure entities that DID have a body once
+            // (__hadMainpb, set by the configure trampoline). Entities with
+            // no physics at all must not be re-configured every frame.
             gmVariable hadBody = t->Get(m, "__hadMainpb");
             bool everHadBody = (hadBody.m_type == GM_INT && hadBody.m_value.m_int != 0);
             if (!everHadBody || t->Get(m, "mainpb").m_type != GM_NULL) continue;
@@ -4589,8 +4695,31 @@ void ConfigureUnconfiguredEntities() {
 
         gmVariable cdVar = t->Get(m, "configureData");
         if (cdVar.m_type != GM_TABLE) continue; // nothing to configure with yet
+        // ...and not until the loader has actually FILLED it. A bare
+        // `configureData = {}` exists on an entity before its level-data
+        // fields are copied in, and configuring then runs configure() against
+        // an empty table: every field it reads comes back null, so e.g.
+        // TutorialMessage's `pb.setPos(configureData.posX, configureData.posY)`
+        // silently placed the body at the origin (measured: the text's
+        // draw-time matrix carried translation e=0,f=0 while its z came
+        // through correctly, and every glyph in the level rendered at world
+        // (0,0) -- NDC (25,7) from the spawn camera, far off screen).
+        //
+        // `entType` is the game's own marker for a populated configureData --
+        // EntityBase.gm's endConfigure() gates on exactly `if (!?this.
+        // configureData.entType)` -- and the tutorial level's data carries it
+        // on all 230 placed entities.
         gmTableObject* cdTable = (gmTableObject*)m->GetObject(cdVar.m_value.m_ref);
         if (!cdTable || cdTable->Get(m, "entType").m_type == GM_NULL) continue;
+        // Main.gm deliberately leaves eligible level entities unconfigured
+        // until their saved screen range becomes active. The portable
+        // fallback used to configure every placed entity immediately,
+        // creating offscreen physics bodies that Box2D continued simulating
+        // while the per-screen entity update pass skipped their callbacks.
+        // For entities with the native screen bounds installed by
+        // initializeScreenExtents, preserve that lazy activation boundary.
+        // Runtime entities without a recorded range retain the fallback
+        // path below because they have no retail screen-membership metadata.
         if (t->Get(m, "__screenMinCX").m_type != GM_NULL &&
             !EntityIsOnCurrentScreen(*m, t, false)) continue;
         gmVariable configureFn = t->Get(m, "configure");
@@ -4629,6 +4758,11 @@ void ConfigureUnconfiguredEntities() {
                 }
             }
         }
+        // configure() runs EntityBase.endConfigure(), which records screen
+        // extents, registers the entity with Main.gm, and calls
+        // setIsEnabled(isOnCurrentScreen()). Preserve that retail result;
+        // forcing true here reinserted off-screen entities into the native
+        // update/draw/physics memberships immediately after registration.
     }
 }
 

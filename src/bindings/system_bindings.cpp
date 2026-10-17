@@ -624,6 +624,10 @@ int GM_CDECL gmf_SPLASHSCREEN_FinalizeSplashScreenAndGetResults(gmThread* a_thre
     gmVariable saveTicket = gmVariable::s_null;
     gmVariable tocTicket = gmVariable::s_null;
     if (!haveSave) {
+        // First-ever boot --
+        // NEWSAVE takes the "start from scratch" branch in Main.gm, which
+        // builds a fresh SAVE_DATA and writes save.json itself, so no ticket
+        // is needed here.
         savedataResult = 1; // SAVEDATARESULT_NEWSAVE
     } else if (!haveToc) {
         savedataResult = 2; // SAVEDATARESULT_NOTOC

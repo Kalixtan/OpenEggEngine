@@ -570,6 +570,9 @@ void DrawPlayerParticles(gmMachine& a_machine, gmTableObject* a_player,
         a_machine.GetObject(particlesVar.m_value.m_ref));
     if (!particles) return;
 
+    // The retail native loop uses the array's stored entry count. Player.gm
+    // currently initializes 33 contiguous entries, but use the live table
+    // count so the renderer follows that native contract if the pool changes.
     const int particleCount = particles->Count();
     constexpr int kParticleRimPoints = 61;
     constexpr float kParticleZ = -17.7699986f;
@@ -738,15 +741,8 @@ bool IsPlayerDrawScaleTransitionActive(gmMachine& a_machine,
         a_machine, entity, "__nativePlayerDrawScaleTransition", 0.0f)) != 0;
 }
 
-// Verification: retail GE3_Internal_MathExpCore at 0x1dbe30 classifies its
-// binary32 input, then calls GE3_Internal_MathExpReduceScale at 0x1dce40 with
-// multiplier 1 and mode 0 for ordinary finite values. That helper's range
-// reduction, rational polynomial, and binary exponent adjustment match the
-// exp portion of RetailGroundPowScaled in ground_math.h. The player scale
-// callback normally supplies x in [-80,0]. The same PPC reduction also
-// handles positive finite inputs; retain it through +80 (normal binary32
-// results) for unusual negative deltas. Exceptional and more extreme values
-// use std::exp until their wrapper/status behavior is ported.
+// Matches the retail exp reduction for finite inputs in [-80, 80].
+// The player scale path normally uses [-80, 0]; other values use std::exp.
 float RetailPlayerExp(float a_x) {
     if (!std::isfinite(a_x) || a_x < -80.0f || a_x > 80.0f)
         return std::exp(a_x);
@@ -833,6 +829,12 @@ void DrawPlayerNative() {
     if (playerVar.m_type != GM_TABLE) return; // no player yet (menu, between levels)
     gmTableObject* player = (gmTableObject*)machine->GetObject(playerVar.m_value.m_ref);
 
+    // Real testDraw()'s own first-line early-out (`this.Entity.isInvisible()`,
+    // see entity_bindings.cpp's gmf_entity_isInvisible) -- without this,
+    // FIRSTSPAWN_STATEID's `parent.Entity.setIsInvisible(true)` (Player.gm)
+    // stored the flag correctly but nothing ever consumed it, so the player
+    // was visible for the entire spawn-in sequence instead of only
+    // appearing once the spawner's animation finished.
     {
         gmVariable entityVar = player->Get(machine, "Entity");
         if (entityVar.m_type == GM_TABLE) {
@@ -1017,6 +1019,9 @@ void DrawPlayerNative() {
         // from the compiler-rounded literal 0.05f by one ULP.
         const float outAmp = (auraR * 0.0499999976f) * runBlend;
         const float inAmp = (auraR * 0.03f) * runBlend;
+        // Native constants at pool offsets +0x28/+0x2c/+0x30, divided
+        // over five intervals in each six-vertex arc. They are not the
+        // legacy PlayerOLD.gm arc percentages.
         constexpr float outAngInc = 0.0911061913f;
         constexpr float inAngInc = 0.0659734532f;
         constexpr float ampAngInc = 0.628318548f;

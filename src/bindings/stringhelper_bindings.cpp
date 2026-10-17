@@ -27,6 +27,12 @@ bool ReadSingleChar(gmThread* a_thread, int a_param, char& a_out) {
     return false;
 }
 
+/**
+ * @ingroup script_api
+ * @brief `STRINGHELPER_ConvertToInt`
+ * Script call: `STRINGHELPER_ConvertToInt(str: string) -> int | null`.
+ * Parses a decimal integer; returns null when no digits are found.
+ */
 int GM_CDECL gmf_STRINGHELPER_ConvertToInt(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(str, 0, "");
@@ -60,6 +66,12 @@ int GM_CDECL gmf_STRINGHELPER_ConvertHexStringToInt(gmThread* a_thread) {
     return GM_OK;
 }
 
+/**
+ * @ingroup script_api
+ * @brief `STRINGHELPER_GetFirstOccurrence`
+ * Script call: `STRINGHELPER_GetFirstOccurrence(needle: string, haystack: string) -> int`.
+ * Returns the 1-based match position, or 0 if there is no match.
+ */
 int GM_CDECL gmf_STRINGHELPER_GetFirstOccurrence(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_STRING_PARAM(needle, 0, "");
@@ -84,6 +96,12 @@ int GM_CDECL gmf_STRINGHELPER_CopyAndSetChar(gmThread* a_thread) {
     return GM_OK;
 }
 
+/**
+ * @ingroup script_api
+ * @brief `STRINGHELPER_GetLength`
+ * Script call: `STRINGHELPER_GetLength(str: string) -> int`.
+ * Returns the byte length of `str`.
+ */
 int GM_CDECL gmf_STRINGHELPER_GetLength(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(str, 0, "");
@@ -112,6 +130,12 @@ int GM_CDECL gmf_MakeGMScriptFilename(gmThread* a_thread) {
     return GM_OK;
 }
 
+/**
+ * @ingroup script_api
+ * @brief `STRINGHELPER_GetLastOccurrence`
+ * Script call: `STRINGHELPER_GetLastOccurrence(needle: string, haystack: string) -> int`.
+ * Returns the 1-based last match position, or 0 if there is no match.
+ */
 int GM_CDECL gmf_STRINGHELPER_GetLastOccurrence(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_STRING_PARAM(needle, 0, "");
@@ -123,6 +147,12 @@ int GM_CDECL gmf_STRINGHELPER_GetLastOccurrence(gmThread* a_thread) {
     return GM_OK;
 }
 
+/**
+ * @ingroup script_api
+ * @brief `STRINGHELPER_FormatLevelName`
+ * Script call: `STRINGHELPER_FormatLevelName(name: string) -> string`.
+ * Replaces path/control characters with spaces and trims the result.
+ */
 int GM_CDECL gmf_STRINGHELPER_FormatLevelName(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(name, 0, "");
@@ -149,6 +179,12 @@ int GM_CDECL gmf_STRINGHELPER_Backspace(gmThread* a_thread) {
     return GM_OK;
 }
 
+/**
+ * @ingroup script_api
+ * @brief `STRINGHELPER_MakeTimeString`
+ * Script call: `STRINGHELPER_MakeTimeString(milliseconds: number) -> string`.
+ * Formats milliseconds as `minutes:seconds`; negative values become zero.
+ */
 int GM_CDECL gmf_STRINGHELPER_MakeTimeString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(ms, 0, 0.0f);

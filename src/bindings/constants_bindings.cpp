@@ -181,6 +181,12 @@ void RegisterConstantsBindings(gmMachine& a_machine) {
     g->Set(&a_machine, "NOTE_GOT_Z", gmVariable((gmfloat)-40.0f));
     g->Set(&a_machine, "FRONT_Z", gmVariable((gmfloat)20.0f));
     g->Set(&a_machine, "UI_Z", gmVariable((gmfloat)30.0f));
+    // CLEAR_Z / OUTLINE_Z / KEYBOARD_Z are NOT in retail's bootstrap
+    // string table (0x39838e..0x39847c), so these remain unverified.
+    // GroundProcessNEW.gm computes its own this.CLEAR_Z/this.OUTLINE_Z
+    // from OUTLINE_Z + n*BACK_CONVERSION, so the globals may not be real
+    // at all. Placed just in front of GROUND_Z (-10) to keep the ground's
+    // own sub-layers ordered the way that script expects.
     g->Set(&a_machine, "OUTLINE_Z", gmVariable((gmfloat)-9.0f));
     g->Set(&a_machine, "CLEAR_Z", gmVariable((gmfloat)-8.0f));
     g->Set(&a_machine, "KEYBOARD_Z", gmVariable((gmfloat)40.0f));

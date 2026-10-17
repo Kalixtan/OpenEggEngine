@@ -970,6 +970,10 @@ int GM_CDECL gmf_pb_setAsCircle(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(radius, 0, 0.0f);
     float r = std::max(radius, 0.001f); // same degenerate-shape guard as gmf_addCircle
 
+    // Preserve the existing fixture's filter (setCollisionCategory/
+    // setCategoriesToCollideWith) across the replacement if one exists --
+    // Thing.gm's per-frame blast-radius growth calls this repeatedly on a
+    // body whose category was already set once at construction.
     b2Filter filter;
     bool haveFilter = false;
     for (b2Fixture* f = b->body->GetFixtureList(); f;) {
@@ -1942,6 +1946,8 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"setIsSensor", gmf_pb_setIsSensor, nullptr},
     {"isSensor", gmf_pb_isSensor, nullptr},
     {"setIsBullet", gmf_pb_setIsBullet, nullptr},
+    // Compatibility spelling used by the shipped Player.gm. Retail exposes
+    // setIsBullet; both names reach the same verified native flag setter.
     {"setIsUsingContinuousPhysics", gmf_pb_setIsBullet, nullptr},
     {"getAngularVel", gmf_pb_getAngularVel, nullptr},
     {"setAngularVel", gmf_pb_setAngularVel, nullptr},
@@ -3334,6 +3340,11 @@ int GM_CDECL gmf_pd_getPos(gmThread* a_thread) {
     a_thread->Push(MakeVector2D(m, p.x, p.y));
     return GM_OK;
 }
+// The retail method name is used by Player.gm's obstruction/raycast helpers.
+// Those call sites only read .x/.y; this maps them to the same current
+// position value as getPos(). Whether retail permits writing through the
+// returned value is still unverified, so this is not claimed as reference
+// semantics.
 int GM_CDECL gmf_pd_getPosRef(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
@@ -4005,6 +4016,13 @@ void FlushDeferredPhysicsBodyDestructions() {
     g_deferredBodyDestructions.clear();
 }
 
+// For entity_bindings.cpp's generic entity-handle getMainBody() -- Player.gm
+// itself (line 5153-5155) defines getMainBody() as `return this.mainpb;
+// //this.PhysicsData.getBody(0);`, i.e. the script's own author already
+// documented these as equivalent; this is the getBody(0) side of that
+// equivalence, usable from entity handles that don't carry a `mainpb`
+// field of their own. Returns gmVariable::s_null if there's no PhysicsData
+// or no bodies yet, matching gmf_pd_getBody's own out-of-range behavior.
 gmVariable GetPhysicsDataMainBodyVar(gmMachine& a_machine, const gmVariable& a_physicsDataVar) {
     if (a_physicsDataVar.m_type != g_physicsDataType) return gmVariable::s_null;
     gmObject* obj = a_machine.GetObject(a_physicsDataVar.m_value.m_ref);

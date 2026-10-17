@@ -494,6 +494,11 @@ bool LookupSampledDefault(const std::string& a_name, float& a_r, float& a_g, flo
     return true;
 }
 
+// Last-resort guesses for names with neither pixel-sampled ground truth nor
+// a real colours.dat hit (e.g. colours.dat failed to load) -- "danger_fill"/
+// "danger_out" values are the real "s9_danger_fill"/"s9_danger_out" entries
+// (scheme 9 == DEFAULT_COLOUR_SCHEME_ID, Main.gm:113) copied here as a
+// backstop.
 bool LookupColourSchemeDefault(const std::string& a_name, float& a_r, float& a_g, float& a_b) {
     if (a_name == "fire") return GetNamedColourRGB("danger_fill", a_r, a_g, a_b);
 
@@ -575,6 +580,16 @@ namespace {
 
 int GM_CDECL gmf_COLOURSCHEME_SetColour(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
+    // Lenient read, same reasoning as gmf_DC_scale/gmf_DC_translate:
+    // GM_STRING_PARAM expands to the STRICT variant, which throws a
+    // blank-message GM_EXCEPTION when the parameter exists but isn't a
+    // string -- and that aborts the entire calling draw(), not just this
+    // statement. EntityPacks/BrianMover.gm:726 calls
+    // `COLOURSCHEME_SetColour(this.fillcn, this.drawList)` every frame with
+    // `fillcn` still null on entities whose configure hasn't assigned it,
+    // which threw ~1100 times over one tutorial run and discarded all of
+    // those entities' remaining draw calls. Falling back to the same "clear"
+    // default the strict macro already declared keeps the draw alive.
     const char* name = a_thread->ParamString(0, "clear");
     if (!name) name = "clear";
 
@@ -603,6 +618,13 @@ int GM_CDECL gmf_COLOURSCHEME_SetColour(gmThread* a_thread) {
         return object ? static_cast<DrawListData*>(object->m_user) : nullptr;
     };
 
+    // Retail call sites use both (name, drawList) and
+    // (name, alpha, drawList). The latter is used by Main.gm's win flash and
+    // several level fades. Treating arg 2 as alpha when it is a drawList
+    // object both leaks a bogus alpha into the renderer and fails to record
+    // the colour command; the later deferred clear then replays with the
+    // colour left by an unrelated draw list. Resolve the optional destination
+    // first, and only read numeric alpha from the other optional argument.
     if (a_thread->GetNumParams() >= 2) {
         target = readTarget(1);
         if (!target) alpha = a_thread->ParamFloatOrInt(1, 1.0f);
@@ -737,9 +759,19 @@ int GM_CDECL gmf_COLOURSCHEME_SetGeneratedPaletteColour(gmThread* a_thread) {
     unsigned int handle = 0;
     if (texVar.m_type == GM_STRING) {
         const char* path = ((gmStringObject*)a_thread->GetMachine()->GetObject(texVar.m_value.m_ref))->GetString();
+        // String call sites name a game-data asset (FlareBuddy.gm passes
+        // `Platformer/EntityPacks/FlareBuddy/face.png`). Match Video's
+        // texture path handling instead of handing a relative path to the
+        // renderer, whose working directory is the build folder.
         auto resolved = GetEngineContext().fileHelper->Resolve(path);
         if (resolved) handle = GetEngineContext().renderer->LoadTexture(*resolved);
     } else {
+        // The normal case: a real TEXTURE object -- see texture_bindings.h's
+        // header comment for why TEXTURE is its own gm type here. Every
+        // other texture-consuming native (drawTextureByHandle,
+        // unloadTexture, ...) already goes through ResolveTextureHandle;
+        // this one didn't, so it silently no-opped for every real caller
+        // (SwayingTree.gm's flower head recolour among them).
         handle = ResolveTextureHandle(*a_thread->GetMachine(), texVar);
     }
     if (handle != 0) {

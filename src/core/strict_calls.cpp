@@ -102,6 +102,9 @@ const RetailSymbol* FindRetailSymbol(const std::string& a_name) {
 // Call-site recovery
 // ---------------------------------------------------------------------------
 
+// Resolves the .gm file and line that made the call, from the caller recorded
+// at BC_CALL (see gmThread.h's m_strictCallerFn). Returns false when the call
+// did not come from script -- a native bootstrap call, for instance.
 bool CallSite(gmThread* a_thread, std::string& a_file, int& a_line) {
     if (!g_machine || !a_thread->GetStrictCallerFunction()) return false;
     gmFunctionObject* fn = (gmFunctionObject*)g_machine->GetObject(a_thread->GetStrictCallerFunction());

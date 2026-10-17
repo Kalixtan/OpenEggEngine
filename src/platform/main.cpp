@@ -233,6 +233,11 @@ int main(int argc, char** argv) {
     }
     if (trace) fprintf(trace, "[TRACE] fonts loaded\n"), fflush(trace);
 
+    // Localization: real GNU gettext .mo catalog for the configured language
+    // (SystemConfig -- easy to change, see core/system_config.h) plus
+    // localization/ExtraStrings.gm, read as plain text per its own header
+    // comment ("this is NOT a real gm file"), NOT compiled as
+    // GameMonkeyScript -- see core/localization.h.
     Localization localization;
     std::string localeDir = Localization::LocaleDirForLanguageCode(SystemConfig::Get().languageCode);
     if (auto moPath = vm.Files().Resolve("localization/" + localeDir + "/strings.mo")) {
@@ -247,6 +252,10 @@ int main(int argc, char** argv) {
     }
 
     EngineContext& ctx = GetEngineContext();
+    // Main.gm's built-in command-line level route reads these five
+    // GameSystem getters. Keep the script-facing state identical and expose
+    // it through desktop environment variables for a reproducible level
+    // launch; the retail PS3 command-line spelling is not established.
     if (const char* level = std::getenv("GE3_AUTO_LOAD_LEVEL")) {
         if (*level) {
             ctx.gameSystem.isAutoLoadLevel = true;
@@ -630,6 +639,12 @@ int main(int argc, char** argv) {
         GetDrawContext().colourMask = false;
         processManager.PreDrawAll();
         recordPhase(4); // clear and process preDraw lists
+        // Video.setIsShouldDrawEntities/isShouldDrawEntities are bytecode-
+        // verified accessors for the retail manager flag. Main.gm brackets
+        // level construction with false and re-enables it after camera/screen
+        // setup. The exact retail draw-loop consumer is still being traced;
+        // use the exposed flag here so those real transitions suppress the
+        // entity render passes instead of continuing to visit every object.
         std::vector<int> nativeDrawnUids;
         if (GetEngineContext().video.shouldDrawEntities) {
             // Retail entities have an independent preDraw callback. Player's
