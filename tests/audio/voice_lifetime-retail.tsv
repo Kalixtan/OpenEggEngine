@@ -1,5 +1,30 @@
-# probe-sha256 380032ccf37846e1029ee39fa4c7b143c9f3e60484b57d0dc241aa7299128862
-Audio.fadeOutVoice.pending	1
-Audio.onVoiceEndFreeEffectChain.active	1
-Audio.stopAllVoices.fadePending	1
-Audio.stopVoice.timedPending	1
+# probe-sha256 38447e70047ac81f4884c8c73b4712a57105550e7608430463b70d38409bc798
+Audio.fadeOutVoice.active	1
+Audio.fadeOutVoice.after1	1
+Audio.fadeOutVoice.complete	0
+Audio.getVoicePosition.pausedHeld	0
+Audio.getVoicePosition.pausedInitial	0
+Audio.getVoicePosition.resumed	15
+Audio.onVoiceEndFreeEffectChain.pending	1
+Audio.onVoiceEndFreeEffectChain.voiceEnded	1
+Audio.playSound.naturalBeforeEnd	0
+Audio.playSound.naturalEnd	0
+Audio.playSound.naturalStart	1
+Audio.setVoiceLoopCount.active	1
+Audio.setVoiceLoopCount.complete	0
+Audio.setVoiceLoopCount.secondPass	0
+Audio.setVoicePause.active	1
+Audio.setVoicePause.resumed	0
+Audio.stopAllVoices.afterFadeEnd	0
+Audio.stopAllVoices.beforeFadeEnd	1
+Audio.stopAllVoices.firstPending	1
+Audio.stopAllVoices.noVoicesLeft	1
+Audio.stopAllVoices.secondPending	1
+Audio.stopVoice.fadeActive	1
+Audio.stopVoice.fadeAfter1	1
+Audio.stopVoice.fadeComplete	0
+Audio.stopVoice.timedActive	1
+Audio.stopVoice.timedAfter1	1
+Audio.stopVoice.timedComplete	0
+Audio.unloadSound.activeVoice	1
+Audio.unloadSound.voiceStillActive	0

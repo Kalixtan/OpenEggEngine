@@ -2,23 +2,89 @@ global Probe=function(name,value) {
     GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
 };
 
-local path="Platformer/sounds/fx/button-high.wav";
-local fade=Audio.playSound(path);
-Audio.fadeOutVoice(fade,100);
-Probe("Audio.fadeOutVoice.pending",Audio.isVoiceValid(fade));
-
-local timed=Audio.playSound(path);
-Audio.stopVoice(timed,100);
-Probe("Audio.stopVoice.timedPending",Audio.isVoiceValid(timed));
-
-local chained=Audio.playSound(path);
-local chain=Audio.createEffectChain("voice_lifetime");
-Audio.onVoiceEndFreeEffectChain(chained,chain);
-Probe("Audio.onVoiceEndFreeEffectChain.active",Audio.isVoiceValid(chained));
-
-Audio.stopAllVoices();
-Probe("Audio.stopAllVoices.fadePending",Audio.isVoiceValid(chained));
+global shortPath="Platformer/sounds/fx/button-high.wav";
+global longPath="Platformer/levels/gamescom_master_8.wav";
 
 global Main=function(p) {
-    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                this.fadeVoice=Audio.playSound(longPath);
+                Audio.fadeOutVoice(this.fadeVoice,100);
+                Probe("Audio.fadeOutVoice.active",Audio.isVoiceValid(this.fadeVoice));
+
+                this.timedVoice=Audio.playSound(longPath);
+                Audio.stopVoice(this.timedVoice,100);
+                Probe("Audio.stopVoice.timedActive",Audio.isVoiceValid(this.timedVoice));
+
+                this.defaultStopVoice=Audio.playSound(longPath);
+                Audio.stopVoice(this.defaultStopVoice);
+                Probe("Audio.stopVoice.fadeActive",Audio.isVoiceValid(this.defaultStopVoice));
+
+                this.naturalVoice=Audio.playSound(shortPath);
+                Probe("Audio.playSound.naturalStart",Audio.isVoiceValid(this.naturalVoice));
+
+                this.loopVoice=Audio.playSound(shortPath);
+                Audio.setVoiceLoopCount(this.loopVoice,1);
+                Probe("Audio.setVoiceLoopCount.active",Audio.isVoiceValid(this.loopVoice));
+
+                this.pausedVoice=Audio.playSound(longPath);
+                Audio.setVoicePause(this.pausedVoice,true);
+                Probe("Audio.setVoicePause.active",Audio.isVoicePaused(this.pausedVoice));
+
+                this.chainVoice=Audio.playSound(longPath);
+                local endChain=Audio.createEffectChain("voice_lifetime");
+                Audio.onVoiceEndFreeEffectChain(this.chainVoice,endChain);
+                Audio.fadeOutVoice(this.chainVoice,100);
+                Probe("Audio.onVoiceEndFreeEffectChain.pending",Audio.isVoiceValid(this.chainVoice));
+
+                this.unloadVoice=Audio.playSound(shortPath);
+                Audio.unloadSound(shortPath);
+                Probe("Audio.unloadSound.activeVoice",Audio.isVoiceValid(this.unloadVoice));
+            }
+            if (this.frame==1) {
+                Probe("Audio.fadeOutVoice.after1",Audio.isVoiceValid(this.fadeVoice));
+                Probe("Audio.stopVoice.timedAfter1",Audio.isVoiceValid(this.timedVoice));
+                Probe("Audio.stopVoice.fadeAfter1",Audio.isVoiceValid(this.defaultStopVoice));
+                Probe("Audio.getVoicePosition.pausedInitial",Audio.getVoicePosition(this.pausedVoice));
+            }
+            if (this.frame==3) {
+                Probe("Audio.getVoicePosition.pausedHeld",Audio.getVoicePosition(this.pausedVoice));
+                Audio.setVoicePause(this.pausedVoice,false);
+                Probe("Audio.setVoicePause.resumed",Audio.isVoicePaused(this.pausedVoice));
+            }
+            if (this.frame==4) {
+                Probe("Audio.getVoicePosition.resumed",Audio.getVoicePosition(this.pausedVoice));
+                Probe("Audio.playSound.naturalBeforeEnd",Audio.isVoiceValid(this.naturalVoice));
+            }
+            if (this.frame==6) {
+                Probe("Audio.playSound.naturalEnd",Audio.isVoiceValid(this.naturalVoice));
+                Probe("Audio.setVoiceLoopCount.secondPass",Audio.isVoiceValid(this.loopVoice));
+            }
+            if (this.frame==7) {
+                Probe("Audio.fadeOutVoice.complete",Audio.isVoiceValid(this.fadeVoice));
+                Probe("Audio.stopVoice.timedComplete",Audio.isVoiceValid(this.timedVoice));
+                Probe("Audio.stopVoice.fadeComplete",Audio.isVoiceValid(this.defaultStopVoice));
+                Probe("Audio.onVoiceEndFreeEffectChain.voiceEnded",!Audio.isVoiceValid(this.chainVoice));
+                Probe("Audio.unloadSound.voiceStillActive",Audio.isVoiceValid(this.unloadVoice));
+            }
+            if (this.frame==12) {
+                Probe("Audio.setVoiceLoopCount.complete",Audio.isVoiceValid(this.loopVoice));
+            }
+            if (this.frame==15) {
+                this.allStopA=Audio.playSound(longPath);
+                this.allStopB=Audio.playSound(longPath);
+                Audio.stopAllVoices();
+                Probe("Audio.stopAllVoices.firstPending",Audio.isVoiceValid(this.allStopA));
+                Probe("Audio.stopAllVoices.secondPending",Audio.isVoiceValid(this.allStopB));
+            }
+            if (this.frame==18) {
+                Probe("Audio.stopAllVoices.beforeFadeEnd",Audio.isVoiceValid(this.allStopA));
+            }
+            if (this.frame==20) {
+                Probe("Audio.stopAllVoices.afterFadeEnd",Audio.isVoiceValid(this.allStopA));
+                Probe("Audio.stopAllVoices.noVoicesLeft",!Audio.getAllVoices().isValid());
+            }
+            this.frame+=1;
+        });
 };
