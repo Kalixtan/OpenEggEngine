@@ -33,6 +33,11 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --support-file tests/physics/ProbeContactEntity.gm \
   --expected tests/physics/rays-plan.json \
   --baseline tests/physics/rays-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/filter_reentry.gm \
+  --support-file tests/physics/ProbeContactEntity.gm \
+  --expected tests/physics/filter_reentry-plan.json \
+  --baseline tests/physics/filter_reentry-retail.tsv
 python3 tests/physics/compare.py
 ```
 
@@ -42,14 +47,11 @@ The comparison runs OpenEgg headlessly and writes `PHYSICS_TEST_REPORT.md`.
 The static probe covers body and shape setup. Scenes sample motion. Contacts
 cover solids, sensors, repeated entry/separation, and callback order. Removal
 checks body destruction inside a collision callback. Queries cover collision
-info and filter changes; rays cover global, body, and PhysicsData calls. The
+info and filter changes; rays cover global, body, and PhysicsData calls. Filter
+reentry checks a restored mask through small movement and full separation. The
 report lists each reading and untested physics functions. Joints still need
 probes.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired
 score. The fault came from a separate headless RPCS3 run of the same pair.
-
-Filter restore still differs: OpenEgg recreates overlap records without body
-movement; retail leaves them absent through the end of this capture. The
-query score keeps every resulting mismatch visible.

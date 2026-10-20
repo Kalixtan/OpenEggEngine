@@ -1,0 +1,43 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global ShapeDef=PHYSICSSHAPECOLLECTIONDEF();
+global RecordContact=function(e,other,kind) {};
+GameMonkeyScript.loadScript("ProbeContactEntity.gm");
+
+global MakeCircle=function(x,sensor,mass) {
+    local e=EntityManager.createEntity("ProbeContactEntity");
+    local pd=e.PhysicsData;
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,0));
+    ShapeDef.reset();
+    ShapeDef.setMass(mass);
+    ShapeDef.setIsSensor(sensor);
+    ShapeDef.addCircle(2,0,0);
+    b.appendShapes(ShapeDef);
+    e.setIsEnabled(1);
+    return table(e=e,pd=pd,b=b);
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame<15) {
+                if (this.frame==0) {
+                    GameSystem.setIsShouldUpdateEntities(1);
+                    this.a=MakeCircle(0,0,1);
+                    this.b=MakeCircle(20,1,0);
+                }
+                if (this.frame==1) { this.b.b.setPos(vector2D(3,0)); }
+                if (this.frame==3) { this.a.b.setCategoriesToCollideWith(0); }
+                if (this.frame==5) { this.a.b.setCategoriesToCollideWith(65535); }
+                if (this.frame==8) { this.b.b.setPos(vector2D(3.1,0)); }
+                if (this.frame==10) { this.b.b.setPos(vector2D(20,0)); }
+                if (this.frame==12) { this.b.b.setPos(vector2D(3,0)); }
+                local key="reentry.sensor.t"+this.frame+".";
+                Probe(key+"colliding",this.a.pd.isColliding(this.b.e));
+                Probe(key+"mask",this.a.b.getCategoriesToCollideWith());
+                Probe(key+"bX",this.b.b.getPos().x);
+                this.frame+=1;
+            }
+        });
+};

@@ -1,16 +1,14 @@
 # Physics test report
 
-Generated: 2026-10-20 19:43 UTC
+Generated: 2026-10-20 19:50 UTC
 
-Matched: **1906/2290 declared readings (83%)**. This measures captured cases, not total physics parity.
-
-The current query failures share one observed cause: OpenEgg recreates overlap records after a filter is restored while retail keeps them absent for the remaining sampled ticks.
+Matched: **2335/2335 declared readings (100%)**. This measures captured cases, not total physics parity.
 
 Functions with readings: **56/293**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
-Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
+Scenes sample motion; other groups cover callbacks, removal, queries, rays, and filter reentry.
 
 | Group | Matched | Cases |
 | --- | ---: | ---: |
@@ -21,10 +19,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | contact.solid | 108 | 108 |
 | contact.sensor | 108 | 108 |
 | removal.body | 98 | 98 |
-| query.solidA | 286 | 406 |
-| query.solidB | 286 | 406 |
-| query.sensorA | 334 | 406 |
-| query.sensorB | 334 | 406 |
+| query.solidA | 406 | 406 |
+| query.solidB | 406 | 406 |
+| query.sensorA | 406 | 406 |
+| query.sensorB | 406 | 406 |
 | ray.solid | 9 | 9 |
 | ray.sensors | 9 | 9 |
 | ray.inside | 9 | 9 |
@@ -32,6 +30,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | ray.bodyA | 11 | 11 |
 | ray.bodyB | 11 | 11 |
 | ray.bodyMiss | 11 | 11 |
+| reentry.sensor | 45 | 45 |
 
 ## Per function
 
@@ -59,22 +58,22 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `Physics.raycastSimple` | 4 | 4 | PASS |
 | `Physics.setNumFramesToIgnoreCollisions` | 0 | 0 | untested |
 | `collisionInfo.getCollidingShapeIDList` | 0 | 0 | untested |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | 80 | 112 | FAIL |
-| `collisionInfo.getEntity` | 40 | 56 | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | 40 | 56 | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | 112 | 112 | PASS |
+| `collisionInfo.getEntity` | 56 | 56 | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | 56 | 56 | PASS |
 | `collisionInfo.getNumCollidingShapes` | 0 | 0 | untested |
-| `collisionInfo.getShapeCollisionInfo` | 80 | 112 | FAIL |
-| `collisionInfo.isAllSensors` | 40 | 56 | FAIL |
-| `collisionInfo.isBodyColliding` | 40 | 56 | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | 40 | 56 | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | 40 | 56 | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | 40 | 56 | FAIL |
-| `collisionInfo.isShapeColliding` | 40 | 56 | FAIL |
-| `intIter.get` | 40 | 56 | FAIL |
+| `collisionInfo.getShapeCollisionInfo` | 112 | 112 | PASS |
+| `collisionInfo.isAllSensors` | 56 | 56 | PASS |
+| `collisionInfo.isBodyColliding` | 56 | 56 | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | 56 | 56 | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | 56 | 56 | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | 56 | 56 | PASS |
+| `collisionInfo.isShapeColliding` | 56 | 56 | PASS |
+| `intIter.get` | 56 | 56 | PASS |
 | `intIter.goToNext` | 0 | 0 | untested |
 | `intIter.isValid` | 0 | 0 | untested |
 | `intIter.reset` | 0 | 0 | untested |
-| `intIter.size` | 40 | 56 | FAIL |
+| `intIter.size` | 56 | 56 | PASS |
 | `jointIter.get` | 0 | 0 | untested |
 | `jointIter.goToNext` | 0 | 0 | untested |
 | `jointIter.isValid` | 0 | 0 | untested |
@@ -119,7 +118,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `physicsBody.getAngularVel` | 0 | 0 | untested |
 | `physicsBody.getBBox` | 0 | 0 | untested |
 | `physicsBody.getBrakeAcc` | 0 | 0 | untested |
-| `physicsBody.getCategoriesToCollideWith` | 58 | 58 | PASS |
+| `physicsBody.getCategoriesToCollideWith` | 73 | 73 | PASS |
 | `physicsBody.getCenterOfMass` | 0 | 0 | untested |
 | `physicsBody.getCollisionCategory` | 58 | 58 | PASS |
 | `physicsBody.getCollisionGroup` | 56 | 56 | PASS |
@@ -137,7 +136,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `physicsBody.getNumShapeVerts` | 0 | 0 | untested |
 | `physicsBody.getNumShapes` | 2 | 2 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
-| `physicsBody.getPos` | 100 | 100 | PASS |
+| `physicsBody.getPos` | 115 | 115 | PASS |
 | `physicsBody.getPosRef` | 0 | 0 | untested |
 | `physicsBody.getPosVec` | 0 | 0 | untested |
 | `physicsBody.getRadius` | 1 | 1 | PASS |
@@ -231,7 +230,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `physicsData.getCollidingEntities` | 0 | 0 | untested |
 | `physicsData.getCollisionCategory` | 0 | 0 | untested |
 | `physicsData.getCollisionGroup` | 0 | 0 | untested |
-| `physicsData.getCollisionInfo` | 40 | 56 | FAIL |
+| `physicsData.getCollisionInfo` | 56 | 56 | PASS |
 | `physicsData.getDir` | 0 | 0 | untested |
 | `physicsData.getHeight` | 0 | 0 | untested |
 | `physicsData.getJointsOnMe` | 0 | 0 | untested |
@@ -254,7 +253,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `physicsData.getWidth` | 0 | 0 | untested |
 | `physicsData.isCircle` | 0 | 0 | untested |
 | `physicsData.isCollidable` | 0 | 0 | untested |
-| `physicsData.isColliding` | 129 | 161 | FAIL |
+| `physicsData.isColliding` | 176 | 176 | PASS |
 | `physicsData.isPointWithin` | 0 | 0 | untested |
 | `physicsData.isRect` | 0 | 0 | untested |
 | `physicsData.isSensor` | 7 | 7 | PASS |
@@ -307,11 +306,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `physicsShape.setFrictionForPlayer` | 0 | 0 | untested |
 | `physicsShape.setIsSensor` | 0 | 0 | untested |
 | `shapeCollisionInfo.disableContact` | 0 | 0 | untested |
-| `shapeCollisionInfo.getContactNormal` | 80 | 112 | FAIL |
-| `shapeCollisionInfo.getContactPos` | 80 | 112 | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | 96 | 112 | FAIL |
-| `shapeCollisionInfo.getNumContacts` | 40 | 56 | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | 40 | 56 | FAIL |
+| `shapeCollisionInfo.getContactNormal` | 112 | 112 | PASS |
+| `shapeCollisionInfo.getContactPos` | 112 | 112 | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | 112 | 112 | PASS |
+| `shapeCollisionInfo.getNumContacts` | 56 | 56 | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | 56 | 56 | PASS |
 | `shapeDef.addBox` | 0 | 0 | untested |
 | `shapeDef.addCircle` | 1 | 1 | PASS |
 | `shapeDef.addEdges` | 0 | 0 | untested |
@@ -1755,64 +1754,64 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `shapeCollisionInfo.getContactNormal` | query.sensorB.t6.contactNY | `0.000000` | `0.000000` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t6.contactX | `101.500000` | `101.500000` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t6.contactY | `0.000000` | `0.000000` | PASS |
-| `physicsData.isColliding` | query.solidA.t7.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidA.t7.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidA.t7.exists | `0` | `1` | FAIL |
+| `physicsData.isColliding` | query.solidA.t7.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidA.t7.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidA.t7.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidA.t7.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t7.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t7.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t7.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidA.t7.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidA.t7.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t7.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t7.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidA.t7.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidA.t7.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidA.t7.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t7.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t7.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidA.t7.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t7.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t7.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t7.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t7.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidA.t7.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidA.t7.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidA.t7.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t7.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t7.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidA.t7.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidA.t7.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidA.t7.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t7.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t7.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidA.t7.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t7.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t7.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t7.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t7.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidA.t7.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t7.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t7.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t7.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t7.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t7.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t7.contactX | `-1` | `1.132917` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t7.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.solidB.t7.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidB.t7.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidB.t7.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t7.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t7.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t7.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t7.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t7.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t7.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.solidB.t7.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidB.t7.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidB.t7.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidB.t7.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t7.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t7.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t7.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidB.t7.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidB.t7.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t7.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t7.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidB.t7.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidB.t7.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidB.t7.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t7.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t7.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidB.t7.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t7.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t7.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t7.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t7.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidB.t7.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidB.t7.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidB.t7.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t7.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t7.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidB.t7.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidB.t7.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidB.t7.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t7.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t7.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidB.t7.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t7.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t7.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t7.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t7.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidB.t7.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t7.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t7.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t7.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t7.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t7.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t7.contactX | `-1` | `1.132917` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t7.contactY | `-1` | `0.000000` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t7.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t7.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t7.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t7.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t7.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t7.contactY | `-1` | `-1` | PASS |
 | `physicsData.isColliding` | query.sensorA.t7.colliding | `1` | `1` | PASS |
 | `physicsData.isColliding` | query.sensorA.t7.anyColliding | `1` | `1` | PASS |
 | `physicsData.getCollisionInfo` | query.sensorA.t7.exists | `1` | `1` | PASS |
@@ -1871,64 +1870,64 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `shapeCollisionInfo.getContactNormal` | query.sensorB.t7.contactNY | `0.000000` | `0.000000` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t7.contactX | `101.500000` | `101.500000` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t7.contactY | `0.000000` | `0.000000` | PASS |
-| `physicsData.isColliding` | query.solidA.t8.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidA.t8.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidA.t8.exists | `0` | `1` | FAIL |
+| `physicsData.isColliding` | query.solidA.t8.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidA.t8.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidA.t8.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidA.t8.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t8.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t8.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t8.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidA.t8.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidA.t8.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t8.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t8.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidA.t8.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidA.t8.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidA.t8.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t8.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t8.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidA.t8.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t8.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t8.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t8.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t8.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidA.t8.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidA.t8.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidA.t8.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t8.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t8.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidA.t8.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidA.t8.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidA.t8.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t8.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t8.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidA.t8.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t8.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t8.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t8.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t8.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidA.t8.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t8.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t8.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t8.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t8.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t8.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t8.contactX | `-1` | `1.085967` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t8.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.solidB.t8.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidB.t8.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidB.t8.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t8.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t8.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t8.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t8.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t8.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t8.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.solidB.t8.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidB.t8.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidB.t8.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidB.t8.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t8.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t8.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t8.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidB.t8.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidB.t8.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t8.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t8.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidB.t8.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidB.t8.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidB.t8.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t8.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t8.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidB.t8.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t8.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t8.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t8.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t8.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidB.t8.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidB.t8.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidB.t8.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t8.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t8.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidB.t8.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidB.t8.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidB.t8.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t8.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t8.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidB.t8.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t8.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t8.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t8.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t8.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidB.t8.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t8.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t8.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t8.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t8.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t8.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t8.contactX | `-1` | `1.085967` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t8.contactY | `-1` | `0.000000` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t8.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t8.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t8.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t8.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t8.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t8.contactY | `-1` | `-1` | PASS |
 | `physicsData.isColliding` | query.sensorA.t8.colliding | `0` | `0` | PASS |
 | `physicsData.isColliding` | query.sensorA.t8.anyColliding | `0` | `0` | PASS |
 | `physicsData.getCollisionInfo` | query.sensorA.t8.exists | `0` | `0` | PASS |
@@ -1987,64 +1986,64 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `shapeCollisionInfo.getContactNormal` | query.sensorB.t8.contactNY | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t8.contactX | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t8.contactY | `-1` | `-1` | PASS |
-| `physicsData.isColliding` | query.solidA.t9.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidA.t9.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidA.t9.exists | `0` | `1` | FAIL |
+| `physicsData.isColliding` | query.solidA.t9.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidA.t9.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidA.t9.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidA.t9.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t9.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t9.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t9.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidA.t9.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidA.t9.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t9.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t9.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidA.t9.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidA.t9.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidA.t9.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t9.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t9.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidA.t9.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t9.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t9.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t9.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t9.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidA.t9.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidA.t9.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidA.t9.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t9.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t9.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidA.t9.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidA.t9.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidA.t9.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t9.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t9.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidA.t9.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t9.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t9.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t9.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t9.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidA.t9.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t9.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t9.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t9.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t9.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t9.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t9.contactX | `-1` | `1.055919` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t9.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.solidB.t9.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidB.t9.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidB.t9.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t9.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t9.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t9.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t9.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t9.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t9.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.solidB.t9.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidB.t9.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidB.t9.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidB.t9.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t9.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t9.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t9.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidB.t9.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidB.t9.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t9.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t9.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidB.t9.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidB.t9.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidB.t9.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t9.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t9.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidB.t9.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t9.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t9.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t9.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t9.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidB.t9.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidB.t9.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidB.t9.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t9.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t9.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidB.t9.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidB.t9.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidB.t9.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t9.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t9.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidB.t9.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t9.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t9.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t9.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t9.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidB.t9.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t9.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t9.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t9.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t9.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t9.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t9.contactX | `-1` | `1.055919` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t9.contactY | `-1` | `0.000000` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t9.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t9.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t9.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t9.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t9.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t9.contactY | `-1` | `-1` | PASS |
 | `physicsData.isColliding` | query.sensorA.t9.colliding | `0` | `0` | PASS |
 | `physicsData.isColliding` | query.sensorA.t9.anyColliding | `0` | `0` | PASS |
 | `physicsData.getCollisionInfo` | query.sensorA.t9.exists | `0` | `0` | PASS |
@@ -2103,64 +2102,64 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `shapeCollisionInfo.getContactNormal` | query.sensorB.t9.contactNY | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t9.contactX | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t9.contactY | `-1` | `-1` | PASS |
-| `physicsData.isColliding` | query.solidA.t10.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidA.t10.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidA.t10.exists | `0` | `1` | FAIL |
+| `physicsData.isColliding` | query.solidA.t10.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidA.t10.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidA.t10.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidA.t10.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t10.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t10.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t10.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidA.t10.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidA.t10.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t10.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t10.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidA.t10.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidA.t10.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidA.t10.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t10.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t10.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidA.t10.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t10.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t10.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t10.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t10.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidA.t10.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidA.t10.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidA.t10.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t10.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t10.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidA.t10.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidA.t10.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidA.t10.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t10.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t10.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidA.t10.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t10.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t10.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t10.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t10.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidA.t10.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t10.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t10.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t10.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t10.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t10.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t10.contactX | `-1` | `1.036688` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t10.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.solidB.t10.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidB.t10.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidB.t10.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t10.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t10.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t10.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t10.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t10.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t10.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.solidB.t10.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidB.t10.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidB.t10.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidB.t10.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t10.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t10.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t10.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidB.t10.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidB.t10.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t10.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t10.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidB.t10.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidB.t10.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidB.t10.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t10.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t10.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidB.t10.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t10.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t10.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t10.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t10.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidB.t10.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidB.t10.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidB.t10.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t10.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t10.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidB.t10.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidB.t10.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidB.t10.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t10.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t10.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidB.t10.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t10.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t10.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t10.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t10.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidB.t10.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t10.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t10.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t10.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t10.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t10.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t10.contactX | `-1` | `1.036688` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t10.contactY | `-1` | `0.000000` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t10.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t10.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t10.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t10.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t10.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t10.contactY | `-1` | `-1` | PASS |
 | `physicsData.isColliding` | query.sensorA.t10.colliding | `0` | `0` | PASS |
 | `physicsData.isColliding` | query.sensorA.t10.anyColliding | `0` | `0` | PASS |
 | `physicsData.getCollisionInfo` | query.sensorA.t10.exists | `0` | `0` | PASS |
@@ -2219,122 +2218,122 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `shapeCollisionInfo.getContactNormal` | query.sensorB.t10.contactNY | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t10.contactX | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.sensorB.t10.contactY | `-1` | `-1` | PASS |
-| `physicsData.isColliding` | query.solidA.t11.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidA.t11.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidA.t11.exists | `0` | `1` | FAIL |
+| `physicsData.isColliding` | query.solidA.t11.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidA.t11.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidA.t11.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidA.t11.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t11.group | `-1` | `-1` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t11.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidA.t11.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidA.t11.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t11.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t11.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidA.t11.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidA.t11.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidA.t11.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t11.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t11.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidA.t11.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t11.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidA.t11.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t11.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t11.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidA.t11.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidA.t11.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidA.t11.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t11.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t11.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidA.t11.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidA.t11.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidA.t11.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidA.t11.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidA.t11.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidA.t11.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidA.t11.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidA.t11.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidA.t11.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t11.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidA.t11.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidA.t11.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t11.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t11.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t11.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidA.t11.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t11.contactX | `-1` | `1.024380` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidA.t11.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.solidB.t11.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.solidB.t11.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.solidB.t11.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t11.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidA.t11.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t11.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidA.t11.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t11.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidA.t11.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.solidB.t11.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.solidB.t11.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.solidB.t11.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.solidB.t11.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t11.group | `-1` | `-1` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t11.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.solidB.t11.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.solidB.t11.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t11.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t11.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.solidB.t11.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.solidB.t11.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.solidB.t11.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t11.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t11.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.solidB.t11.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t11.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.solidB.t11.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t11.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t11.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.solidB.t11.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.solidB.t11.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.solidB.t11.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t11.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t11.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.solidB.t11.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.solidB.t11.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.solidB.t11.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.solidB.t11.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.solidB.t11.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.solidB.t11.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.solidB.t11.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.solidB.t11.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.solidB.t11.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t11.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.solidB.t11.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.solidB.t11.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t11.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t11.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t11.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.solidB.t11.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t11.contactX | `-1` | `1.024380` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.solidB.t11.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.sensorA.t11.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.sensorA.t11.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.sensorA.t11.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t11.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.solidB.t11.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t11.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.solidB.t11.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t11.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.solidB.t11.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.sensorA.t11.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.sensorA.t11.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.sensorA.t11.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.sensorA.t11.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t11.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t11.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.sensorA.t11.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.sensorA.t11.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t11.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t11.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.sensorA.t11.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.sensorA.t11.allSensors | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyColliding` | query.sensorA.t11.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.sensorA.t11.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.sensorA.t11.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.sensorA.t11.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorA.t11.mySensorsOnly | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t11.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorA.t11.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t11.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.sensorA.t11.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.sensorA.t11.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.sensorA.t11.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t11.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t11.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.sensorA.t11.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.sensorA.t11.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.sensorA.t11.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.sensorA.t11.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.sensorA.t11.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.sensorA.t11.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorA.t11.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t11.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorA.t11.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t11.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.sensorA.t11.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t11.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t11.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t11.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorA.t11.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorA.t11.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorA.t11.contactX | `-1` | `101.500000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorA.t11.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.sensorB.t11.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.sensorB.t11.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.sensorB.t11.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t11.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t11.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorA.t11.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorA.t11.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorA.t11.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorA.t11.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.sensorB.t11.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.sensorB.t11.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.sensorB.t11.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.sensorB.t11.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t11.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t11.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.sensorB.t11.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.sensorB.t11.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t11.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t11.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.sensorB.t11.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.sensorB.t11.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.sensorB.t11.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.sensorB.t11.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.sensorB.t11.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.sensorB.t11.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorB.t11.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t11.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorB.t11.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t11.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.sensorB.t11.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.sensorB.t11.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.sensorB.t11.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t11.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t11.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.sensorB.t11.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.sensorB.t11.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.sensorB.t11.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.sensorB.t11.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.sensorB.t11.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.sensorB.t11.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorB.t11.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t11.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorB.t11.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t11.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.sensorB.t11.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t11.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t11.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t11.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorB.t11.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorB.t11.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorB.t11.contactX | `-1` | `101.500000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorB.t11.contactY | `-1` | `0.000000` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t11.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t11.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorB.t11.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorB.t11.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorB.t11.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorB.t11.contactY | `-1` | `-1` | PASS |
 | `physicsData.isColliding` | query.solidA.t12.colliding | `0` | `0` | PASS |
 | `physicsData.isColliding` | query.solidA.t12.anyColliding | `0` | `0` | PASS |
 | `physicsData.getCollisionInfo` | query.solidA.t12.exists | `0` | `0` | PASS |
@@ -2393,64 +2392,64 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `shapeCollisionInfo.getContactNormal` | query.solidB.t12.contactNY | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.solidB.t12.contactX | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.solidB.t12.contactY | `-1` | `-1` | PASS |
-| `physicsData.isColliding` | query.sensorA.t12.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.sensorA.t12.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.sensorA.t12.exists | `0` | `1` | FAIL |
+| `physicsData.isColliding` | query.sensorA.t12.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.sensorA.t12.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.sensorA.t12.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.sensorA.t12.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t12.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t12.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t12.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.sensorA.t12.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.sensorA.t12.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t12.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t12.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.sensorA.t12.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.sensorA.t12.allSensors | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyColliding` | query.sensorA.t12.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.sensorA.t12.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.sensorA.t12.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.sensorA.t12.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorA.t12.mySensorsOnly | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t12.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorA.t12.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t12.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.sensorA.t12.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.sensorA.t12.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.sensorA.t12.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t12.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t12.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.sensorA.t12.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.sensorA.t12.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.sensorA.t12.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.sensorA.t12.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.sensorA.t12.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.sensorA.t12.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorA.t12.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t12.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorA.t12.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t12.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.sensorA.t12.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t12.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t12.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t12.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorA.t12.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorA.t12.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorA.t12.contactX | `-1` | `101.500000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorA.t12.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.sensorB.t12.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.sensorB.t12.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.sensorB.t12.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t12.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t12.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorA.t12.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorA.t12.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorA.t12.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorA.t12.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.sensorB.t12.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.sensorB.t12.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.sensorB.t12.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.sensorB.t12.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t12.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t12.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t12.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.sensorB.t12.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.sensorB.t12.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t12.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t12.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.sensorB.t12.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.sensorB.t12.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.sensorB.t12.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.sensorB.t12.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.sensorB.t12.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.sensorB.t12.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorB.t12.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t12.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorB.t12.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t12.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.sensorB.t12.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.sensorB.t12.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.sensorB.t12.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t12.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t12.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.sensorB.t12.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.sensorB.t12.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.sensorB.t12.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.sensorB.t12.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.sensorB.t12.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.sensorB.t12.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorB.t12.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t12.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorB.t12.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t12.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.sensorB.t12.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t12.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t12.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t12.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorB.t12.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorB.t12.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorB.t12.contactX | `-1` | `101.500000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorB.t12.contactY | `-1` | `0.000000` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t12.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t12.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorB.t12.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorB.t12.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorB.t12.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorB.t12.contactY | `-1` | `-1` | PASS |
 | `physicsData.isColliding` | query.solidA.t13.colliding | `0` | `0` | PASS |
 | `physicsData.isColliding` | query.solidA.t13.anyColliding | `0` | `0` | PASS |
 | `physicsData.getCollisionInfo` | query.solidA.t13.exists | `0` | `0` | PASS |
@@ -2509,64 +2508,64 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `shapeCollisionInfo.getContactNormal` | query.solidB.t13.contactNY | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.solidB.t13.contactX | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getContactPos` | query.solidB.t13.contactY | `-1` | `-1` | PASS |
-| `physicsData.isColliding` | query.sensorA.t13.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.sensorA.t13.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.sensorA.t13.exists | `0` | `1` | FAIL |
+| `physicsData.isColliding` | query.sensorA.t13.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.sensorA.t13.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.sensorA.t13.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.sensorA.t13.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t13.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t13.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t13.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.sensorA.t13.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.sensorA.t13.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t13.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t13.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.sensorA.t13.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.sensorA.t13.allSensors | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyColliding` | query.sensorA.t13.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.sensorA.t13.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.sensorA.t13.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.sensorA.t13.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorA.t13.mySensorsOnly | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t13.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorA.t13.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t13.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.sensorA.t13.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.sensorA.t13.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.sensorA.t13.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t13.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t13.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.sensorA.t13.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.sensorA.t13.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.sensorA.t13.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.sensorA.t13.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.sensorA.t13.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.sensorA.t13.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorA.t13.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorA.t13.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorA.t13.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t13.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.sensorA.t13.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.sensorA.t13.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t13.pairNX | `-1` | `-1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t13.pairNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorA.t13.contactNX | `-1` | `-1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorA.t13.contactNY | `-1` | `-0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorA.t13.contactX | `-1` | `101.500000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorA.t13.contactY | `-1` | `0.000000` | FAIL |
-| `physicsData.isColliding` | query.sensorB.t13.colliding | `0` | `1` | FAIL |
-| `physicsData.isColliding` | query.sensorB.t13.anyColliding | `0` | `1` | FAIL |
-| `physicsData.getCollisionInfo` | query.sensorB.t13.exists | `0` | `1` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t13.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorA.t13.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorA.t13.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorA.t13.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorA.t13.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorA.t13.contactY | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | query.sensorB.t13.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | query.sensorB.t13.anyColliding | `0` | `0` | PASS |
+| `physicsData.getCollisionInfo` | query.sensorB.t13.exists | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | query.sensorB.t13.category | `1` | `1` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t13.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t13.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t13.enabled | `1` | `1` | PASS |
-| `intIter.size` | query.sensorB.t13.listSize | `-1` | `1` | FAIL |
-| `intIter.get` | query.sensorB.t13.idMatches | `-1` | `1` | FAIL |
-| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t13.firstExists | `-1` | `1` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t13.shapeExists | `-1` | `1` | FAIL |
-| `collisionInfo.getEntity` | query.sensorB.t13.entityMatches | `-1` | `1` | FAIL |
-| `collisionInfo.isAllSensors` | query.sensorB.t13.allSensors | `-1` | `0` | FAIL |
-| `collisionInfo.isBodyColliding` | query.sensorB.t13.bodyColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithBody` | query.sensorB.t13.bodyPair | `-1` | `1` | FAIL |
-| `collisionInfo.isBodyCollidingWithShape` | query.sensorB.t13.bodyShape | `-1` | `1` | FAIL |
-| `collisionInfo.isShapeColliding` | query.sensorB.t13.shapeColliding | `-1` | `1` | FAIL |
-| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorB.t13.mySensorsOnly | `-1` | `0` | FAIL |
-| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t13.missingShape | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorB.t13.myCount | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t13.myIDMatches | `-1` | `1` | FAIL |
-| `shapeCollisionInfo.getNumContacts` | query.sensorB.t13.contactCount | `-1` | `1` | FAIL |
+| `intIter.size` | query.sensorB.t13.listSize | `-1` | `-1` | PASS |
+| `intIter.get` | query.sensorB.t13.idMatches | `-1` | `-1` | PASS |
+| `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t13.firstExists | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t13.shapeExists | `-1` | `-1` | PASS |
+| `collisionInfo.getEntity` | query.sensorB.t13.entityMatches | `-1` | `-1` | PASS |
+| `collisionInfo.isAllSensors` | query.sensorB.t13.allSensors | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyColliding` | query.sensorB.t13.bodyColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithBody` | query.sensorB.t13.bodyPair | `-1` | `-1` | PASS |
+| `collisionInfo.isBodyCollidingWithShape` | query.sensorB.t13.bodyShape | `-1` | `-1` | PASS |
+| `collisionInfo.isShapeColliding` | query.sensorB.t13.shapeColliding | `-1` | `-1` | PASS |
+| `collisionInfo.isMyShapeCollidingWithSensorsOnly` | query.sensorB.t13.mySensorsOnly | `-1` | `-1` | PASS |
+| `collisionInfo.getShapeCollisionInfo` | query.sensorB.t13.missingShape | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumOfMyShapesColliding` | query.sensorB.t13.myCount | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t13.myIDMatches | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getNumContacts` | query.sensorB.t13.contactCount | `-1` | `-1` | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | query.sensorB.t13.badMyID | `-1` | `-1` | PASS |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t13.pairNX | `-1` | `1.000000` | FAIL |
-| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t13.pairNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorB.t13.contactNX | `-1` | `1.000000` | FAIL |
-| `shapeCollisionInfo.getContactNormal` | query.sensorB.t13.contactNY | `-1` | `0.000000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorB.t13.contactX | `-1` | `101.500000` | FAIL |
-| `shapeCollisionInfo.getContactPos` | query.sensorB.t13.contactY | `-1` | `0.000000` | FAIL |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t13.pairNX | `-1` | `-1` | PASS |
+| `collisionInfo.getContactNormalOfMyCollidingShape` | query.sensorB.t13.pairNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorB.t13.contactNX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactNormal` | query.sensorB.t13.contactNY | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorB.t13.contactX | `-1` | `-1` | PASS |
+| `shapeCollisionInfo.getContactPos` | query.sensorB.t13.contactY | `-1` | `-1` | PASS |
 | `Physics.raycast` | ray.solid.t0.count | `2` | `2` | PASS |
 | `Physics.raycast` | ray.solid.t0.trace | `AC` | `AC` | PASS |
 | `Physics.raycastSimple` | ray.solid.t0.simple | `0.200000` | `0.200000` | PASS |
@@ -2636,3 +2635,48 @@ Scenes sample motion; other groups cover callbacks, removal, queries, and rays.
 | `physicsData.raycastShapesOne` | ray.bodyMiss.t0.pdShapeMatches | `-1` | `-1` | PASS |
 | `physicsData.raycast` | ray.bodyMiss.t0.pdHit | `0` | `0` | PASS |
 | `physicsData.raycast` | ray.bodyMiss.t0.pdLambda | `-1` | `-1` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t0.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t0.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t0.bX | `20.000000` | `20.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t1.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t1.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t1.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t2.colliding | `1` | `1` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t2.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t2.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t3.colliding | `1` | `1` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t3.mask | `0` | `0` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t3.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t4.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t4.mask | `0` | `0` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t4.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t5.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t5.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t5.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t6.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t6.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t6.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t7.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t7.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t7.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t8.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t8.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t8.bX | `3.100000` | `3.100000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t9.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t9.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t9.bX | `3.100000` | `3.100000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t10.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t10.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t10.bX | `20.000000` | `20.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t11.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t11.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t11.bX | `20.000000` | `20.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t12.colliding | `0` | `0` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t12.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t12.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t13.colliding | `1` | `1` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t13.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t13.bX | `3.000000` | `3.000000` | PASS |
+| `physicsData.isColliding` | reentry.sensor.t14.colliding | `1` | `1` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | reentry.sensor.t14.mask | `65535` | `65535` | PASS |
+| `physicsBody.getPos` | reentry.sensor.t14.bX | `3.000000` | `3.000000` | PASS |

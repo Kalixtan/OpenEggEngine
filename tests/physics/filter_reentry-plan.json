@@ -1,0 +1,7 @@
+{
+  "prefix": "reentry",
+  "frames": 15,
+  "scenes": {
+    "sensor": ["colliding", "mask", "bX"]
+  }
+}

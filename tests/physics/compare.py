@@ -31,6 +31,9 @@ QUERY_PLAN = HERE / "queries-plan.json"
 RAYS = HERE / "rays.gm"
 RAY_BASELINE = HERE / "rays-retail.tsv"
 RAY_PLAN = HERE / "rays-plan.json"
+REENTRY = HERE / "filter_reentry.gm"
+REENTRY_BASELINE = HERE / "filter_reentry-retail.tsv"
+REENTRY_PLAN = HERE / "filter_reentry-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
@@ -95,6 +98,9 @@ RAY_BODY_FIELDS = {"hit", "lambda", "nx", "ny"}
 RAY_SHAPE_FIELDS = {"shapeHit", "shapeMatches", "shapeLambda"}
 RAY_PD_SHAPE_FIELDS = {"pdShapeHit", "pdShapeMatches"}
 RAY_PD_FIELDS = {"pdHit", "pdLambda"}
+REENTRY_FIELDS = {"colliding": "physicsData.isColliding",
+                  "mask": "physicsBody.getCategoriesToCollideWith",
+                  "bX": "physicsBody.getPos"}
 
 
 def inventory():
@@ -104,6 +110,11 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("reentry."):
+        function = REENTRY_FIELDS[name.rsplit(".", 1)[1]]
+        if function not in names:
+            raise ValueError(f"unknown reentry function: {function}")
+        return function
     if name.startswith("query."):
         function = QUERY_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names:
@@ -167,7 +178,8 @@ def main():
                                            (CONTACTS, CONTACT_BASELINE, CONTACT_PLAN, (CONTACT_SUPPORT,)),
                                            (REMOVAL, REMOVAL_BASELINE, REMOVAL_PLAN, (CONTACT_SUPPORT,)),
                                            (QUERIES, QUERY_BASELINE, QUERY_PLAN, (CONTACT_SUPPORT,)),
-                                           (RAYS, RAY_BASELINE, RAY_PLAN, (CONTACT_SUPPORT,))):
+                                           (RAYS, RAY_BASELINE, RAY_PLAN, (CONTACT_SUPPORT,)),
+                                           (REENTRY, REENTRY_BASELINE, REENTRY_PLAN, (CONTACT_SUPPORT,))):
         check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
         if len(declared) != len(set(declared)):
@@ -192,7 +204,7 @@ def main():
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
-            if case.startswith(("scene.", "contact.", "removal.", "query.", "ray.")):
+            if case.startswith(("scene.", "contact.", "removal.", "query.", "ray.", "reentry.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:
@@ -204,13 +216,10 @@ def main():
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
              f"Matched: **{count}/{len(rows)} declared readings ({percent(count, len(rows))})**. "
              "This measures captured cases, not total physics parity.", "",
-             "The current query failures share one observed cause: OpenEgg recreates "
-             "overlap records after a filter is restored while retail keeps them absent "
-             "for the remaining sampled ticks.", "",
              f"Functions with readings: **{tested}/{len(names)}**. The inventory comes from "
              "the local API reference and includes OpenEgg-only methods.", "",
              "## Sample groups", "",
-             "Scenes sample motion; other groups cover callbacks, removal, queries, and rays.", "",
+             "Scenes sample motion; other groups cover callbacks, removal, queries, rays, and filter reentry.", "",
              "| Group | Matched | Cases |", "| --- | ---: | ---: |"]
     for scene, checks in scenes.items():
         lines.append(f"| {scene} | {sum(checks)} | {len(checks)} |")
