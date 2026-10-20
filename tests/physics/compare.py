@@ -25,10 +25,17 @@ CONTACT_PLAN = HERE / "contacts-plan.json"
 REMOVAL = HERE / "removal.gm"
 REMOVAL_BASELINE = HERE / "removal-retail.tsv"
 REMOVAL_PLAN = HERE / "removal-plan.json"
+QUERIES = HERE / "queries.gm"
+QUERY_BASELINE = HERE / "queries-retail.tsv"
+QUERY_PLAN = HERE / "queries-plan.json"
+RAYS = HERE / "rays.gm"
+RAY_BASELINE = HERE / "rays-retail.tsv"
+RAY_PLAN = HERE / "rays-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
-            "collisionInfo.", "jointType.", "jointIter.", "Physics.")
+            "collisionInfo.", "shapeCollisionInfo.", "intIter.",
+            "jointType.", "jointIter.", "Physics.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "Global.PHYSICSSHAPECOLLECTIONDEF"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
@@ -51,6 +58,43 @@ CONTACT_FIELDS = {
     "aBodies": "physicsData.getNumBodies", "bBodies": "physicsData.getNumBodies",
     "colliding": "physicsData.isColliding",
 }
+QUERY_FIELDS = {
+    "colliding": "physicsData.isColliding", "anyColliding": "physicsData.isColliding",
+    "exists": "physicsData.getCollisionInfo",
+    "category": "physicsBody.getCollisionCategory",
+    "mask": "physicsBody.getCategoriesToCollideWith",
+    "group": "physicsBody.getCollisionGroup",
+    "enabled": "physicsBody.isCollidable",
+    "listSize": "intIter.size", "idMatches": "intIter.get",
+    "firstExists": "collisionInfo.getFirstShapeCollisionInfo",
+    "shapeExists": "collisionInfo.getShapeCollisionInfo",
+    "entityMatches": "collisionInfo.getEntity",
+    "allSensors": "collisionInfo.isAllSensors",
+    "bodyColliding": "collisionInfo.isBodyColliding",
+    "bodyPair": "collisionInfo.isBodyCollidingWithBody",
+    "bodyShape": "collisionInfo.isBodyCollidingWithShape",
+    "shapeColliding": "collisionInfo.isShapeColliding",
+    "mySensorsOnly": "collisionInfo.isMyShapeCollidingWithSensorsOnly",
+    "missingShape": "collisionInfo.getShapeCollisionInfo",
+    "myCount": "shapeCollisionInfo.getNumOfMyShapesColliding",
+    "myIDMatches": "shapeCollisionInfo.getMyContactShapeID",
+    "contactCount": "shapeCollisionInfo.getNumContacts",
+    "badMyID": "shapeCollisionInfo.getMyContactShapeID",
+    "pairNX": "collisionInfo.getContactNormalOfMyCollidingShape",
+    "pairNY": "collisionInfo.getContactNormalOfMyCollidingShape",
+    "contactNX": "shapeCollisionInfo.getContactNormal",
+    "contactNY": "shapeCollisionInfo.getContactNormal",
+    "contactX": "shapeCollisionInfo.getContactPos",
+    "contactY": "shapeCollisionInfo.getContactPos",
+}
+RAY_GLOBAL_FIELDS = {"count": "Physics.raycast", "trace": "Physics.raycast",
+                     "simple": "Physics.raycastSimple"}
+RAY_ONE_FIELDS = {"oneHit", "oneEntity", "oneSidMatches", "oneLambda",
+                  "oneNX", "oneNY"}
+RAY_BODY_FIELDS = {"hit", "lambda", "nx", "ny"}
+RAY_SHAPE_FIELDS = {"shapeHit", "shapeMatches", "shapeLambda"}
+RAY_PD_SHAPE_FIELDS = {"pdShapeHit", "pdShapeMatches"}
+RAY_PD_FIELDS = {"pdHit", "pdLambda"}
 
 
 def inventory():
@@ -60,6 +104,30 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("query."):
+        function = QUERY_FIELDS[name.rsplit(".", 1)[1]]
+        if function not in names:
+            raise ValueError(f"unknown query function: {function}")
+        return function
+    if name.startswith("ray."):
+        field = name.rsplit(".", 1)[1]
+        if field in RAY_GLOBAL_FIELDS:
+            function = RAY_GLOBAL_FIELDS[field]
+        elif field in RAY_ONE_FIELDS:
+            function = "Physics.raycastOne"
+        elif field in RAY_BODY_FIELDS:
+            function = "physicsBody.raycast"
+        elif field in RAY_SHAPE_FIELDS:
+            function = "physicsBody.raycastShapesOne"
+        elif field in RAY_PD_SHAPE_FIELDS:
+            function = "physicsData.raycastShapesOne"
+        elif field in RAY_PD_FIELDS:
+            function = "physicsData.raycast"
+        else:
+            raise ValueError(f"unknown ray field: {field}")
+        if function not in names:
+            raise ValueError(f"unknown ray function: {function}")
+        return function
     if name.startswith(("contact.", "removal.")):
         field = name.rsplit(".", 1)[1]
         function = CONTACT_FIELDS[field]
@@ -97,7 +165,9 @@ def main():
     for probe, baseline, plan, support in ((PROBE, BASELINE, None, ()),
                                            (SCENES, SCENE_BASELINE, SCENE_PLAN, ()),
                                            (CONTACTS, CONTACT_BASELINE, CONTACT_PLAN, (CONTACT_SUPPORT,)),
-                                           (REMOVAL, REMOVAL_BASELINE, REMOVAL_PLAN, (CONTACT_SUPPORT,))):
+                                           (REMOVAL, REMOVAL_BASELINE, REMOVAL_PLAN, (CONTACT_SUPPORT,)),
+                                           (QUERIES, QUERY_BASELINE, QUERY_PLAN, (CONTACT_SUPPORT,)),
+                                           (RAYS, RAY_BASELINE, RAY_PLAN, (CONTACT_SUPPORT,))):
         check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
         if len(declared) != len(set(declared)):
@@ -122,7 +192,7 @@ def main():
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
-            if case.startswith(("scene.", "contact.", "removal.")):
+            if case.startswith(("scene.", "contact.", "removal.", "query.", "ray.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:
@@ -134,10 +204,13 @@ def main():
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
              f"Matched: **{count}/{len(rows)} declared readings ({percent(count, len(rows))})**. "
              "This measures captured cases, not total physics parity.", "",
+             "The current query failures share one observed cause: OpenEgg recreates "
+             "overlap records after a filter is restored while retail keeps them absent "
+             "for the remaining sampled ticks.", "",
              f"Functions with readings: **{tested}/{len(names)}**. The inventory comes from "
              "the local API reference and includes OpenEgg-only methods.", "",
              "## Sample groups", "",
-             "Scenes sample motion; contact cases sample callbacks and body removal each tick.", "",
+             "Scenes sample motion; other groups cover callbacks, removal, queries, and rays.", "",
              "| Group | Matched | Cases |", "| --- | ---: | ---: |"]
     for scene, checks in scenes.items():
         lines.append(f"| {scene} | {sum(checks)} | {len(checks)} |")

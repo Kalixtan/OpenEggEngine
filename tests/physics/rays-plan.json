@@ -1,0 +1,13 @@
+{
+  "prefix": "ray",
+  "frames": 1,
+  "scenes": {
+    "solid": ["count", "trace", "simple", "oneHit", "oneEntity", "oneSidMatches", "oneLambda", "oneNX", "oneNY"],
+    "sensors": ["count", "trace", "simple", "oneHit", "oneEntity", "oneSidMatches", "oneLambda", "oneNX", "oneNY"],
+    "inside": ["count", "trace", "simple", "oneHit", "oneEntity", "oneSidMatches", "oneLambda", "oneNX", "oneNY"],
+    "miss": ["count", "trace", "simple", "oneHit", "oneEntity", "oneSidMatches", "oneLambda", "oneNX", "oneNY"],
+    "bodyA": ["hit", "lambda", "nx", "ny", "shapeHit", "shapeMatches", "shapeLambda", "pdShapeHit", "pdShapeMatches", "pdHit", "pdLambda"],
+    "bodyB": ["hit", "lambda", "nx", "ny", "shapeHit", "shapeMatches", "shapeLambda", "pdShapeHit", "pdShapeMatches", "pdHit", "pdLambda"],
+    "bodyMiss": ["hit", "lambda", "nx", "ny", "shapeHit", "shapeMatches", "shapeLambda", "pdShapeHit", "pdShapeMatches", "pdHit", "pdLambda"]
+  }
+}

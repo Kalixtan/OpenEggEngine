@@ -1,0 +1,101 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global ShapeDef=PHYSICSSHAPECOLLECTIONDEF();
+global RecordContact=function(e,other,kind) {};
+GameMonkeyScript.loadScript("ProbeContactEntity.gm");
+
+global MakeCircle=function(x,sensor) {
+    local e=EntityManager.createEntity("ProbeContactEntity");
+    local pd=e.PhysicsData;
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,0));
+    ShapeDef.reset();
+    ShapeDef.setMass(0);
+    ShapeDef.setIsSensor(sensor);
+    ShapeDef.addCircle(2,0,0);
+    b.appendShapes(ShapeDef);
+    e.setIsEnabled(1);
+    return table(e=e,pd=pd,b=b);
+};
+
+global LabelEntity=function(e,a,b,c) {
+    local id=e.getObjectID();
+    if (id==a.e.getObjectID()) { return "A"; }
+    if (id==b.e.getObjectID()) { return "B"; }
+    if (id==c.e.getObjectID()) { return "C"; }
+    return "?";
+};
+global SampleGlobal=function(name,start,end,inside,sensors,a,b,c) {
+    local key="ray."+name+".t0.";
+    local it=Physics.raycast(start,end,inside,sensors);
+    local count=0;
+    local trace="";
+    while (it.isValid() && count<10) {
+        trace+=LabelEntity(it.get(),a,b,c);
+        count+=1;
+        it.goToNext();
+    }
+    local result=table(lambda=-1,nx=-1,ny=-1,sid=-1,entity=null);
+    local hit=Physics.raycastOne(start,end,inside,sensors,result);
+    local oneEntity="none";
+    local oneSidMatches=-1;
+    if (hit) {
+        oneEntity=LabelEntity(result.entity,a,b,c);
+        oneSidMatches=result.sid==a.b.getShapeObjectID(0);
+    }
+    Probe(key+"count",count);
+    Probe(key+"trace",trace);
+    Probe(key+"simple",Physics.raycastSimple(start,end));
+    Probe(key+"oneHit",hit);
+    Probe(key+"oneEntity",oneEntity);
+    Probe(key+"oneSidMatches",oneSidMatches);
+    Probe(key+"oneLambda",result.lambda);
+    Probe(key+"oneNX",result.nx);
+    Probe(key+"oneNY",result.ny);
+};
+global SampleBody=function(name,body,start,end) {
+    local key="ray."+name+".t0.";
+    local result=table(lambda=-1,nx=-1,ny=-1,shapeID=-1);
+    local hit=body.b.raycast(start,end,result);
+    Probe(key+"hit",hit);
+    Probe(key+"lambda",result.lambda);
+    Probe(key+"nx",result.nx);
+    Probe(key+"ny",result.ny);
+    result=table(lambda=-1,nx=-1,ny=-1,shapeID=-1);
+    local shape=body.b.raycastShapesOne(start,end,0,1,result);
+    local shapeMatches=-1;
+    if (shape!=-1) { shapeMatches=shape==body.b.getShapeObjectID(0); }
+    Probe(key+"shapeHit",shape!=-1);
+    Probe(key+"shapeMatches",shapeMatches);
+    Probe(key+"shapeLambda",result.lambda);
+    result=table(lambda=-1,nx=-1,ny=-1,shapeID=-1);
+    local pdShape=body.pd.raycastShapesOne(start,end,0,1,result);
+    local pdShapeMatches=-1;
+    if (pdShape!=-1) { pdShapeMatches=pdShape==body.b.getShapeObjectID(0); }
+    Probe(key+"pdShapeHit",pdShape!=-1);
+    Probe(key+"pdShapeMatches",pdShapeMatches);
+    result=table(lambda=-1,nx=-1,ny=-1);
+    Probe(key+"pdHit",body.pd.raycast(start,end,result));
+    Probe(key+"pdLambda",result.lambda);
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                this.a=MakeCircle(0,0);
+                this.b=MakeCircle(10,1);
+                this.c=MakeCircle(20,0);
+                local start=vector2D(-10,0);
+                local end=vector2D(30,0);
+                SampleGlobal("solid",start,end,0,0,this.a,this.b,this.c);
+                SampleGlobal("sensors",start,end,0,1,this.a,this.b,this.c);
+                SampleGlobal("inside",vector2D(0,0),end,1,1,this.a,this.b,this.c);
+                SampleGlobal("miss",vector2D(-10,10),vector2D(30,10),0,1,this.a,this.b,this.c);
+                SampleBody("bodyA",this.a,start,end);
+                SampleBody("bodyB",this.b,start,end);
+                SampleBody("bodyMiss",this.c,vector2D(-10,10),vector2D(30,10));
+                this.frame=1;
+            }
+        });
+};

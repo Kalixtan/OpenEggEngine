@@ -1,0 +1,126 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global ShapeDef=PHYSICSSHAPECOLLECTIONDEF();
+global RecordContact=function(e,other,kind) {};
+GameMonkeyScript.loadScript("ProbeContactEntity.gm");
+
+global MakeCircle=function(x,sensor,mass) {
+    local e=EntityManager.createEntity("ProbeContactEntity");
+    local pd=e.PhysicsData;
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,0));
+    ShapeDef.reset();
+    ShapeDef.setMass(mass);
+    ShapeDef.setIsSensor(sensor);
+    ShapeDef.addCircle(2,0,0);
+    b.appendShapes(ShapeDef);
+    e.setIsEnabled(1);
+    return table(e=e,pd=pd,b=b);
+};
+
+global SampleSide=function(name,tick,a,b) {
+    local key="query."+name+".t"+tick+".";
+    local ci=a.pd.getCollisionInfo(b.e);
+    Probe(key+"colliding",a.pd.isColliding(b.e));
+    Probe(key+"anyColliding",a.pd.isColliding());
+    Probe(key+"exists",?ci);
+    Probe(key+"category",a.b.getCollisionCategory());
+    Probe(key+"mask",a.b.getCategoriesToCollideWith());
+    Probe(key+"group",a.b.getCollisionGroup());
+    Probe(key+"enabled",a.b.isCollidable());
+    if (?ci) {
+        local otherID=b.b.getShapeObjectID(0);
+        local myID=a.b.getShapeObjectID(0);
+        local ids=ci.getCollidingShapeIDList();
+        local sid=-1;
+        if (ids.isValid()) { sid=ids.get(); }
+        local sci=ci.getShapeCollisionInfo(sid);
+        local first=ci.getFirstShapeCollisionInfo();
+        local missing=ci.getShapeCollisionInfo(-1);
+        local pairNormal=ci.getContactNormalOfMyCollidingShape(myID);
+        local contactNormal=sci.getContactNormal(0);
+        local contactPos=sci.getContactPos(0,0);
+        Probe(key+"listSize",ids.size());
+        Probe(key+"idMatches",sid==otherID);
+        Probe(key+"firstExists",?first);
+        Probe(key+"shapeExists",?sci);
+        Probe(key+"entityMatches",ci.getEntity().getObjectID()==b.e.getObjectID());
+        Probe(key+"allSensors",ci.isAllSensors());
+        Probe(key+"bodyColliding",ci.isBodyColliding(a.b));
+        Probe(key+"bodyPair",ci.isBodyCollidingWithBody(a.b,b.b));
+        Probe(key+"bodyShape",ci.isBodyCollidingWithShape(a.b,otherID));
+        Probe(key+"shapeColliding",ci.isShapeColliding(myID));
+        Probe(key+"mySensorsOnly",ci.isMyShapeCollidingWithSensorsOnly(myID));
+        Probe(key+"missingShape",!(?missing));
+        Probe(key+"myCount",sci.getNumOfMyShapesColliding());
+        Probe(key+"myIDMatches",sci.getMyContactShapeID(0)==myID);
+        Probe(key+"contactCount",sci.getNumContacts(0));
+        Probe(key+"badMyID",sci.getMyContactShapeID(-1));
+        Probe(key+"pairNX",pairNormal.x);
+        Probe(key+"pairNY",pairNormal.y);
+        Probe(key+"contactNX",contactNormal.x);
+        Probe(key+"contactNY",contactNormal.y);
+        Probe(key+"contactX",contactPos.x);
+        Probe(key+"contactY",contactPos.y);
+    } else {
+        Probe(key+"listSize",-1);
+        Probe(key+"idMatches",-1);
+        Probe(key+"firstExists",-1);
+        Probe(key+"shapeExists",-1);
+        Probe(key+"entityMatches",-1);
+        Probe(key+"allSensors",-1);
+        Probe(key+"bodyColliding",-1);
+        Probe(key+"bodyPair",-1);
+        Probe(key+"bodyShape",-1);
+        Probe(key+"shapeColliding",-1);
+        Probe(key+"mySensorsOnly",-1);
+        Probe(key+"missingShape",-1);
+        Probe(key+"myCount",-1);
+        Probe(key+"myIDMatches",-1);
+        Probe(key+"contactCount",-1);
+        Probe(key+"badMyID",-1);
+        Probe(key+"pairNX",-1);
+        Probe(key+"pairNY",-1);
+        Probe(key+"contactNX",-1);
+        Probe(key+"contactNY",-1);
+        Probe(key+"contactX",-1);
+        Probe(key+"contactY",-1);
+    }
+};
+
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame<14) {
+                if (this.frame==0) {
+                    GameSystem.setIsShouldUpdateEntities(1);
+                    this.solidA=MakeCircle(0,0,1);
+                    this.solidB=MakeCircle(20,0,0);
+                    this.sensorA=MakeCircle(100,0,1);
+                    this.sensorB=MakeCircle(120,1,0);
+                }
+                if (this.frame==1) {
+                    this.solidB.b.setPos(vector2D(3,0));
+                    this.sensorB.b.setPos(vector2D(103,0));
+                }
+                if (this.frame==3) { this.solidA.b.setCategoriesToCollideWith(0); }
+                if (this.frame==5) { this.solidA.b.setCategoriesToCollideWith(65535); }
+                if (this.frame==7) { this.sensorB.b.setIsCollidable(0); }
+                if (this.frame==9) { this.sensorB.b.setIsCollidable(1); }
+                if (this.frame==11) {
+                    this.solidA.b.setCollisionGroup(-1);
+                    this.solidB.b.setCollisionGroup(-1);
+                }
+                if (this.frame==12) {
+                    this.solidA.b.setCollisionGroup(0);
+                    this.solidB.b.setCollisionGroup(0);
+                }
+                SampleSide("solidA",this.frame,this.solidA,this.solidB);
+                SampleSide("solidB",this.frame,this.solidB,this.solidA);
+                SampleSide("sensorA",this.frame,this.sensorA,this.sensorB);
+                SampleSide("sensorB",this.frame,this.sensorB,this.sensorA);
+                this.frame+=1;
+            }
+        });
+};
