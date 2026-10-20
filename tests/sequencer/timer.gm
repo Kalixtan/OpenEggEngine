@@ -1,0 +1,37 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            this.seq=SEQUENCER();
+            this.seq.setBPM(120);
+            local action=SEQUENCERACTION();
+            action.parent=this;
+            action.execute=function() {
+                local seq=this.parent.seq;
+                local before=seq.getMSTillNextStep();
+                seq.setBPM(60,1);
+                local preserved=seq.getMSTillNextStep();
+                if (before>0 && MATH_ABS(before-preserved)<0.02 &&
+                    MATH_ABS(seq.getMSPerStep()-125)<0.02) {
+                    GameSystem.trace("SEQ timer keep PASS");
+                } else { GameSystem.trace("SEQ timer keep FAIL"); }
+
+                seq.setNumStepsPerPattern(16);
+                if (seq.getMSTillNextStep()==0 &&
+                    seq.getNumStepsPerPattern()==16) {
+                    GameSystem.trace("SEQ pattern timer reset PASS");
+                } else { GameSystem.trace("SEQ pattern timer reset FAIL"); }
+
+                seq.setBPM(120,0);
+                if (seq.getMSTillNextStep()==0 &&
+                    MATH_ABS(seq.getMSPerStep()-62.5)<0.02) {
+                    GameSystem.trace("SEQ BPM timer reset PASS");
+                } else { GameSystem.trace("SEQ BPM timer reset FAIL"); }
+            };
+            this.seq.setTrigger(0,action,false);
+            this.seq.start();
+        },
+        init=function() { return true; },
+        update=function() {}
+    );
+};

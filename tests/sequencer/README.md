@@ -21,3 +21,6 @@ PS3 build.
 
 Run it with `global.gm` to check the live sequencer list and global pause.
 The same cases passed against retail.
+
+Run it with `timer.gm` to check the BPM keep/reset flag and pattern-length
+timer reset during a callback. These also passed against retail.
