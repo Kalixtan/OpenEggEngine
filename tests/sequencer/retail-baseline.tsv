@@ -1,4 +1,4 @@
-# Retail PS3 EBOOT under RPCS3, probe.gm, 2026-10-20
+# probe-sha256 4eda96490be30691e63ad85127582dcd02402c4acb0879b9e4b45f5ff479134b
 SEQUENCERACTION.table.value	4
 SEQUENCER_OnNoteCollect.return	null
 SEQUENCER_SetMasterPulse.return	null

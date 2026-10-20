@@ -5,9 +5,15 @@ as `OEP__function.case__value.gm` load errors; no probe files need to exist.
 Each reading sets up its own sequencer state first.
 `OEPV__` marks clock dependent values shown in the logs but excluded from scores.
 
-To refresh the retail baseline, append `probe.gm` to a **copy** of the game's
-extracted `Main.gm`, temporarily install that copy, run the PS3 build in RPCS3,
-then save `~/.cache/rpcs3/TTY.log`. Restore the original `Main.gm` afterward.
+To refresh the retail baseline from your own extracted game installation:
+
+```sh
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN
+```
+
+The command restores `Main.gm` after RPCS3 exits. The baseline records a hash
+of `probe.gm`; changing the probe requires a new retail capture.
 
 From this repo root:
 

@@ -5,6 +5,7 @@ import argparse
 from collections import defaultdict
 import csv
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -55,6 +56,9 @@ def read_readings(path):
     data = {}
     duplicates = set()
     for line in path.read_text(errors="replace").splitlines():
+        # RPCS3 logs each missing load twice. Keep the GameMonkey error line.
+        if line.startswith("Error - Failed to load file ["):
+            continue
         match = READING.search(line)
         if match:
             name, value = match.groups()
@@ -66,6 +70,15 @@ def read_readings(path):
             duplicates.add(name)
         data[name] = value
     return data, duplicates
+
+
+def check_baseline_source(path):
+    if path.suffix != ".tsv":
+        return
+    first = path.read_text(errors="replace").splitlines()[0]
+    expected = hashlib.sha256(PROBE.read_bytes()).hexdigest()
+    if first != f"# probe-sha256 {expected}":
+        raise ValueError(f"{path}: retail baseline is for an older or unknown probe")
 
 
 def owning_function(name, inventory):
@@ -248,6 +261,7 @@ def main():
         if process_error:
             print(process_error, file=sys.stderr)
     retail_path = args.retail_log.resolve()
+    check_baseline_source(retail_path)
     retail, retail_duplicates = read_readings(retail_path)
     local, local_duplicates = read_readings(local_path)
     rows = []
