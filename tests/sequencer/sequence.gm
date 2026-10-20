@@ -1,0 +1,66 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            local notes={};
+            notes.size=16;
+            local i=0;
+            for (i=0;i<16;i+=1) { notes[i]=i%3; }
+            local packed={};
+            SEQUENCE_ToTable(notes,packed);
+            if (packed[0]!=null && packed[1]==null) {
+                GameSystem.trace("SEQ pack word PASS");
+            } else { GameSystem.trace("SEQ pack word FAIL"); }
+
+            local unpacked={};
+            SEQUENCE_FromTable(packed,unpacked);
+            if (unpacked.size==16 && unpacked[0]==0 &&
+                unpacked[1]==1 && unpacked[15]==0) {
+                GameSystem.trace("SEQ unpack word PASS");
+            } else { GameSystem.trace("SEQ unpack word FAIL"); }
+            local encoded=SEQUENCE_ToString(notes);
+            if (encoded=="z0120120120120120") {
+                GameSystem.trace("SEQ encode string PASS");
+            } else { GameSystem.trace("SEQ encode string FAIL"); }
+            local decoded={};
+            SEQUENCE_FromString(encoded,decoded);
+            if (decoded.size==16 && decoded[1]==1 && decoded[15]==0) {
+                GameSystem.trace("SEQ decode string PASS");
+            } else { GameSystem.trace("SEQ decode string FAIL"); }
+
+            local invalid={};
+            if (SEQUENCE_FromString("q012",invalid)==null) {
+                GameSystem.trace("SEQ invalid prefix PASS");
+            } else { GameSystem.trace("SEQ invalid prefix FAIL"); }
+            local odd={};
+            SEQUENCE_FromString("zx",odd);
+            if (odd.size==1 && odd[0]==72) {
+                GameSystem.trace("SEQ raw character PASS");
+            } else { GameSystem.trace("SEQ raw character FAIL"); }
+            local hasThree={};
+            hasThree.size=4;
+            hasThree[0]=0; hasThree[1]=3;
+            hasThree[2]=1; hasThree[3]=2;
+            if (SEQUENCE_ToString(hasThree)=="z0") {
+                GameSystem.trace("SEQ state three stop PASS");
+            } else { GameSystem.trace("SEQ state three stop FAIL"); }
+
+            local partial={};
+            partial.size=17;
+            local j=0;
+            for (j=0;j<17;j+=1) { partial[j]=1; }
+            local partialPacked={};
+            SEQUENCE_ToTable(partial,partialPacked);
+            if (partialPacked[0]==1431655765 && partialPacked[1]==null) {
+                GameSystem.trace("SEQ partial word PASS");
+            } else { GameSystem.trace("SEQ partial word FAIL"); }
+            local empty={};
+            local emptyOut={};
+            if (SEQUENCE_FromTable(empty,emptyOut)==null) {
+                GameSystem.trace("SEQ empty packed PASS");
+            } else { GameSystem.trace("SEQ empty packed FAIL"); }
+        },
+        init=function() { return true; },
+        update=function() {}
+    );
+};
