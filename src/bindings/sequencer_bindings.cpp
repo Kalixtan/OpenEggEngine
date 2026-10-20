@@ -141,8 +141,20 @@ int GM_CDECL gmf_triggerList_isValid(gmThread* thread) {
 int GM_CDECL gmf_triggerList_get(gmThread* thread) {
     auto* ref = ThisTriggerListRef(thread);
     SequencerTrigger* trigger = ref ? FindTriggerBySerial(ref->list.get(), ref->currentSerial) : nullptr;
-    if (trigger) thread->Push(trigger->handle);
-    else thread->PushNull();
+    if (trigger) {
+        // Retail wraps the list entry again for each get() call. The trigger
+        // data stays in the list; only the script-facing handle is new.
+        auto* handle = new SequencerTriggerHandle();
+        handle->pattern = trigger->pattern;
+        handle->step = trigger->step;
+        handle->looped = trigger->looped;
+        handle->action = trigger->action;
+        handle->machine = thread->GetMachine();
+        RootGmVariable(*handle->machine, handle->action);
+        thread->PushNewUser(handle, g_sequencerTriggerType);
+    } else {
+        thread->PushNull();
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_triggerList_goToNext(gmThread* thread) {
