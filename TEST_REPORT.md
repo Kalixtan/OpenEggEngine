@@ -1,14 +1,13 @@
 # Sequencer test report
 
-Generated: 2026-10-20 16:07 UTC  
-Retail: `tests/sequencer/retail-baseline.tsv`  
-OpenEgg: `tests/_results/sequencer/probe.log`  
-Matched: **57/60 retail readings (95%)**  
-Known gaps: **3**  Uncaptured retail readings: **6**
+Generated: 2026-10-20 16:34 UTC
+Retail: `tests/sequencer/retail-baseline.tsv` | OpenEgg: `tests/_results/sequencer/probe.log`
 
-Local assertions: **47/49 passed (96%)**
+Matched: **75/75 declared readings (100%)** | Known gaps: **0** | Uncaptured: **0** | Planned: **19**
 
-One row is one function reading from the same `probe.gm` on both engines. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. Missing retail callback readings stay outside the paired score.
+Local assertions: **49/49 passed (100%)**
+
+One row is one exact string comparison from the same `probe.gm` on both engines. A missing reading or duplicate fails the run. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. `OEPV__` clock readings stay outside the score.
 
 ## Sections
 
@@ -20,77 +19,103 @@ One row is one function reading from the same `probe.gm` on both engines. Scores
 | Timers | 3 | 3 | 100% |
 | Loops | 2 | 2 | 100% |
 | Safety | 3 | 3 | 100% |
-| Trigger forms | 11 | 13 | 85% |
+| Trigger forms | 13 | 13 | 100% |
 | Actions | 6 | 6 | 100% |
 | Sequence conversion | 9 | 9 | 100% |
 
 ## Per function
 
-| Function | Retail | Local checks | Combined score | Status |
+| Function | Paired score | Local checks | Planned | Status |
 | --- | ---: | ---: | ---: | --- |
-| `SEQUENCER` | 0/0 | 2/2 | 2/2 (100%) | NO RETAIL |
-| `SEQUENCERACTION` | 2/2 | 3/3 | 5/5 (100%) | PASS |
-| `SEQUENCER_GetAllSequencers` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `SEQUENCER_OnNoteCollect` | 0/0 | 0/0 | 0/0 (—) | untested |
-| `SEQUENCER_PauseAllSequencers` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `SEQUENCER_SetMasterPulse` | 0/0 | 0/0 | 0/0 (—) | untested |
-| `SEQUENCER_UnpauseAllSequencers` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `SEQUENCE_FromString` | 2/2 | 4/4 | 6/6 (100%) | PASS |
-| `SEQUENCE_FromTable` | 2/2 | 3/3 | 5/5 (100%) | PASS |
-| `SEQUENCE_ToString` | 1/1 | 3/3 | 4/4 (100%) | PASS |
-| `SEQUENCE_ToTable` | 1/1 | 3/3 | 4/4 (100%) | PASS |
-| `Sequencer.clearTriggers` | 0/0 | 2/2 | 2/2 (100%) | NO RETAIL |
-| `Sequencer.getAllTriggers` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.getBPM` | 2/2 | 2/2 | 4/4 (100%) | PASS |
-| `Sequencer.getCurrentPattern` | 2/2 | 5/5 | 7/7 (100%) | PASS |
-| `Sequencer.getCurrentStep` | 4/4 | 5/5 | 9/9 (100%) | PASS |
-| `Sequencer.getCurrentStep16` | 1/1 | 0/0 | 1/1 (100%) | PASS |
-| `Sequencer.getMSPerStep` | 2/2 | 4/4 | 6/6 (100%) | PASS |
-| `Sequencer.getMSTillNextNoteStep` | 1/1 | 0/0 | 1/1 (100%) | PASS |
-| `Sequencer.getMSTillNextStep` | 0/0 | 4/4 | 4/4 (100%) | NO RETAIL |
-| `Sequencer.getMSTillNextStep16` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.getMSTillNextStepAccurate` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.getNextNotePattern` | 1/1 | 2/2 | 3/3 (100%) | PASS |
-| `Sequencer.getNextNoteStep` | 1/1 | 2/2 | 3/3 (100%) | PASS |
-| `Sequencer.getNoteTime` | 2/2 | 1/1 | 3/3 (100%) | PASS |
-| `Sequencer.getNumStepsPerNote` | 3/3 | 1/1 | 4/4 (100%) | PASS |
-| `Sequencer.getNumStepsPerPattern` | 2/2 | 3/3 | 5/5 (100%) | PASS |
-| `Sequencer.getNumTriggers` | 2/2 | 6/6 | 8/8 (100%) | PARTIAL |
-| `Sequencer.getObjectID` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.getWrappedStep` | 2/2 | 0/0 | 2/2 (100%) | PASS |
-| `Sequencer.gotoStep` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.isPlaying` | 5/5 | 3/3 | 8/8 (100%) | PASS |
-| `Sequencer.moveTriggerToFront` | 0/0 | 2/2 | 2/2 (100%) | NO RETAIL |
-| `Sequencer.restart` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.setBPM` | 0/0 | 3/3 | 3/3 (100%) | NO RETAIL |
-| `Sequencer.setCurrentStep` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.setLoopLen` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.setNumStepsPerPattern` | 0/0 | 2/2 | 2/2 (100%) | NO RETAIL |
-| `Sequencer.setPan` | 0/0 | 0/0 | 0/0 (—) | untested |
-| `Sequencer.setTrigger` | 3/3 | 9/9 | 12/12 (100%) | PARTIAL |
-| `Sequencer.setTrigger16` | 1/1 | 2/2 | 3/3 (100%) | PASS |
-| `Sequencer.setTriggerOnNext` | 2/2 | 1/1 | 3/3 (100%) | PASS |
-| `Sequencer.setVolume` | 0/0 | 0/0 | 0/0 (—) | untested |
-| `Sequencer.start` | 0/0 | 4/4 | 4/4 (100%) | NO RETAIL |
-| `Sequencer.stop` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `Sequencer.test` | 0/0 | 0/0 | 0/0 (—) | untested |
-| `SequencerAction.isTaggedForRemoval` | 2/2 | 2/2 | 4/4 (100%) | PASS |
-| `SequencerAction.setTable` | 1/1 | 2/2 | 3/3 (100%) | PASS |
-| `SequencerAction.tagForRemoval` | 0/0 | 3/3 | 3/3 (100%) | NO RETAIL |
-| `SequencerListRef.get` | 1/1 | 3/3 | 4/4 (100%) | PASS |
-| `SequencerListRef.goToNext` | 0/0 | 2/2 | 2/2 (100%) | NO RETAIL |
-| `SequencerListRef.isValid` | 3/3 | 3/3 | 6/6 (100%) | PASS |
-| `SequencerListRef.reset` | 0/0 | 1/1 | 1/1 (100%) | NO RETAIL |
-| `SequencerListRef.size` | 1/1 | 1/1 | 2/2 (100%) | PASS |
-| `SequencerTrigger.getAction` | 0/2 | 0/1 | 0/3 (0%) | GAP |
-| `SequencerTrigger.getLooped` | 0/0 | 7/7 | 7/7 (100%) | NO RETAIL |
-| `SequencerTrigger.getPattern` | 0/0 | 8/8 | 8/8 (100%) | NO RETAIL |
-| `SequencerTrigger.getStep` | 0/0 | 8/8 | 8/8 (100%) | NO RETAIL |
-| `SequencerTriggerList.get` | 3/4 | 3/4 | 6/8 (75%) | GAP |
-| `SequencerTriggerList.goToNext` | 0/0 | 2/2 | 2/2 (100%) | NO RETAIL |
-| `SequencerTriggerList.isValid` | 1/1 | 4/4 | 5/5 (100%) | PASS |
-| `SequencerTriggerList.reset` | 0/0 | 2/2 | 2/2 (100%) | NO RETAIL |
-| `SequencerTriggerList.size` | 1/1 | 3/3 | 4/4 (100%) | PASS |
+| `SEQUENCER` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `SEQUENCERACTION` | 2/2 (100%) | 3/3 | 1 | PENDING |
+| `SEQUENCER_GetAllSequencers` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `SEQUENCER_OnNoteCollect` | 1/1 (100%) | 0/0 | 0 | PASS |
+| `SEQUENCER_PauseAllSequencers` | 1/1 (100%) | 1/1 | 0 | PASS |
+| `SEQUENCER_SetMasterPulse` | 1/1 (100%) | 0/0 | 1 | PENDING |
+| `SEQUENCER_UnpauseAllSequencers` | 1/1 (100%) | 1/1 | 0 | PASS |
+| `SEQUENCE_FromString` | 2/2 (100%) | 4/4 | 1 | PENDING |
+| `SEQUENCE_FromTable` | 2/2 (100%) | 3/3 | 1 | PENDING |
+| `SEQUENCE_ToString` | 1/1 (100%) | 3/3 | 1 | PENDING |
+| `SEQUENCE_ToTable` | 1/1 (100%) | 3/3 | 1 | PENDING |
+| `Sequencer.clearTriggers` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.getAllTriggers` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `Sequencer.getBPM` | 2/2 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.getCurrentPattern` | 2/2 (100%) | 5/5 | 1 | PENDING |
+| `Sequencer.getCurrentStep` | 4/4 (100%) | 5/5 | 0 | PASS |
+| `Sequencer.getCurrentStep16` | 1/1 (100%) | 0/0 | 0 | PASS |
+| `Sequencer.getMSPerStep` | 2/2 (100%) | 4/4 | 1 | PENDING |
+| `Sequencer.getMSTillNextNoteStep` | 1/1 (100%) | 0/0 | 0 | PASS |
+| `Sequencer.getMSTillNextStep` | 1/1 (100%) | 4/4 | 1 | PENDING |
+| `Sequencer.getMSTillNextStep16` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `Sequencer.getMSTillNextStepAccurate` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `Sequencer.getNextNotePattern` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.getNextNoteStep` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.getNoteTime` | 2/2 (100%) | 1/1 | 0 | PASS |
+| `Sequencer.getNumStepsPerNote` | 3/3 (100%) | 1/1 | 0 | PASS |
+| `Sequencer.getNumStepsPerPattern` | 2/2 (100%) | 3/3 | 0 | PASS |
+| `Sequencer.getNumTriggers` | 3/3 (100%) | 6/6 | 0 | PASS |
+| `Sequencer.getObjectID` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `Sequencer.getWrappedStep` | 2/2 (100%) | 0/0 | 1 | PENDING |
+| `Sequencer.gotoStep` | 1/1 (100%) | 1/1 | 0 | PASS |
+| `Sequencer.isPlaying` | 5/5 (100%) | 3/3 | 0 | PASS |
+| `Sequencer.moveTriggerToFront` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.restart` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `Sequencer.setBPM` | 1/1 (100%) | 3/3 | 2 | PENDING |
+| `Sequencer.setCurrentStep` | 1/1 (100%) | 1/1 | 0 | PASS |
+| `Sequencer.setLoopLen` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `Sequencer.setNumStepsPerPattern` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.setPan` | 1/1 (100%) | 0/0 | 1 | PENDING |
+| `Sequencer.setTrigger` | 5/5 (100%) | 9/9 | 6 | PENDING |
+| `Sequencer.setTrigger16` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.setTriggerOnNext` | 2/2 (100%) | 1/1 | 1 | PENDING |
+| `Sequencer.setVolume` | 1/1 (100%) | 0/0 | 1 | PENDING |
+| `Sequencer.start` | 1/1 (100%) | 4/4 | 1 | PENDING |
+| `Sequencer.stop` | 1/1 (100%) | 1/1 | 0 | PASS |
+| `Sequencer.test` | 1/1 (100%) | 0/0 | 0 | PASS |
+| `SequencerAction.isTaggedForRemoval` | 2/2 (100%) | 2/2 | 0 | PASS |
+| `SequencerAction.setTable` | 1/1 (100%) | 2/2 | 2 | PENDING |
+| `SequencerAction.tagForRemoval` | 1/1 (100%) | 3/3 | 2 | PENDING |
+| `SequencerListRef.get` | 1/1 (100%) | 3/3 | 1 | PENDING |
+| `SequencerListRef.goToNext` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `SequencerListRef.isValid` | 3/3 (100%) | 3/3 | 0 | PASS |
+| `SequencerListRef.reset` | 1/1 (100%) | 1/1 | 0 | PASS |
+| `SequencerListRef.size` | 1/1 (100%) | 1/1 | 0 | PASS |
+| `SequencerTrigger.getAction` | 4/4 (100%) | 1/1 | 1 | PENDING |
+| `SequencerTrigger.getLooped` | 1/1 (100%) | 7/7 | 0 | PASS |
+| `SequencerTrigger.getPattern` | 1/1 (100%) | 8/8 | 0 | PASS |
+| `SequencerTrigger.getStep` | 1/1 (100%) | 8/8 | 0 | PASS |
+| `SequencerTriggerList.get` | 4/4 (100%) | 4/4 | 1 | PENDING |
+| `SequencerTriggerList.goToNext` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `SequencerTriggerList.isValid` | 1/1 (100%) | 4/4 | 0 | PASS |
+| `SequencerTriggerList.reset` | 1/1 (100%) | 2/2 | 0 | PASS |
+| `SequencerTriggerList.size` | 1/1 (100%) | 3/3 | 0 | PASS |
+
+## Planned cases
+
+| Case | Functions | Why |
+| --- | --- | --- |
+| BPM zero and negative | `Sequencer.setBPM`, `Sequencer.getMSPerStep` | Capture native float and tick behavior with a disposable sequencer. |
+| BPM float edge conversion | `Sequencer.setBPM`, `Sequencer.getBPM` | Check fractions, NaN, and values outside signed int range. |
+| Pattern length zero and negative | `Sequencer.setNumStepsPerPattern`, `Sequencer.getWrappedStep`, `Sequencer.start` | Compare invalid lengths without using the main game sequencer. |
+| Loop length zero and negative | `Sequencer.setLoopLen`, `Sequencer.getCurrentPattern` | Check wrap at the first boundary. |
+| Note type outside 0 to 5 | `Sequencer.getNextNoteStep`, `Sequencer.getNextNotePattern` | Retail can divide by zero; record as an unsafe case. |
+| Time getter tick boundaries | `Sequencer.getMSTillNextStep`, `Sequencer.getMSTillNextStepAccurate`, `Sequencer.getMSTillNextStep16` | Use controlled clock steps so exact values are repeatable. |
+| Volume and pan effect | `Sequencer.setVolume`, `Sequencer.setPan` | Compare audible output or a recovered native state reader; return values alone are shallow. |
+| Master pulse consumer | `SEQUENCER_SetMasterPulse` | Trace reads of the retail global and compare the affected behavior. |
+| Trigger overload type matrix | `Sequencer.setTrigger`, `Sequencer.setTrigger16`, `Sequencer.setTriggerOnNext` | Cover supported int, float, bool, null, and wrong arity combinations. |
+| Duplicate trigger coordinates | `Sequencer.setTrigger`, `Sequencer.moveTriggerToFront` | Check stable order after insertion and moving first, middle, and tail. |
+| Restart at future step | `Sequencer.restart`, `Sequencer.setTrigger` | Compare same-step callback ordering and one-shot removal. |
+| Callback mutation | `Sequencer.clearTriggers`, `Sequencer.setTrigger`, `SequencerAction.tagForRemoval` | Append, tag, and clear inside a callback; check staged dispatch. |
+| Action wrapper lifetime | `SequencerTrigger.getAction`, `SequencerAction.setTable`, `SequencerAction.tagForRemoval` | Verify alias state after GC, trigger removal, and table replacement. |
+| Trigger cursor during mutation | `Sequencer.getAllTriggers`, `SequencerTriggerList.get`, `SequencerTriggerList.goToNext` | Check insertion and deletion while a cursor is held; avoid retail stale-pointer crash. |
+| Sequencer cursor during mutation | `SEQUENCER_GetAllSequencers`, `SequencerListRef.get`, `SequencerListRef.goToNext` | Compare visibility and ownership when a sequencer is created or collected. |
+| Callback and GC interleave | `SEQUENCERACTION`, `SequencerAction.setTable`, `Sequencer.setTrigger` | Collect between trigger scheduling and dispatch. |
+| Malformed packed sequence | `SEQUENCE_FromTable`, `SEQUENCE_ToTable` | Check short, sparse, oversized, and noninteger tables. |
+| Malformed sequence string | `SEQUENCE_FromString`, `SEQUENCE_ToString` | Check invalid prefix, invalid digits, embedded null, and long strings. |
+| Object ID allocation order | `Sequencer.getObjectID`, `SEQUENCER`, `Sequencer.setTrigger` | Compare ID consumption by sequencers and trigger handles. |
+
+Documented sequencer APIs missing from bindings: **0**.
 
 ## Readings
 
@@ -103,6 +128,11 @@ One row is one function reading from the same `probe.gm` on both engines. Scores
 | `Sequencer.isPlaying` | Sequencer.isPlaying.default | `0` | `0` | PASS |
 | `Sequencer.getMSPerStep` | Sequencer.getMSPerStep.default | `76.530609` | `76.530609` | PASS |
 | `Sequencer.getMSTillNextNoteStep` | Sequencer.getMSTillNextNoteStep.default | `0.000000` | `0.000000` | PASS |
+| `Sequencer.setVolume` | Sequencer.setVolume.return | `null` | `null` | PASS |
+| `Sequencer.setPan` | Sequencer.setPan.return | `null` | `null` | PASS |
+| `Sequencer.test` | Sequencer.test.return | `null` | `null` | PASS |
+| `SEQUENCER_OnNoteCollect` | SEQUENCER_OnNoteCollect.return | `null` | `null` | PASS |
+| `SEQUENCER_SetMasterPulse` | SEQUENCER_SetMasterPulse.return | `null` | `null` | PASS |
 | `Sequencer.getBPM` | Sequencer.getBPM.changed | `120` | `120` | PASS |
 | `Sequencer.getMSPerStep` | Sequencer.getMSPerStep.changed | `62.500000` | `62.500000` | PASS |
 | `Sequencer.getNumStepsPerPattern` | Sequencer.getNumStepsPerPattern.float | `16` | `16` | PASS |
@@ -127,15 +157,17 @@ One row is one function reading from the same `probe.gm` on both engines. Scores
 | `Sequencer.setTrigger` | Sequencer.setTrigger.implicit.pattern | `0` | `0` | PASS |
 | `Sequencer.setTrigger` | Sequencer.setTrigger.implicit.step | `15` | `15` | PASS |
 | `Sequencer.setTrigger` | Sequencer.setTrigger.implicit.looped | `1` | `1` | PASS |
-| `SequencerTrigger.getAction` | SequencerTrigger.getAction.fresh | `1` | `0` | GAP |
-| `SequencerTrigger.getAction` | SequencerTrigger.getAction.repeat | `1` | `0` | GAP |
+| `SequencerTrigger.getAction` | SequencerTrigger.getAction.fresh | `1` | `1` | PASS |
+| `SequencerTrigger.getAction` | SequencerTrigger.getAction.repeat | `1` | `1` | PASS |
+| `SequencerTrigger.getAction` | SequencerTrigger.getAction.sharedTable | `11` | `11` | PASS |
+| `SequencerTrigger.getAction` | SequencerTrigger.getAction.sharedTag | `1` | `1` | PASS |
 | `Sequencer.setTrigger16` | Sequencer.setTrigger16.step | `2` | `2` | PASS |
 | `Sequencer.setTriggerOnNext` | Sequencer.setTriggerOnNext.pattern | `0` | `0` | PASS |
 | `Sequencer.setTriggerOnNext` | Sequencer.setTriggerOnNext.step | `8` | `8` | PASS |
 | `Sequencer.getNumTriggers` | Sequencer.getNumTriggers.three | `3` | `3` | PASS |
 | `SequencerTriggerList.size` | SequencerTriggerList.size.three | `3` | `3` | PASS |
 | `SequencerTriggerList.isValid` | SequencerTriggerList.isValid.first | `1` | `1` | PASS |
-| `SequencerTriggerList.get` | SequencerTriggerList.get.fresh | `1` | `0` | GAP |
+| `SequencerTriggerList.get` | SequencerTriggerList.get.fresh | `1` | `1` | PASS |
 | `SequencerTriggerList.get` | SequencerTriggerList.get.firstStep | `2` | `2` | PASS |
 | `SequencerTriggerList.get` | SequencerTriggerList.get.nextStep | `8` | `8` | PASS |
 | `SequencerTriggerList.get` | SequencerTriggerList.get.resetStep | `2` | `2` | PASS |
@@ -146,29 +178,23 @@ One row is one function reading from the same `probe.gm` on both engines. Scores
 | `SEQUENCE_ToString` | SEQUENCE_ToString.word | `z0120120120120120` | `z0120120120120120` | PASS |
 | `SEQUENCE_FromString` | SEQUENCE_FromString.size | `16` | `16` | PASS |
 | `SEQUENCE_FromString` | SEQUENCE_FromString.second | `1` | `1` | PASS |
-| `SequencerListRef.size` | SequencerListRef.size.initial | `3` | `3` | PASS |
-| `SequencerListRef.isValid` | SequencerListRef.isValid.initial | `1` | `1` | PASS |
-| `SequencerListRef.get` | SequencerListRef.get.initial | `1` | `1` | PASS |
-| `SequencerListRef.isValid` | SequencerListRef.isValid.next | `1` | `1` | PASS |
-| `SequencerListRef.isValid` | SequencerListRef.isValid.reset | `1` | `1` | PASS |
+| `Sequencer.getObjectID` | Sequencer.getObjectID.unique | `1` | `1` | PASS |
 | `Sequencer.isPlaying` | Sequencer.isPlaying.started | `1` | `1` | PASS |
 | `Sequencer.isPlaying` | Sequencer.isPlaying.paused | `0` | `0` | PASS |
 | `Sequencer.isPlaying` | Sequencer.isPlaying.unpaused | `1` | `1` | PASS |
 | `Sequencer.isPlaying` | Sequencer.isPlaying.stopped | `0` | `0` | PASS |
 | `Sequencer.getCurrentStep` | Sequencer.getCurrentStep.restarted | `-1` | `-1` | PASS |
-| `Sequencer.setTrigger` | Sequencer.callback.step | `—` | `0` | NO RETAIL |
-| `Sequencer.getMSTillNextStep` | Sequencer.getMSTillNextStep.callback | `—` | `45.833336` | NO RETAIL |
-| `Sequencer.getMSTillNextStepAccurate` | Sequencer.getMSTillNextStepAccurate.callback | `—` | `45.833336` | NO RETAIL |
-| `Sequencer.getMSTillNextStep16` | Sequencer.getMSTillNextStep16.callback | `—` | `91.666672` | NO RETAIL |
-| `Sequencer.setTrigger` | Sequencer.callback.count | `—` | `1` | NO RETAIL |
-| `Sequencer.getNumTriggers` | Sequencer.getNumTriggers.afterCallback | `—` | `0` | NO RETAIL |
-
-## Known gaps
-
-- `SequencerTrigger.getAction.fresh`: retail creates a new action wrapper.
-- `SequencerTrigger.getAction.repeat`: retail creates a wrapper on each call.
-- `SequencerTriggerList.get.fresh`: retail creates a new trigger wrapper.
-
-The retail capture has no callback readings; the bundled run faulted before those results appeared. They are marked NO RETAIL.
+| `Sequencer.moveTriggerToFront` | Sequencer.moveTriggerToFront.first | `2` | `2` | PASS |
+| `Sequencer.setTrigger` | Sequencer.callback.step | `0` | `0` | PASS |
+| `Sequencer.getMSTillNextStep` | Sequencer.getMSTillNextStep.positive | `1` | `1` | PASS |
+| `Sequencer.getMSTillNextStepAccurate` | Sequencer.getMSTillNextStepAccurate.same | `1` | `1` | PASS |
+| `Sequencer.getMSTillNextStep16` | Sequencer.getMSTillNextStep16.double | `1` | `1` | PASS |
+| `Sequencer.setTrigger` | Sequencer.callback.count | `1` | `1` | PASS |
+| `Sequencer.getNumTriggers` | Sequencer.getNumTriggers.afterCallback | `0` | `0` | PASS |
+| `SequencerListRef.size` | SequencerListRef.size.initial | `3` | `3` | PASS |
+| `SequencerListRef.isValid` | SequencerListRef.isValid.initial | `1` | `1` | PASS |
+| `SequencerListRef.get` | SequencerListRef.get.initial | `1` | `1` | PASS |
+| `SequencerListRef.isValid` | SequencerListRef.isValid.next | `1` | `1` | PASS |
+| `SequencerListRef.isValid` | SequencerListRef.isValid.reset | `1` | `1` | PASS |
 
 Local assertion details: `tests/_results/assertions.md`.

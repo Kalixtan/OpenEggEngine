@@ -3,9 +3,9 @@
 
 import argparse
 from collections import defaultdict
+import csv
 from datetime import datetime, timezone
 import json
-import math
 from pathlib import Path
 import re
 import subprocess
@@ -16,17 +16,38 @@ from run import ROOT, api_inventory, percent, run_script
 
 PROBE = ROOT / "tests" / "sequencer" / "probe.gm"
 BASELINE = ROOT / "tests" / "sequencer" / "retail-baseline.tsv"
+PLANNED = ROOT / "tests" / "sequencer" / "planned.json"
 READING = re.compile(r"OEP__([A-Za-z0-9_.]+)__(.*?)\.gm")
 DECLARED = re.compile(r'SeqProbe\("([A-Za-z0-9_.]+)"')
-KNOWN_GAPS = {
-    "SequencerTrigger.getAction.fresh": "retail creates a new action wrapper",
-    "SequencerTrigger.getAction.repeat": "retail creates a wrapper on each call",
-    "SequencerTriggerList.get.fresh": "retail creates a new trigger wrapper",
-}
+KNOWN_GAPS = {}
 ALIASES = {
     "SequencerAction.field.default": "SEQUENCERACTION",
     "Sequencer.callback.step": "Sequencer.setTrigger",
     "Sequencer.callback.count": "Sequencer.setTrigger",
+}
+ASSOCIATED = {
+    "Sequencer.getBPM.default": ["SEQUENCER"],
+    "SequencerListRef.size.initial": ["SEQUENCER_GetAllSequencers"],
+    "Sequencer.isPlaying.paused": ["SEQUENCER_PauseAllSequencers"],
+    "Sequencer.isPlaying.unpaused": ["SEQUENCER_UnpauseAllSequencers"],
+    "Sequencer.getNumTriggers.cleared": ["Sequencer.clearTriggers"],
+    "SequencerTriggerList.size.three": ["Sequencer.getAllTriggers"],
+    "Sequencer.getCurrentStep.raw": ["Sequencer.gotoStep"],
+    "Sequencer.getCurrentStep.restarted": ["Sequencer.restart"],
+    "Sequencer.getBPM.changed": ["Sequencer.setBPM"],
+    "Sequencer.getCurrentStep.set": ["Sequencer.setCurrentStep"],
+    "Sequencer.getNextNotePattern.wrap": ["Sequencer.setLoopLen"],
+    "Sequencer.getNumStepsPerPattern.float": ["Sequencer.setNumStepsPerPattern"],
+    "Sequencer.isPlaying.started": ["Sequencer.start"],
+    "Sequencer.isPlaying.stopped": ["Sequencer.stop"],
+    "SequencerAction.isTaggedForRemoval.tagged": ["SequencerAction.tagForRemoval"],
+    "SequencerListRef.isValid.next": ["SequencerListRef.goToNext"],
+    "SequencerListRef.isValid.reset": ["SequencerListRef.reset"],
+    "Sequencer.setTrigger.implicit.pattern": ["SequencerTrigger.getPattern"],
+    "Sequencer.setTrigger.implicit.step": ["SequencerTrigger.getStep"],
+    "Sequencer.setTrigger.implicit.looped": ["SequencerTrigger.getLooped"],
+    "SequencerTriggerList.get.nextStep": ["SequencerTriggerList.goToNext"],
+    "SequencerTriggerList.get.resetStep": ["SequencerTriggerList.reset"],
 }
 
 
@@ -41,20 +62,10 @@ def read_readings(path):
             name, value = line.split("\t", 1)
         else:
             continue
-        if name in data and data[name] != value:
+        if name in data:
             duplicates.add(name)
         data[name] = value
     return data, duplicates
-
-
-def same_value(left, right):
-    if left == right:
-        return True
-    try:
-        a, b = float(left), float(right)
-    except ValueError:
-        return False
-    return math.isfinite(a) and math.isfinite(b) and math.isclose(a, b, abs_tol=0.01, rel_tol=0)
 
 
 def owning_function(name, inventory):
@@ -73,26 +84,48 @@ def display_path(path):
         return str(path)
 
 
-def make_report(rows, inventory, retail_path, local_path, problems, assertions):
+def documented_sequencer_api():
+    names = set()
+    prefixes = {
+        "sequencer.": "Sequencer.",
+        "sequencerAction.": "SequencerAction.",
+        "sequencerTrigger.": "SequencerTrigger.",
+        "sequencerTriggerList.": "SequencerTriggerList.",
+        "sequencerListRef.": "SequencerListRef.",
+    }
+    with (ROOT / "docs" / "api" / "function_notes.tsv").open() as source:
+        for row in csv.DictReader(source, delimiter="\t"):
+            name = row["name"]
+            if name.startswith("Global.SEQUENC"):
+                names.add(name.removeprefix("Global."))
+            for prefix, renamed in prefixes.items():
+                if name.startswith(prefix):
+                    names.add(renamed + name[len(prefix):])
+    return names
+
+
+def make_report(rows, inventory, retail_path, local_path, problems, assertions,
+                planned, missing_api):
     matched = sum(row["status"] == "PASS" for row in rows)
-    paired = sum(row["retail"] is not None for row in rows)
+    total = len(rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
     uncaptured = sum(row["status"] == "NO RETAIL" for row in rows)
     checks = assertions["entries"]
     local_passed = sum(case["result"] == "PASS" for case in checks)
     lines = [
         "# Sequencer test report", "",
-        f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}  ",
-        f"Retail: `{display_path(retail_path)}`  ",
-        f"OpenEgg: `{display_path(local_path)}`  ",
-        f"Matched: **{matched}/{paired} retail readings ({percent(matched, paired)})**  ",
-        f"Known gaps: **{gaps}**  Uncaptured retail readings: **{uncaptured}**", "",
+        f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}",
+        f"Retail: `{display_path(retail_path)}` | OpenEgg: `{display_path(local_path)}`", "",
+        f"Matched: **{matched}/{total} declared readings ({percent(matched, total)})** | "
+        f"Known gaps: **{gaps}** | Uncaptured: **{uncaptured}** | "
+        f"Planned: **{len(planned)}**", "",
         f"Local assertions: **{local_passed}/{len(checks)} passed "
         f"({percent(local_passed, len(checks))})**", "",
-        "One row is one function reading from the same `probe.gm` on both engines. "
-        "Scores measure tested cases only; they are not total implementation progress. "
-        "Integration checks can count for several functions. Missing retail callback "
-        "readings stay outside the paired score.", "",
+        "One row is one exact string comparison from the same `probe.gm` on both engines. "
+        "A missing reading or duplicate fails the run. Scores measure tested cases only; "
+        "they are not total implementation progress. "
+        "Integration checks can count for several functions. `OEPV__` clock readings "
+        "stay outside the score.", "",
         "## Sections", "",
         "| Section | Passed | Cases | Score |", "| --- | ---: | ---: | ---: |",
     ]
@@ -104,35 +137,46 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions):
         lines.append(f"| {section} | {count} | {len(cases)} | {percent(count, len(cases))} |")
     lines.extend([
         "", "## Per function", "",
-        "| Function | Retail | Local checks | Combined score | Status |",
+        "| Function | Paired score | Local checks | Planned | Status |",
         "| --- | ---: | ---: | ---: | --- |",
     ])
     grouped = defaultdict(list)
     for row in rows:
-        grouped[row["function"]].append(row)
+        for function in row["functions"]:
+            grouped[function].append(row)
     local_grouped = defaultdict(list)
     for case in checks:
         for function in case["functions"]:
             local_grouped[function].append(case)
+    planned_grouped = defaultdict(list)
+    for case in planned:
+        for function in case["functions"]:
+            planned_grouped[function].append(case)
     for function in inventory:
         cases = grouped[function]
-        paired_cases = [case for case in cases if case["retail"] is not None]
-        count = sum(case["status"] == "PASS" for case in paired_cases)
+        count = sum(case["status"] == "PASS" for case in cases)
         local_cases = local_grouped[function]
         local_count = sum(case["result"] == "PASS" for case in local_cases)
-        total_passed = count + local_count
-        total_cases = len(paired_cases) + len(local_cases)
-        status = "untested" if not total_cases else (
+        status = "untested" if not cases else (
             "FAIL" if any(case["status"] == "FAIL" for case in cases) or
                       any(case["result"] == "FAIL" for case in local_cases) else
             "GAP" if any(case["status"] == "GAP" for case in cases) or
                      any(case["result"] == "GAP" for case in local_cases) else
-            "NO RETAIL" if not paired_cases else
             "PARTIAL" if any(case["status"] == "NO RETAIL" for case in cases) else "PASS"
         )
-        lines.append(f"| `{function}` | {count}/{len(paired_cases)} | "
+        if status == "PASS" and planned_grouped[function]:
+            status = "PENDING"
+        lines.append(f"| `{function}` | {count}/{len(cases)} ({percent(count, len(cases))}) | "
                      f"{local_count}/{len(local_cases)} | "
-                     f"{total_passed}/{total_cases} ({percent(total_passed, total_cases)}) | {status} |")
+                     f"{len(planned_grouped[function])} | {status} |")
+    lines.extend(["", "## Planned cases", "",
+                  "| Case | Functions | Why |", "| --- | --- | --- |"])
+    for case in planned:
+        functions = ", ".join(f"`{name}`" for name in case["functions"])
+        lines.append(f"| {case['name']} | {functions} | {case['note']} |")
+    lines.extend(["", f"Documented sequencer APIs missing from bindings: **{len(missing_api)}**."])
+    if missing_api:
+        lines.extend(f"- `{name}` — not implemented" for name in missing_api)
     lines.extend(["", "## Readings", "",
                   "| Function | Case | Retail | OpenEgg | Result |",
                   "| --- | --- | --- | --- | --- |"])
@@ -141,16 +185,16 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions):
                      f"`{row['retail'] if row['retail'] is not None else '—'}` | "
                      f"`{row['local'] if row['local'] is not None else '—'}` | "
                      f"{row['status']} |")
-    lines.extend(["", "## Known gaps", ""])
-    for name, reason in KNOWN_GAPS.items():
-        lines.append(f"- `{name}`: {reason}.")
+    if gaps:
+        lines.extend(["", "## Known gaps", ""])
+        for name, reason in KNOWN_GAPS.items():
+            lines.append(f"- `{name}`: {reason}.")
     if problems or assertions["problems"]:
         lines.extend(["", "## Run problems", ""])
         lines.extend(f"- {problem}" for problem in problems)
         lines.extend(f"- {problem}" for problem in assertions["problems"])
     if uncaptured:
-        lines.extend(["", "The retail capture has no callback readings; the bundled run "
-                      "faulted before those results appeared. They are marked NO RETAIL."])
+        lines.extend(["", "Missing retail readings are marked NO RETAIL and fail the run."])
     lines.extend(["", "Local assertion details: `tests/_results/assertions.md`.", ""])
     return "\n".join(lines)
 
@@ -177,9 +221,20 @@ def main():
             print("local assertion runner reported failures", file=sys.stderr)
     assertions = json.loads(assertions_json.read_text())
     inventory = api_inventory()
+    planned = json.loads(PLANNED.read_text())
+    planned_names = set()
+    for case in planned:
+        if case["name"] in planned_names:
+            raise ValueError(f"duplicate planned case: {case['name']}")
+        planned_names.add(case["name"])
+        unknown = set(case["functions"]) - set(inventory)
+        if unknown:
+            raise ValueError(f"{case['name']}: unknown planned functions: {sorted(unknown)}")
+    missing_api = sorted(documented_sequencer_api() - set(inventory))
     expected = DECLARED.findall(PROBE.read_text())
     if len(expected) != len(set(expected)):
         raise ValueError("duplicate SeqProbe case names")
+    process_error = ""
     if args.local_log:
         local_path = args.local_log.resolve()
     else:
@@ -200,31 +255,37 @@ def main():
             status = "FAIL"
         elif a is None:
             status = "NO RETAIL"
-        elif same_value(a, b):
+        elif a == b:
             status = "PASS"
         elif name in KNOWN_GAPS:
             status = "GAP"
         else:
             status = "FAIL"
-        rows.append({"name": name, "function": owning_function(name, inventory),
+        function = owning_function(name, inventory)
+        functions = [function, *ASSOCIATED.get(name, [])]
+        if set(functions) - set(inventory):
+            raise ValueError(f"{name}: unknown assigned function")
+        rows.append({"name": name, "function": function, "functions": functions,
                      "retail": a, "local": b, "status": status})
     problems = []
+    if process_error:
+        problems.append(f"OpenEgg probe run: {process_error}")
     for origin, readings, duplicates in (("retail", retail, retail_duplicates),
                                          ("OpenEgg", local, local_duplicates)):
         for name in sorted(set(readings) - set(expected)):
             problems.append(f"Unexpected {origin} reading: {name}")
         for name in sorted(duplicates):
-            problems.append(f"Conflicting {origin} readings: {name}")
+            problems.append(f"Duplicate {origin} reading: {name}")
     args.report.write_text(make_report(rows, inventory, retail_path, local_path,
-                                       problems, assertions))
+                                       problems, assertions, planned, missing_api))
     passed = sum(row["status"] == "PASS" for row in rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
-    failures = sum(row["status"] == "FAIL" for row in rows)
-    print(f"probe: {passed} matched, {gaps} known gaps, {failures} failures")
+    failures = sum(row["status"] in ("FAIL", "NO RETAIL") for row in rows)
+    print(f"probe: {passed}/{len(rows)} matched, {gaps} known gaps, {failures} failures")
     print(f"Report: {args.report}")
     local_failures = sum(case["result"] == "FAIL" for case in assertions["entries"])
     local_gaps = sum(case["result"] == "GAP" for case in assertions["entries"])
-    return 1 if failures or local_failures or problems or assertions["problems"] or (
+    return 1 if failures or local_failures or problems or missing_api or assertions["problems"] or (
         args.strict_parity and (gaps or local_gaps)) else 0
 
 
