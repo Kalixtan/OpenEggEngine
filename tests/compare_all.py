@@ -12,6 +12,7 @@ def main():
     commands = (
         ("sequencer", [sys.executable, str(ROOT / "tests/compare_probe.py")]),
         ("physics", [sys.executable, str(ROOT / "tests/physics/compare.py")]),
+        ("audio", [sys.executable, str(ROOT / "tests/audio/compare.py")]),
     )
     failed = []
     for section, command in commands:

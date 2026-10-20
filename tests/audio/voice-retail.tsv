@@ -1,0 +1,22 @@
+# probe-sha256 66d779e4e6b695cf98b56315711bd955ab70b1350246de4e885048df4fe8802e
+Audio.getAllVoices.hasVoice	1
+Audio.getSoundLength.sample	87
+Audio.getVoiceLength.one	87
+Audio.getVoicePosition.set	20
+Audio.getVoiceSpeed.changed	1.250000
+Audio.getVoiceSpeed.five	1.000000
+Audio.getVoiceSpeed.note	1.000000
+Audio.getVoiceSpeed.one	1.000000
+Audio.getVoiceVolume.changed	0.200000
+Audio.getVoiceVolume.one	1.000000
+Audio.getVoiceVolume.three	0.250000
+Audio.isVoicePaused.one	0
+Audio.isVoicePaused.paused	1
+Audio.isVoicePaused.resumed	0
+Audio.isVoiceValid.five	1
+Audio.isVoiceValid.one	1
+Audio.isVoiceValid.three	1
+Audio.loadSound.sample	1
+Audio.playSound.fivePositive	1
+Audio.playSound.onePositive	1
+Audio.playSound.threePositive	1

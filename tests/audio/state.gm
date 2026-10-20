@@ -1,0 +1,56 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+Probe("Audio.getMasterVolume.default",Audio.getMasterVolume());
+Probe("Audio.getMusicVolume.default",Audio.getMusicVolume());
+Probe("Audio.getSFXVolume.default",Audio.getSFXVolume());
+Probe("Audio.getFrequencyMultiplier.default",Audio.getFrequencyMultiplier());
+Probe("Audio.getDefaultBaseNote.default",Audio.getDefaultBaseNote());
+Probe("Audio.getNumDiracDSPs.default",Audio.getNumDiracDSPs());
+Probe("Audio.getNumDiracDSPsFree.default",Audio.getNumDiracDSPsFree());
+Probe("Audio.getNumDiracDSPsUsed.default",Audio.getNumDiracDSPsUsed());
+Probe("Audio.getNumDiracDSPChannelsUsed.default",Audio.getNumDiracDSPChannelsUsed());
+Probe("Audio.checkDiracPoolIntegrity.default",Audio.checkDiracPoolIntegrity());
+
+Audio.setMasterVolume(0.5);
+Audio.setMusicVolume(0.25);
+Audio.setSFXVolume(0.75);
+Probe("Audio.getMasterVolume.half",Audio.getMasterVolume());
+Probe("Audio.getMusicVolume.scaled",Audio.getMusicVolume());
+Probe("Audio.getSFXVolume.scaled",Audio.getSFXVolume());
+Audio.setMasterVolume(2);
+Probe("Audio.getMasterVolume.high",Audio.getMasterVolume());
+Audio.setMasterVolume(-1);
+Probe("Audio.getMasterVolume.low",Audio.getMasterVolume());
+Audio.setMasterVolume(1);
+Audio.setMusicVolume(1);
+Audio.setSFXVolume(1);
+
+Audio.setFrequencyMultiplier(0.75);
+Probe("Audio.getFrequencyMultiplier.changed",Audio.getFrequencyMultiplier());
+Audio.setFrequencyMultiplier(1);
+
+local missing="OpenEggProbe/no-such-sound.wav";
+Probe("Audio.loadSound.missing",Audio.loadSound(missing));
+Probe("Audio.getSoundLength.missing",Audio.getSoundLength(missing));
+Probe("Audio.playSound.missing",Audio.playSound(missing));
+Probe("Audio.playStream.missing",Audio.playStream(missing));
+Probe("Audio.isVoiceValid.zero",Audio.isVoiceValid(0));
+Probe("Audio.isVoiceValid.unknown",Audio.isVoiceValid(-1));
+Probe("Audio.getVoiceLength.unknown",Audio.getVoiceLength(-1));
+Probe("Audio.getVoicePosition.unknown",Audio.getVoicePosition(-1));
+Probe("Audio.getVoiceSpeed.unknown",Audio.getVoiceSpeed(-1));
+Probe("Audio.getVoiceVolume.unknown",Audio.getVoiceVolume(-1));
+Probe("Audio.isVoicePaused.unknown",Audio.isVoicePaused(-1));
+
+Probe("Audio.isRecordingScript.default",Audio.isRecordingScript());
+Probe("Audio.isPlayingScript.default",Audio.isPlayingScript());
+Probe("Audio.isRetriggering.default",Audio.isRetriggering());
+Probe("Audio.getRetriggerTime.default",Audio.getRetriggerTime());
+Probe("Audio.isRecording.default",Audio.isRecording());
+Probe("Audio.getAllVoices.empty",Audio.getAllVoices().isValid());
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};
