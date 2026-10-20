@@ -1,0 +1,51 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            this.frames=0;
+            this.order=0;
+
+            local notes={}; notes.size=16;
+            local i=0;
+            for (i=0;i<16;i+=1) { notes[i]=i%3; }
+            local packed={}; SEQUENCE_ToTable(notes,packed);
+            local unpacked={}; SEQUENCE_FromTable(packed,unpacked);
+            local encoded=SEQUENCE_ToString(notes);
+            local decoded={}; SEQUENCE_FromString(encoded,decoded);
+            if (unpacked.size==16 && unpacked[1]==1 && encoded=="z0120120120120120" && decoded[15]==0) {
+                GameSystem.trace("SEQ conversion PASS");
+            } else { GameSystem.trace("SEQ conversion FAIL"); }
+
+            this.seq=SEQUENCER();
+            local first=SEQUENCERACTION(); first.parent=this;
+            first.execute=function() { this.parent.order=this.parent.order*10+1; };
+            local middle=SEQUENCERACTION(); middle.parent=this;
+            middle.execute=function() { this.parent.order=this.parent.order*10+2; };
+            local last=SEQUENCERACTION(); last.parent=this;
+            last.execute=function() { this.parent.order=this.parent.order*10+3; };
+            this.seq.setTrigger(0,first,false);
+            local moved=this.seq.setTrigger(0,middle,false);
+            this.seq.setTrigger(0,last,false);
+            this.seq.moveTriggerToFront(moved);
+            this.seq.start();
+
+            this.taggedSeq=SEQUENCER();
+            local tagged=SEQUENCERACTION();
+            this.taggedSeq.setTrigger(10,tagged,true);
+            tagged.tagForRemoval();
+            this.taggedSeq.start();
+        },
+        init=function() { return true; },
+        update=function() {
+            this.frames+=1;
+            if (this.frames==30) {
+                if (this.order==213 && this.seq.getNumTriggers()==0) {
+                    GameSystem.trace("SEQ order PASS");
+                } else { GameSystem.trace("SEQ order FAIL"); }
+                if (this.taggedSeq.getNumTriggers()==0) {
+                    GameSystem.trace("SEQ removal PASS");
+                } else { GameSystem.trace("SEQ removal FAIL"); }
+            }
+        }
+    );
+};
