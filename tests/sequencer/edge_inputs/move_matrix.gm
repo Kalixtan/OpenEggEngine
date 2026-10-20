@@ -1,0 +1,39 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local a0=SEQUENCERACTION(); local a1=SEQUENCERACTION();
+local a2=SEQUENCERACTION(); local a3=SEQUENCERACTION();
+local mixed=SEQUENCER();
+mixed.setTrigger(0,a0,0); mixed.setTrigger(1,a1,0);
+local equal=mixed.setTrigger(1,a2,0); mixed.setTrigger(2,a3,0);
+mixed.moveTriggerToFront(equal);
+local m=mixed.getAllTriggers();
+SeqProbe("edge.moveMatrix.mixed0",m.get().getStep()); m.goToNext();
+SeqProbe("edge.moveMatrix.mixed1",m.get().getStep()); m.goToNext();
+SeqProbe("edge.moveMatrix.mixed2",m.get().getStep()); m.goToNext();
+SeqProbe("edge.moveMatrix.mixed3",m.get().getStep());
+
+local repeat=SEQUENCER();
+repeat.setTrigger(0,a0,0);
+local firstMove=repeat.setTrigger(1,a1,0);
+local secondMove=repeat.setTrigger(2,a2,0);
+repeat.setTrigger(3,a3,0);
+repeat.moveTriggerToFront(firstMove);
+repeat.moveTriggerToFront(secondMove);
+local r=repeat.getAllTriggers();
+SeqProbe("edge.moveMatrix.repeat0",r.get().getStep()); r.goToNext();
+SeqProbe("edge.moveMatrix.repeat1",r.get().getStep()); r.goToNext();
+SeqProbe("edge.moveMatrix.repeat2",r.get().getStep()); r.goToNext();
+SeqProbe("edge.moveMatrix.repeat3",r.get().getStep());
+
+local head=SEQUENCER();
+local h=head.setTrigger(0,a0,0);
+head.setTrigger(1,a1,0); head.setTrigger(2,a2,0);
+head.moveTriggerToFront(h);
+local q=head.getAllTriggers();
+SeqProbe("edge.moveMatrix.head0",q.get().getStep()); q.goToNext();
+SeqProbe("edge.moveMatrix.head1",q.get().getStep()); q.goToNext();
+SeqProbe("edge.moveMatrix.head2",q.get().getStep());
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

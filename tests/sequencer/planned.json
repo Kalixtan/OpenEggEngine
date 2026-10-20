@@ -171,9 +171,24 @@
     ],
     "note": "Check insertion and deletion while a cursor is held; avoid retail stale-pointer crash.",
     "prefixes": [
-      "edge.triggerCursor."
+      "edge.triggerCursor.",
+      "edge.cursorMove."
     ],
-    "limit": "Insertion only; deletion is not covered."
+    "limit": "Insertion and moving a held trigger covered; deletion is not covered."
+  },
+  {
+    "name": "Move trigger ordering",
+    "functions": [
+      "Sequencer.moveTriggerToFront",
+      "Sequencer.getAllTriggers",
+      "SequencerTriggerList.goToNext"
+    ],
+    "note": "Check order after moving first, middle, and repeated positions.",
+    "prefixes": [
+      "edge.moveOrder.",
+      "edge.moveMatrix."
+    ],
+    "limit": "Moving the last of multiple triggers crashes retail; see retail-crashes.md."
   },
   {
     "name": "Sequencer cursor during mutation",

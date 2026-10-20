@@ -1,9 +1,9 @@
 # Sequencer test report
 
-Generated: 2026-10-20 17:06 UTC
+Generated: 2026-10-20 17:40 UTC
 Retail: `tests/sequencer/retail-baseline.tsv` and `tests/sequencer/edge-baselines/` | OpenEgg: `tests/_results/sequencer/`
 
-Matched: **156/156 declared readings (100%)** | Known gaps: **0** | Uncaptured: **0** | Edge groups run: **19**
+Matched: **181/181 declared readings (100%)** | Known gaps: **0** | Uncaptured: **0** | Edge groups run: **20**
 
 Local assertions: **49/49 passed (100%)**
 
@@ -41,7 +41,7 @@ One row is one exact string comparison from the same probe file on both engines.
 | `SEQUENCE_ToString` | 4/4 (100%) | 3/3 | 1 | LIMITED |
 | `SEQUENCE_ToTable` | 5/5 (100%) | 3/3 | 1 | LIMITED |
 | `Sequencer.clearTriggers` | 4/4 (100%) | 2/2 | 1 | LIMITED |
-| `Sequencer.getAllTriggers` | 4/4 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.getAllTriggers` | 29/29 (100%) | 1/1 | 2 | LIMITED |
 | `Sequencer.getBPM` | 5/5 (100%) | 2/2 | 1 | LIMITED |
 | `Sequencer.getCurrentPattern` | 6/6 (100%) | 5/5 | 1 | LIMITED |
 | `Sequencer.getCurrentStep` | 4/4 (100%) | 5/5 | 0 | PASS |
@@ -61,7 +61,7 @@ One row is one exact string comparison from the same probe file on both engines.
 | `Sequencer.getWrappedStep` | 25/25 (100%) | 0/0 | 1 | LIMITED |
 | `Sequencer.gotoStep` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.isPlaying` | 5/5 (100%) | 3/3 | 0 | PASS |
-| `Sequencer.moveTriggerToFront` | 4/4 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.moveTriggerToFront` | 19/19 (100%) | 2/2 | 2 | LIMITED |
 | `Sequencer.restart` | 3/3 (100%) | 1/1 | 1 | LIMITED |
 | `Sequencer.setBPM` | 8/8 (100%) | 3/3 | 2 | LIMITED |
 | `Sequencer.setCurrentStep` | 1/1 (100%) | 1/1 | 0 | PASS |
@@ -87,8 +87,8 @@ One row is one exact string comparison from the same probe file on both engines.
 | `SequencerTrigger.getLooped` | 1/1 (100%) | 7/7 | 0 | PASS |
 | `SequencerTrigger.getPattern` | 1/1 (100%) | 8/8 | 0 | PASS |
 | `SequencerTrigger.getStep` | 1/1 (100%) | 8/8 | 0 | PASS |
-| `SequencerTriggerList.get` | 7/7 (100%) | 4/4 | 1 | LIMITED |
-| `SequencerTriggerList.goToNext` | 4/4 (100%) | 2/2 | 1 | LIMITED |
+| `SequencerTriggerList.get` | 17/17 (100%) | 4/4 | 1 | LIMITED |
+| `SequencerTriggerList.goToNext` | 29/29 (100%) | 2/2 | 2 | LIMITED |
 | `SequencerTriggerList.isValid` | 1/1 (100%) | 4/4 | 0 | PASS |
 | `SequencerTriggerList.reset` | 1/1 (100%) | 2/2 | 0 | PASS |
 | `SequencerTriggerList.size` | 1/1 (100%) | 3/3 | 0 | PASS |
@@ -110,7 +110,8 @@ One row is one exact string comparison from the same probe file on both engines.
 | Restart at future step | 2/2 | Callback order against same-step actions is not covered. |
 | Callback mutation | 3/3 | One append, tag, and clear path. |
 | Action wrapper lifetime | 3/3 | Clear and explicit GC covered. |
-| Trigger cursor during mutation | 3/3 | Insertion only; deletion is not covered. |
+| Trigger cursor during mutation | 13/13 | Insertion and moving a held trigger covered; deletion is not covered. |
+| Move trigger ordering | 15/15 | Moving the last of multiple triggers crashes retail; see retail-crashes.md. |
 | Sequencer cursor during mutation | 2/2 | Creation only; collection is not covered. |
 | Callback and GC interleave | 1/1 | One explicit GC before callback. |
 | Malformed packed sequence | 4/4 | Empty, short, sparse, and float entries; oversized is not covered. |
@@ -234,10 +235,35 @@ Documented sequencer APIs missing from bindings: **0**.
 | `Sequencer.setBPM` | edge.bpmFloat.positive | `1` | `1` | PASS |
 | `Sequencer.setBPM` | edge.bpmFloat.negative | `-1` | `-1` | PASS |
 | `Sequencer.setBPM` | edge.bpmFloat.overflow | `2147483647` | `2147483647` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.beforeFirst | `0` | `0` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.beforeSecond | `1` | `1` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.beforeThird | `2` | `2` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.before | `1` | `1` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.freshFirst | `1` | `1` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.freshSecond | `0` | `0` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.freshThird | `2` | `2` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.valid | `1` | `1` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.after | `1` | `1` | PASS |
+| `Sequencer.getAllTriggers` | edge.cursorMove.next | `0` | `0` | PASS |
 | `Sequencer.setLoopLen` | edge.loop.zeroInitial | `0` | `0` | PASS |
 | `Sequencer.setLoopLen` | edge.loop.negativeInitial | `0` | `0` | PASS |
 | `Sequencer.setLoopLen` | edge.loop.zeroAfter | `0` | `0` | PASS |
 | `Sequencer.setLoopLen` | edge.loop.negativeAfter | `0` | `0` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.mixed0 | `1` | `1` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.mixed1 | `0` | `0` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.mixed2 | `1` | `1` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.mixed3 | `2` | `2` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.repeat0 | `1` | `1` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.repeat1 | `2` | `2` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.repeat2 | `0` | `0` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.repeat3 | `3` | `3` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.head0 | `0` | `0` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.head1 | `1` | `1` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveMatrix.head2 | `2` | `2` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveOrder.four.0 | `0` | `0` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveOrder.four.1 | `2` | `2` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveOrder.four.2 | `1` | `1` | PASS |
+| `Sequencer.moveTriggerToFront` | edge.moveOrder.four.3 | `3` | `3` | PASS |
 | `Sequencer.getNextNoteStep` | edge.note.before | `1` | `1` | PASS |
 | `Sequencer.getNextNoteStep` | edge.note.nextStep | `0` | `0` | PASS |
 | `Sequencer.getNextNoteStep` | edge.note.nextPattern | `0` | `0` | PASS |

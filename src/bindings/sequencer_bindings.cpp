@@ -622,14 +622,26 @@ int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
                 }
                 SequencerTrigger t = triggers[i];
                 triggers.erase(triggers.begin() + i);
-                // Retail walks backward across equal positions before
-                // reinserting, so this trigger fires first at that step.
-                auto firstAtPosition = std::lower_bound(triggers.begin(), triggers.end(), t,
-                    [](const SequencerTrigger& existing, const SequencerTrigger& value) {
-                        return existing.pattern < value.pattern ||
-                            (existing.pattern == value.pattern && existing.step < value.step);
-                    });
-                triggers.insert(firstAtPosition, std::move(t));
+                if (i == triggers.size() && !triggers.empty()) {
+                    // Retail dereferences the list sentinel here. Keep this
+                    // path safe after the warning above.
+                    auto firstAtPosition = std::lower_bound(triggers.begin(), triggers.end(), t,
+                        [](const SequencerTrigger& existing, const SequencerTrigger& value) {
+                            return existing.pattern < value.pattern ||
+                                (existing.pattern == value.pattern && existing.step < value.step);
+                        });
+                    triggers.insert(firstAtPosition, std::move(t));
+                } else {
+                    // Retail starts at the successor, walks back while the
+                    // moved position is <= its current node, then inserts before it.
+                    size_t at = i;
+                    while (at > 0 &&
+                           (t.pattern < triggers[at].pattern ||
+                            (t.pattern == triggers[at].pattern && t.step <= triggers[at].step))) {
+                        --at;
+                    }
+                    triggers.insert(triggers.begin() + at, std::move(t));
+                }
                 break;
             }
         }

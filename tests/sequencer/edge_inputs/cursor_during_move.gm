@@ -1,0 +1,39 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local s=SEQUENCER();
+local a0=SEQUENCERACTION(table(value=0));
+local a1=SEQUENCERACTION(table(value=1));
+local a2=SEQUENCERACTION(table(value=2));
+s.setTrigger(0,a0,0);
+local middle=s.setTrigger(1,a1,0);
+s.setTrigger(2,a2,0);
+local before=s.getAllTriggers();
+SeqProbe("edge.cursorMove.beforeFirst",before.get().getStep());
+before.goToNext();
+SeqProbe("edge.cursorMove.beforeSecond",before.get().getStep());
+before.goToNext();
+SeqProbe("edge.cursorMove.beforeThird",before.get().getStep());
+local cursor=s.getAllTriggers();
+cursor.goToNext();
+SeqProbe("edge.cursorMove.before",cursor.get().getStep());
+s.moveTriggerToFront(middle);
+local fresh=s.getAllTriggers();
+SeqProbe("edge.cursorMove.freshFirst",fresh.get().getStep());
+fresh.goToNext();
+SeqProbe("edge.cursorMove.freshSecond",fresh.get().getStep());
+fresh.goToNext();
+SeqProbe("edge.cursorMove.freshThird",fresh.get().getStep());
+SeqProbe("edge.cursorMove.valid",cursor.isValid());
+local after=cursor.get();
+local afterStep=-1;
+if (after!=null) { afterStep=after.getStep(); }
+SeqProbe("edge.cursorMove.after",afterStep);
+cursor.goToNext();
+local next=cursor.get();
+local nextStep=-1;
+if (next!=null) { nextStep=next.getStep(); }
+SeqProbe("edge.cursorMove.next",nextStep);
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};
