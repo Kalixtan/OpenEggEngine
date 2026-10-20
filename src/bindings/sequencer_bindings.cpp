@@ -1057,15 +1057,6 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
             }
 
             auto& triggers = s->triggers->values;
-            for (size_t i = 0; i < triggers.size(); ) {
-                if (IsActionTagged(a_machine, triggers[i].action)) {
-                    UnrootGmVariable(a_machine, triggers[i].handle);
-                    triggers.erase(triggers.begin() + i);
-                } else {
-                    ++i;
-                }
-            }
-
             struct DueAction { gmVariable action; bool restart; };
             std::vector<DueAction> dueActions;
             gmTableObject* dueRoot = nullptr;
