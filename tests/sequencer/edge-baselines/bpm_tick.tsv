@@ -1,0 +1,5 @@
+# probe-sha256 a279a8920484e28bccbdf0f4c2cd2941f46b0d0ff42a30e537c09290af7e260d
+edge.bpm.negativeTickAfter	11
+edge.bpm.negativeTickInitial	-1
+edge.bpm.zeroTickAfter	0
+edge.bpm.zeroTickInitial	-1

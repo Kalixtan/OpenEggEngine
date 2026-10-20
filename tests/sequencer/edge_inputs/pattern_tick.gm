@@ -1,0 +1,23 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function() {
+        this.zero=SEQUENCER();
+        this.zero.setBPM(480);
+        this.zero.setNumStepsPerPattern(0);
+        this.zero.start();
+        this.negative=SEQUENCER();
+        this.negative.setBPM(480);
+        this.negative.setNumStepsPerPattern(-2);
+        this.negative.start();
+        SeqProbe("edge.pattern.zeroTickInitial",this.zero.getCurrentStep());
+        SeqProbe("edge.pattern.negativeTickInitial",this.negative.getCurrentStep());
+    },init=function(){return true;},update=function() {
+        this.frame+=1;
+        if (this.frame==12) {
+            SeqProbe("edge.pattern.zeroTickAfter",this.zero.getCurrentStep());
+            SeqProbe("edge.pattern.negativeTickAfter",this.negative.getCurrentStep());
+        }
+    });
+};

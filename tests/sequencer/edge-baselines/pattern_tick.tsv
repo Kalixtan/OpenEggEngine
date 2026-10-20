@@ -1,0 +1,5 @@
+# probe-sha256 52b2a1e6122e2e015e4c8c22963869e42c668336682ee81a45e146ea53c0ff0d
+edge.pattern.negativeTickAfter	8
+edge.pattern.negativeTickInitial	-1
+edge.pattern.zeroTickAfter	8
+edge.pattern.zeroTickInitial	-1

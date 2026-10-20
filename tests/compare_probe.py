@@ -51,6 +51,19 @@ ASSOCIATED = {
     "SequencerTriggerList.get.nextStep": ["SequencerTriggerList.goToNext"],
     "SequencerTriggerList.get.resetStep": ["SequencerTriggerList.reset"],
 }
+EDGE_FUNCTIONS = {
+    "edge.bpm.zeroTickInitial": ["Sequencer.getCurrentStep", "Sequencer.setBPM"],
+    "edge.bpm.negativeTickInitial": ["Sequencer.getCurrentStep", "Sequencer.setBPM"],
+    "edge.bpm.zeroTickAfter": ["Sequencer.getCurrentStep", "Sequencer.setBPM"],
+    "edge.bpm.negativeTickAfter": ["Sequencer.getCurrentStep", "Sequencer.setBPM"],
+    "edge.pattern.zeroTickInitial": ["Sequencer.getCurrentStep", "Sequencer.setNumStepsPerPattern"],
+    "edge.pattern.negativeTickInitial": ["Sequencer.getCurrentStep", "Sequencer.setNumStepsPerPattern"],
+    "edge.pattern.zeroTickAfter": ["Sequencer.getCurrentStep", "Sequencer.setNumStepsPerPattern"],
+    "edge.pattern.negativeTickAfter": ["Sequencer.getCurrentStep", "Sequencer.setNumStepsPerPattern"],
+    "edge.restart.initialStep": ["Sequencer.getCurrentStep", "Sequencer.restart"],
+    "edge.restart.currentStep": ["Sequencer.getCurrentStep", "Sequencer.restart"],
+    "edge.restart.actionOrder": ["Sequencer.setTrigger", "Sequencer.restart"],
+}
 
 
 def read_readings(path):
@@ -150,8 +163,9 @@ def run_edge_probes(engine, planned):
             a, b = retail.get(name), local.get(name)
             status = "FAIL" if b is None else "NO RETAIL" if a is None else (
                 "PASS" if a == b else "FAIL")
-            rows.append({"name": name, "function": case["functions"][0],
-                         "functions": case["functions"], "case": case["name"],
+            functions = EDGE_FUNCTIONS.get(name, case["functions"])
+            rows.append({"name": name, "function": functions[0],
+                         "functions": functions, "case": case["name"],
                          "retail": a, "local": b, "status": status})
         if process_error:
             problems.append(f"{probe.name}: {process_error}")
@@ -170,6 +184,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
     total = len(rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
     uncaptured = sum(row["status"] == "NO RETAIL" for row in rows)
+    failures = sum(row["status"] == "FAIL" for row in rows)
     checks = assertions["entries"]
     local_passed = sum(case["result"] == "PASS" for case in checks)
     edge_rows = [row for row in rows if "case" in row]
@@ -179,7 +194,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         f"Retail: `{display_path(retail_path)}` and `tests/sequencer/edge-baselines/` | "
         f"OpenEgg: `tests/_results/sequencer/`", "",
         f"Matched: **{matched}/{total} declared readings ({percent(matched, total)})** | "
-        f"Known gaps: **{gaps}** | Uncaptured: **{uncaptured}** | "
+        f"Known gaps: **{gaps}** | Failures: **{failures}** | Uncaptured: **{uncaptured}** | "
         f"Edge groups run: **{len(planned)}**", "",
         f"Local assertions: **{local_passed}/{len(checks)} passed "
         f"({percent(local_passed, len(checks))})**", "",

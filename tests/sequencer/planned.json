@@ -9,7 +9,7 @@
     "prefixes": [
       "edge.bpm."
     ],
-    "limit": "Tick behavior after invalid BPM is not covered."
+    "limit": "Zero and negative BPM sampled through 12 updates; longer runs are open."
   },
   {
     "name": "BPM float edge conversion",
@@ -35,7 +35,7 @@
       "edge.pattern.",
       "edge.wrap."
     ],
-    "limit": "Tick wrap after invalid length is not covered."
+    "limit": "Tick wrap sampled through 12 updates; longer runs are open."
   },
   {
     "name": "Loop length zero and negative",
@@ -134,7 +134,7 @@
     "prefixes": [
       "edge.restart."
     ],
-    "limit": "Callback order against same-step actions is not covered."
+    "limit": "Two same-step actions after restart are covered; other callback orders are open."
   },
   {
     "name": "Callback mutation",

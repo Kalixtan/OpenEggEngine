@@ -1,0 +1,29 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,order=0,constructor=function() {
+        this.seq=SEQUENCER();
+        this.seq.setBPM(480);
+        this.seq.setNumStepsPerPattern(8);
+        local first=SEQUENCERACTION(); first.parent=this;
+        first.execute=function() { this.parent.order=this.parent.order*10+1; };
+        local second=SEQUENCERACTION(); second.parent=this;
+        second.execute=function() { this.parent.order=this.parent.order*10+2; };
+        local later=SEQUENCERACTION(); later.parent=this;
+        later.execute=function() { this.parent.order=this.parent.order*10+3; };
+        this.seq.setTrigger(0,first,0);
+        this.seq.setTrigger(0,second,0);
+        this.seq.setTrigger(1,later,0);
+        this.seq.setCurrentStep(6);
+        this.seq.start();
+        this.seq.restart();
+        SeqProbe("edge.restart.initialStep",this.seq.getCurrentStep());
+    },init=function(){return true;},update=function() {
+        this.frame+=1;
+        if (this.frame==20) {
+            SeqProbe("edge.restart.actionOrder",this.order);
+            SeqProbe("edge.restart.currentStep",this.seq.getCurrentStep());
+        }
+    });
+};

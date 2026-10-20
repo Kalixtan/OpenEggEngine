@@ -29,8 +29,9 @@ local assertions; section scripts stay separate so cases are easy to edit.
 
 The checked-in baselines let the default command work without RPCS3.
 `planned.json` maps the 20 edge groups and records what each still misses.
-Matching output supports parity for tested inputs and visible results; hidden
-side effects and untested behavior remain open.
+The tick probes cover invalid BPM and pattern lengths; `restart_order.gm`
+checks same-step action order. Matching output supports parity for tested
+inputs and visible results; hidden side effects remain open.
 
 `unsafe_inputs/` holds isolated retail crash probes. See `retail-crashes.md`
 before using those calls in scripts that must run on PS3.
