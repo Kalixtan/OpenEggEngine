@@ -14,3 +14,7 @@ Run the same command with `edge.gm` to check OpenEgg's safe handling of two
 retail edge cases. Retail faults when moving the last trigger, and a cursor
 held through `clearTriggers()` reads freed memory. OpenEgg returns normally
 and invalidates the cleared cursor.
+
+Run it with `state.gm` to check constructor state, tempo, note divisions,
+navigation, and playback flags. These checks also passed against the retail
+PS3 build.

@@ -1,0 +1,46 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            local s=SEQUENCER();
+            if (s.getBPM()==98 && s.getNumStepsPerPattern()==32 &&
+                s.getCurrentPattern()==0 && s.getCurrentStep()==-1 &&
+                s.isPlaying()==0 && MATH_ABS(s.getMSPerStep()-76.53061)<0.02) {
+                GameSystem.trace("SEQ initial state PASS");
+            } else { GameSystem.trace("SEQ initial state FAIL"); }
+
+            s.setNumStepsPerPattern(16.9);
+            s.setBPM(120);
+            if (s.getNumStepsPerPattern()==16 && s.getBPM()==120 &&
+                MATH_ABS(s.getMSPerStep()-62.5)<0.02 &&
+                s.getNumStepsPerNote(0)==1 && s.getNumStepsPerNote(5)==32 &&
+                s.getNumStepsPerNote(6)==0 &&
+                MATH_ABS(s.getNoteTime(0)-62.5)<0.02 &&
+                MATH_ABS(s.getNoteTime(5)-2000)<0.1) {
+                GameSystem.trace("SEQ tempo and notes PASS");
+            } else { GameSystem.trace("SEQ tempo and notes FAIL"); }
+
+            s.setLoopLen(2);
+            s.setCurrentStep(15);
+            if (s.getNextNotePattern(1)==1 && s.getNextNoteStep(1)==0) {
+                GameSystem.trace("SEQ next note PASS");
+            } else { GameSystem.trace("SEQ next note FAIL"); }
+            s.gotoStep(-1,0);
+            if (s.getCurrentStep()==-1 && s.getCurrentPattern()==0) {
+                GameSystem.trace("SEQ raw step PASS");
+            } else { GameSystem.trace("SEQ raw step FAIL"); }
+
+            s.start();
+            local started=s.isPlaying()==1;
+            s.stop();
+            local stopped=s.isPlaying()==0;
+            s.restart();
+            if (started && stopped && s.isPlaying()==1 &&
+                s.getCurrentStep()==-1 && s.getCurrentPattern()==0) {
+                GameSystem.trace("SEQ playback state PASS");
+            } else { GameSystem.trace("SEQ playback state FAIL"); }
+        },
+        init=function() { return true; },
+        update=function() {}
+    );
+};
