@@ -397,11 +397,9 @@ VoiceState* FindVoice(int a_id) {
 }
 
 bool CanQueryVoiceBackend(const VoiceState& a_voice) {
-    if (!g_audioOutputStarted || !g_audioFrontend) return false;
-    // Voice construction is synchronous in retail. This mixer defers sample
-    // decoding until its first output tick, so an unattempted decode still
-    // represents a newly-created channel. Once decoding has failed, the
-    // software backend has no channel object corresponding to retail +0x48.
+    // A decoded voice has a channel even when the headless runner has no
+    // output device. Output setup only controls playback, not voice queries.
+    // An unattempted decode also represents a channel until loading fails.
     return !a_voice.sampleLoadAttempted ||
         (a_voice.sample && a_voice.sample->stereo.size() >= 2);
 }
