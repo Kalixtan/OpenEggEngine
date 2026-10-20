@@ -1,0 +1,91 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            local seq=SEQUENCER();
+            seq.setNumStepsPerPattern(32);
+            seq.setLoopLen(2);
+            local action=SEQUENCERACTION();
+
+            local a=seq.setTrigger(-1,action);
+            if (a.getPattern()==0 && a.getStep()==31 && a.getLooped()==1) {
+                GameSystem.trace("SEQ trigger implicit PASS");
+            } else { GameSystem.trace("SEQ trigger implicit FAIL"); }
+            if (a.getAction()!=action && a.getAction()!=a.getAction()) {
+                GameSystem.trace("SEQ action wrapper identity PASS");
+            } else { GameSystem.trace("SEQ action wrapper identity FAIL"); }
+            local b=seq.setTrigger(33,action,0);
+            if (b.getPattern()==0 && b.getStep()==1 && b.getLooped()==0) {
+                GameSystem.trace("SEQ trigger implicit flag PASS");
+            } else { GameSystem.trace("SEQ trigger implicit flag FAIL"); }
+            local c=seq.setTrigger(1,40,action);
+            if (c.getPattern()==1 && c.getStep()==40 && c.getLooped()==1) {
+                GameSystem.trace("SEQ trigger explicit PASS");
+            } else { GameSystem.trace("SEQ trigger explicit FAIL"); }
+            local d=seq.setTrigger(2,-3,action,0);
+            if (d.getPattern()==2 && d.getStep()==-3 && d.getLooped()==0) {
+                GameSystem.trace("SEQ trigger explicit flag PASS");
+            } else { GameSystem.trace("SEQ trigger explicit flag FAIL"); }
+
+            local e=seq.setTrigger16(1,action);
+            if (e.getPattern()==0 && e.getStep()==2 && e.getLooped()==1) {
+                GameSystem.trace("SEQ trigger16 implicit PASS");
+            } else { GameSystem.trace("SEQ trigger16 implicit FAIL"); }
+            local f=seq.setTrigger16(1,2,action,0);
+            if (f.getPattern()==1 && f.getStep()==4 && f.getLooped()==0) {
+                GameSystem.trace("SEQ trigger16 explicit PASS");
+            } else { GameSystem.trace("SEQ trigger16 explicit FAIL"); }
+
+            seq.setCurrentStep(29);
+            local g=seq.setTriggerOnNext(2,action,0);
+            if (g.getPattern()==1 && g.getStep()==0 && g.getLooped()==0 &&
+                seq.getNextNotePattern(2)==1 && seq.getNextNoteStep(2)==0) {
+                GameSystem.trace("SEQ trigger next PASS");
+            } else { GameSystem.trace("SEQ trigger next FAIL"); }
+            if (seq.getNumTriggers()==7) {
+                GameSystem.trace("SEQ trigger count PASS");
+            } else { GameSystem.trace("SEQ trigger count FAIL"); }
+
+            local it=seq.getAllTriggers();
+            local walked=0;
+            local sorted=1;
+            local pattern=-1;
+            local step=-1;
+            local first=it.get();
+            while (it.isValid() && walked<9) {
+                local handle=it.get();
+                if (handle.getPattern()<pattern ||
+                    (handle.getPattern()==pattern && handle.getStep()<step)) {
+                    sorted=0;
+                }
+                pattern=handle.getPattern();
+                step=handle.getStep();
+                walked+=1;
+                it.goToNext();
+            }
+            if (it.size()==7 && walked==7 && sorted &&
+                !it.isValid() && it.get()==null) {
+                GameSystem.trace("SEQ trigger list walk PASS");
+            } else { GameSystem.trace("SEQ trigger list walk FAIL"); }
+            it.goToNext();
+            local wrapped=it.isValid() && it.get().getPattern()==0 &&
+                it.get().getStep()==1;
+            local wrapDifferent=it.get()!=first;
+            it.reset();
+            if (wrapped && it.isValid() && it.get().getPattern()==0 &&
+                it.get().getStep()==1) {
+                GameSystem.trace("SEQ trigger list reset PASS");
+            } else { GameSystem.trace("SEQ trigger list reset FAIL"); }
+            if (wrapDifferent && it.get()!=first && it.get()!=it.get()) {
+                GameSystem.trace("SEQ trigger wrapper identity PASS");
+            } else { GameSystem.trace("SEQ trigger wrapper identity FAIL"); }
+
+            seq.clearTriggers();
+            if (seq.getNumTriggers()==0 && it.size()==0) {
+                GameSystem.trace("SEQ trigger clear PASS");
+            } else { GameSystem.trace("SEQ trigger clear FAIL"); }
+        },
+        init=function() { return true; },
+        update=function() {}
+    );
+};
