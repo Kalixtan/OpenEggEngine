@@ -389,7 +389,7 @@ int GM_CDECL gmf_getReactionForce(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(invDt, 0, 0.0f);
     b2Vec2 force(0.0f, 0.0f);
     if (j && j->joint) force = j->joint->GetReactionForce(invDt);
-    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), force.x, force.y));
+    a_thread->Push(MakeRealPoint(*a_thread->GetMachine(), force.x, force.y));
     return GM_OK;
 }
 

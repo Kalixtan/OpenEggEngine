@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-20 20:34 UTC
+Generated: 2026-10-20 20:36 UTC
 
-Matched: **4245/4387 declared readings (97%)**. This measures captured cases, not total physics parity.
+Matched: **4365/4387 declared readings (99%)**. This measures captured cases, not total physics parity.
 
 Functions with readings: **72/293**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -31,11 +31,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | ray.bodyB | 11 | 11 |
 | ray.bodyMiss | 11 | 11 |
 | reentry.sensor | 45 | 45 |
-| joint.distance | 132 | 156 |
-| joint.revolute | 110 | 156 |
-| joint.pin | 108 | 132 |
-| joint.prismatic | 132 | 156 |
-| joint.relative | 132 | 156 |
+| joint.distance | 156 | 156 |
+| joint.revolute | 134 | 156 |
+| joint.pin | 132 | 132 |
+| joint.prismatic | 156 | 156 |
+| joint.relative | 156 | 156 |
 | raymove.solid | 96 | 96 |
 | raymove.sensor | 96 | 96 |
 | raymove.inside | 96 | 96 |
@@ -94,7 +94,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getEntity2` | 48 | 48 | PASS |
 | `jointType.getObjectID` | 0 | 0 | untested |
 | `jointType.getRTMotorSpeed` | 0 | 0 | untested |
-| `jointType.getReactionForce` | 0 | 120 | FAIL |
+| `jointType.getReactionForce` | 120 | 120 | PASS |
 | `jointType.getReactionTorque` | 60 | 60 | PASS |
 | `jointType.getType` | 60 | 60 | PASS |
 | `jointType.isBodiesCollidable` | 60 | 60 | PASS |
@@ -3609,8 +3609,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t0.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t0.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t0.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t0.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t0.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t0.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t0.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t0.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t0.aX | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t0.bX | `5.000000` | `5.000000` | PASS |
@@ -3622,8 +3622,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t0.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t0.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t0.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t0.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t0.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t0.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t0.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t0.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t0.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t0.bX | `35.000000` | `35.000000` | PASS |
@@ -3633,8 +3633,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t0.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t0.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t0.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t0.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t0.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t0.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t0.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t0.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t0.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t0.bX | `60.000000` | `60.000000` | PASS |
@@ -3646,8 +3646,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t0.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t0.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t0.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t0.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t0.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t0.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t0.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t0.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t0.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t0.bX | `95.000000` | `95.000000` | PASS |
@@ -3659,8 +3659,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t0.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t0.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t0.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t0.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t0.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t0.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t0.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t0.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t0.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t0.bX | `125.000000` | `125.000000` | PASS |
@@ -3672,8 +3672,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t1.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t1.anchorX | `4.166666` | `4.166666` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t1.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t1.forceX | `null` | `-47.123890` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t1.forceY | `null` | `-0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t1.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t1.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t1.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t1.aX | `4.166666` | `4.166666` | PASS |
 | `physicsBody.getPos` | joint.distance.t1.bX | `9.166666` | `9.166666` | PASS |
@@ -3685,8 +3685,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t1.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t1.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t1.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t1.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t1.forceY | `null` | `-1.108798` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t1.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t1.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t1.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t1.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t1.bX | `33.331329` | `33.798046` | FAIL |
@@ -3696,8 +3696,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t1.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t1.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t1.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t1.forceX | `null` | `-37.699112` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t1.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t1.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t1.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t1.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t1.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t1.bX | `60.000000` | `60.000000` | PASS |
@@ -3709,8 +3709,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t1.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t1.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t1.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t1.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t1.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t1.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t1.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t1.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t1.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t1.bX | `96.666664` | `96.666664` | PASS |
@@ -3722,8 +3722,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t1.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t1.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t1.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t1.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t1.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t1.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t1.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t1.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t1.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t1.bX | `125.000000` | `125.000000` | PASS |
@@ -3735,8 +3735,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t2.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t2.anchorX | `8.333332` | `8.333332` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t2.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t2.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t2.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t2.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t2.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t2.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t2.aX | `8.333332` | `8.333332` | PASS |
 | `physicsBody.getPos` | joint.distance.t2.bX | `13.333332` | `13.333332` | PASS |
@@ -3748,8 +3748,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t2.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t2.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t2.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t2.forceX | `null` | `-27.559431` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t2.forceY | `null` | `-23.253798` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t2.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t2.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t2.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t2.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t2.bX | `30.570898` | `31.201096` | FAIL |
@@ -3759,8 +3759,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t2.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t2.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t2.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t2.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t2.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t2.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t2.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t2.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t2.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t2.bX | `60.000000` | `60.000000` | PASS |
@@ -3772,8 +3772,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t2.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t2.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t2.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t2.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t2.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t2.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t2.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t2.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t2.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t2.bX | `98.333328` | `98.333328` | PASS |
@@ -3785,8 +3785,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t2.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t2.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t2.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t2.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t2.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t2.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t2.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t2.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t2.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t2.bX | `125.000000` | `125.000000` | PASS |
@@ -3798,8 +3798,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t3.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t3.anchorX | `12.499998` | `12.499998` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t3.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t3.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t3.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t3.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t3.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t3.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t3.aX | `12.499998` | `12.499998` | PASS |
 | `physicsBody.getPos` | joint.distance.t3.bX | `17.499998` | `17.499998` | PASS |
@@ -3811,8 +3811,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t3.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t3.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t3.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t3.forceX | `null` | `-6.065140` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t3.forceY | `null` | `-23.865175` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t3.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t3.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t3.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t3.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t3.bX | `28.045357` | `28.533144` | FAIL |
@@ -3822,8 +3822,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t3.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t3.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t3.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t3.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t3.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t3.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t3.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t3.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t3.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t3.bX | `60.000000` | `60.000000` | PASS |
@@ -3835,8 +3835,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t3.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t3.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t3.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t3.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t3.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t3.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t3.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t3.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t3.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t3.bX | `99.999992` | `99.999992` | PASS |
@@ -3848,8 +3848,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t3.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t3.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t3.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t3.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t3.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t3.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t3.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t3.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t3.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t3.bX | `125.000000` | `125.000000` | PASS |
@@ -3861,8 +3861,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t4.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t4.anchorX | `16.666664` | `16.666664` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t4.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t4.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t4.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t4.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t4.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t4.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t4.aX | `16.666664` | `16.666664` | PASS |
 | `physicsBody.getPos` | joint.distance.t4.bX | `21.666664` | `21.666664` | PASS |
@@ -3874,8 +3874,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t4.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t4.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t4.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t4.forceX | `null` | `5.135149` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t4.forceY | `null` | `-17.063562` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t4.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t4.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t4.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t4.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t4.bX | `26.220781` | `26.489782` | FAIL |
@@ -3885,8 +3885,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t4.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t4.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t4.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t4.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t4.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t4.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t4.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t4.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t4.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t4.bX | `60.000000` | `60.000000` | PASS |
@@ -3898,8 +3898,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t4.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t4.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t4.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t4.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t4.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t4.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t4.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t4.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t4.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t4.bX | `101.666656` | `101.666656` | PASS |
@@ -3911,8 +3911,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t4.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t4.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t4.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t4.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t4.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t4.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t4.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t4.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t4.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t4.bX | `125.000000` | `125.000000` | PASS |
@@ -3924,8 +3924,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t5.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t5.anchorX | `20.833330` | `20.833330` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t5.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t5.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t5.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t5.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t5.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t5.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t5.aX | `20.833330` | `20.833330` | PASS |
 | `physicsBody.getPos` | joint.distance.t5.bX | `25.833330` | `25.833330` | PASS |
@@ -3937,8 +3937,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t5.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t5.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t5.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t5.forceX | `null` | `9.623432` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t5.forceY | `null` | `-9.856004` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t5.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t5.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t5.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t5.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t5.bX | `25.225103` | `25.315092` | FAIL |
@@ -3948,8 +3948,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t5.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t5.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t5.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t5.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t5.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t5.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t5.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t5.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t5.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t5.bX | `60.000000` | `60.000000` | PASS |
@@ -3961,8 +3961,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t5.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t5.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t5.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t5.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t5.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t5.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t5.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t5.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t5.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t5.bX | `103.333321` | `103.333321` | PASS |
@@ -3974,8 +3974,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t5.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t5.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t5.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t5.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t5.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t5.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t5.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t5.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t5.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t5.bX | `125.000000` | `125.000000` | PASS |
@@ -3987,8 +3987,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t6.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t6.anchorX | `24.999996` | `24.999996` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t6.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t6.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t6.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t6.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t6.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t6.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t6.aX | `24.999996` | `24.999996` | PASS |
 | `physicsBody.getPos` | joint.distance.t6.bX | `29.999996` | `29.999996` | PASS |
@@ -4000,8 +4000,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t6.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t6.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t6.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t6.forceX | `null` | `10.457673` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t6.forceY | `null` | `-3.951198` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t6.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t6.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t6.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t6.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t6.bX | `25.015690` | `25.004829` | FAIL |
@@ -4011,8 +4011,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t6.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t6.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t6.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t6.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t6.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t6.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t6.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t6.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t6.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t6.bX | `60.000000` | `60.000000` | PASS |
@@ -4024,8 +4024,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t6.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t6.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t6.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t6.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t6.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t6.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t6.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t6.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t6.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t6.bX | `104.999985` | `104.999985` | PASS |
@@ -4037,8 +4037,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t6.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t6.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t6.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t6.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t6.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t6.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t6.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t6.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t6.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t6.bX | `125.000000` | `125.000000` | PASS |
@@ -4050,8 +4050,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t7.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t7.anchorX | `29.166664` | `29.166664` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t7.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t7.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t7.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t7.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t7.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t7.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t7.aX | `29.166664` | `29.166664` | PASS |
 | `physicsBody.getPos` | joint.distance.t7.bX | `34.166664` | `34.166664` | PASS |
@@ -4063,8 +4063,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t7.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t7.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t7.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t7.forceX | `null` | `9.383515` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t7.forceY | `null` | `0.375224` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t7.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t7.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t7.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t7.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t7.bX | `25.463972` | `25.428465` | FAIL |
@@ -4074,8 +4074,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t7.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t7.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t7.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t7.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t7.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t7.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t7.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t7.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t7.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t7.bX | `60.000000` | `60.000000` | PASS |
@@ -4087,8 +4087,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t7.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t7.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t7.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t7.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t7.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t7.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t7.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t7.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t7.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t7.bX | `106.666649` | `106.666649` | PASS |
@@ -4100,8 +4100,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t7.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t7.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t7.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t7.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t7.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t7.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t7.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t7.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t7.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t7.bX | `125.000000` | `125.000000` | PASS |
@@ -4113,8 +4113,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t8.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t8.anchorX | `33.333332` | `33.333332` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t8.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t8.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t8.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t8.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t8.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t8.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t8.aX | `33.333332` | `33.333332` | PASS |
 | `physicsBody.getPos` | joint.distance.t8.bX | `38.333332` | `38.333332` | PASS |
@@ -4126,8 +4126,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t8.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t8.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t8.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t8.forceX | `null` | `7.408490` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t8.forceY | `null` | `3.249090` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t8.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t8.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t8.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t8.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t8.bX | `26.404593` | `26.400843` | FAIL |
@@ -4137,8 +4137,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t8.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t8.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t8.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t8.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t8.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t8.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t8.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t8.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t8.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t8.bX | `60.000000` | `60.000000` | PASS |
@@ -4150,8 +4150,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t8.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t8.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t8.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t8.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t8.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t8.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t8.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t8.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t8.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t8.bX | `108.333313` | `108.333313` | PASS |
@@ -4163,8 +4163,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t8.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t8.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t8.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t8.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t8.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t8.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t8.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t8.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t8.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t8.bX | `125.000000` | `125.000000` | PASS |
@@ -4176,8 +4176,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t9.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t9.anchorX | `37.500000` | `37.500000` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t9.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t9.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t9.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t9.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t9.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t9.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t9.aX | `37.500000` | `37.500000` | PASS |
 | `physicsBody.getPos` | joint.distance.t9.bX | `42.500000` | `42.500000` | PASS |
@@ -4189,8 +4189,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t9.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t9.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t9.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t9.forceX | `null` | `5.129570` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t9.forceY | `null` | `4.912324` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t9.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t9.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t9.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t9.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t9.bX | `27.665192` | `27.724533` | FAIL |
@@ -4200,8 +4200,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t9.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t9.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t9.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t9.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t9.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t9.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t9.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t9.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t9.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t9.bX | `60.000000` | `60.000000` | PASS |
@@ -4213,8 +4213,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t9.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t9.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t9.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t9.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t9.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t9.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t9.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t9.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t9.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t9.bX | `109.999977` | `109.999977` | PASS |
@@ -4226,8 +4226,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t9.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t9.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t9.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t9.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t9.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t9.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t9.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t9.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t9.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t9.bX | `125.000000` | `125.000000` | PASS |
@@ -4239,8 +4239,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t10.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t10.anchorX | `41.666668` | `41.666668` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t10.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t10.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t10.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t10.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t10.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t10.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t10.aX | `41.666668` | `41.666668` | PASS |
 | `physicsBody.getPos` | joint.distance.t10.bX | `46.666668` | `46.666668` | PASS |
@@ -4252,8 +4252,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t10.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t10.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t10.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t10.forceX | `null` | `2.898381` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t10.forceY | `null` | `5.625472` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t10.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t10.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t10.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t10.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t10.bX | `29.084349` | `29.214552` | FAIL |
@@ -4263,8 +4263,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t10.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t10.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t10.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t10.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t10.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t10.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t10.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t10.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t10.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t10.bX | `60.000000` | `60.000000` | PASS |
@@ -4276,8 +4276,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t10.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t10.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t10.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t10.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t10.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t10.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t10.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t10.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t10.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t10.bX | `111.666641` | `111.666641` | PASS |
@@ -4289,8 +4289,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t10.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t10.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t10.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t10.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t10.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t10.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t10.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t10.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t10.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t10.bX | `125.000000` | `125.000000` | PASS |
@@ -4302,8 +4302,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t11.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t11.anchorX | `45.833336` | `45.833336` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t11.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t11.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t11.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t11.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.distance.t11.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.distance.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t11.aX | `45.833336` | `45.833336` | PASS |
 | `physicsBody.getPos` | joint.distance.t11.bX | `50.833336` | `50.833336` | PASS |
@@ -4315,8 +4315,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.revolute.t11.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t11.anchorX | `30.000000` | `30.000000` | PASS |
 | `jointType.getAnchorPos` | joint.revolute.t11.anchorY | `200.000000` | `200.000000` | PASS |
-| `jointType.getReactionForce` | joint.revolute.t11.forceX | `null` | `0.913809` | FAIL |
-| `jointType.getReactionForce` | joint.revolute.t11.forceY | `null` | `5.631894` | FAIL |
+| `jointType.getReactionForce` | joint.revolute.t11.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.revolute.t11.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t11.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t11.bX | `30.521730` | `30.711706` | FAIL |
@@ -4326,8 +4326,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.pin.t11.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t11.anchorX | `60.000000` | `60.000000` | PASS |
 | `jointType.getAnchorPos` | joint.pin.t11.anchorY | `300.000000` | `300.000000` | PASS |
-| `jointType.getReactionForce` | joint.pin.t11.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.pin.t11.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.pin.t11.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.pin.t11.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.pin.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t11.aX | `60.000000` | `60.000000` | PASS |
 | `physicsBody.getPos` | joint.pin.t11.bX | `60.000000` | `60.000000` | PASS |
@@ -4339,8 +4339,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.prismatic.t11.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t11.anchorX | `90.000000` | `90.000000` | PASS |
 | `jointType.getAnchorPos` | joint.prismatic.t11.anchorY | `400.000000` | `400.000000` | PASS |
-| `jointType.getReactionForce` | joint.prismatic.t11.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.prismatic.t11.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.prismatic.t11.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.prismatic.t11.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.prismatic.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t11.aX | `90.000000` | `90.000000` | PASS |
 | `physicsBody.getPos` | joint.prismatic.t11.bX | `113.333305` | `113.333305` | PASS |
@@ -4352,8 +4352,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.relative.t11.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t11.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.relative.t11.anchorY | `0.000000` | `0.000000` | PASS |
-| `jointType.getReactionForce` | joint.relative.t11.forceX | `null` | `0.000000` | FAIL |
-| `jointType.getReactionForce` | joint.relative.t11.forceY | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.relative.t11.forceX | `null` | `null` | PASS |
+| `jointType.getReactionForce` | joint.relative.t11.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.relative.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t11.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t11.bX | `125.000000` | `125.000000` | PASS |

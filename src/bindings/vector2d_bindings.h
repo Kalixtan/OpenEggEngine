@@ -7,6 +7,7 @@ void RegisterVector2DBindings(gmMachine& a_machine);
 // PhysicsShape, ...) that need to return a real vector2D instead of the
 // plain {x=,y=} table stand-ins used before this type existed.
 gmVariable MakeVector2D(gmMachine& a_machine, float a_x, float a_y);
+gmVariable MakeRealPoint(gmMachine& a_machine, float a_x, float a_y);
 
 // Construct a vector2D proxy whose component writes are reflected back to a
 // native object. The owner handle is rooted for the proxy's lifetime.

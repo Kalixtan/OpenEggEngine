@@ -6,6 +6,7 @@
 #include <random>
 
 gmType g_vector2DType = -1;
+gmType g_realPointType = -1;
 
 namespace {
 
@@ -274,6 +275,11 @@ gmVariable MakeVector2D(gmMachine& a_machine, float a_x, float a_y) {
     return gmVariable(obj);
 }
 
+gmVariable MakeRealPoint(gmMachine& a_machine, float a_x, float a_y) {
+    gmUserObject* obj = a_machine.AllocUserObject(new Vector2DData{a_x, a_y}, g_realPointType);
+    return gmVariable(obj);
+}
+
 gmVariable MakeVector2DRef(gmMachine& a_machine, const gmVariable& a_owner,
                            void* a_context, Vector2DRefRead a_read,
                            Vector2DRefWrite a_write) {
@@ -301,6 +307,8 @@ bool GetVector2D(gmMachine& a_machine, const gmVariable& a_var, float& a_outX, f
 
 void RegisterVector2DBindings(gmMachine& a_machine) {
     g_vector2DType = a_machine.CreateUserType("vector2D");
+    g_realPointType = a_machine.CreateUserType("REALPOINT");
+    a_machine.RegisterUserCallbacks(g_realPointType, nullptr, Vector2DGCDestruct, Vector2DAsString);
     a_machine.RegisterTypeLibrary(g_vector2DType, s_vector2DLib, sizeof(s_vector2DLib) / sizeof(s_vector2DLib[0]));
     a_machine.RegisterUserCallbacks(g_vector2DType, nullptr, Vector2DGCDestruct, Vector2DAsString);
 

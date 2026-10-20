@@ -49,8 +49,11 @@ int GM_CDECL gmf_RANDOM_GetRandomBoolean(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_REALPOINT(gmThread* a_thread) {
-    (void)a_thread;
-    return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
+    GM_FLOAT_OR_INT_PARAM(y, 1, 0.0f);
+    a_thread->Push(MakeRealPoint(*a_thread->GetMachine(), x, y));
+    return GM_OK;
 }
 
 static int g_alarmIDCounter = 0;
