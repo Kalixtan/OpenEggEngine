@@ -728,7 +728,11 @@ gmFunctionEntry s_sequencerLib[] = {
 
 void GM_CDECL SequencerGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
     SequencerData* data = (SequencerData*)a_object->m_user;
-    (void)a_machine; // the shared native trigger-list owns its handle roots
+    // The native destructor clears the trigger list before removing the
+    // sequencer from its manager. An iterator may still hold this list here.
+    for (const SequencerTrigger& trigger : data->triggers->values)
+        UnrootGmVariable(*a_machine, trigger.handle);
+    data->triggers->values.clear();
     auto& paused = PausedSequencerSerials();
     paused.erase(std::remove(paused.begin(), paused.end(), data->serial), paused.end());
     auto& all = AllSequencers();
