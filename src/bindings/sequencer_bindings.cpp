@@ -240,8 +240,6 @@ void GM_CDECL SequencerListRefGCDestruct(gmMachine*, gmUserObject* a_object) {
     delete (SequencerListRefData*)a_object->m_user;
 }
 
-float g_masterPulse = 0.0f;       // SEQUENCER_SetMasterPulse
-
 int WrapStep(int a_step, int a_len) {
     if (a_len <= 0) return 0;
     int w = a_step % a_len;
@@ -748,8 +746,7 @@ int GM_CDECL gmf_SEQUENCER_OnNoteCollect(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_SEQUENCER_SetMasterPulse(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(pulse, 0, 0.0f);
-    g_masterPulse = pulse;
+    (void)a_thread; // retail helper FUN_0016b880 is empty
     return GM_OK;
 }
 
