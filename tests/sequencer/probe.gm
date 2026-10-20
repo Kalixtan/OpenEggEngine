@@ -1,0 +1,140 @@
+// Load this file on either engine. OEP lines in the console are the readings.
+global SeqProbe = function(name, value) {
+    GameMonkeyScript.loadScript("OEP__" + name + "__" + value + ".gm");
+};
+
+global ProbeData = table(
+        run=function() {
+            this.calls=0;
+            this.seq=SEQUENCER();
+            local s=this.seq;
+            SeqProbe("Sequencer.getBPM.default",s.getBPM());
+            SeqProbe("Sequencer.getNumStepsPerPattern.default",s.getNumStepsPerPattern());
+            SeqProbe("Sequencer.getCurrentStep.default",s.getCurrentStep());
+            SeqProbe("Sequencer.getCurrentPattern.default",s.getCurrentPattern());
+            SeqProbe("Sequencer.isPlaying.default",s.isPlaying());
+            SeqProbe("Sequencer.getMSPerStep.default",s.getMSPerStep());
+            SeqProbe("Sequencer.getMSTillNextNoteStep.default",s.getMSTillNextNoteStep(1));
+            s.setBPM(120);
+            SeqProbe("Sequencer.getBPM.changed",s.getBPM());
+            SeqProbe("Sequencer.getMSPerStep.changed",s.getMSPerStep());
+            s.setNumStepsPerPattern(16.9);
+            SeqProbe("Sequencer.getNumStepsPerPattern.float",s.getNumStepsPerPattern());
+            SeqProbe("Sequencer.getWrappedStep.negative",s.getWrappedStep(-1));
+            SeqProbe("Sequencer.getWrappedStep.overflow",s.getWrappedStep(17));
+            SeqProbe("Sequencer.getNumStepsPerNote.zero",s.getNumStepsPerNote(0));
+            SeqProbe("Sequencer.getNumStepsPerNote.five",s.getNumStepsPerNote(5));
+            SeqProbe("Sequencer.getNumStepsPerNote.six",s.getNumStepsPerNote(6));
+            SeqProbe("Sequencer.getNoteTime.zero",s.getNoteTime(0));
+            SeqProbe("Sequencer.getNoteTime.five",s.getNoteTime(5));
+            s.setLoopLen(2);
+            s.setCurrentStep(15);
+            SeqProbe("Sequencer.getNextNotePattern.wrap",s.getNextNotePattern(1));
+            SeqProbe("Sequencer.getNextNoteStep.wrap",s.getNextNoteStep(1));
+            s.gotoStep(-1,0);
+            SeqProbe("Sequencer.getCurrentStep.raw",s.getCurrentStep());
+            SeqProbe("Sequencer.getCurrentPattern.raw",s.getCurrentPattern());
+            s.setCurrentStep(5);
+            SeqProbe("Sequencer.getCurrentStep16.five",s.getCurrentStep16());
+            SeqProbe("Sequencer.getCurrentStep.set",s.getCurrentStep());
+
+            local a=SEQUENCERACTION();
+            a.value=7;
+            SeqProbe("SequencerAction.field.default",a.value);
+            SeqProbe("SequencerAction.isTaggedForRemoval.default",a.isTaggedForRemoval());
+            a.setTable(table(value=9));
+            SeqProbe("SequencerAction.setTable.value",a.value);
+            local supplied=SEQUENCERACTION(table(value=4));
+            SeqProbe("SEQUENCERACTION.table.value",supplied.value);
+            a.tagForRemoval();
+            SeqProbe("SequencerAction.isTaggedForRemoval.tagged",a.isTaggedForRemoval());
+
+            local t=s.setTrigger(-1,supplied);
+            SeqProbe("Sequencer.setTrigger.implicit.pattern",t.getPattern());
+            SeqProbe("Sequencer.setTrigger.implicit.step",t.getStep());
+            SeqProbe("Sequencer.setTrigger.implicit.looped",t.getLooped());
+            SeqProbe("SequencerTrigger.getAction.fresh",t.getAction()!=supplied);
+            SeqProbe("SequencerTrigger.getAction.repeat",t.getAction()!=t.getAction());
+            local t16=s.setTrigger16(1,supplied);
+            SeqProbe("Sequencer.setTrigger16.step",t16.getStep());
+            local next=s.setTriggerOnNext(2,supplied,0);
+            SeqProbe("Sequencer.setTriggerOnNext.pattern",next.getPattern());
+            SeqProbe("Sequencer.setTriggerOnNext.step",next.getStep());
+            SeqProbe("Sequencer.getNumTriggers.three",s.getNumTriggers());
+            local list=s.getAllTriggers();
+            SeqProbe("SequencerTriggerList.size.three",list.size());
+            SeqProbe("SequencerTriggerList.isValid.first",list.isValid());
+            local first=list.get();
+            SeqProbe("SequencerTriggerList.get.fresh",first!=list.get());
+            SeqProbe("SequencerTriggerList.get.firstStep",first.getStep());
+            list.goToNext();
+            SeqProbe("SequencerTriggerList.get.nextStep",list.get().getStep());
+            list.reset();
+            SeqProbe("SequencerTriggerList.get.resetStep",list.get().getStep());
+            local clearSeq=SEQUENCER();
+            clearSeq.setTrigger(0,supplied);
+            clearSeq.clearTriggers();
+            SeqProbe("Sequencer.getNumTriggers.cleared",clearSeq.getNumTriggers());
+
+            local notes={}; notes.size=16;
+            local i=0;
+            for (i=0;i<16;i+=1) { notes[i]=i%3; }
+            local packed={}; SEQUENCE_ToTable(notes,packed);
+            SeqProbe("SEQUENCE_ToTable.word",packed[0]);
+            local unpacked={}; SEQUENCE_FromTable(packed,unpacked);
+            SeqProbe("SEQUENCE_FromTable.size",unpacked.size);
+            SeqProbe("SEQUENCE_FromTable.last",unpacked[15]);
+            local encoded=SEQUENCE_ToString(notes);
+            SeqProbe("SEQUENCE_ToString.word",encoded);
+            local decoded={}; SEQUENCE_FromString(encoded,decoded);
+            SeqProbe("SEQUENCE_FromString.size",decoded.size);
+            SeqProbe("SEQUENCE_FromString.second",decoded[1]);
+
+            local all=SEQUENCER_GetAllSequencers();
+            SeqProbe("SequencerListRef.size.initial",all.size());
+            SeqProbe("SequencerListRef.isValid.initial",all.isValid());
+            SeqProbe("SequencerListRef.get.initial",all.get()!=null);
+            all.goToNext();
+            SeqProbe("SequencerListRef.isValid.next",all.isValid());
+            all.reset();
+            SeqProbe("SequencerListRef.isValid.reset",all.isValid());
+            s.start();
+            SeqProbe("Sequencer.isPlaying.started",s.isPlaying());
+            SEQUENCER_PauseAllSequencers();
+            SeqProbe("Sequencer.isPlaying.paused",s.isPlaying());
+            SEQUENCER_UnpauseAllSequencers();
+            SeqProbe("Sequencer.isPlaying.unpaused",s.isPlaying());
+            s.stop();
+            SeqProbe("Sequencer.isPlaying.stopped",s.isPlaying());
+            s.restart();
+            SeqProbe("Sequencer.getCurrentStep.restarted",s.getCurrentStep());
+            s.stop();
+
+            this.timingSeq=SEQUENCER();
+            this.timingSeq.setBPM(120);
+            this.timingSeq.setNumStepsPerPattern(16);
+            this.callback=SEQUENCERACTION();
+            this.callback.parent=this;
+            this.callback.execute=function() {
+                this.parent.calls+=1;
+                SeqProbe("Sequencer.callback.step",this.parent.timingSeq.getCurrentStep());
+                SeqProbe("Sequencer.getMSTillNextStep.callback",this.parent.timingSeq.getMSTillNextStep());
+                SeqProbe("Sequencer.getMSTillNextStepAccurate.callback",this.parent.timingSeq.getMSTillNextStepAccurate());
+                SeqProbe("Sequencer.getMSTillNextStep16.callback",this.parent.timingSeq.getMSTillNextStep16());
+            };
+            this.timingSeq.setTrigger(0,this.callback,0);
+            this.observer=SEQUENCERACTION();
+            this.observer.parent=this;
+            this.observer.execute=function() {
+                SeqProbe("Sequencer.callback.count",this.parent.calls);
+                SeqProbe("Sequencer.getNumTriggers.afterCallback",this.parent.timingSeq.getNumTriggers());
+            };
+            this.timingSeq.setTrigger(1,this.observer,0);
+            this.timingSeq.start();
+        }
+);
+ProbeData.run();
+
+global Main = function(p) {
+    return table(Process=p, constructor=function(){}, init=function(){return true;}, update=function(){});
+};
