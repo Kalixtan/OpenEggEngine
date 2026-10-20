@@ -25,7 +25,7 @@ gmType g_sequencerTriggerType = -1;
 gmType g_sequencerTriggerListType = -1;
 gmType g_sequencerActionType = -1;
 uint64_t g_nextSequencerSerial = 1;
-uint32_t g_nextSequencerObjectId = 0;
+uint32_t g_nextSequencerObjectId = 1;
 
 // Retail's setNumStepsPerPattern wrapper uses PPC fctiwz for GM_FLOAT and
 // copies the payload word directly for every other GM type. Keep the float
@@ -884,6 +884,9 @@ int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
 gmVariable CreateSequencerTriggerHandle(gmMachine& a_machine, int a_pattern,
                                         int a_step, bool a_looped,
                                         const gmVariable& a_action) {
+    // Native trigger construction consumes an ID from the same counter as
+    // sequencer construction, even though the trigger has no ID getter.
+    ++g_nextSequencerObjectId;
     auto* data = new SequencerTriggerHandle();
     data->pattern = a_pattern;
     data->step = a_step;
