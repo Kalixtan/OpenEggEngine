@@ -102,6 +102,9 @@ struct VoiceState {
     // value; playSound applies the global multiplier to the initial backend
     // frequency separately.
     float sourceBaseSpeed = 1.0f;
+    bool pitchBendPending = false;
+    float pendingPitchSpeed = 1.0f;
+    float pendingPitchDurationMs = 0.0f;
     float speed = 1.0f;
     float targetSpeed = 1.0f;
     // spawnSoundSlicker's time factor configures the retail Slicker/Dirac
@@ -943,7 +946,7 @@ void QueueMixedVoices(float a_deltaMs) {
             const double positionMs = voice.positionMs +
                 PlaybackAdvanceMs(voice, frameMs);
             double sourceFrame = positionMs * kOutputRate / 1000.0;
-            if (voice.looping || voice.loopCount > 1) {
+            if (voice.looping || voice.loopCount > 0) {
                 sourceFrame = std::fmod(sourceFrame, (double)soundFrames);
                 if (sourceFrame < 0.0) sourceFrame += soundFrames;
             }
@@ -953,11 +956,11 @@ void QueueMixedVoices(float a_deltaMs) {
             const float leftSample = InterpolatedSample(
                 playbackSample->stereo.data(), ReadStereoFloat,
                 soundFrames, 0, sourceFrame, sourceStep,
-                voice.looping || voice.loopCount > 1);
+                voice.looping || voice.loopCount > 0);
             const float rightSample = InterpolatedSample(
                 playbackSample->stereo.data(), ReadStereoFloat,
                 soundFrames, 1, sourceFrame, sourceStep,
-                voice.looping || voice.loopCount > 1);
+                voice.looping || voice.loopCount > 0);
             mix[(size_t)frame * 2] += leftSample * gain * fade * leftPan;
             mix[(size_t)frame * 2 + 1] += rightSample * gain * fade * rightPan;
         }
@@ -1467,7 +1470,11 @@ int GM_CDECL gmf_setVoicePitchBend(gmThread* a_thread) {
     if (VoiceState* v = FindVoice(voice)) {
         const float targetSpeed = v->sourceBaseSpeed *
             GroundRenderMath::RetailAudioNotePitchRatio(targetNote, v->referenceNote);
-        SetVoiceSpeedTarget(*v, targetSpeed, durationMs);
+        // Retail queues pitch-bend work on the audio manager. A speed query in
+        // the same script turn still sees the backend's old frequency.
+        v->pendingPitchSpeed = targetSpeed;
+        v->pendingPitchDurationMs = durationMs;
+        v->pitchBendPending = true;
     }
     return GM_OK;
 }
@@ -1592,7 +1599,7 @@ int GM_CDECL gmf_setVoiceLoopCount(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     const int voice = a_thread->Param(0).m_value.m_int;
     const int count = a_thread->Param(1).m_value.m_int;
-    if (VoiceState* v = FindVoice(voice)) v->loopCount = count;
+    if (VoiceState* v = FindVoice(voice)) v->loopCount = std::max(0, count);
     return GM_OK;
 }
 int GM_CDECL gmf_getAllVoices(gmThread* a_thread) {
@@ -2562,6 +2569,13 @@ void AdvanceAudioVoices(float a_deltaMs) {
     // than using the voice-mixer delta. Do this even when the backend receives
     // a zero/invalid delta for this frame.
     DispatchRecordedPlaySounds();
+    for (auto& entry : State().voices) {
+        VoiceState& voice = entry.second;
+        if (!voice.pitchBendPending) continue;
+        SetVoiceSpeedTarget(voice, voice.pendingPitchSpeed,
+                            voice.pendingPitchDurationMs);
+        voice.pitchBendPending = false;
+    }
     if (!(a_deltaMs > 0.0f) || !std::isfinite(a_deltaMs)) {
         ProcessDeferredEffectCleanup(State().machine,
                                      State().effectsWaitingForVoiceEnd, false);
@@ -2658,8 +2672,8 @@ void AdvanceAudioVoices(float a_deltaMs) {
             ++it;
             continue;
         }
-        if (voice.looping || voice.loopCount > 1) {
-            if (voice.loopCount > 1) --voice.loopCount;
+        if (voice.looping || voice.loopCount > 0) {
+            if (voice.loopCount > 0) --voice.loopCount;
             voice.positionMs = std::fmod(voice.positionMs, length);
             if (voice.positionMs < 0.0) voice.positionMs += length;
             ++it;
