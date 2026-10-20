@@ -5,6 +5,7 @@
 #include "vector2d_bindings.h"
 #include "../core/physics_world.h"
 #include <box2d/box2d.h>
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 #include <set>
@@ -137,6 +138,24 @@ int GM_CDECL gmf_Physics_raycastOne(gmThread* a_thread) {
     cb.categoryMask = categoryMask;
     GetPhysicsWorld().RayCast(&cb, b2Vec2(sx, sy), b2Vec2(ex, ey));
 
+    // Box2D omits a shape containing the start point; retail reports it at 0.
+    if (!cb.ignoreAlreadyColliding) {
+        for (b2Body* body = GetPhysicsWorld().GetBodyList(); body;
+             body = body->GetNext()) {
+            for (b2Fixture* fixture = body->GetFixtureList(); fixture;
+                 fixture = fixture->GetNext()) {
+                if (!fixture->TestPoint(cb.rayStart) || cb.Skip(fixture)) continue;
+                cb.hit = true;
+                cb.fixture = fixture;
+                cb.point = cb.rayStart;
+                cb.normal.SetZero();
+                cb.fraction = 0.0f;
+                break;
+            }
+            if (cb.fraction == 0.0f) break;
+        }
+    }
+
     if (!cb.hit) { a_thread->PushInt(0); return GM_OK; }
 
     resultTable->Set(&m, "lambda", gmVariable(cb.fraction));
@@ -159,7 +178,7 @@ int GM_CDECL gmf_Physics_raycastSimple(gmThread* a_thread) {
     cb.ignoreSensors = true;
     cb.ignoreAlreadyColliding = true;
     GetPhysicsWorld().RayCast(&cb, b2Vec2(sx, sy), b2Vec2(ex, ey));
-    a_thread->PushInt(cb.hit ? 1 : 0);
+    a_thread->PushFloat(cb.hit ? cb.fraction : 1.0f);
     return GM_OK;
 }
 
@@ -167,12 +186,13 @@ int GM_CDECL gmf_Physics_raycastSimple(gmThread* a_thread) {
 // entity iterator (matches the ENTITYLISTREFCONTAINER idiom used
 // elsewhere, e.g. PhysicsData.getCollidingEntities).
 struct AllHitsRayCastCallback : b2RayCastCallback {
+    struct Hit { gmVariable entity; float fraction; };
     b2Vec2 rayStart;
     bool ignoreSensors = true;
     bool ignoreAlreadyColliding = true;
     const std::vector<b2Body*>* excludeBodies = nullptr;
     uint16 categoryMask = 0;
-    std::vector<gmVariable> entities;
+    std::vector<Hit> hits;
 
     bool Skip(b2Fixture* a_fx) const {
         if (ignoreSensors && a_fx->IsSensor()) return true;
@@ -181,15 +201,22 @@ struct AllHitsRayCastCallback : b2RayCastCallback {
         if (excludeBodies) for (b2Body* b : *excludeBodies) if (b == a_fx->GetBody()) return true;
         return false;
     }
-    float ReportFixture(b2Fixture* a_fx, const b2Vec2&, const b2Vec2&, float) override {
+    void AddHit(b2Fixture* a_fx, float a_fraction) {
         if (!Skip(a_fx)) {
             gmVariable e = FindOwnerEntityForB2Body(a_fx->GetBody());
             if (e.m_type == GM_TABLE) {
-                bool already = false;
-                for (gmVariable& v : entities) if (v.m_value.m_ref == e.m_value.m_ref) { already = true; break; }
-                if (!already) entities.push_back(e);
+                for (Hit& hit : hits) {
+                    if (hit.entity.m_value.m_ref != e.m_value.m_ref) continue;
+                    hit.fraction = std::min(hit.fraction, a_fraction);
+                    return;
+                }
+                hits.push_back({e, a_fraction});
             }
         }
+    }
+    float ReportFixture(b2Fixture* a_fx, const b2Vec2&, const b2Vec2&,
+                        float a_fraction) override {
+        AddHit(a_fx, a_fraction);
         return 1.0f; // don't clip -- keep going, collect every hit
     }
 };
@@ -337,7 +364,23 @@ int GM_CDECL gmf_Physics_raycast(gmThread* a_thread) {
     cb.categoryMask = categoryMask;
     GetPhysicsWorld().RayCast(&cb, b2Vec2(sx, sy), b2Vec2(ex, ey));
 
-    RayEntityIterData* it = new RayEntityIterData{std::move(cb.entities), 0};
+    if (!cb.ignoreAlreadyColliding) {
+        for (b2Body* body = GetPhysicsWorld().GetBodyList(); body;
+             body = body->GetNext()) {
+            for (b2Fixture* fixture = body->GetFixtureList(); fixture;
+                 fixture = fixture->GetNext()) {
+                if (fixture->TestPoint(cb.rayStart)) cb.AddHit(fixture, 0.0f);
+            }
+        }
+    }
+    // Box2D visits broadphase nodes in tree order; retail yields ray order.
+    std::stable_sort(cb.hits.begin(), cb.hits.end(),
+        [](const auto& a, const auto& b) { return a.fraction < b.fraction; });
+    std::vector<gmVariable> entities;
+    entities.reserve(cb.hits.size());
+    for (const auto& hit : cb.hits) entities.push_back(hit.entity);
+
+    RayEntityIterData* it = new RayEntityIterData{std::move(entities), 0};
     gmUserObject* obj = m.AllocUserObject(it, g_rayIterType);
     a_thread->Push(gmVariable(obj));
     return GM_OK;
