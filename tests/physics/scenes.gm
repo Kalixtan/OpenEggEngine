@@ -46,7 +46,7 @@ global Main=function(p) {
         constructor=function(){},
         init=function(){return true;},
         update=function() {
-            if (this.frame<12) {
+            if (this.frame<60) {
                 if (this.frame==0) {
                     this.free=SceneCircle(-100,100,2,1,0);
                     this.free.b.setVel(vector2D(0.1,0.05));

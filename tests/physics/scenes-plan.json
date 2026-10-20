@@ -1,5 +1,5 @@
 {
-  "frames": 12,
+  "frames": 60,
   "scenes": {
     "free": ["x", "y", "vx", "vy"],
     "fast": ["x", "y", "vx", "vy"],
