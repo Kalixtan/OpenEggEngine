@@ -31,6 +31,15 @@
 
 #include "b2_island.h"
 #include "dynamics/b2_contact_solver.h"
+#include <cmath>
+
+// The PS3 position step uses fused multiply-add on millisecond velocities.
+static b2Vec2 FusedAdvance(const b2Vec2& position, float milliseconds,
+							 const b2Vec2& velocity)
+{
+	return b2Vec2(std::fma(velocity.x, milliseconds, position.x),
+			  std::fma(velocity.y, milliseconds, position.y));
+}
 
 /*
 Position Correction Notes
@@ -300,7 +309,7 @@ void b2Island::Solve(b2Profile* profile, const b2TimeStep& step, const b2Vec2& g
 		}
 
 		// Integrate
-		c += h * v;
+		c = FusedAdvance(c, h, v);
 		a += h * w;
 
 		m_positions[i].c = c;
@@ -498,7 +507,7 @@ void b2Island::SolveTOI(const b2TimeStep& subStep, int32 toiIndexA, int32 toiInd
 		}
 
 		// Integrate
-		c += h * v;
+		c = FusedAdvance(c, h, v);
 		a += h * w;
 
 		m_positions[i].c = c;
