@@ -659,6 +659,7 @@ int GM_CDECL gmf_getMSTillNextStep16(gmThread* a_thread) {
 int GM_CDECL gmf_getMSTillNextNoteStep(gmThread* a_thread) {
     if (!ThisSequencer(a_thread)) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
+    // Retail calls its next-position helper but returns a constant zero.
     a_thread->PushFloat(0.0f);
     return GM_OK;
 }
