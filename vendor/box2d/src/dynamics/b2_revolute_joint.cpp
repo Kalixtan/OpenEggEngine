@@ -297,6 +297,17 @@ bool b2RevoluteJoint::SolvePositionConstraints(const b2SolverData& data)
 		float mA = m_invMassA, mB = m_invMassB;
 		float iA = m_invIA, iB = m_invIB;
 
+		// Retail's revolute solver first reduces large anchor separations.
+		// Its threshold is 0.05 squared, and each body takes half of its
+		// mass-weighted share before the regular point constraint solve.
+		if (b2Dot(C, C) > 0.0025f && mA + mB > 0.0f)
+		{
+			b2Vec2 correction = (0.5f / (mA + mB)) * C;
+			cA += mA * correction;
+			cB -= mB * correction;
+			C = cB + rB - cA - rA;
+		}
+
 		b2Mat22 K;
 		K.ex.x = mA + mB + iA * rA.y * rA.y + iB * rB.y * rB.y;
 		K.ex.y = -iA * rA.x * rA.y - iB * rB.x * rB.y;

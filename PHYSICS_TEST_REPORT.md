@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-20 20:36 UTC
+Generated: 2026-10-20 20:58 UTC
 
-Matched: **4365/4387 declared readings (99%)**. This measures captured cases, not total physics parity.
+Matched: **4387/4387 declared readings (100%)**. This measures captured cases, not total physics parity.
 
 Functions with readings: **72/293**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -32,7 +32,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | ray.bodyMiss | 11 | 11 |
 | reentry.sensor | 45 | 45 |
 | joint.distance | 156 | 156 |
-| joint.revolute | 134 | 156 |
+| joint.revolute | 156 | 156 |
 | joint.pin | 132 | 132 |
 | joint.prismatic | 156 | 156 |
 | joint.relative | 156 | 156 |
@@ -89,7 +89,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointIter.size` | 0 | 0 | untested |
 | `jointType.getAnchorPos` | 120 | 120 | PASS |
 | `jointType.getBody1` | 60 | 60 | PASS |
-| `jointType.getBody2` | 37 | 48 | FAIL |
+| `jointType.getBody2` | 48 | 48 | PASS |
 | `jointType.getEntity1` | 60 | 60 | PASS |
 | `jointType.getEntity2` | 48 | 48 | PASS |
 | `jointType.getObjectID` | 0 | 0 | untested |
@@ -145,7 +145,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getNumShapeVerts` | 0 | 0 | untested |
 | `physicsBody.getNumShapes` | 2 | 2 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
-| `physicsBody.getPos` | 608 | 619 | FAIL |
+| `physicsBody.getPos` | 619 | 619 | PASS |
 | `physicsBody.getPosRef` | 0 | 0 | untested |
 | `physicsBody.getPosVec` | 0 | 0 | untested |
 | `physicsBody.getRadius` | 1 | 1 | PASS |
@@ -3679,7 +3679,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t1.bX | `9.166666` | `9.166666` | PASS |
 | `jointType.getType` | joint.revolute.t1.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t1.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t1.body2X | `33.331329` | `33.798046` | FAIL |
+| `jointType.getBody2` | joint.revolute.t1.body2X | `33.331329` | `33.331329` | PASS |
 | `jointType.getEntity1` | joint.revolute.t1.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t1.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t1.collidable | `0` | `0` | PASS |
@@ -3689,7 +3689,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t1.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t1.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t1.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t1.bX | `33.331329` | `33.798046` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t1.bX | `33.331329` | `33.331329` | PASS |
 | `jointType.getType` | joint.pin.t1.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t1.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t1.entity1Same | `1` | `1` | PASS |
@@ -3742,7 +3742,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t2.bX | `13.333332` | `13.333332` | PASS |
 | `jointType.getType` | joint.revolute.t2.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t2.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t2.body2X | `30.570898` | `31.201096` | FAIL |
+| `jointType.getBody2` | joint.revolute.t2.body2X | `30.570898` | `30.570898` | PASS |
 | `jointType.getEntity1` | joint.revolute.t2.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t2.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t2.collidable | `0` | `0` | PASS |
@@ -3752,7 +3752,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t2.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t2.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t2.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t2.bX | `30.570898` | `31.201096` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t2.bX | `30.570898` | `30.570898` | PASS |
 | `jointType.getType` | joint.pin.t2.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t2.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t2.entity1Same | `1` | `1` | PASS |
@@ -3805,7 +3805,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t3.bX | `17.499998` | `17.499998` | PASS |
 | `jointType.getType` | joint.revolute.t3.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t3.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t3.body2X | `28.045357` | `28.533144` | FAIL |
+| `jointType.getBody2` | joint.revolute.t3.body2X | `28.045357` | `28.045357` | PASS |
 | `jointType.getEntity1` | joint.revolute.t3.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t3.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t3.collidable | `0` | `0` | PASS |
@@ -3815,7 +3815,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t3.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t3.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t3.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t3.bX | `28.045357` | `28.533144` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t3.bX | `28.045357` | `28.045357` | PASS |
 | `jointType.getType` | joint.pin.t3.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t3.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t3.entity1Same | `1` | `1` | PASS |
@@ -3868,7 +3868,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t4.bX | `21.666664` | `21.666664` | PASS |
 | `jointType.getType` | joint.revolute.t4.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t4.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t4.body2X | `26.220781` | `26.489782` | FAIL |
+| `jointType.getBody2` | joint.revolute.t4.body2X | `26.220781` | `26.220781` | PASS |
 | `jointType.getEntity1` | joint.revolute.t4.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t4.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t4.collidable | `0` | `0` | PASS |
@@ -3878,7 +3878,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t4.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t4.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t4.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t4.bX | `26.220781` | `26.489782` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t4.bX | `26.220781` | `26.220781` | PASS |
 | `jointType.getType` | joint.pin.t4.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t4.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t4.entity1Same | `1` | `1` | PASS |
@@ -3931,7 +3931,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t5.bX | `25.833330` | `25.833330` | PASS |
 | `jointType.getType` | joint.revolute.t5.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t5.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t5.body2X | `25.225103` | `25.315092` | FAIL |
+| `jointType.getBody2` | joint.revolute.t5.body2X | `25.225103` | `25.225103` | PASS |
 | `jointType.getEntity1` | joint.revolute.t5.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t5.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t5.collidable | `0` | `0` | PASS |
@@ -3941,7 +3941,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t5.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t5.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t5.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t5.bX | `25.225103` | `25.315092` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t5.bX | `25.225103` | `25.225103` | PASS |
 | `jointType.getType` | joint.pin.t5.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t5.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t5.entity1Same | `1` | `1` | PASS |
@@ -3994,7 +3994,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t6.bX | `29.999996` | `29.999996` | PASS |
 | `jointType.getType` | joint.revolute.t6.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t6.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t6.body2X | `25.015690` | `25.004829` | FAIL |
+| `jointType.getBody2` | joint.revolute.t6.body2X | `25.015690` | `25.015690` | PASS |
 | `jointType.getEntity1` | joint.revolute.t6.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t6.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t6.collidable | `0` | `0` | PASS |
@@ -4004,7 +4004,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t6.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t6.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t6.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t6.bX | `25.015690` | `25.004829` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t6.bX | `25.015690` | `25.015690` | PASS |
 | `jointType.getType` | joint.pin.t6.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t6.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t6.entity1Same | `1` | `1` | PASS |
@@ -4057,7 +4057,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t7.bX | `34.166664` | `34.166664` | PASS |
 | `jointType.getType` | joint.revolute.t7.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t7.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t7.body2X | `25.463972` | `25.428465` | FAIL |
+| `jointType.getBody2` | joint.revolute.t7.body2X | `25.463972` | `25.463972` | PASS |
 | `jointType.getEntity1` | joint.revolute.t7.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t7.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t7.collidable | `0` | `0` | PASS |
@@ -4067,7 +4067,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t7.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t7.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t7.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t7.bX | `25.463972` | `25.428465` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t7.bX | `25.463972` | `25.463972` | PASS |
 | `jointType.getType` | joint.pin.t7.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t7.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t7.entity1Same | `1` | `1` | PASS |
@@ -4120,7 +4120,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t8.bX | `38.333332` | `38.333332` | PASS |
 | `jointType.getType` | joint.revolute.t8.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t8.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t8.body2X | `26.404593` | `26.400843` | FAIL |
+| `jointType.getBody2` | joint.revolute.t8.body2X | `26.404593` | `26.404593` | PASS |
 | `jointType.getEntity1` | joint.revolute.t8.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t8.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t8.collidable | `0` | `0` | PASS |
@@ -4130,7 +4130,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t8.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t8.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t8.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t8.bX | `26.404593` | `26.400843` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t8.bX | `26.404593` | `26.404593` | PASS |
 | `jointType.getType` | joint.pin.t8.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t8.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t8.entity1Same | `1` | `1` | PASS |
@@ -4183,7 +4183,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t9.bX | `42.500000` | `42.500000` | PASS |
 | `jointType.getType` | joint.revolute.t9.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t9.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t9.body2X | `27.665192` | `27.724533` | FAIL |
+| `jointType.getBody2` | joint.revolute.t9.body2X | `27.665192` | `27.665192` | PASS |
 | `jointType.getEntity1` | joint.revolute.t9.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t9.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t9.collidable | `0` | `0` | PASS |
@@ -4193,7 +4193,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t9.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t9.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t9.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t9.bX | `27.665192` | `27.724533` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t9.bX | `27.665192` | `27.665192` | PASS |
 | `jointType.getType` | joint.pin.t9.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t9.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t9.entity1Same | `1` | `1` | PASS |
@@ -4246,7 +4246,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t10.bX | `46.666668` | `46.666668` | PASS |
 | `jointType.getType` | joint.revolute.t10.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t10.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t10.body2X | `29.084349` | `29.214552` | FAIL |
+| `jointType.getBody2` | joint.revolute.t10.body2X | `29.084349` | `29.084349` | PASS |
 | `jointType.getEntity1` | joint.revolute.t10.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t10.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t10.collidable | `0` | `0` | PASS |
@@ -4256,7 +4256,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t10.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t10.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t10.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t10.bX | `29.084349` | `29.214552` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t10.bX | `29.084349` | `29.084349` | PASS |
 | `jointType.getType` | joint.pin.t10.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t10.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t10.entity1Same | `1` | `1` | PASS |
@@ -4309,7 +4309,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getPos` | joint.distance.t11.bX | `50.833336` | `50.833336` | PASS |
 | `jointType.getType` | joint.revolute.t11.type | `1` | `1` | PASS |
 | `jointType.getBody1` | joint.revolute.t11.body1X | `30.000000` | `30.000000` | PASS |
-| `jointType.getBody2` | joint.revolute.t11.body2X | `30.521730` | `30.711706` | FAIL |
+| `jointType.getBody2` | joint.revolute.t11.body2X | `30.521730` | `30.521730` | PASS |
 | `jointType.getEntity1` | joint.revolute.t11.entity1Same | `1` | `1` | PASS |
 | `jointType.getEntity2` | joint.revolute.t11.entity2Same | `1` | `1` | PASS |
 | `jointType.isBodiesCollidable` | joint.revolute.t11.collidable | `0` | `0` | PASS |
@@ -4319,7 +4319,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getReactionForce` | joint.revolute.t11.forceY | `null` | `null` | PASS |
 | `jointType.getReactionTorque` | joint.revolute.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t11.aX | `30.000000` | `30.000000` | PASS |
-| `physicsBody.getPos` | joint.revolute.t11.bX | `30.521730` | `30.711706` | FAIL |
+| `physicsBody.getPos` | joint.revolute.t11.bX | `30.521730` | `30.521730` | PASS |
 | `jointType.getType` | joint.pin.t11.type | `9` | `9` | PASS |
 | `jointType.getBody1` | joint.pin.t11.body1X | `60.000000` | `60.000000` | PASS |
 | `jointType.getEntity1` | joint.pin.t11.entity1Same | `1` | `1` | PASS |
