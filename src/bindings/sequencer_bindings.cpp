@@ -282,7 +282,7 @@ struct TriggerPosition { int pattern; int step; };
 
 TriggerPosition NextNotePosition(const SequencerData& a_seq, int a_noteType) {
     const int spacing = StepsForNoteType(a_noteType);
-    if (spacing <= 0) return {a_seq.currentPattern, a_seq.currentStep};
+    if (spacing <= 0) return {a_seq.currentPattern, 0};
     int pattern = a_seq.currentPattern;
     int step = (a_seq.currentStep / spacing) * spacing + spacing;
     if (a_seq.numStepsPerPattern > 0 && step >= a_seq.numStepsPerPattern) {
