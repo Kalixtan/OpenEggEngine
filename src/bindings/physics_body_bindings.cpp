@@ -1121,9 +1121,17 @@ int GM_CDECL gmf_pb_setIsSensor(gmThread* a_thread) {
         f->SetSensor(b->isSensor);
     return GM_OK;
 }
+bool AllShapesAreSensors(const b2Body* body) {
+    // Retail returns true when there are no fixtures to check.
+    if (!body) return true;
+    for (const b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext()) {
+        if (!f->IsSensor()) return false;
+    }
+    return true;
+}
 int GM_CDECL gmf_pb_isSensor(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    a_thread->PushInt(b->isSensor ? 1 : 0);
+    a_thread->PushInt(AllShapesAreSensors(b->body) ? 1 : 0);
     return GM_OK;
 }
 // A sensor still reports overlap contacts to the listener. Retail callers
@@ -3511,8 +3519,10 @@ int GM_CDECL gmf_pd_setIsSensor(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(v, 0, 0);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) {
+    gmMachine& machine = *a_thread->GetMachine();
+    for (const gmVariable& body : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(machine, body);
+        if (!b || !b->body) continue;
         b->isSensor = (v != 0);
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext())
             f->SetSensor(b->isSensor);
@@ -3867,8 +3877,15 @@ int GM_CDECL gmf_pd_setDoesRotationResponse(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_isSensor(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushInt((b && b->isSensor) ? 1 : 0);
+    gmMachine& machine = *a_thread->GetMachine();
+    for (const gmVariable& body : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(machine, body);
+        if (b && !AllShapesAreSensors(b->body)) {
+            a_thread->PushInt(0);
+            return GM_OK;
+        }
+    }
+    a_thread->PushInt(1);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setIsCollidable(gmThread* a_thread) {
