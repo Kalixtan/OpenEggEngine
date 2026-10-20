@@ -1227,7 +1227,7 @@ int GM_CDECL gmf_pb_getShapeCategoriesToCollideWith(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pb_isBullet(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    a_thread->PushInt(b->body->IsBullet() ? 1 : 0);
+    a_thread->PushFloat(b->body->IsBullet() ? 1.0f : 0.0f);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setIsBullet(gmThread* a_thread) {
