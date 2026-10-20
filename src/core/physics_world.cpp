@@ -36,6 +36,7 @@ struct DeferredContactEvent {
     gmVariable other;
     const char* method;
 };
+void DispatchContactEvent(gmMachine* a_machine, const DeferredContactEvent& a_event);
 bool IsPlayerBody(gmMachine& a_machine, b2Body* a_body) {
     gmVariable owner = FindOwnerEntityForB2Body(a_body);
     if (owner.m_type != GM_TABLE) return false;
@@ -297,6 +298,24 @@ void RemovePairContact(b2Contact* a_contact,
     g_entityPairByContact.erase(mapIt);
 }
 
+void DispatchSeparateEvents(const std::vector<SeparateContactEvent>& a_events,
+                            bool a_callHandlers) {
+    gmMachine* machine = a_callHandlers ? GetEngineContext().machine : nullptr;
+    for (const SeparateContactEvent& event : a_events) {
+        if (machine) {
+            DispatchContactEvent(machine, DeferredContactEvent{
+                event.self, event.other, "onEntitySeparate"});
+        }
+        auto pairIt = g_activePhysicsDataPairs.find(event.pairKey);
+        if (pairIt != g_activePhysicsDataPairs.end() &&
+            pairIt->second.contacts.empty()) {
+            InvalidatePhysicsCollisionInfoView(event.pairKey.first,
+                                               event.pairKey.second);
+            g_activePhysicsDataPairs.erase(pairIt);
+        }
+    }
+}
+
 void RemoveEntityFromActivePairs(int a_entityId) {
     if (a_entityId < 0) return;
     for (auto pairIt = g_activeEntityPairs.begin(); pairIt != g_activeEntityPairs.end();) {
@@ -325,24 +344,17 @@ void RemoveEntityFromActivePairs(int a_entityId) {
 
 void RemoveBodyFromActivePairs(b2Body* a_body) {
     if (!a_body) return;
-    for (auto pairIt = g_activeEntityPairs.begin(); pairIt != g_activeEntityPairs.end();) {
-        auto& contacts = pairIt->second.contacts;
-        for (auto contactIt = contacts.begin(); contactIt != contacts.end();) {
-            b2Contact* contact = contactIt->first;
-            if (contact->GetFixtureA()->GetBody() != a_body &&
-                contact->GetFixtureB()->GetBody() != a_body) {
-                ++contactIt;
-                continue;
-            }
-            g_entityPairByContact.erase(contact);
-            RemovePhysicsDataContactRecord(contact);
-            auto& order = pairIt->second.contactOrder;
-            order.erase(std::remove(order.begin(), order.end(), contact), order.end());
-            contactIt = contacts.erase(contactIt);
-        }
-        if (contacts.empty()) pairIt = g_activeEntityPairs.erase(pairIt);
-        else ++pairIt;
+    std::vector<b2Contact*> contacts;
+    for (const auto& [contact, keys] : g_physicsDataPairsByContact) {
+        (void)keys;
+        if (contact->GetFixtureA()->GetBody() == a_body ||
+            contact->GetFixtureB()->GetBody() == a_body)
+            contacts.push_back(contact);
     }
+    std::vector<SeparateContactEvent> separateEvents;
+    for (b2Contact* contact : contacts) RemovePairContact(contact, separateEvents);
+    DispatchSeparateEvents(separateEvents,
+        g_entityPhysicsBodiesBeingDestroyed.count(a_body) == 0);
 }
 
 void DispatchContactEvent(gmMachine* a_machine, const DeferredContactEvent& a_event) {
@@ -486,38 +498,13 @@ public:
         g_disabledContacts.erase(a_contact);
         std::vector<SeparateContactEvent> separateEvents;
         RemovePairContact(a_contact, separateEvents);
-        if (g_entityPhysicsBodiesBeingDestroyed.count(
+        const bool suppressHandlers = g_entityPhysicsBodiesBeingDestroyed.count(
                 a_contact->GetFixtureA()->GetBody()) != 0 ||
             g_entityPhysicsBodiesBeingDestroyed.count(
-                a_contact->GetFixtureB()->GetBody()) != 0) {
-            for (const SeparateContactEvent& event : separateEvents) {
-                InvalidatePhysicsCollisionInfoView(event.pairKey.first,
-                                                   event.pairKey.second);
-                g_activePhysicsDataPairs.erase(event.pairKey);
-            }
-            return;
-        }
-        if (gmMachine* m = GetEngineContext().machine) {
-            // The 0x31308 erase helper invokes Entity vtable +0x5c separately
-            // for each directed PhysicsData pair that becomes empty.
-            for (const SeparateContactEvent& event : separateEvents) {
-                DispatchContactEvent(m, DeferredContactEvent{
-                    event.self, event.other, "onEntitySeparate"});
-                auto pairIt = g_activePhysicsDataPairs.find(event.pairKey);
-                if (pairIt != g_activePhysicsDataPairs.end() &&
-                    pairIt->second.contacts.empty()) {
-                    InvalidatePhysicsCollisionInfoView(event.pairKey.first,
-                                                       event.pairKey.second);
-                    g_activePhysicsDataPairs.erase(pairIt);
-                }
-            }
-        } else {
-            for (const SeparateContactEvent& event : separateEvents) {
-                InvalidatePhysicsCollisionInfoView(event.pairKey.first,
-                                                   event.pairKey.second);
-                g_activePhysicsDataPairs.erase(event.pairKey);
-            }
-        }
+                a_contact->GetFixtureB()->GetBody()) != 0;
+        // Removing a body in a script callback also takes this path before
+        // the other endpoint receives its queued collision callback.
+        DispatchSeparateEvents(separateEvents, !suppressHandlers);
     }
     void PreSolve(b2Contact* a_contact, const b2Manifold*) override {
         if (gmMachine* m = GetEngineContext().machine) {
