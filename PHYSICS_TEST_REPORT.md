@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-20 18:23 UTC
+Generated: 2026-10-20 18:51 UTC
 
-Matched: **265/283 declared readings (94%)**. This measures captured cases, not total physics parity.
+Matched: **283/283 declared readings (100%)**. This measures captured cases, not total physics parity.
 
 Functions with readings: **29/282**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -13,8 +13,8 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | Scene | Matched | Cases |
 | --- | ---: | ---: |
 | free | 48 | 48 |
-| fast | 44 | 48 |
-| solid | 58 | 72 |
+| fast | 48 | 48 |
+| solid | 72 | 72 |
 | sensor | 60 | 60 |
 
 ## Per function
@@ -116,7 +116,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getNumShapeVerts` | 0 | 0 | untested |
 | `physicsBody.getNumShapes` | 2 | 2 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
-| `physicsBody.getPos` | 86 | 100 | FAIL |
+| `physicsBody.getPos` | 100 | 100 | PASS |
 | `physicsBody.getPosRef` | 0 | 0 | untested |
 | `physicsBody.getPosVec` | 0 | 0 | untested |
 | `physicsBody.getRadius` | 1 | 1 | PASS |
@@ -138,7 +138,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getShapeWorldVert` | 0 | 0 | untested |
 | `physicsBody.getSpeed` | 1 | 1 | PASS |
 | `physicsBody.getThrustAcc` | 0 | 0 | untested |
-| `physicsBody.getVel` | 94 | 98 | FAIL |
+| `physicsBody.getVel` | 98 | 98 | PASS |
 | `physicsBody.getVelRef` | 0 | 0 | untested |
 | `physicsBody.getWidth` | 0 | 0 | untested |
 | `physicsBody.getWorldDir` | 0 | 0 | untested |
@@ -410,7 +410,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getVel` | scene.fast.t2.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t2.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t2.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t2.y | `13.333333` | `13.333332` | FAIL |
+| `physicsBody.getPos` | scene.solid.t2.y | `13.333333` | `13.333333` | PASS |
 | `physicsBody.getVel` | scene.solid.t2.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | scene.solid.t2.vy | `-0.200000` | `-0.200000` | PASS |
 | `physicsData.isColliding` | scene.solid.t2.colliding | `0` | `0` | PASS |
@@ -429,7 +429,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getVel` | scene.fast.t3.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t3.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t3.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t3.y | `10.000000` | `9.999998` | FAIL |
+| `physicsBody.getPos` | scene.solid.t3.y | `10.000000` | `10.000000` | PASS |
 | `physicsBody.getVel` | scene.solid.t3.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | scene.solid.t3.vy | `-0.200000` | `-0.200000` | PASS |
 | `physicsData.isColliding` | scene.solid.t3.colliding | `0` | `0` | PASS |
@@ -448,7 +448,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getVel` | scene.fast.t4.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t4.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t4.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t4.y | `6.666667` | `6.666665` | FAIL |
+| `physicsBody.getPos` | scene.solid.t4.y | `6.666667` | `6.666667` | PASS |
 | `physicsBody.getVel` | scene.solid.t4.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | scene.solid.t4.vy | `-0.200000` | `-0.200000` | PASS |
 | `physicsData.isColliding` | scene.solid.t4.colliding | `0` | `0` | PASS |
@@ -467,7 +467,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getVel` | scene.fast.t5.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t5.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t5.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t5.y | `3.333333` | `3.333331` | FAIL |
+| `physicsBody.getPos` | scene.solid.t5.y | `3.333333` | `3.333333` | PASS |
 | `physicsBody.getVel` | scene.solid.t5.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | scene.solid.t5.vy | `-0.200000` | `-0.200000` | PASS |
 | `physicsData.isColliding` | scene.solid.t5.colliding | `0` | `0` | PASS |
@@ -486,9 +486,9 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getVel` | scene.fast.t6.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t6.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t6.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t6.y | `3.005000` | `3.004375` | FAIL |
+| `physicsBody.getPos` | scene.solid.t6.y | `3.005000` | `3.005000` | PASS |
 | `physicsBody.getVel` | scene.solid.t6.vx | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getVel` | scene.solid.t6.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | scene.solid.t6.vy | `-0.000000` | `-0.000000` | PASS |
 | `physicsData.isColliding` | scene.solid.t6.colliding | `1` | `1` | PASS |
 | `physicsBody.isBullet` | scene.solid.t6.bullet | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.sensor.t6.x | `49.999992` | `49.999992` | PASS |
@@ -505,7 +505,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getVel` | scene.fast.t7.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t7.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t7.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t7.y | `3.005000` | `3.004500` | FAIL |
+| `physicsBody.getPos` | scene.solid.t7.y | `3.005000` | `3.005000` | PASS |
 | `physicsBody.getVel` | scene.solid.t7.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | scene.solid.t7.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.isColliding` | scene.solid.t7.colliding | `1` | `1` | PASS |
@@ -519,14 +519,14 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getPos` | scene.free.t8.y | `106.666687` | `106.666687` | PASS |
 | `physicsBody.getVel` | scene.free.t8.vx | `0.100000` | `0.100000` | PASS |
 | `physicsBody.getVel` | scene.free.t8.vy | `0.050000` | `0.050000` | PASS |
-| `physicsBody.getPos` | scene.fast.t8.x | `-233.333267` | `-233.333252` | FAIL |
+| `physicsBody.getPos` | scene.fast.t8.x | `-233.333267` | `-233.333267` | PASS |
 | `physicsBody.getPos` | scene.fast.t8.y | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t8.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t8.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t8.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t8.y | `3.005000` | `3.004600` | FAIL |
+| `physicsBody.getPos` | scene.solid.t8.y | `3.005000` | `3.005000` | PASS |
 | `physicsBody.getVel` | scene.solid.t8.vx | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getVel` | scene.solid.t8.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | scene.solid.t8.vy | `-0.000000` | `-0.000000` | PASS |
 | `physicsData.isColliding` | scene.solid.t8.colliding | `1` | `1` | PASS |
 | `physicsBody.isBullet` | scene.solid.t8.bullet | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.sensor.t8.x | `56.666656` | `56.666656` | PASS |
@@ -538,14 +538,14 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getPos` | scene.free.t9.y | `107.500023` | `107.500023` | PASS |
 | `physicsBody.getVel` | scene.free.t9.vx | `0.100000` | `0.100000` | PASS |
 | `physicsBody.getVel` | scene.free.t9.vy | `0.050000` | `0.050000` | PASS |
-| `physicsBody.getPos` | scene.fast.t9.x | `-199.999939` | `-199.999908` | FAIL |
+| `physicsBody.getPos` | scene.fast.t9.x | `-199.999939` | `-199.999939` | PASS |
 | `physicsBody.getPos` | scene.fast.t9.y | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t9.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t9.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t9.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t9.y | `3.005000` | `3.004680` | FAIL |
+| `physicsBody.getPos` | scene.solid.t9.y | `3.005000` | `3.005000` | PASS |
 | `physicsBody.getVel` | scene.solid.t9.vx | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getVel` | scene.solid.t9.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | scene.solid.t9.vy | `-0.000000` | `-0.000000` | PASS |
 | `physicsData.isColliding` | scene.solid.t9.colliding | `1` | `1` | PASS |
 | `physicsBody.isBullet` | scene.solid.t9.bullet | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.sensor.t9.x | `59.999989` | `59.999989` | PASS |
@@ -557,14 +557,14 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getPos` | scene.free.t10.y | `108.333359` | `108.333359` | PASS |
 | `physicsBody.getVel` | scene.free.t10.vx | `0.100000` | `0.100000` | PASS |
 | `physicsBody.getVel` | scene.free.t10.vy | `0.050000` | `0.050000` | PASS |
-| `physicsBody.getPos` | scene.fast.t10.x | `-166.666611` | `-166.666565` | FAIL |
+| `physicsBody.getPos` | scene.fast.t10.x | `-166.666611` | `-166.666611` | PASS |
 | `physicsBody.getPos` | scene.fast.t10.y | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t10.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t10.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t10.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t10.y | `3.005000` | `3.004744` | FAIL |
+| `physicsBody.getPos` | scene.solid.t10.y | `3.005000` | `3.005000` | PASS |
 | `physicsBody.getVel` | scene.solid.t10.vx | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getVel` | scene.solid.t10.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | scene.solid.t10.vy | `-0.000000` | `-0.000000` | PASS |
 | `physicsData.isColliding` | scene.solid.t10.colliding | `1` | `1` | PASS |
 | `physicsBody.isBullet` | scene.solid.t10.bullet | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.sensor.t10.x | `63.333321` | `63.333321` | PASS |
@@ -576,12 +576,12 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getPos` | scene.free.t11.y | `109.166695` | `109.166695` | PASS |
 | `physicsBody.getVel` | scene.free.t11.vx | `0.100000` | `0.100000` | PASS |
 | `physicsBody.getVel` | scene.free.t11.vy | `0.050000` | `0.050000` | PASS |
-| `physicsBody.getPos` | scene.fast.t11.x | `-133.333282` | `-133.333221` | FAIL |
+| `physicsBody.getPos` | scene.fast.t11.x | `-133.333282` | `-133.333282` | PASS |
 | `physicsBody.getPos` | scene.fast.t11.y | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t11.vx | `2.000000` | `2.000000` | PASS |
 | `physicsBody.getVel` | scene.fast.t11.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | scene.solid.t11.x | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getPos` | scene.solid.t11.y | `3.005000` | `3.004795` | FAIL |
+| `physicsBody.getPos` | scene.solid.t11.y | `3.005000` | `3.005000` | PASS |
 | `physicsBody.getVel` | scene.solid.t11.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | scene.solid.t11.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.isColliding` | scene.solid.t11.colliding | `1` | `1` | PASS |
