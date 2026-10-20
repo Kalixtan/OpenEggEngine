@@ -206,19 +206,8 @@ void b2Fixture::Refilter()
 		edge = edge->next;
 	}
 
-	b2World* world = m_body->GetWorld();
-
-	if (world == nullptr)
-	{
-		return;
-	}
-
-	// Touch each proxy so that new pairs may be created
-	b2BroadPhase* broadPhase = &world->m_contactManager.m_broadPhase;
-	for (int32 i = 0; i < m_proxyCount; ++i)
-	{
-		broadPhase->TouchProxy(m_proxies[i].proxyId);
-	}
+	// Retail only flags existing contacts here. New pairs wait until the
+	// fixtures move through the broadphase again.
 }
 
 void b2Fixture::SetSensor(bool sensor)

@@ -405,8 +405,8 @@ int GM_CDECL gmf_shape_getVertexWorldPos(gmThread* a_thread) {
 // RETAIL PPC VERIFIED: PHYSICSSHAPE.setCategoriesToCollideWith (0x8d984)
 // stores a 16-bit mask at native shape +0x0e. Helpers 0x15511c/0x1573d0 copy
 // the ShapeDef filter record and flag matching retail contacts with bit 0x40.
-// Box2D SetFilterData flags contacts for filtering and touches their proxies;
-// exact consumer/timing equivalence to retail bit 0x40 remains open.
+// Our Box2D filter path flags contacts without touching broadphase proxies,
+// matching the retail filter restore timing in the paired probes.
 int GM_CDECL gmf_shape_setCategoriesToCollideWith(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(mask, 0, 0);
@@ -422,8 +422,8 @@ int GM_CDECL gmf_shape_setCategoriesToCollideWith(gmThread* a_thread) {
 // RETAIL PPC VERIFIED: PHYSICSSHAPE.setCollisionCategory (0x8d9e0) stores a
 // 16-bit category at native shape +0x0c. Helpers 0x155184/0x1573d0 copy the
 // ShapeDef filter record and flag matching retail contacts with bit 0x40.
-// Box2D SetFilterData flags contacts for filtering and touches their proxies;
-// exact consumer/timing equivalence to retail bit 0x40 remains open.
+// Our Box2D filter path flags contacts without touching broadphase proxies,
+// matching the retail filter restore timing in the paired probes.
 int GM_CDECL gmf_shape_setCollisionCategory(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(category, 0, 0);
