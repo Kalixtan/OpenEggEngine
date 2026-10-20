@@ -268,7 +268,7 @@ void GM_CDECL SequencerListRefGCDestruct(gmMachine*, gmUserObject* a_object) {
 }
 
 int WrapStep(int a_step, int a_len) {
-    if (a_len <= 0) return 0;
+    if (a_len == 0) return a_step;
     int w = a_step % a_len;
     if (w < 0) w += a_len;
     return w;
