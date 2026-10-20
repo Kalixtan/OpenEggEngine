@@ -1,8 +1,8 @@
 # Audio test report
 
-Generated: 2026-10-20 21:09 UTC
+Generated: 2026-10-20 21:50 UTC
 
-Matched: **48/54 (89%)** script readings. This does not test emitted audio or DSP parity.
+Matched: **54/54 (100%)** script readings. This does not test emitted audio or DSP parity.
 
 Voice probe: tested with user supplied sound. Functions with readings: **26/68**.
 
@@ -23,8 +23,8 @@ Voice probe: tested with user supplied sound. Functions with readings: **26/68**
 | `Audio.getMasterVolume` | 4 | 4 | PASS |
 | `Audio.getMusicVolume` | 2 | 2 | PASS |
 | `Audio.getNumDiracDSPChannelsUsed` | 1 | 1 | PASS |
-| `Audio.getNumDiracDSPs` | 0 | 1 | FAIL |
-| `Audio.getNumDiracDSPsFree` | 0 | 1 | FAIL |
+| `Audio.getNumDiracDSPs` | 1 | 1 | PASS |
+| `Audio.getNumDiracDSPsFree` | 1 | 1 | PASS |
 | `Audio.getNumDiracDSPsUsed` | 1 | 1 | PASS |
 | `Audio.getRetriggerTime` | 1 | 1 | PASS |
 | `Audio.getSFXVolume` | 2 | 2 | PASS |
@@ -32,13 +32,13 @@ Voice probe: tested with user supplied sound. Functions with readings: **26/68**
 | `Audio.getVoiceLength` | 2 | 2 | PASS |
 | `Audio.getVoicePosition` | 2 | 2 | PASS |
 | `Audio.getVoiceSpeed` | 5 | 5 | PASS |
-| `Audio.getVoiceVolume` | 1 | 4 | FAIL |
+| `Audio.getVoiceVolume` | 4 | 4 | PASS |
 | `Audio.hack_setEnabled` | 0 | 0 | untested |
 | `Audio.isPlayingScript` | 1 | 1 | PASS |
 | `Audio.isRecording` | 1 | 1 | PASS |
 | `Audio.isRecordingScript` | 1 | 1 | PASS |
 | `Audio.isRetriggering` | 1 | 1 | PASS |
-| `Audio.isVoicePaused` | 3 | 4 | FAIL |
+| `Audio.isVoicePaused` | 4 | 4 | PASS |
 | `Audio.isVoiceValid` | 5 | 5 | PASS |
 | `Audio.loadSampleList` | 0 | 0 | untested |
 | `Audio.loadScriptFromFile` | 0 | 0 | untested |
@@ -88,8 +88,8 @@ Voice probe: tested with user supplied sound. Functions with readings: **26/68**
 | `Audio.getSFXVolume` | Audio.getSFXVolume.default | `1.000000` | `1.000000` | PASS |
 | `Audio.getFrequencyMultiplier` | Audio.getFrequencyMultiplier.default | `1.000000` | `1.000000` | PASS |
 | `Audio.getDefaultBaseNote` | Audio.getDefaultBaseNote.default | `48` | `48` | PASS |
-| `Audio.getNumDiracDSPs` | Audio.getNumDiracDSPs.default | `7` | `0` | FAIL |
-| `Audio.getNumDiracDSPsFree` | Audio.getNumDiracDSPsFree.default | `7` | `0` | FAIL |
+| `Audio.getNumDiracDSPs` | Audio.getNumDiracDSPs.default | `7` | `7` | PASS |
+| `Audio.getNumDiracDSPsFree` | Audio.getNumDiracDSPsFree.default | `7` | `7` | PASS |
 | `Audio.getNumDiracDSPsUsed` | Audio.getNumDiracDSPsUsed.default | `0` | `0` | PASS |
 | `Audio.getNumDiracDSPChannelsUsed` | Audio.getNumDiracDSPChannelsUsed.default | `0` | `0` | PASS |
 | `Audio.checkDiracPoolIntegrity` | Audio.checkDiracPoolIntegrity.default | `1` | `1` | PASS |
@@ -122,18 +122,18 @@ Voice probe: tested with user supplied sound. Functions with readings: **26/68**
 | `Audio.isVoiceValid` | Audio.isVoiceValid.one | `1` | `1` | PASS |
 | `Audio.getVoiceLength` | Audio.getVoiceLength.one | `87` | `87` | PASS |
 | `Audio.getVoiceSpeed` | Audio.getVoiceSpeed.one | `1.000000` | `1.000000` | PASS |
-| `Audio.getVoiceVolume` | Audio.getVoiceVolume.one | `1.000000` | `0.000000` | FAIL |
+| `Audio.getVoiceVolume` | Audio.getVoiceVolume.one | `1.000000` | `1.000000` | PASS |
 | `Audio.isVoicePaused` | Audio.isVoicePaused.one | `0` | `0` | PASS |
 | `Audio.playSound` | Audio.playSound.threePositive | `1` | `1` | PASS |
 | `Audio.isVoiceValid` | Audio.isVoiceValid.three | `1` | `1` | PASS |
-| `Audio.getVoiceVolume` | Audio.getVoiceVolume.three | `0.250000` | `0.000000` | FAIL |
+| `Audio.getVoiceVolume` | Audio.getVoiceVolume.three | `0.250000` | `0.250000` | PASS |
 | `Audio.playSound` | Audio.playSound.fivePositive | `1` | `1` | PASS |
 | `Audio.isVoiceValid` | Audio.isVoiceValid.five | `1` | `1` | PASS |
 | `Audio.getVoiceSpeed` | Audio.getVoiceSpeed.five | `1.000000` | `1.000000` | PASS |
-| `Audio.getVoiceVolume` | Audio.getVoiceVolume.changed | `0.200000` | `0.000000` | FAIL |
+| `Audio.getVoiceVolume` | Audio.getVoiceVolume.changed | `0.200000` | `0.200000` | PASS |
 | `Audio.getVoiceSpeed` | Audio.getVoiceSpeed.changed | `1.250000` | `1.250000` | PASS |
 | `Audio.getVoiceSpeed` | Audio.getVoiceSpeed.note | `1.000000` | `1.000000` | PASS |
-| `Audio.isVoicePaused` | Audio.isVoicePaused.paused | `1` | `0` | FAIL |
+| `Audio.isVoicePaused` | Audio.isVoicePaused.paused | `1` | `1` | PASS |
 | `Audio.isVoicePaused` | Audio.isVoicePaused.resumed | `0` | `0` | PASS |
 | `Audio.getVoicePosition` | Audio.getVoicePosition.set | `20` | `20` | PASS |
 | `Audio.getAllVoices` | Audio.getAllVoices.hasVoice | `1` | `1` | PASS |

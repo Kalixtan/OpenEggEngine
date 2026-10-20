@@ -129,6 +129,9 @@ struct VoiceState {
 
 struct AudioState {
     std::unordered_map<int, VoiceState> voices;
+    // Observed PS3 pool total after audio setup. The retail total comes from
+    // its backend allocator, so this may differ on other game versions.
+    static constexpr int kDiracPoolCapacity = 7;
     size_t diracPoolEntriesUsed = 0;
     std::vector<DeferredEffectCleanup> effectChainsWaitingForVoiceEnd;
     std::vector<DeferredEffectCleanup> effectsWaitingForVoiceEnd;
@@ -2437,6 +2440,15 @@ int GM_CDECL gmf_getDiracPoolEntriesUsed(gmThread* a_thread) {
     a_thread->PushInt(static_cast<gmint>(State().diracPoolEntriesUsed));
     return GM_OK;
 }
+int GM_CDECL gmf_getDiracPoolEntriesFree(gmThread* a_thread) {
+    a_thread->PushInt(AudioState::kDiracPoolCapacity -
+                      static_cast<gmint>(State().diracPoolEntriesUsed));
+    return GM_OK;
+}
+int GM_CDECL gmf_getDiracPoolCapacity(gmThread* a_thread) {
+    a_thread->PushInt(AudioState::kDiracPoolCapacity);
+    return GM_OK;
+}
 
 gmFunctionEntry s_audioLib[] = {
     {"loadSound", gmf_loadSound, nullptr},
@@ -2508,10 +2520,10 @@ gmFunctionEntry s_audioLib[] = {
     {"getFrequencyMultiplier", gmf_getFrequencyMultiplier, nullptr},
     {"getFreeMemory", gmf_zeroInt, nullptr},
     {"getDefaultBaseNote", gmf_getDefaultBaseNote, nullptr},
-    {"getNumDiracDSPsFree", gmf_zeroInt, nullptr},
+    {"getNumDiracDSPsFree", gmf_getDiracPoolEntriesFree, nullptr},
     {"getNumDiracDSPsUsed", gmf_getDiracPoolEntriesUsed, nullptr},
     {"getNumDiracDSPChannelsUsed", gmf_getDiracPoolEntriesUsed, nullptr},
-    {"getNumDiracDSPs", gmf_zeroInt, nullptr},
+    {"getNumDiracDSPs", gmf_getDiracPoolCapacity, nullptr},
     {"checkDiracPoolIntegrity", gmf_checkDiracPoolIntegrity, nullptr},
 };
 
