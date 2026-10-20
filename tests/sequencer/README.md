@@ -8,4 +8,4 @@ SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 \
 ./build/OpenEgg "$PWD/tests/sequencer" smoke.gm Main
 ```
 
-Expect `SEQ conversion PASS`, `SEQ order PASS`, and `SEQ removal PASS`.
+Expect `SEQ conversion PASS`, `SEQ order PASS`, `SEQ removal PASS`, and `SEQ timing PASS`.

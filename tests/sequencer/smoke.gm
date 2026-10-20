@@ -4,6 +4,8 @@ global Main = function(p) {
         constructor=function() {
             this.frames=0;
             this.order=0;
+            this.evenTiming=0;
+            this.oddTiming=0;
 
             local notes={}; notes.size=16;
             local i=0;
@@ -27,6 +29,23 @@ global Main = function(p) {
             local moved=this.seq.setTrigger(0,middle,false);
             this.seq.setTrigger(0,last,false);
             this.seq.moveTriggerToFront(moved);
+            local even=SEQUENCERACTION(); even.parent=this;
+            even.execute=function() {
+                local ms=this.parent.seq.getMSTillNextStep();
+                local accurate=this.parent.seq.getMSTillNextStepAccurate();
+                local sixteenth=this.parent.seq.getMSTillNextStep16();
+                if (ms>0 && MATH_ABS(ms-accurate)<0.01 && MATH_ABS(2*ms-sixteenth)<0.01) {
+                    this.parent.evenTiming=1;
+                }
+            };
+            local odd=SEQUENCERACTION(); odd.parent=this;
+            odd.execute=function() {
+                local ms=this.parent.seq.getMSTillNextStep();
+                local sixteenth=this.parent.seq.getMSTillNextStep16();
+                if (ms>0 && MATH_ABS(ms-sixteenth)<0.01) { this.parent.oddTiming=1; }
+            };
+            this.seq.setTrigger(0,even,false);
+            this.seq.setTrigger(1,odd,false);
             this.seq.start();
 
             this.taggedSeq=SEQUENCER();
@@ -45,6 +64,9 @@ global Main = function(p) {
                 if (this.taggedSeq.getNumTriggers()==0) {
                     GameSystem.trace("SEQ removal PASS");
                 } else { GameSystem.trace("SEQ removal FAIL"); }
+                if (this.evenTiming==1 && this.oddTiming==1) {
+                    GameSystem.trace("SEQ timing PASS");
+                } else { GameSystem.trace("SEQ timing FAIL"); }
             }
         }
     );
