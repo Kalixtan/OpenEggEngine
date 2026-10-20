@@ -1,0 +1,465 @@
+{
+  "harness": "smoke.harness",
+  "sections": [
+    {
+      "name": "Core",
+      "script": "smoke.gm",
+      "retail": "paired probe",
+      "cases": [
+        {
+          "name": "SEQ conversion",
+          "retail": "local check",
+          "functions": [
+            "SEQUENCE_ToTable",
+            "SEQUENCE_FromTable",
+            "SEQUENCE_ToString",
+            "SEQUENCE_FromString"
+          ]
+        },
+        {
+          "name": "SEQ order",
+          "functions": [
+            "SEQUENCER",
+            "SEQUENCERACTION",
+            "Sequencer.setTrigger",
+            "Sequencer.moveTriggerToFront",
+            "Sequencer.start",
+            "Sequencer.getNumTriggers"
+          ]
+        },
+        {
+          "name": "SEQ removal",
+          "functions": [
+            "SequencerAction.tagForRemoval",
+            "Sequencer.setTrigger",
+            "Sequencer.getNumTriggers"
+          ]
+        },
+        {
+          "name": "SEQ timing",
+          "functions": [
+            "Sequencer.getMSTillNextStep",
+            "Sequencer.getMSTillNextStepAccurate",
+            "Sequencer.getMSTillNextStep16"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "State",
+      "script": "state.gm",
+      "retail": "paired probe",
+      "cases": [
+        {
+          "name": "SEQ initial state",
+          "functions": [
+            "SEQUENCER",
+            "Sequencer.getBPM",
+            "Sequencer.getNumStepsPerPattern",
+            "Sequencer.getCurrentPattern",
+            "Sequencer.getCurrentStep",
+            "Sequencer.isPlaying",
+            "Sequencer.getMSPerStep"
+          ]
+        },
+        {
+          "name": "SEQ tempo and notes",
+          "functions": [
+            "Sequencer.setNumStepsPerPattern",
+            "Sequencer.setBPM",
+            "Sequencer.getNumStepsPerPattern",
+            "Sequencer.getBPM",
+            "Sequencer.getMSPerStep",
+            "Sequencer.getNumStepsPerNote",
+            "Sequencer.getNoteTime"
+          ]
+        },
+        {
+          "name": "SEQ next note",
+          "functions": [
+            "Sequencer.setLoopLen",
+            "Sequencer.setCurrentStep",
+            "Sequencer.getNextNotePattern",
+            "Sequencer.getNextNoteStep"
+          ]
+        },
+        {
+          "name": "SEQ raw step",
+          "functions": [
+            "Sequencer.gotoStep",
+            "Sequencer.getCurrentStep",
+            "Sequencer.getCurrentPattern"
+          ]
+        },
+        {
+          "name": "SEQ playback state",
+          "functions": [
+            "Sequencer.start",
+            "Sequencer.stop",
+            "Sequencer.restart",
+            "Sequencer.isPlaying",
+            "Sequencer.getCurrentStep",
+            "Sequencer.getCurrentPattern"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Manager",
+      "script": "global.gm",
+      "retail": "paired probe",
+      "cases": [
+        {
+          "name": "SEQ global walk",
+          "functions": [
+            "SEQUENCER_GetAllSequencers",
+            "SequencerListRef.size",
+            "SequencerListRef.isValid",
+            "SequencerListRef.get",
+            "SequencerListRef.goToNext",
+            "Sequencer.getObjectID"
+          ]
+        },
+        {
+          "name": "SEQ global wrap",
+          "functions": [
+            "SequencerListRef.goToNext",
+            "SequencerListRef.isValid",
+            "SequencerListRef.get"
+          ]
+        },
+        {
+          "name": "SEQ global reset",
+          "functions": [
+            "SequencerListRef.reset",
+            "SequencerListRef.isValid",
+            "SequencerListRef.get"
+          ]
+        },
+        {
+          "name": "SEQ global pause",
+          "functions": [
+            "SEQUENCER_PauseAllSequencers",
+            "SEQUENCER_UnpauseAllSequencers",
+            "Sequencer.isPlaying"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Timers",
+      "script": "timer.gm",
+      "retail": "paired probe",
+      "cases": [
+        {
+          "name": "SEQ timer keep",
+          "functions": [
+            "Sequencer.setBPM",
+            "Sequencer.getMSTillNextStep",
+            "Sequencer.getMSPerStep"
+          ]
+        },
+        {
+          "name": "SEQ pattern timer reset",
+          "functions": [
+            "Sequencer.setNumStepsPerPattern",
+            "Sequencer.getMSTillNextStep",
+            "Sequencer.getNumStepsPerPattern"
+          ]
+        },
+        {
+          "name": "SEQ BPM timer reset",
+          "functions": [
+            "Sequencer.setBPM",
+            "Sequencer.getMSTillNextStep",
+            "Sequencer.getMSPerStep"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Loops",
+      "script": "loop.gm",
+      "retail": "paired probe",
+      "cases": [
+        {
+          "name": "SEQ loop first",
+          "functions": [
+            "Sequencer.setTrigger",
+            "Sequencer.start",
+            "Sequencer.getCurrentPattern",
+            "Sequencer.getCurrentStep"
+          ]
+        },
+        {
+          "name": "SEQ loop second",
+          "functions": [
+            "Sequencer.setTrigger",
+            "Sequencer.start",
+            "Sequencer.getCurrentPattern",
+            "Sequencer.getCurrentStep"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Safety",
+      "script": "edge.gm",
+      "retail": "safe difference",
+      "cases": [
+        {
+          "name": "SEQ cleared cursor safe",
+          "functions": [
+            "Sequencer.clearTriggers",
+            "SequencerTriggerList.size",
+            "SequencerTriggerList.isValid",
+            "SequencerTriggerList.get"
+          ]
+        },
+        {
+          "name": "SEQ cursor reset",
+          "functions": [
+            "SequencerTriggerList.reset",
+            "SequencerTriggerList.isValid"
+          ]
+        },
+        {
+          "name": "SEQ tail move safe",
+          "functions": [
+            "Sequencer.moveTriggerToFront",
+            "Sequencer.setTrigger"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Trigger forms",
+      "script": "trigger_forms.gm",
+      "retail": "paired probe",
+      "cases": [
+        {
+          "name": "SEQ trigger implicit",
+          "functions": [
+            "Sequencer.setTrigger",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep",
+            "SequencerTrigger.getLooped"
+          ]
+        },
+        {
+          "name": "SEQ action wrapper identity",
+          "functions": [
+            "SequencerTrigger.getAction"
+          ],
+          "known_gap": "Retail returns a fresh action wrapper on each getAction call."
+        },
+        {
+          "name": "SEQ trigger implicit flag",
+          "functions": [
+            "Sequencer.setTrigger",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep",
+            "SequencerTrigger.getLooped"
+          ]
+        },
+        {
+          "name": "SEQ trigger explicit",
+          "functions": [
+            "Sequencer.setTrigger",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep",
+            "SequencerTrigger.getLooped"
+          ]
+        },
+        {
+          "name": "SEQ trigger explicit flag",
+          "functions": [
+            "Sequencer.setTrigger",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep",
+            "SequencerTrigger.getLooped"
+          ]
+        },
+        {
+          "name": "SEQ trigger16 implicit",
+          "functions": [
+            "Sequencer.setTrigger16",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep",
+            "SequencerTrigger.getLooped"
+          ]
+        },
+        {
+          "name": "SEQ trigger16 explicit",
+          "functions": [
+            "Sequencer.setTrigger16",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep",
+            "SequencerTrigger.getLooped"
+          ]
+        },
+        {
+          "name": "SEQ trigger next",
+          "functions": [
+            "Sequencer.setTriggerOnNext",
+            "Sequencer.getNextNotePattern",
+            "Sequencer.getNextNoteStep",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep",
+            "SequencerTrigger.getLooped"
+          ]
+        },
+        {
+          "name": "SEQ trigger count",
+          "functions": [
+            "Sequencer.getNumTriggers"
+          ]
+        },
+        {
+          "name": "SEQ trigger list walk",
+          "functions": [
+            "Sequencer.getAllTriggers",
+            "SequencerTriggerList.get",
+            "SequencerTriggerList.isValid",
+            "SequencerTriggerList.goToNext",
+            "SequencerTriggerList.size",
+            "SequencerTrigger.getPattern",
+            "SequencerTrigger.getStep"
+          ]
+        },
+        {
+          "name": "SEQ trigger list reset",
+          "functions": [
+            "SequencerTriggerList.goToNext",
+            "SequencerTriggerList.reset",
+            "SequencerTriggerList.isValid",
+            "SequencerTriggerList.get"
+          ]
+        },
+        {
+          "name": "SEQ trigger wrapper identity",
+          "functions": [
+            "SequencerTriggerList.get"
+          ],
+          "known_gap": "Retail returns a fresh trigger wrapper on each list get call."
+        },
+        {
+          "name": "SEQ trigger clear",
+          "functions": [
+            "Sequencer.clearTriggers",
+            "Sequencer.getNumTriggers",
+            "SequencerTriggerList.size"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Actions",
+      "script": "action.gm",
+      "retail": "paired probe",
+      "cases": [
+        {
+          "name": "SEQ action fields",
+          "functions": [
+            "SEQUENCERACTION",
+            "SequencerAction.isTaggedForRemoval"
+          ]
+        },
+        {
+          "name": "SEQ action set table",
+          "functions": [
+            "SequencerAction.setTable"
+          ]
+        },
+        {
+          "name": "SEQ action table constructor",
+          "functions": [
+            "SEQUENCERACTION"
+          ]
+        },
+        {
+          "name": "SEQ action tag",
+          "functions": [
+            "SequencerAction.tagForRemoval",
+            "SequencerAction.isTaggedForRemoval",
+            "Sequencer.getNumTriggers"
+          ]
+        },
+        {
+          "name": "SEQ action GC table",
+          "functions": [
+            "SequencerAction.setTable"
+          ]
+        },
+        {
+          "name": "SEQ action stopped removal",
+          "functions": [
+            "SequencerAction.tagForRemoval",
+            "Sequencer.getNumTriggers"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sequence conversion",
+      "script": "sequence.gm",
+      "retail": "local check",
+      "cases": [
+        {
+          "name": "SEQ pack word",
+          "functions": [
+            "SEQUENCE_ToTable"
+          ]
+        },
+        {
+          "name": "SEQ unpack word",
+          "functions": [
+            "SEQUENCE_FromTable"
+          ]
+        },
+        {
+          "name": "SEQ encode string",
+          "functions": [
+            "SEQUENCE_ToString"
+          ]
+        },
+        {
+          "name": "SEQ decode string",
+          "functions": [
+            "SEQUENCE_FromString"
+          ]
+        },
+        {
+          "name": "SEQ invalid prefix",
+          "functions": [
+            "SEQUENCE_FromString"
+          ]
+        },
+        {
+          "name": "SEQ raw character",
+          "functions": [
+            "SEQUENCE_FromString"
+          ]
+        },
+        {
+          "name": "SEQ state three stop",
+          "functions": [
+            "SEQUENCE_ToString"
+          ]
+        },
+        {
+          "name": "SEQ partial word",
+          "functions": [
+            "SEQUENCE_ToTable"
+          ]
+        },
+        {
+          "name": "SEQ empty packed",
+          "functions": [
+            "SEQUENCE_FromTable"
+          ]
+        }
+      ]
+    }
+  ]
+}

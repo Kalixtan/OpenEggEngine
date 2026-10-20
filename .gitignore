@@ -33,6 +33,8 @@ compile_commands.json
 !*.ini.example
 *.log
 *.ppm
+/tests/_results/
+__pycache__/
 
 # Local IDE and editor state
 .vscode/

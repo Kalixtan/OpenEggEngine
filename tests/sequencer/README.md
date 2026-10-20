@@ -1,29 +1,24 @@
-# Sequencer smoke check
+# Sequencer checks
 
-Run from the repo root with your own game data available to OpenEgg:
+`probe.gm` is the single script to load in both engines. It prints named values
+as `OEP__function.case__value.gm` load errors; no probe files need to exist.
+Each reading sets up its own sequencer state first.
+
+To refresh the retail baseline, append `probe.gm` to a **copy** of the game's
+extracted `Main.gm`, temporarily install that copy, run the PS3 build in RPCS3,
+then save `~/.cache/rpcs3/TTY.log`. Restore the original `Main.gm` afterward.
+
+From this repo root:
 
 ```sh
-GE3_HEADLESS=1 GE3_TRACE=1 GE3_HARNESS="$PWD/tests/sequencer/smoke.harness" \
-SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 \
-./build/OpenEgg "$PWD/tests/sequencer" smoke.gm Main
+python3 tests/compare_probe.py --retail-log /path/to/TTY.log
 ```
 
-Expect `SEQ conversion PASS`, `SEQ order PASS`, `SEQ removal PASS`, and `SEQ timing PASS`.
+The command runs OpenEgg headlessly, compares both logs, runs the local
+assertion scripts, and writes `TEST_REPORT.md`. Use `--strict-parity` to
+return an error for known gaps too. `python3 tests/run.py` runs only the
+local assertions; section scripts stay separate so cases are easy to edit.
 
-Run the same command with `edge.gm` to check OpenEgg's safe handling of two
-retail edge cases. Retail faults when moving the last trigger, and a cursor
-held through `clearTriggers()` reads freed memory. OpenEgg returns normally
-and invalidates the cleared cursor.
-
-Run it with `state.gm` to check constructor state, tempo, note divisions,
-navigation, and playback flags. These checks also passed against the retail
-PS3 build.
-
-Run it with `global.gm` to check the live sequencer list and global pause.
-The same cases passed against retail.
-
-Run it with `timer.gm` to check the BPM keep/reset flag and pattern-length
-timer reset during a callback. These also passed against retail.
-
-Run it with `loop.gm` to check repeating triggers across two patterns.
-Both callback positions and repeats passed against retail.
+The checked-in `retail-baseline.tsv` contains captured readings, so the
+default command works without RPCS3. The six callback readings still need a
+clean retail capture: this probe run faulted before they appeared.
