@@ -46,6 +46,11 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/ray_motion.gm \
   --expected tests/physics/ray_motion-plan.json \
   --baseline tests/physics/ray_motion-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_lifecycle.gm \
+  --support-file tests/physics/LifecycleProbeEntity.gm \
+  --expected tests/physics/entity_lifecycle-plan.json \
+  --baseline tests/physics/entity_lifecycle-retail.tsv
 python3 tests/physics/compare.py
 ```
 
@@ -59,6 +64,8 @@ info and filter changes; rays cover global, body, and PhysicsData calls. Filter
 reentry checks a restored mask through small movement and full separation.
 Joint scenes sample five joint types over time; moving rays check hit order
 after bodies move and overlap. The report keeps mismatches visible.
+Entity lifecycle checks enable/disable, contact callbacks, re-enable, and
+delete/flush while bodies overlap.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired

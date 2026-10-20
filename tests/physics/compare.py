@@ -40,13 +40,18 @@ JOINT_PLAN = HERE / "joints-plan.json"
 RAY_MOTION = HERE / "ray_motion.gm"
 RAY_MOTION_BASELINE = HERE / "ray_motion-retail.tsv"
 RAY_MOTION_PLAN = HERE / "ray_motion-plan.json"
+ENTITY_LIFECYCLE = HERE / "entity_lifecycle.gm"
+ENTITY_LIFECYCLE_BASELINE = HERE / "entity_lifecycle-retail.tsv"
+ENTITY_LIFECYCLE_PLAN = HERE / "entity_lifecycle-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
+ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "shapeCollisionInfo.", "intIter.",
             "jointType.", "jointIter.", "Physics.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
-           "Global.PHYSICSSHAPECOLLECTIONDEF"}
+           "Global.PHYSICSSHAPECOLLECTIONDEF", "Entity.isEnabled",
+           "EntityManager.isEntityIDValid"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
@@ -128,6 +133,15 @@ RAY_MOTION_FIELDS = {"count": "Physics.raycast", "trace": "Physics.raycast",
                      "simple": "Physics.raycastSimple", "hit": "Physics.raycastOne",
                      "entity": "Physics.raycastOne", "lambda": "Physics.raycastOne",
                      "nx": "Physics.raycastOne", "ny": "Physics.raycastOne"}
+ENTITY_LIFECYCLE_FIELDS = {
+    "aValid": "EntityManager.isEntityIDValid", "bValid": "EntityManager.isEntityIDValid",
+    "aEnabled": "Entity.isEnabled", "aBodies": "physicsData.getNumBodies",
+    "aColliding": "physicsData.isColliding", "trace": "Entity callbacks",
+    "aP": "Entity.onEntityCollidePreSolve", "bP": "Entity.onEntityCollidePreSolve",
+    "aC": "Entity.onEntityCollide", "bC": "Entity.onEntityCollide",
+    "aT": "Entity.onEntityTouch", "bT": "Entity.onEntityTouch",
+    "aS": "Entity.onEntitySeparate", "bS": "Entity.onEntitySeparate",
+}
 
 
 def inventory():
@@ -137,6 +151,12 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("entityLife."):
+        function = ENTITY_LIFECYCLE_FIELDS[name.rsplit(".", 1)[1]]
+        if function not in names and function != "Entity callbacks" and \
+                not function.startswith("Entity.onEntity"):
+            raise ValueError(f"unknown entity lifecycle function: {function}")
+        return function
     if name.startswith("joint."):
         function = JOINT_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names:
@@ -218,7 +238,10 @@ def main():
                                            (RAYS, RAY_BASELINE, RAY_PLAN, (CONTACT_SUPPORT,)),
                                            (REENTRY, REENTRY_BASELINE, REENTRY_PLAN, (CONTACT_SUPPORT,)),
                                            (JOINTS, JOINT_BASELINE, JOINT_PLAN, ()),
-                                           (RAY_MOTION, RAY_MOTION_BASELINE, RAY_MOTION_PLAN, ())):
+                                           (RAY_MOTION, RAY_MOTION_BASELINE, RAY_MOTION_PLAN, ()),
+                                           (ENTITY_LIFECYCLE, ENTITY_LIFECYCLE_BASELINE,
+                                            ENTITY_LIFECYCLE_PLAN,
+                                            (ENTITY_LIFECYCLE_SUPPORT,))):
         check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
         if len(declared) != len(set(declared)):
@@ -243,7 +266,7 @@ def main():
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
-            if case.startswith(("scene.", "contact.", "removal.", "query.",
+            if case.startswith(("scene.", "contact.", "removal.", "entityLife.", "query.",
                                 "ray.", "reentry.", "joint.", "raymove.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):

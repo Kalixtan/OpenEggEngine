@@ -889,21 +889,26 @@ void StepPhysicsWorld(float a_dt) {
                 pair.firstPhysicsData,
                 static_cast<uint32_t>(pair.secondEntityId)});
             if (nativePair == g_activePhysicsDataPairs.end()) continue;
-            bool isManagerMember = false;
+            bool firstManagerMember = false;
+            bool secondManagerMember = false;
             for (const auto& [contact, membership] : pair.contacts) {
                 (void)contact;
-                if ((membership.firstSide &&
-                     IsEntityEnabledForPhysicsManager(machine, pair.firstEntity)) ||
-                    (membership.secondSide &&
-                     IsEntityEnabledForPhysicsManager(machine, pair.secondEntity))) {
-                    isManagerMember = true;
-                    break;
-                }
+                firstManagerMember |= membership.firstSide &&
+                    IsEntityEnabledForPhysicsManager(machine, pair.firstEntity);
+                secondManagerMember |= membership.secondSide &&
+                    IsEntityEnabledForPhysicsManager(machine, pair.secondEntity);
             }
-            if (!isManagerMember) continue;
-            pairEvents.push_back({key, pair.firstEntity, pair.secondEntity,
-                nativePair->second.createdTick == tick
-                    ? "onEntityCollide" : "onEntityTouch"});
+            if (!firstManagerMember && !secondManagerMember) continue;
+            const bool isNewPair = nativePair->second.createdTick == tick;
+            gmVariable first = pair.firstEntity;
+            gmVariable second = pair.secondEntity;
+            // Retail walks the enabled entity's PhysicsData pair map. If the
+            // first endpoint was disabled after contact creation, the retained
+            // touch callback starts at the still-enabled endpoint instead.
+            if (!isNewPair && !firstManagerMember && secondManagerMember)
+                std::swap(first, second);
+            pairEvents.push_back({key, first, second,
+                isNewPair ? "onEntityCollide" : "onEntityTouch"});
         }
     }
 

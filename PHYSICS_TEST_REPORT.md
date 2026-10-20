@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-20 20:58 UTC
+Generated: 2026-10-20 23:55 UTC
 
-Matched: **4387/4387 declared readings (100%)**. This measures captured cases, not total physics parity.
+Matched: **4489/4489 declared readings (100%)**. This measures captured cases, not total physics parity.
 
-Functions with readings: **72/293**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **74/295**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -40,13 +40,17 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | raymove.sensor | 96 | 96 |
 | raymove.inside | 96 | 96 |
 | raymove.miss | 96 | 96 |
+| entityLife.pair | 98 | 98 |
+| entityLife.delete | 4 | 4 |
 
 ## Per function
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
 | `Entity.getPhysicsData` | 1 | 1 | PASS |
+| `Entity.isEnabled` | 7 | 7 | PASS |
 | `EntityManager.createEntity` | 1 | 1 | PASS |
+| `EntityManager.isEntityIDValid` | 18 | 18 | PASS |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Physics.createJoint` | 5 | 5 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
@@ -248,7 +252,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getMaxRotateSpeed` | 0 | 0 | untested |
 | `physicsData.getMaxSpeed` | 0 | 0 | untested |
 | `physicsData.getMinPos` | 0 | 0 | untested |
-| `physicsData.getNumBodies` | 17 | 17 | PASS |
+| `physicsData.getNumBodies` | 24 | 24 | PASS |
 | `physicsData.getPos` | 0 | 0 | untested |
 | `physicsData.getPosRef` | 0 | 0 | untested |
 | `physicsData.getRadius` | 0 | 0 | untested |
@@ -262,7 +266,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getWidth` | 0 | 0 | untested |
 | `physicsData.isCircle` | 0 | 0 | untested |
 | `physicsData.isCollidable` | 0 | 0 | untested |
-| `physicsData.isColliding` | 272 | 272 | PASS |
+| `physicsData.isColliding` | 279 | 279 | PASS |
 | `physicsData.isPointWithin` | 0 | 0 | untested |
 | `physicsData.isRect` | 0 | 0 | untested |
 | `physicsData.isSensor` | 7 | 7 | PASS |
@@ -345,10 +349,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | --- | ---: | ---: |
 | `Contact callback argument` | 50 | 50 |
 | `Contact callback order` | 25 | 25 |
-| `Entity.onEntityCollide` | 50 | 50 |
-| `Entity.onEntityCollidePreSolve` | 50 | 50 |
-| `Entity.onEntitySeparate` | 50 | 50 |
-| `Entity.onEntityTouch` | 50 | 50 |
+| `Entity callbacks` | 7 | 7 |
+| `Entity.onEntityCollide` | 64 | 64 |
+| `Entity.onEntityCollidePreSolve` | 64 | 64 |
+| `Entity.onEntitySeparate` | 64 | 64 |
+| `Entity.onEntityTouch` | 64 | 64 |
 
 ## Readings
 
@@ -4741,3 +4746,105 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.raycastOne` | raymove.miss.t11.lambda | `-1` | `-1` | PASS |
 | `Physics.raycastOne` | raymove.miss.t11.nx | `-1` | `-1` | PASS |
 | `Physics.raycastOne` | raymove.miss.t11.ny | `-1` | `-1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t0.aValid | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t0.bValid | `0` | `0` | PASS |
+| `Entity.isEnabled` | entityLife.pair.t0.aEnabled | `1` | `1` | PASS |
+| `physicsData.getNumBodies` | entityLife.pair.t0.aBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | entityLife.pair.t0.aColliding | `0` | `0` | PASS |
+| `Entity callbacks` | entityLife.pair.t0.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t0.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t0.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t0.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t0.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t0.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t0.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t0.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t0.bS | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t1.aValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t1.bValid | `1` | `1` | PASS |
+| `Entity.isEnabled` | entityLife.pair.t1.aEnabled | `1` | `1` | PASS |
+| `physicsData.getNumBodies` | entityLife.pair.t1.aBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | entityLife.pair.t1.aColliding | `0` | `0` | PASS |
+| `Entity callbacks` | entityLife.pair.t1.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t1.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t1.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t1.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t1.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t1.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t1.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t1.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t1.bS | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t2.aValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t2.bValid | `1` | `1` | PASS |
+| `Entity.isEnabled` | entityLife.pair.t2.aEnabled | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | entityLife.pair.t2.aBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | entityLife.pair.t2.aColliding | `1` | `1` | PASS |
+| `Entity callbacks` | entityLife.pair.t2.trace | `aPbPaCbC` | `aPbPaCbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t2.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t2.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t2.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t2.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t2.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t2.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t2.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t2.bS | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t3.aValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t3.bValid | `1` | `1` | PASS |
+| `Entity.isEnabled` | entityLife.pair.t3.aEnabled | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | entityLife.pair.t3.aBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | entityLife.pair.t3.aColliding | `1` | `1` | PASS |
+| `Entity callbacks` | entityLife.pair.t3.trace | `aPbPaCbCbTaT` | `aPbPaCbCbTaT` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t3.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t3.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t3.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t3.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t3.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t3.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t3.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t3.bS | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t4.aValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t4.bValid | `1` | `1` | PASS |
+| `Entity.isEnabled` | entityLife.pair.t4.aEnabled | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | entityLife.pair.t4.aBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | entityLife.pair.t4.aColliding | `0` | `0` | PASS |
+| `Entity callbacks` | entityLife.pair.t4.trace | `aPbPaCbCbTaTaSbS` | `aPbPaCbCbTaTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t4.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t4.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t4.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t4.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t4.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t4.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t4.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t4.bS | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t5.aValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t5.bValid | `1` | `1` | PASS |
+| `Entity.isEnabled` | entityLife.pair.t5.aEnabled | `1` | `1` | PASS |
+| `physicsData.getNumBodies` | entityLife.pair.t5.aBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | entityLife.pair.t5.aColliding | `0` | `0` | PASS |
+| `Entity callbacks` | entityLife.pair.t5.trace | `aPbPaCbCbTaTaSbS` | `aPbPaCbCbTaTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t5.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t5.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t5.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t5.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t5.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t5.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t5.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t5.bS | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t6.aValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.pair.t6.bValid | `1` | `1` | PASS |
+| `Entity.isEnabled` | entityLife.pair.t6.aEnabled | `1` | `1` | PASS |
+| `physicsData.getNumBodies` | entityLife.pair.t6.aBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | entityLife.pair.t6.aColliding | `1` | `1` | PASS |
+| `Entity callbacks` | entityLife.pair.t6.trace | `aPbPaCbCbTaTaSbSaPbPaCbC` | `aPbPaCbCbTaTaSbSaPbPaCbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t6.aP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t6.aC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t6.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t6.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | entityLife.pair.t6.bP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | entityLife.pair.t6.bC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | entityLife.pair.t6.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | entityLife.pair.t6.bS | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.delete.request.aValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.delete.request.bValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.delete.afterFlush.aValid | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityLife.delete.afterFlush.bValid | `0` | `0` | PASS |

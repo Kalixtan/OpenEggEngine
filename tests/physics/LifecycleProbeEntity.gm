@@ -1,0 +1,24 @@
+global LifecycleProbeEntity=function(handle) {
+    return table(
+        Entity=handle,
+        PhysicsData=handle.getPhysicsData(),
+        constructor=function(){},
+        configure=function(){return true;},
+        onEntityCollidePreSolve=function(other) {
+            this.lifeState.trace+=this.lifeSide+"P";
+            this.lifeState[this.lifeSide+"P"]+=1;
+        },
+        onEntityCollide=function(other) {
+            this.lifeState.trace+=this.lifeSide+"C";
+            this.lifeState[this.lifeSide+"C"]+=1;
+        },
+        onEntityTouch=function(other) {
+            this.lifeState.trace+=this.lifeSide+"T";
+            this.lifeState[this.lifeSide+"T"]+=1;
+        },
+        onEntitySeparate=function(other) {
+            this.lifeState.trace+=this.lifeSide+"S";
+            this.lifeState[this.lifeSide+"S"]+=1;
+        }
+    );
+};

@@ -1,0 +1,13 @@
+{
+  "prefix": "entityLife",
+  "frames": 7,
+  "scenes": {
+    "pair": ["aValid", "bValid", "aEnabled", "aBodies", "aColliding", "trace", "aP", "aC", "aT", "aS", "bP", "bC", "bT", "bS"]
+  },
+  "extra": [
+    "entityLife.delete.request.aValid",
+    "entityLife.delete.request.bValid",
+    "entityLife.delete.afterFlush.aValid",
+    "entityLife.delete.afterFlush.bValid"
+  ]
+}
