@@ -913,9 +913,13 @@ void QueueMixedVoices(float a_deltaMs) {
         if (!playbackSample || playbackSample->stereo.size() < 2) continue;
         const size_t soundFrames = playbackSample->stereo.size() / 2;
         const float pan = std::clamp(voice.pan, -1.0f, 1.0f);
-        const float gain = std::max(0.0f, voice.volume * voiceGainScale);
-        const float leftPan = pan > 0.0f ? 1.0f - pan : 1.0f;
-        const float rightPan = pan < 0.0f ? 1.0f + pan : 1.0f;
+        // Retail's mono output is 3 dB down at center pan. Its captured
+        // hard-pan output is about 2/3 of the decoded PCM amplitude.
+        const float gain = std::max(0.0f, voice.volume * voiceGainScale) *
+                           (2.0f / 3.0f);
+        const float panAngle = (pan + 1.0f) * 0.7853981633974483f;
+        const float leftPan = std::cos(panAngle);
+        const float rightPan = std::sin(panAngle);
         for (int frame = 0; frame < frameCount; ++frame) {
             const double frameMs = (double)frame * 1000.0 / kOutputRate;
             if (voice.stopping && voice.fadeDurationMs > 0.0 &&

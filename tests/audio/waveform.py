@@ -190,8 +190,8 @@ def compare(target):
         total = ratio(retail, local)
         left = ratio(retail[:, 0], local[:, 0])
         right = ratio(retail[:, 1], local[:, 1])
-        ok = correlation >= 0.95 and total is not None and 0.85 <= total <= 1.15
-        ok = ok and all(value is None or 0.8 <= value <= 1.2
+        ok = correlation >= 0.99 and total is not None and 0.98 <= total <= 1.02
+        ok = ok and all(value is None or 0.98 <= value <= 1.02
                         for value in (left, right))
         passed += ok
         show = lambda value: "silent" if value is None else f"{value:.3f}"
@@ -199,6 +199,7 @@ def compare(target):
                      f"{show(right)} | {'PASS' if ok else 'FAIL'} |")
     report = ROOT / "AUDIO_WAVEFORM_REPORT.md"
     report.write_text("\n".join(lines) + f"\n\nMatched: **{passed}/{len(CASES)}**. "
+                      "Thresholds: correlation ≥0.99 and RMS within 2%. "
                       "This checks four short sounds, not full audio parity.\n")
     print(f"waveforms: {passed}/{len(CASES)} matched; {report}")
     return 0 if passed == len(CASES) else 1
