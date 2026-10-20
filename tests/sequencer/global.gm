@@ -1,0 +1,48 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            local a=SEQUENCER();
+            local b=SEQUENCER();
+            local list=SEQUENCER_GetAllSequencers();
+            local count=list.size();
+            local first=0;
+            if (list.isValid()) { first=list.get().getObjectID(); }
+
+            local foundA=0;
+            local foundB=0;
+            local walked=0;
+            while (list.isValid() && walked<count+2) {
+                local id=list.get().getObjectID();
+                if (id==a.getObjectID()) { foundA=1; }
+                if (id==b.getObjectID()) { foundB=1; }
+                walked+=1;
+                list.goToNext();
+            }
+            if (count>=2 && foundA && foundB && walked==count &&
+                !list.isValid() && list.get()==null) {
+                GameSystem.trace("SEQ global walk PASS");
+            } else { GameSystem.trace("SEQ global walk FAIL"); }
+
+            list.goToNext();
+            if (list.isValid() && list.get().getObjectID()==first) {
+                GameSystem.trace("SEQ global wrap PASS");
+            } else { GameSystem.trace("SEQ global wrap FAIL"); }
+            list.reset();
+            if (list.isValid() && list.get().getObjectID()==first) {
+                GameSystem.trace("SEQ global reset PASS");
+            } else { GameSystem.trace("SEQ global reset FAIL"); }
+
+            a.start();
+            b.stop();
+            SEQUENCER_PauseAllSequencers();
+            local paused=a.isPlaying()==0 && b.isPlaying()==0;
+            SEQUENCER_UnpauseAllSequencers();
+            if (paused && a.isPlaying()==1 && b.isPlaying()==0) {
+                GameSystem.trace("SEQ global pause PASS");
+            } else { GameSystem.trace("SEQ global pause FAIL"); }
+        },
+        init=function() { return true; },
+        update=function() {}
+    );
+};

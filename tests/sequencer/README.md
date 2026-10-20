@@ -18,3 +18,6 @@ and invalidates the cleared cursor.
 Run it with `state.gm` to check constructor state, tempo, note divisions,
 navigation, and playback flags. These checks also passed against the retail
 PS3 build.
+
+Run it with `global.gm` to check the live sequencer list and global pause.
+The same cases passed against retail.
