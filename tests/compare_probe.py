@@ -73,13 +73,18 @@ def read_readings(path):
     return data, duplicates
 
 
-def check_baseline_source(path, probe=PROBE):
+def check_baseline_source(path, probe=PROBE, support=()):
     if path.suffix != ".tsv":
         return
-    first = path.read_text(errors="replace").splitlines()[0]
+    lines = path.read_text(errors="replace").splitlines()
+    first = lines[0]
     expected = hashlib.sha256(probe.read_bytes()).hexdigest()
     if first != f"# probe-sha256 {expected}":
         raise ValueError(f"{path}: retail baseline is for an older or unknown probe")
+    for source in support:
+        expected = hashlib.sha256(source.read_bytes()).hexdigest()
+        if f"# support-sha256 {source.name} {expected}" not in lines:
+            raise ValueError(f"{path}: retail baseline is for an older support script: {source.name}")
 
 
 def owning_function(name, inventory):

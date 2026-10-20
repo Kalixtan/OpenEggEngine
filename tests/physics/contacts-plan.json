@@ -1,0 +1,8 @@
+{
+  "prefix": "contact",
+  "frames": 9,
+  "scenes": {
+    "solid": ["trace", "aP", "aC", "aT", "aS", "bP", "bC", "bT", "bS", "aArg", "bArg", "colliding"],
+    "sensor": ["trace", "aP", "aC", "aT", "aS", "bP", "bC", "bT", "bS", "aArg", "bArg", "colliding"]
+  }
+}

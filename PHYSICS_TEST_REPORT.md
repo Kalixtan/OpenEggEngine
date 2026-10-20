@@ -1,21 +1,24 @@
 # Physics test report
 
-Generated: 2026-10-20 18:51 UTC
+Generated: 2026-10-20 19:13 UTC
 
-Matched: **283/283 declared readings (100%)**. This measures captured cases, not total physics parity.
+Matched: **597/597 declared readings (100%)**. This measures captured cases, not total physics parity.
 
 Functions with readings: **29/282**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
-## Scenes
+## Sample groups
 
-Each scene samples script-visible position, velocity, and relevant contact state at 12 successive ticks.
+Scenes sample motion; contact cases sample callbacks and body removal each tick.
 
-| Scene | Matched | Cases |
+| Group | Matched | Cases |
 | --- | ---: | ---: |
-| free | 48 | 48 |
-| fast | 48 | 48 |
-| solid | 72 | 72 |
-| sensor | 60 | 60 |
+| scene.free | 48 | 48 |
+| scene.fast | 48 | 48 |
+| scene.solid | 72 | 72 |
+| scene.sensor | 60 | 60 |
+| contact.solid | 108 | 108 |
+| contact.sensor | 108 | 108 |
+| removal.body | 98 | 98 |
 
 ## Per function
 
@@ -219,7 +222,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsData.getMaxRotateSpeed` | 0 | 0 | untested |
 | `physicsData.getMaxSpeed` | 0 | 0 | untested |
 | `physicsData.getMinPos` | 0 | 0 | untested |
-| `physicsData.getNumBodies` | 3 | 3 | PASS |
+| `physicsData.getNumBodies` | 17 | 17 | PASS |
 | `physicsData.getPos` | 0 | 0 | untested |
 | `physicsData.getPosRef` | 0 | 0 | untested |
 | `physicsData.getRadius` | 0 | 0 | untested |
@@ -233,7 +236,7 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsData.getWidth` | 0 | 0 | untested |
 | `physicsData.isCircle` | 0 | 0 | untested |
 | `physicsData.isCollidable` | 0 | 0 | untested |
-| `physicsData.isColliding` | 24 | 24 | PASS |
+| `physicsData.isColliding` | 49 | 49 | PASS |
 | `physicsData.isPointWithin` | 0 | 0 | untested |
 | `physicsData.isRect` | 0 | 0 | untested |
 | `physicsData.isSensor` | 7 | 7 | PASS |
@@ -303,6 +306,17 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `shapeDef.setIsSensor` | 0 | 0 | untested |
 | `shapeDef.setMass` | 0 | 0 | untested |
 | `shapeDef.setRestitution` | 0 | 0 | untested |
+
+## Contact callbacks
+
+| Hook | Matched | Cases |
+| --- | ---: | ---: |
+| `Contact callback argument` | 50 | 50 |
+| `Contact callback order` | 25 | 25 |
+| `Entity.onEntityCollide` | 50 | 50 |
+| `Entity.onEntityCollidePreSolve` | 50 | 50 |
+| `Entity.onEntitySeparate` | 50 | 50 |
+| `Entity.onEntityTouch` | 50 | 50 |
 
 ## Readings
 
@@ -591,3 +605,317 @@ Each scene samples script-visible position, velocity, and relevant contact state
 | `physicsBody.getVel` | scene.sensor.t11.vx | `0.200000` | `0.200000` | PASS |
 | `physicsBody.getVel` | scene.sensor.t11.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.isColliding` | scene.sensor.t11.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.solid.t0.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t0.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t0.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t0.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t0.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t0.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t0.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t0.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t0.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.solid.t0.aArg | `0` | `0` | PASS |
+| `Contact callback argument` | contact.solid.t0.bArg | `0` | `0` | PASS |
+| `physicsData.isColliding` | contact.solid.t0.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.sensor.t0.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t0.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t0.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t0.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t0.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t0.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t0.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t0.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t0.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.sensor.t0.aArg | `0` | `0` | PASS |
+| `Contact callback argument` | contact.sensor.t0.bArg | `0` | `0` | PASS |
+| `physicsData.isColliding` | contact.sensor.t0.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.solid.t1.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t1.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t1.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t1.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t1.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t1.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t1.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t1.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t1.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.solid.t1.aArg | `0` | `0` | PASS |
+| `Contact callback argument` | contact.solid.t1.bArg | `0` | `0` | PASS |
+| `physicsData.isColliding` | contact.solid.t1.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.sensor.t1.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t1.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t1.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t1.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t1.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t1.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t1.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t1.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t1.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.sensor.t1.aArg | `0` | `0` | PASS |
+| `Contact callback argument` | contact.sensor.t1.bArg | `0` | `0` | PASS |
+| `physicsData.isColliding` | contact.sensor.t1.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.solid.t2.trace | `aPbPaCbC` | `aPbPaCbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t2.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t2.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t2.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t2.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t2.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t2.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t2.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t2.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.solid.t2.aArg | `2` | `2` | PASS |
+| `Contact callback argument` | contact.solid.t2.bArg | `2` | `2` | PASS |
+| `physicsData.isColliding` | contact.solid.t2.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.sensor.t2.trace | `aPbPaCbC` | `aPbPaCbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t2.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t2.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t2.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t2.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t2.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t2.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t2.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t2.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.sensor.t2.aArg | `2` | `2` | PASS |
+| `Contact callback argument` | contact.sensor.t2.bArg | `2` | `2` | PASS |
+| `physicsData.isColliding` | contact.sensor.t2.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.solid.t3.trace | `aPbPaCbCaTbT` | `aPbPaCbCaTbT` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t3.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t3.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t3.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t3.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t3.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t3.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t3.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t3.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.solid.t3.aArg | `3` | `3` | PASS |
+| `Contact callback argument` | contact.solid.t3.bArg | `3` | `3` | PASS |
+| `physicsData.isColliding` | contact.solid.t3.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.sensor.t3.trace | `aPbPaCbCaTbT` | `aPbPaCbCaTbT` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t3.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t3.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t3.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t3.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t3.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t3.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t3.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t3.bS | `0` | `0` | PASS |
+| `Contact callback argument` | contact.sensor.t3.aArg | `3` | `3` | PASS |
+| `Contact callback argument` | contact.sensor.t3.bArg | `3` | `3` | PASS |
+| `physicsData.isColliding` | contact.sensor.t3.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.solid.t4.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t4.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t4.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t4.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t4.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t4.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t4.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t4.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t4.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.solid.t4.aArg | `4` | `4` | PASS |
+| `Contact callback argument` | contact.solid.t4.bArg | `4` | `4` | PASS |
+| `physicsData.isColliding` | contact.solid.t4.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.sensor.t4.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t4.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t4.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t4.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t4.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t4.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t4.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t4.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t4.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.sensor.t4.aArg | `4` | `4` | PASS |
+| `Contact callback argument` | contact.sensor.t4.bArg | `4` | `4` | PASS |
+| `physicsData.isColliding` | contact.sensor.t4.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.solid.t5.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t5.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t5.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t5.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t5.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t5.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t5.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t5.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t5.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.solid.t5.aArg | `4` | `4` | PASS |
+| `Contact callback argument` | contact.solid.t5.bArg | `4` | `4` | PASS |
+| `physicsData.isColliding` | contact.solid.t5.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.sensor.t5.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t5.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t5.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t5.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t5.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t5.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t5.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t5.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t5.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.sensor.t5.aArg | `4` | `4` | PASS |
+| `Contact callback argument` | contact.sensor.t5.bArg | `4` | `4` | PASS |
+| `physicsData.isColliding` | contact.sensor.t5.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.solid.t6.trace | `aPbPaCbCaTbTaSbSaPbPaCbC` | `aPbPaCbCaTbTaSbSaPbPaCbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t6.aP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t6.aC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t6.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t6.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t6.bP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t6.bC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t6.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t6.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.solid.t6.aArg | `6` | `6` | PASS |
+| `Contact callback argument` | contact.solid.t6.bArg | `6` | `6` | PASS |
+| `physicsData.isColliding` | contact.solid.t6.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.sensor.t6.trace | `aPbPaCbCaTbTaSbSaPbPaCbC` | `aPbPaCbCaTbTaSbSaPbPaCbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t6.aP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t6.aC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t6.aT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t6.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t6.bP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t6.bC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t6.bT | `1` | `1` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t6.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.sensor.t6.aArg | `6` | `6` | PASS |
+| `Contact callback argument` | contact.sensor.t6.bArg | `6` | `6` | PASS |
+| `physicsData.isColliding` | contact.sensor.t6.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.solid.t7.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t7.aP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t7.aC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t7.aT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t7.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t7.bP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t7.bC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t7.bT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t7.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.solid.t7.aArg | `7` | `7` | PASS |
+| `Contact callback argument` | contact.solid.t7.bArg | `7` | `7` | PASS |
+| `physicsData.isColliding` | contact.solid.t7.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.sensor.t7.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t7.aP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t7.aC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t7.aT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t7.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t7.bP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t7.bC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t7.bT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t7.bS | `1` | `1` | PASS |
+| `Contact callback argument` | contact.sensor.t7.aArg | `7` | `7` | PASS |
+| `Contact callback argument` | contact.sensor.t7.bArg | `7` | `7` | PASS |
+| `physicsData.isColliding` | contact.sensor.t7.colliding | `1` | `1` | PASS |
+| `Contact callback order` | contact.solid.t8.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t8.aP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t8.aC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t8.aT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t8.aS | `2` | `2` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.solid.t8.bP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.solid.t8.bC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.solid.t8.bT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.solid.t8.bS | `2` | `2` | PASS |
+| `Contact callback argument` | contact.solid.t8.aArg | `8` | `8` | PASS |
+| `Contact callback argument` | contact.solid.t8.bArg | `8` | `8` | PASS |
+| `physicsData.isColliding` | contact.solid.t8.colliding | `0` | `0` | PASS |
+| `Contact callback order` | contact.sensor.t8.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t8.aP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t8.aC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t8.aT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t8.aS | `2` | `2` | PASS |
+| `Entity.onEntityCollidePreSolve` | contact.sensor.t8.bP | `2` | `2` | PASS |
+| `Entity.onEntityCollide` | contact.sensor.t8.bC | `2` | `2` | PASS |
+| `Entity.onEntityTouch` | contact.sensor.t8.bT | `2` | `2` | PASS |
+| `Entity.onEntitySeparate` | contact.sensor.t8.bS | `2` | `2` | PASS |
+| `Contact callback argument` | contact.sensor.t8.aArg | `8` | `8` | PASS |
+| `Contact callback argument` | contact.sensor.t8.bArg | `8` | `8` | PASS |
+| `physicsData.isColliding` | contact.sensor.t8.colliding | `0` | `0` | PASS |
+| `Contact callback order` | removal.body.t0.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t0.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | removal.body.t0.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | removal.body.t0.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t0.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t0.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | removal.body.t0.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | removal.body.t0.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t0.bS | `0` | `0` | PASS |
+| `Contact callback argument` | removal.body.t0.aArg | `0` | `0` | PASS |
+| `Contact callback argument` | removal.body.t0.bArg | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | removal.body.t0.aBodies | `1` | `1` | PASS |
+| `physicsData.getNumBodies` | removal.body.t0.bBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | removal.body.t0.colliding | `0` | `0` | PASS |
+| `Contact callback order` | removal.body.t1.trace | `` | `` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t1.aP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | removal.body.t1.aC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | removal.body.t1.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t1.aS | `0` | `0` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t1.bP | `0` | `0` | PASS |
+| `Entity.onEntityCollide` | removal.body.t1.bC | `0` | `0` | PASS |
+| `Entity.onEntityTouch` | removal.body.t1.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t1.bS | `0` | `0` | PASS |
+| `Contact callback argument` | removal.body.t1.aArg | `0` | `0` | PASS |
+| `Contact callback argument` | removal.body.t1.bArg | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | removal.body.t1.aBodies | `1` | `1` | PASS |
+| `physicsData.getNumBodies` | removal.body.t1.bBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | removal.body.t1.colliding | `0` | `0` | PASS |
+| `Contact callback order` | removal.body.t2.trace | `aPbPaCaSbSbC` | `aPbPaCaSbSbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t2.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t2.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t2.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t2.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t2.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t2.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t2.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t2.bS | `1` | `1` | PASS |
+| `Contact callback argument` | removal.body.t2.aArg | `3` | `3` | PASS |
+| `Contact callback argument` | removal.body.t2.bArg | `3` | `3` | PASS |
+| `physicsData.getNumBodies` | removal.body.t2.aBodies | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | removal.body.t2.bBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | removal.body.t2.colliding | `0` | `0` | PASS |
+| `Contact callback order` | removal.body.t3.trace | `aPbPaCaSbSbC` | `aPbPaCaSbSbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t3.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t3.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t3.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t3.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t3.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t3.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t3.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t3.bS | `1` | `1` | PASS |
+| `Contact callback argument` | removal.body.t3.aArg | `3` | `3` | PASS |
+| `Contact callback argument` | removal.body.t3.bArg | `3` | `3` | PASS |
+| `physicsData.getNumBodies` | removal.body.t3.aBodies | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | removal.body.t3.bBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | removal.body.t3.colliding | `0` | `0` | PASS |
+| `Contact callback order` | removal.body.t4.trace | `aPbPaCaSbSbC` | `aPbPaCaSbSbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t4.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t4.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t4.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t4.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t4.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t4.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t4.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t4.bS | `1` | `1` | PASS |
+| `Contact callback argument` | removal.body.t4.aArg | `3` | `3` | PASS |
+| `Contact callback argument` | removal.body.t4.bArg | `3` | `3` | PASS |
+| `physicsData.getNumBodies` | removal.body.t4.aBodies | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | removal.body.t4.bBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | removal.body.t4.colliding | `0` | `0` | PASS |
+| `Contact callback order` | removal.body.t5.trace | `aPbPaCaSbSbC` | `aPbPaCaSbSbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t5.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t5.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t5.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t5.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t5.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t5.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t5.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t5.bS | `1` | `1` | PASS |
+| `Contact callback argument` | removal.body.t5.aArg | `3` | `3` | PASS |
+| `Contact callback argument` | removal.body.t5.bArg | `3` | `3` | PASS |
+| `physicsData.getNumBodies` | removal.body.t5.aBodies | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | removal.body.t5.bBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | removal.body.t5.colliding | `0` | `0` | PASS |
+| `Contact callback order` | removal.body.t6.trace | `aPbPaCaSbSbC` | `aPbPaCaSbSbC` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t6.aP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t6.aC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t6.aT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t6.aS | `1` | `1` | PASS |
+| `Entity.onEntityCollidePreSolve` | removal.body.t6.bP | `1` | `1` | PASS |
+| `Entity.onEntityCollide` | removal.body.t6.bC | `1` | `1` | PASS |
+| `Entity.onEntityTouch` | removal.body.t6.bT | `0` | `0` | PASS |
+| `Entity.onEntitySeparate` | removal.body.t6.bS | `1` | `1` | PASS |
+| `Contact callback argument` | removal.body.t6.aArg | `3` | `3` | PASS |
+| `Contact callback argument` | removal.body.t6.bArg | `3` | `3` | PASS |
+| `physicsData.getNumBodies` | removal.body.t6.aBodies | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | removal.body.t6.bBodies | `1` | `1` | PASS |
+| `physicsData.isColliding` | removal.body.t6.colliding | `0` | `0` | PASS |

@@ -1,0 +1,14 @@
+global ProbeContactEntity=function(handle) {
+    return table(Entity=handle,PhysicsData=handle.getPhysicsData(),
+                 constructor=function(){},configure=function(){return true;},
+                 onEntityCollidePreSolve=function(other) { RecordContact(this,other,"P"); },
+                 onEntityCollide=function(other) {
+                     RecordContact(this,other,"C");
+                     if (this.probeRemoveOnCollide) {
+                         this.probeRemoveOnCollide=0;
+                         this.PhysicsData.removeBody();
+                     }
+                 },
+                 onEntityTouch=function(other) { RecordContact(this,other,"T"); },
+                 onEntitySeparate=function(other) { RecordContact(this,other,"S"); });
+};

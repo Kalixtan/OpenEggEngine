@@ -22,6 +22,8 @@ def main():
                         default=Path.home() / ".cache/rpcs3/TTY.log")
     parser.add_argument("--rpcs3", type=Path, default=Path("/usr/bin/rpcs3"))
     parser.add_argument("--probe", type=Path, default=PROBE)
+    parser.add_argument("--support-file", type=Path, action="append", default=[],
+                        help="extra probe script copied beside retail Main.gm for this run")
     parser.add_argument("--expected", type=Path,
                         help="frame-sample plan for probes with generated names")
     parser.add_argument("--baseline", type=Path, default=BASELINE)
@@ -39,6 +41,16 @@ def main():
     if not args.eboot.is_file():
         parser.error(f"missing EBOOT: {args.eboot}")
 
+    support = []
+    used = set()
+    for source in args.support_file:
+        target = main_path.parent / source.name
+        if target == main_path or target in used:
+            parser.error(f"duplicate or invalid support file: {source}")
+        used.add(target)
+        support.append((target, source.read_bytes(),
+                        target.read_bytes() if target.exists() else None))
+
     try:
         section = args.probe.resolve().relative_to(ROOT / "tests").parts[0]
     except ValueError:
@@ -50,6 +62,8 @@ def main():
     env = os.environ.copy()
     env["QT_QPA_PLATFORM"] = "offscreen"
     try:
+        for target, data, _ in support:
+            target.write_bytes(data)
         main_path.write_bytes(original + b"\n" + probe)
         args.tty.unlink(missing_ok=True)
         with boot_log.open("wb") as output:
@@ -61,6 +75,11 @@ def main():
                 pass  # The game keeps running after the probe has finished.
     finally:
         main_path.write_bytes(original)
+        for target, _, previous in support:
+            if previous is None:
+                target.unlink(missing_ok=True)
+            else:
+                target.write_bytes(previous)
 
     if not args.tty.is_file():
         print(f"no RPCS3 TTY log; see {boot_log}", file=sys.stderr)
@@ -77,7 +96,9 @@ def main():
               f"{len(duplicates)} duplicates; see {tty_log}", file=sys.stderr)
         return 1
     source_hash = hashlib.sha256(probe).hexdigest()
-    args.baseline.write_text(f"# probe-sha256 {source_hash}\n" +
+    support_hashes = "".join(f"# support-sha256 {target.name} {hashlib.sha256(data).hexdigest()}\n"
+                             for target, data, _ in support)
+    args.baseline.write_text(f"# probe-sha256 {source_hash}\n" + support_hashes +
                              "".join(f"{key}\t{value}\n"
                                      for key, value in sorted(readings.items())))
     print(f"captured {len(readings)} retail readings to {args.baseline}")

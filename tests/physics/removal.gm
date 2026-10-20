@@ -1,0 +1,80 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global ShapeDef=PHYSICSSHAPECOLLECTIONDEF();
+GameMonkeyScript.loadScript("ProbeContactEntity.gm");
+
+global MakeCircle=function(x,mass) {
+    local e=EntityManager.createEntity("ProbeContactEntity");
+    local pd=e.PhysicsData;
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,0));
+    ShapeDef.reset();
+    ShapeDef.setMass(mass);
+    ShapeDef.addCircle(2,0,0);
+    b.appendShapes(ShapeDef);
+    return table(e=e,pd=pd,b=b);
+};
+global NewState=function() {
+    return table(trace="",aP=0,aC=0,aT=0,aS=0,
+                 bP=0,bC=0,bT=0,bS=0,aArg=0,bArg=0);
+};
+global RecordContact=function(e,other,kind) {
+    local state=e.probeState;
+    local side=e.probeSide;
+    state.trace=state.trace+side+kind;
+    state[side+kind]+=1;
+    if (other.getObjectID()==e.probeOther.getObjectID()) {
+        state[side+"Arg"]+=1;
+    }
+};
+global Attach=function(a,b,state) {
+    a.e.probeState=state;
+    a.e.probeSide="a";
+    a.e.probeOther=b.e;
+    b.e.probeState=state;
+    b.e.probeSide="b";
+    b.e.probeOther=a.e;
+    a.e.setIsEnabled(1);
+    b.e.setIsEnabled(1);
+};
+global Sample=function(tick,a,b,state) {
+    local key="removal.body.t"+tick+".";
+    Probe(key+"trace",state.trace);
+    Probe(key+"aP",state.aP);
+    Probe(key+"aC",state.aC);
+    Probe(key+"aT",state.aT);
+    Probe(key+"aS",state.aS);
+    Probe(key+"bP",state.bP);
+    Probe(key+"bC",state.bC);
+    Probe(key+"bT",state.bT);
+    Probe(key+"bS",state.bS);
+    Probe(key+"aArg",state.aArg);
+    Probe(key+"bArg",state.bArg);
+    Probe(key+"aBodies",a.pd.getNumBodies());
+    Probe(key+"bBodies",b.pd.getNumBodies());
+    Probe(key+"colliding",a.pd.isColliding(b.e));
+};
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        constructor=function(){},
+        init=function(){return true;},
+        update=function() {
+            if (this.frame<7) {
+                if (this.frame==0) {
+                    GameSystem.setIsShouldUpdateEntities(1);
+                    this.a=MakeCircle(0,1);
+                    this.b=MakeCircle(20,0);
+                    this.state=NewState();
+                    Attach(this.a,this.b,this.state);
+                    this.a.e.probeRemoveOnCollide=1;
+                }
+                if (this.frame==1) { this.b.b.setPos(vector2D(3,0)); }
+                Sample(this.frame,this.a,this.b,this.state);
+                this.frame+=1;
+            }
+        }
+    );
+};

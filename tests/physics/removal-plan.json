@@ -1,0 +1,7 @@
+{
+  "prefix": "removal",
+  "frames": 7,
+  "scenes": {
+    "body": ["trace", "aP", "aC", "aT", "aS", "bP", "bC", "bT", "bS", "aArg", "bArg", "aBodies", "bBodies", "colliding"]
+  }
+}

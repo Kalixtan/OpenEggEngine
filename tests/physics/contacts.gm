@@ -1,0 +1,94 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global ShapeDef=PHYSICSSHAPECOLLECTIONDEF();
+GameMonkeyScript.loadScript("ProbeContactEntity.gm");
+
+global MakeCircle=function(x,sensor,mass) {
+    local e=EntityManager.createEntity("ProbeContactEntity");
+    local pd=e.PhysicsData;
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,0));
+    ShapeDef.reset();
+    ShapeDef.setMass(mass);
+    ShapeDef.setIsSensor(sensor);
+    ShapeDef.addCircle(2,0,0);
+    b.appendShapes(ShapeDef);
+    return table(e=e,pd=pd,b=b);
+};
+
+global NewState=function() {
+    return table(trace="",aP=0,aC=0,aT=0,aS=0,
+                 bP=0,bC=0,bT=0,bS=0,aArg=0,bArg=0);
+};
+global RecordContact=function(e,other,kind) {
+    local state=e.probeState;
+    local side=e.probeSide;
+    state.trace=state.trace+side+kind;
+    state[side+kind]+=1;
+    if (other.getObjectID()==e.probeOther.getObjectID()) {
+        state[side+"Arg"]+=1;
+    }
+};
+global AttachContactCallbacks=function(a,b,state) {
+    a.e.probeState=state;
+    a.e.probeSide="a";
+    a.e.probeOther=b.e;
+    b.e.probeState=state;
+    b.e.probeSide="b";
+    b.e.probeOther=a.e;
+    a.e.setIsEnabled(1);
+    b.e.setIsEnabled(1);
+};
+
+global SampleContact=function(name,tick,a,b,state) {
+    local key="contact."+name+".t"+tick+".";
+    Probe(key+"trace",state.trace);
+    Probe(key+"aP",state.aP);
+    Probe(key+"aC",state.aC);
+    Probe(key+"aT",state.aT);
+    Probe(key+"aS",state.aS);
+    Probe(key+"bP",state.bP);
+    Probe(key+"bC",state.bC);
+    Probe(key+"bT",state.bT);
+    Probe(key+"bS",state.bS);
+    Probe(key+"aArg",state.aArg);
+    Probe(key+"bArg",state.bArg);
+    Probe(key+"colliding",a.pd.isColliding(b.e));
+};
+
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        constructor=function(){},
+        init=function(){return true;},
+        update=function() {
+            if (this.frame<9) {
+                if (this.frame==0) {
+                    GameSystem.setIsShouldUpdateEntities(1);
+                    this.solidA=MakeCircle(0,0,1);
+                    this.solidB=MakeCircle(20,0,0);
+                    this.solidState=NewState();
+                    AttachContactCallbacks(this.solidA,this.solidB,this.solidState);
+                    this.sensorA=MakeCircle(100,0,1);
+                    this.sensorB=MakeCircle(120,1,0);
+                    this.sensorState=NewState();
+                    AttachContactCallbacks(this.sensorA,this.sensorB,this.sensorState);
+                }
+                if (this.frame==1 || this.frame==5) {
+                    this.solidA.b.setPos(vector2D(0,0));
+                    this.solidB.b.setPos(vector2D(3,0));
+                    this.sensorB.b.setPos(vector2D(103,0));
+                }
+                if (this.frame==3 || this.frame==7) {
+                    this.solidB.b.setPos(vector2D(20,0));
+                    this.sensorB.b.setPos(vector2D(120,0));
+                }
+                SampleContact("solid",this.frame,this.solidA,this.solidB,this.solidState);
+                SampleContact("sensor",this.frame,this.sensorA,this.sensorB,this.sensorState);
+                this.frame+=1;
+            }
+        }
+    );
+};

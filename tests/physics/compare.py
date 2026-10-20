@@ -19,6 +19,13 @@ BASELINE = HERE / "retail-baseline.tsv"
 SCENES = HERE / "scenes.gm"
 SCENE_BASELINE = HERE / "scenes-retail.tsv"
 SCENE_PLAN = HERE / "scenes-plan.json"
+CONTACTS = HERE / "contacts.gm"
+CONTACT_BASELINE = HERE / "contacts-retail.tsv"
+CONTACT_PLAN = HERE / "contacts-plan.json"
+REMOVAL = HERE / "removal.gm"
+REMOVAL_BASELINE = HERE / "removal-retail.tsv"
+REMOVAL_PLAN = HERE / "removal-plan.json"
+CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "jointType.", "jointIter.", "Physics.")
@@ -34,6 +41,16 @@ SCENE_FIELDS = {
     "vx": "physicsBody.getVel", "vy": "physicsBody.getVel",
     "colliding": "physicsData.isColliding", "bullet": "physicsBody.isBullet",
 }
+CONTACT_FIELDS = {
+    "trace": "Contact callback order",
+    "aP": "Entity.onEntityCollidePreSolve", "bP": "Entity.onEntityCollidePreSolve",
+    "aC": "Entity.onEntityCollide", "bC": "Entity.onEntityCollide",
+    "aT": "Entity.onEntityTouch", "bT": "Entity.onEntityTouch",
+    "aS": "Entity.onEntitySeparate", "bS": "Entity.onEntitySeparate",
+    "aArg": "Contact callback argument", "bArg": "Contact callback argument",
+    "aBodies": "physicsData.getNumBodies", "bBodies": "physicsData.getNumBodies",
+    "colliding": "physicsData.isColliding",
+}
 
 
 def inventory():
@@ -43,6 +60,12 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith(("contact.", "removal.")):
+        field = name.rsplit(".", 1)[1]
+        function = CONTACT_FIELDS[field]
+        if function not in names and not function.startswith(("Entity.", "Contact ")):
+            raise ValueError(f"unknown contact function: {function}")
+        return function
     if name.startswith("scene."):
         function = SCENE_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names:
@@ -71,9 +94,11 @@ def main():
     rows = []
     grouped = defaultdict(list)
     scenes = defaultdict(list)
-    for probe, baseline, plan in ((PROBE, BASELINE, None),
-                                  (SCENES, SCENE_BASELINE, SCENE_PLAN)):
-        check_baseline_source(baseline, probe)
+    for probe, baseline, plan, support in ((PROBE, BASELINE, None, ()),
+                                           (SCENES, SCENE_BASELINE, SCENE_PLAN, ()),
+                                           (CONTACTS, CONTACT_BASELINE, CONTACT_PLAN, (CONTACT_SUPPORT,)),
+                                           (REMOVAL, REMOVAL_BASELINE, REMOVAL_PLAN, (CONTACT_SUPPORT,))):
+        check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
         if len(declared) != len(set(declared)):
             raise ValueError(f"duplicate probe names: {probe}")
@@ -97,8 +122,8 @@ def main():
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
-            if case.startswith("scene."):
-                scenes[case.split(".")[1]].append(passed)
+            if case.startswith(("scene.", "contact.", "removal.")):
+                scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:
                     raise ValueError(f"unknown associated function: {extra}")
@@ -111,10 +136,9 @@ def main():
              "This measures captured cases, not total physics parity.", "",
              f"Functions with readings: **{tested}/{len(names)}**. The inventory comes from "
              "the local API reference and includes OpenEgg-only methods.", "",
-             "## Scenes", "",
-             "Each scene samples script-visible position, velocity, and relevant contact state "
-             "at 12 successive ticks.", "",
-             "| Scene | Matched | Cases |", "| --- | ---: | ---: |"]
+             "## Sample groups", "",
+             "Scenes sample motion; contact cases sample callbacks and body removal each tick.", "",
+             "| Group | Matched | Cases |", "| --- | ---: | ---: |"]
     for scene, checks in scenes.items():
         lines.append(f"| {scene} | {sum(checks)} | {len(checks)} |")
     lines += ["",
@@ -125,6 +149,11 @@ def main():
         matched = sum(checks)
         status = "untested" if not checks else "PASS" if matched == len(checks) else "FAIL"
         lines.append(f"| `{function}` | {matched} | {len(checks)} | {status} |")
+    lines += ["", "## Contact callbacks", "",
+              "| Hook | Matched | Cases |", "| --- | ---: | ---: |"]
+    for function in sorted(set(grouped) - set(names)):
+        checks = grouped[function]
+        lines.append(f"| `{function}` | {sum(checks)} | {len(checks)} |")
     lines += ["", "## Readings", "", "| Function | Case | Retail | OpenEgg | Result |",
               "| --- | --- | --- | --- | --- |"]
     for case, function, a, b, passed in rows:
