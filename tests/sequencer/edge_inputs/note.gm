@@ -1,0 +1,10 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local s=SEQUENCER();
+SeqProbe("edge.note.before",1);
+SeqProbe("edge.note.nextStep",s.getNextNoteStep(6));
+SeqProbe("edge.note.nextPattern",s.getNextNotePattern(6));
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

@@ -18,6 +18,7 @@ from run import ROOT, api_inventory, percent, run_script
 PROBE = ROOT / "tests" / "sequencer" / "probe.gm"
 BASELINE = ROOT / "tests" / "sequencer" / "retail-baseline.tsv"
 PLANNED = ROOT / "tests" / "sequencer" / "planned.json"
+EDGE_BASELINES = ROOT / "tests" / "sequencer" / "edge-baselines"
 READING = re.compile(r"OEP__([A-Za-z0-9_.]+)__(.*?)\.gm")
 DECLARED = re.compile(r'SeqProbe\("([A-Za-z0-9_.]+)"')
 KNOWN_GAPS = {}
@@ -72,11 +73,11 @@ def read_readings(path):
     return data, duplicates
 
 
-def check_baseline_source(path):
+def check_baseline_source(path, probe=PROBE):
     if path.suffix != ".tsv":
         return
     first = path.read_text(errors="replace").splitlines()[0]
-    expected = hashlib.sha256(PROBE.read_bytes()).hexdigest()
+    expected = hashlib.sha256(probe.read_bytes()).hexdigest()
     if first != f"# probe-sha256 {expected}":
         raise ValueError(f"{path}: retail baseline is for an older or unknown probe")
 
@@ -117,6 +118,47 @@ def documented_sequencer_api():
     return names
 
 
+def run_edge_probes(engine, planned):
+    probe_dir = ROOT / "tests" / "sequencer"
+    probes = [probe_dir / "edge_probe.gm", *sorted((probe_dir / "edge_inputs").glob("*.gm"))]
+    log_dir = ROOT / "tests" / "_results" / "sequencer"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    rows = []
+    problems = []
+    for probe in probes:
+        baseline = EDGE_BASELINES / f"{probe.stem}.tsv"
+        check_baseline_source(baseline, probe)
+        retail, retail_duplicates = read_readings(baseline)
+        _, process_error, local_path, _ = run_script(
+            engine, probe.parent, probe.name, probe_dir / "smoke.harness",
+            15, log_dir, strict="survey")
+        local, local_duplicates = read_readings(local_path)
+        expected = DECLARED.findall(probe.read_text())
+        if len(expected) != len(set(expected)):
+            raise ValueError(f"{probe}: duplicate declared reading")
+        for name in expected:
+            matches = [case for case in planned if any(
+                name.startswith(prefix) for prefix in case["prefixes"])]
+            if len(matches) != 1:
+                raise ValueError(f"{probe}: {name} maps to {len(matches)} cases")
+            case = matches[0]
+            a, b = retail.get(name), local.get(name)
+            status = "FAIL" if b is None else "NO RETAIL" if a is None else (
+                "PASS" if a == b else "FAIL")
+            rows.append({"name": name, "function": case["functions"][0],
+                         "functions": case["functions"], "case": case["name"],
+                         "retail": a, "local": b, "status": status})
+        if process_error:
+            problems.append(f"{probe.name}: {process_error}")
+        for origin, readings, duplicates in (("retail", retail, retail_duplicates),
+                                             ("OpenEgg", local, local_duplicates)):
+            for name in sorted(set(readings) - set(expected)):
+                problems.append(f"Unexpected {origin} reading in {probe.name}: {name}")
+            for name in sorted(duplicates):
+                problems.append(f"Duplicate {origin} reading in {probe.name}: {name}")
+    return rows, problems
+
+
 def make_report(rows, inventory, retail_path, local_path, problems, assertions,
                 planned, missing_api):
     matched = sum(row["status"] == "PASS" for row in rows)
@@ -125,23 +167,25 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
     uncaptured = sum(row["status"] == "NO RETAIL" for row in rows)
     checks = assertions["entries"]
     local_passed = sum(case["result"] == "PASS" for case in checks)
+    edge_rows = [row for row in rows if "case" in row]
     lines = [
         "# Sequencer test report", "",
         f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}",
-        f"Retail: `{display_path(retail_path)}` | OpenEgg: `{display_path(local_path)}`", "",
+        f"Retail: `{display_path(retail_path)}` and `tests/sequencer/edge-baselines/` | "
+        f"OpenEgg: `tests/_results/sequencer/`", "",
         f"Matched: **{matched}/{total} declared readings ({percent(matched, total)})** | "
         f"Known gaps: **{gaps}** | Uncaptured: **{uncaptured}** | "
-        f"Planned: **{len(planned)}**", "",
+        f"Edge groups run: **{len(planned)}**", "",
         f"Local assertions: **{local_passed}/{len(checks)} passed "
         f"({percent(local_passed, len(checks))})**", "",
         f"Verdict: **{'all captured readings match' if matched == total and not problems else 'paired run incomplete or mismatched'}**. "
-        f"**{len(planned)} edge cases still need paired retail runs.**", "",
-        "One row is one exact string comparison from the same `probe.gm` on both engines. "
+        "Coverage is limited to the readings below.", "",
+        "One row is one exact string comparison from the same probe file on both engines. "
         "A missing reading or duplicate fails the run. Scores measure tested cases only; "
         "they are not total implementation progress. "
         "Integration checks can count for several functions. `OEPV__` clock readings "
         "stay outside the score.", "",
-        "## Sections", "",
+        "## Local assertion sections", "",
         "| Section | Passed | Cases | Score |", "| --- | ---: | ---: | ---: |",
     ]
     sections = defaultdict(list)
@@ -152,7 +196,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         lines.append(f"| {section} | {count} | {len(cases)} | {percent(count, len(cases))} |")
     lines.extend([
         "", "## Per function", "",
-        "| Function | Paired score | Local checks | Planned | Status |",
+        "| Function | Paired score | Local checks | Edge groups | Status |",
         "| --- | ---: | ---: | ---: | --- |",
     ])
     grouped = defaultdict(list)
@@ -179,16 +223,17 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
                      any(case["result"] == "GAP" for case in local_cases) else
             "PARTIAL" if any(case["status"] == "NO RETAIL" for case in cases) else "PASS"
         )
-        if status == "PASS" and planned_grouped[function]:
-            status = "PENDING"
+        if status == "PASS" and any(case["limit"] for case in planned_grouped[function]):
+            status = "LIMITED"
         lines.append(f"| `{function}` | {count}/{len(cases)} ({percent(count, len(cases))}) | "
                      f"{local_count}/{len(local_cases)} | "
                      f"{len(planned_grouped[function])} | {status} |")
-    lines.extend(["", "## Planned cases", "",
-                  "| Case | Functions | Why |", "| --- | --- | --- |"])
+    lines.extend(["", "## Edge cases", "",
+                  "| Case | Matched | Limits |", "| --- | ---: | --- |"])
     for case in planned:
-        functions = ", ".join(f"`{name}`" for name in case["functions"])
-        lines.append(f"| {case['name']} | {functions} | {case['note']} |")
+        cases = [row for row in edge_rows if row["case"] == case["name"]]
+        count = sum(row["status"] == "PASS" for row in cases)
+        lines.append(f"| {case['name']} | {count}/{len(cases)} | {case['limit']} |")
     lines.extend(["", f"Documented sequencer APIs missing from bindings: **{len(missing_api)}**."])
     if missing_api:
         lines.extend(f"- `{name}` — not implemented" for name in missing_api)
@@ -210,6 +255,8 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         lines.extend(f"- {problem}" for problem in assertions["problems"])
     if uncaptured:
         lines.extend(["", "Missing retail readings are marked NO RETAIL and fail the run."])
+    lines.extend(["", "Retail crash warning: moving the last of multiple triggers faulted on PS3. "
+                  "See `tests/sequencer/retail-crashes.md`."])
     lines.extend(["", "Local assertion details: `tests/_results/assertions.md`.", ""])
     return "\n".join(lines)
 
@@ -245,6 +292,8 @@ def main():
         unknown = set(case["functions"]) - set(inventory)
         if unknown:
             raise ValueError(f"{case['name']}: unknown planned functions: {sorted(unknown)}")
+        if not case.get("prefixes"):
+            raise ValueError(f"{case['name']}: no edge reading prefix")
     missing_api = sorted(documented_sequencer_api() - set(inventory))
     expected = DECLARED.findall(PROBE.read_text())
     if len(expected) != len(set(expected)):
@@ -292,6 +341,12 @@ def main():
             problems.append(f"Unexpected {origin} reading: {name}")
         for name in sorted(duplicates):
             problems.append(f"Duplicate {origin} reading: {name}")
+    edge_rows, edge_problems = run_edge_probes(args.engine.resolve(), planned)
+    rows.extend(edge_rows)
+    problems.extend(edge_problems)
+    for case in planned:
+        if not any(row["case"] == case["name"] for row in edge_rows):
+            problems.append(f"No paired readings for edge case: {case['name']}")
     args.report.write_text(make_report(rows, inventory, retail_path, local_path,
                                        problems, assertions, planned, missing_api))
     passed = sum(row["status"] == "PASS" for row in rows)
@@ -302,7 +357,7 @@ def main():
     local_failures = sum(case["result"] == "FAIL" for case in assertions["entries"])
     local_gaps = sum(case["result"] == "GAP" for case in assertions["entries"])
     return 1 if failures or local_failures or problems or missing_api or assertions["problems"] or (
-        args.strict_parity and (gaps or local_gaps or planned)) else 0
+        args.strict_parity and (gaps or local_gaps or any(case["limit"] for case in planned))) else 0
 
 
 if __name__ == "__main__":

@@ -1,0 +1,19 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global EdgeLoop=table(constructor=function() {
+    this.frames=0;
+    this.zero=SEQUENCER(); this.zero.setBPM(480);
+    this.zero.setLoopLen(0); this.zero.setCurrentStep(31); this.zero.start();
+    this.negative=SEQUENCER(); this.negative.setBPM(480);
+    this.negative.setLoopLen(-1); this.negative.setCurrentStep(31); this.negative.start();
+    SeqProbe("edge.loop.zeroInitial",this.zero.getCurrentPattern());
+    SeqProbe("edge.loop.negativeInitial",this.negative.getCurrentPattern());
+},init=function(){return true;},update=function() {
+    this.frames+=1;
+    if (this.frames==12) {
+        SeqProbe("edge.loop.zeroAfter",this.zero.getCurrentPattern());
+        SeqProbe("edge.loop.negativeAfter",this.negative.getCurrentPattern());
+    }
+});
+global Main=function(p) { EdgeLoop.Process=p; return EdgeLoop; };

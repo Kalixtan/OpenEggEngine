@@ -1,0 +1,6 @@
+# probe-sha256 7180200d5eb53e909468644acb08ca03c83b1b15437421f6b73aab3c5a270117
+edge.pattern.negative	-2
+edge.pattern.negativeWrap	-3
+edge.pattern.started	1
+edge.pattern.zero	0
+edge.pattern.zeroWrap	-1

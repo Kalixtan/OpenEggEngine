@@ -1,0 +1,17 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local s=SEQUENCER();
+SeqProbe("edge.noteMatrix.startSixStep",s.getNextNoteStep(6));
+SeqProbe("edge.noteMatrix.startSixPattern",s.getNextNotePattern(6));
+s.setCurrentStep(5);
+SeqProbe("edge.noteMatrix.fiveSixStep",s.getNextNoteStep(6));
+SeqProbe("edge.noteMatrix.fiveSixPattern",s.getNextNotePattern(6));
+SeqProbe("edge.noteMatrix.fiveMinusStep",s.getNextNoteStep(-1));
+SeqProbe("edge.noteMatrix.fiveMinusPattern",s.getNextNotePattern(-1));
+s.setCurrentStep(31);
+SeqProbe("edge.noteMatrix.endSixStep",s.getNextNoteStep(6));
+SeqProbe("edge.noteMatrix.endSixPattern",s.getNextNotePattern(6));
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

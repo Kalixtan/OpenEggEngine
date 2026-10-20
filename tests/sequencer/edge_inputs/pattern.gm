@@ -1,0 +1,15 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local s=SEQUENCER();
+s.setNumStepsPerPattern(0);
+SeqProbe("edge.pattern.zero",s.getNumStepsPerPattern());
+SeqProbe("edge.pattern.zeroWrap",s.getWrappedStep(-1));
+s.setNumStepsPerPattern(-2);
+SeqProbe("edge.pattern.negative",s.getNumStepsPerPattern());
+SeqProbe("edge.pattern.negativeWrap",s.getWrappedStep(-1));
+s.start();
+SeqProbe("edge.pattern.started",s.isPlaying());
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

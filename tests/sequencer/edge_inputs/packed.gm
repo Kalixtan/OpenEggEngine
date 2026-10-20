@@ -1,0 +1,18 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local empty={}; local result={};
+SeqProbe("edge.packed.empty",SEQUENCE_FromTable(empty,result));
+local short={}; short[0]=0; local shortOut={};
+SEQUENCE_FromTable(short,shortOut);
+SeqProbe("edge.packed.shortSize",shortOut.size);
+local sparse={}; sparse.size=16; sparse[0]=1;
+local sparsePacked={}; SEQUENCE_ToTable(sparse,sparsePacked);
+SeqProbe("edge.packed.sparseWord",sparsePacked[0]);
+local nonint={}; nonint.size=16;
+local i=0; for (i=0;i<16;i+=1) { nonint[i]=0.5; }
+local nonintPacked={}; SEQUENCE_ToTable(nonint,nonintPacked);
+SeqProbe("edge.packed.floatWord",nonintPacked[0]);
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

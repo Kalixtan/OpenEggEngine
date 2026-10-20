@@ -1,0 +1,14 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local wrong={};
+SeqProbe("edge.string.prefix",SEQUENCE_FromString("q012",wrong));
+local bad={}; SEQUENCE_FromString("zx",bad);
+SeqProbe("edge.string.badDigit",bad[0]);
+local longText="z"; local i=0;
+for (i=0;i<128;i+=1) { longText+="0"; }
+local longOut={}; SEQUENCE_FromString(longText,longOut);
+SeqProbe("edge.string.longSize",longOut.size);
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

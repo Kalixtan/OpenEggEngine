@@ -1,0 +1,13 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local s=SEQUENCER();
+s.setBPM(0);
+SeqProbe("edge.bpm.zero",s.getBPM());
+SeqProbe("edge.bpm.zeroPeriod",s.getMSPerStep());
+s.setBPM(-1);
+SeqProbe("edge.bpm.negative",s.getBPM());
+SeqProbe("edge.bpm.negativePeriod",s.getMSPerStep());
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

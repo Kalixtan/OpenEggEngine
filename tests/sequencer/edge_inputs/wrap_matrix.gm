@@ -1,0 +1,28 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local s=SEQUENCER();
+s.setNumStepsPerPattern(0);
+SeqProbe("edge.wrap.zero.n5",s.getWrappedStep(-5));
+SeqProbe("edge.wrap.zero.n1",s.getWrappedStep(-1));
+SeqProbe("edge.wrap.zero.z",s.getWrappedStep(0));
+SeqProbe("edge.wrap.zero.p1",s.getWrappedStep(1));
+SeqProbe("edge.wrap.zero.p5",s.getWrappedStep(5));
+s.setNumStepsPerPattern(-2);
+SeqProbe("edge.wrap.neg.n5",s.getWrappedStep(-5));
+SeqProbe("edge.wrap.neg.n1",s.getWrappedStep(-1));
+SeqProbe("edge.wrap.neg.z",s.getWrappedStep(0));
+SeqProbe("edge.wrap.neg.p1",s.getWrappedStep(1));
+SeqProbe("edge.wrap.neg.p5",s.getWrappedStep(5));
+s.setNumStepsPerPattern(3);
+SeqProbe("edge.wrap.pos.n8",s.getWrappedStep(-8));
+SeqProbe("edge.wrap.pos.n4",s.getWrappedStep(-4));
+SeqProbe("edge.wrap.pos.n1",s.getWrappedStep(-1));
+SeqProbe("edge.wrap.pos.z",s.getWrappedStep(0));
+SeqProbe("edge.wrap.pos.p1",s.getWrappedStep(1));
+SeqProbe("edge.wrap.pos.p3",s.getWrappedStep(3));
+SeqProbe("edge.wrap.pos.p4",s.getWrappedStep(4));
+SeqProbe("edge.wrap.pos.p8",s.getWrappedStep(8));
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

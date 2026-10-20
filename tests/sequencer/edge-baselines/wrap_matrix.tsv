@@ -1,0 +1,19 @@
+# probe-sha256 ae308bb8cb3c2054f4e403848a7e540dae3a3ca81b0f9bea76150e7ed6dc42c9
+edge.wrap.neg.n1	-3
+edge.wrap.neg.n5	-3
+edge.wrap.neg.p1	1
+edge.wrap.neg.p5	1
+edge.wrap.neg.z	0
+edge.wrap.pos.n1	2
+edge.wrap.pos.n4	2
+edge.wrap.pos.n8	1
+edge.wrap.pos.p1	1
+edge.wrap.pos.p3	0
+edge.wrap.pos.p4	1
+edge.wrap.pos.p8	2
+edge.wrap.pos.z	0
+edge.wrap.zero.n1	-1
+edge.wrap.zero.n5	-5
+edge.wrap.zero.p1	1
+edge.wrap.zero.p5	5
+edge.wrap.zero.z	0

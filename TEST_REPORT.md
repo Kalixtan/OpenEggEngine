@@ -1,17 +1,17 @@
 # Sequencer test report
 
-Generated: 2026-10-20 16:40 UTC
-Retail: `tests/sequencer/retail-baseline.tsv` | OpenEgg: `tests/_results/sequencer/probe.log`
+Generated: 2026-10-20 17:06 UTC
+Retail: `tests/sequencer/retail-baseline.tsv` and `tests/sequencer/edge-baselines/` | OpenEgg: `tests/_results/sequencer/`
 
-Matched: **75/75 declared readings (100%)** | Known gaps: **0** | Uncaptured: **0** | Planned: **19**
+Matched: **156/156 declared readings (100%)** | Known gaps: **0** | Uncaptured: **0** | Edge groups run: **19**
 
 Local assertions: **49/49 passed (100%)**
 
-Verdict: **all captured readings match**. **19 edge cases still need paired retail runs.**
+Verdict: **all captured readings match**. Coverage is limited to the readings below.
 
-One row is one exact string comparison from the same `probe.gm` on both engines. A missing reading or duplicate fails the run. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. `OEPV__` clock readings stay outside the score.
+One row is one exact string comparison from the same probe file on both engines. A missing reading or duplicate fails the run. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. `OEPV__` clock readings stay outside the score.
 
-## Sections
+## Local assertion sections
 
 | Section | Passed | Cases | Score |
 | --- | ---: | ---: | ---: |
@@ -27,95 +27,95 @@ One row is one exact string comparison from the same `probe.gm` on both engines.
 
 ## Per function
 
-| Function | Paired score | Local checks | Planned | Status |
+| Function | Paired score | Local checks | Edge groups | Status |
 | --- | ---: | ---: | ---: | --- |
-| `SEQUENCER` | 1/1 (100%) | 2/2 | 1 | PENDING |
-| `SEQUENCERACTION` | 2/2 (100%) | 3/3 | 1 | PENDING |
-| `SEQUENCER_GetAllSequencers` | 1/1 (100%) | 1/1 | 1 | PENDING |
+| `SEQUENCER` | 2/2 (100%) | 2/2 | 1 | LIMITED |
+| `SEQUENCERACTION` | 3/3 (100%) | 3/3 | 1 | LIMITED |
+| `SEQUENCER_GetAllSequencers` | 3/3 (100%) | 1/1 | 1 | LIMITED |
 | `SEQUENCER_OnNoteCollect` | 1/1 (100%) | 0/0 | 0 | PASS |
 | `SEQUENCER_PauseAllSequencers` | 1/1 (100%) | 1/1 | 0 | PASS |
-| `SEQUENCER_SetMasterPulse` | 1/1 (100%) | 0/0 | 1 | PENDING |
+| `SEQUENCER_SetMasterPulse` | 2/2 (100%) | 0/0 | 1 | LIMITED |
 | `SEQUENCER_UnpauseAllSequencers` | 1/1 (100%) | 1/1 | 0 | PASS |
-| `SEQUENCE_FromString` | 2/2 (100%) | 4/4 | 1 | PENDING |
-| `SEQUENCE_FromTable` | 2/2 (100%) | 3/3 | 1 | PENDING |
-| `SEQUENCE_ToString` | 1/1 (100%) | 3/3 | 1 | PENDING |
-| `SEQUENCE_ToTable` | 1/1 (100%) | 3/3 | 1 | PENDING |
-| `Sequencer.clearTriggers` | 1/1 (100%) | 2/2 | 1 | PENDING |
-| `Sequencer.getAllTriggers` | 1/1 (100%) | 1/1 | 1 | PENDING |
-| `Sequencer.getBPM` | 2/2 (100%) | 2/2 | 1 | PENDING |
-| `Sequencer.getCurrentPattern` | 2/2 (100%) | 5/5 | 1 | PENDING |
+| `SEQUENCE_FromString` | 5/5 (100%) | 4/4 | 1 | LIMITED |
+| `SEQUENCE_FromTable` | 6/6 (100%) | 3/3 | 1 | LIMITED |
+| `SEQUENCE_ToString` | 4/4 (100%) | 3/3 | 1 | LIMITED |
+| `SEQUENCE_ToTable` | 5/5 (100%) | 3/3 | 1 | LIMITED |
+| `Sequencer.clearTriggers` | 4/4 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.getAllTriggers` | 4/4 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.getBPM` | 5/5 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.getCurrentPattern` | 6/6 (100%) | 5/5 | 1 | LIMITED |
 | `Sequencer.getCurrentStep` | 4/4 (100%) | 5/5 | 0 | PASS |
 | `Sequencer.getCurrentStep16` | 1/1 (100%) | 0/0 | 0 | PASS |
-| `Sequencer.getMSPerStep` | 2/2 (100%) | 4/4 | 1 | PENDING |
+| `Sequencer.getMSPerStep` | 6/6 (100%) | 4/4 | 1 | LIMITED |
 | `Sequencer.getMSTillNextNoteStep` | 1/1 (100%) | 0/0 | 0 | PASS |
-| `Sequencer.getMSTillNextStep` | 1/1 (100%) | 4/4 | 1 | PENDING |
-| `Sequencer.getMSTillNextStep16` | 1/1 (100%) | 1/1 | 1 | PENDING |
-| `Sequencer.getMSTillNextStepAccurate` | 1/1 (100%) | 1/1 | 1 | PENDING |
-| `Sequencer.getNextNotePattern` | 1/1 (100%) | 2/2 | 1 | PENDING |
-| `Sequencer.getNextNoteStep` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `Sequencer.getMSTillNextStep` | 4/4 (100%) | 4/4 | 1 | LIMITED |
+| `Sequencer.getMSTillNextStep16` | 4/4 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.getMSTillNextStepAccurate` | 4/4 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.getNextNotePattern` | 12/12 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.getNextNoteStep` | 12/12 (100%) | 2/2 | 1 | LIMITED |
 | `Sequencer.getNoteTime` | 2/2 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.getNumStepsPerNote` | 3/3 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.getNumStepsPerPattern` | 2/2 (100%) | 3/3 | 0 | PASS |
 | `Sequencer.getNumTriggers` | 3/3 (100%) | 6/6 | 0 | PASS |
-| `Sequencer.getObjectID` | 1/1 (100%) | 1/1 | 1 | PENDING |
-| `Sequencer.getWrappedStep` | 2/2 (100%) | 0/0 | 1 | PENDING |
+| `Sequencer.getObjectID` | 2/2 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.getWrappedStep` | 25/25 (100%) | 0/0 | 1 | LIMITED |
 | `Sequencer.gotoStep` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.isPlaying` | 5/5 (100%) | 3/3 | 0 | PASS |
-| `Sequencer.moveTriggerToFront` | 1/1 (100%) | 2/2 | 1 | PENDING |
-| `Sequencer.restart` | 1/1 (100%) | 1/1 | 1 | PENDING |
-| `Sequencer.setBPM` | 1/1 (100%) | 3/3 | 2 | PENDING |
+| `Sequencer.moveTriggerToFront` | 4/4 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.restart` | 3/3 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.setBPM` | 8/8 (100%) | 3/3 | 2 | LIMITED |
 | `Sequencer.setCurrentStep` | 1/1 (100%) | 1/1 | 0 | PASS |
-| `Sequencer.setLoopLen` | 1/1 (100%) | 1/1 | 1 | PENDING |
-| `Sequencer.setNumStepsPerPattern` | 1/1 (100%) | 2/2 | 1 | PENDING |
-| `Sequencer.setPan` | 1/1 (100%) | 0/0 | 1 | PENDING |
-| `Sequencer.setTrigger` | 5/5 (100%) | 9/9 | 6 | PENDING |
-| `Sequencer.setTrigger16` | 1/1 (100%) | 2/2 | 1 | PENDING |
-| `Sequencer.setTriggerOnNext` | 2/2 (100%) | 1/1 | 1 | PENDING |
-| `Sequencer.setVolume` | 1/1 (100%) | 0/0 | 1 | PENDING |
-| `Sequencer.start` | 1/1 (100%) | 4/4 | 1 | PENDING |
+| `Sequencer.setLoopLen` | 5/5 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.setNumStepsPerPattern` | 24/24 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.setPan` | 3/3 (100%) | 0/0 | 1 | LIMITED |
+| `Sequencer.setTrigger` | 20/20 (100%) | 9/9 | 6 | LIMITED |
+| `Sequencer.setTrigger16` | 6/6 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.setTriggerOnNext` | 7/7 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.setVolume` | 3/3 (100%) | 0/0 | 1 | LIMITED |
+| `Sequencer.start` | 24/24 (100%) | 4/4 | 1 | LIMITED |
 | `Sequencer.stop` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.test` | 1/1 (100%) | 0/0 | 0 | PASS |
 | `SequencerAction.isTaggedForRemoval` | 2/2 (100%) | 2/2 | 0 | PASS |
-| `SequencerAction.setTable` | 1/1 (100%) | 2/2 | 2 | PENDING |
-| `SequencerAction.tagForRemoval` | 1/1 (100%) | 3/3 | 2 | PENDING |
-| `SequencerListRef.get` | 1/1 (100%) | 3/3 | 1 | PENDING |
-| `SequencerListRef.goToNext` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `SequencerAction.setTable` | 5/5 (100%) | 2/2 | 2 | LIMITED |
+| `SequencerAction.tagForRemoval` | 7/7 (100%) | 3/3 | 2 | LIMITED |
+| `SequencerListRef.get` | 3/3 (100%) | 3/3 | 1 | LIMITED |
+| `SequencerListRef.goToNext` | 3/3 (100%) | 2/2 | 1 | LIMITED |
 | `SequencerListRef.isValid` | 3/3 (100%) | 3/3 | 0 | PASS |
 | `SequencerListRef.reset` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `SequencerListRef.size` | 1/1 (100%) | 1/1 | 0 | PASS |
-| `SequencerTrigger.getAction` | 4/4 (100%) | 1/1 | 1 | PENDING |
+| `SequencerTrigger.getAction` | 7/7 (100%) | 1/1 | 1 | LIMITED |
 | `SequencerTrigger.getLooped` | 1/1 (100%) | 7/7 | 0 | PASS |
 | `SequencerTrigger.getPattern` | 1/1 (100%) | 8/8 | 0 | PASS |
 | `SequencerTrigger.getStep` | 1/1 (100%) | 8/8 | 0 | PASS |
-| `SequencerTriggerList.get` | 4/4 (100%) | 4/4 | 1 | PENDING |
-| `SequencerTriggerList.goToNext` | 1/1 (100%) | 2/2 | 1 | PENDING |
+| `SequencerTriggerList.get` | 7/7 (100%) | 4/4 | 1 | LIMITED |
+| `SequencerTriggerList.goToNext` | 4/4 (100%) | 2/2 | 1 | LIMITED |
 | `SequencerTriggerList.isValid` | 1/1 (100%) | 4/4 | 0 | PASS |
 | `SequencerTriggerList.reset` | 1/1 (100%) | 2/2 | 0 | PASS |
 | `SequencerTriggerList.size` | 1/1 (100%) | 3/3 | 0 | PASS |
 
-## Planned cases
+## Edge cases
 
-| Case | Functions | Why |
-| --- | --- | --- |
-| BPM zero and negative | `Sequencer.setBPM`, `Sequencer.getMSPerStep` | Capture native float and tick behavior with a disposable sequencer. |
-| BPM float edge conversion | `Sequencer.setBPM`, `Sequencer.getBPM` | Check fractions, NaN, and values outside signed int range. |
-| Pattern length zero and negative | `Sequencer.setNumStepsPerPattern`, `Sequencer.getWrappedStep`, `Sequencer.start` | Compare invalid lengths without using the main game sequencer. |
-| Loop length zero and negative | `Sequencer.setLoopLen`, `Sequencer.getCurrentPattern` | Check wrap at the first boundary. |
-| Note type outside 0 to 5 | `Sequencer.getNextNoteStep`, `Sequencer.getNextNotePattern` | Retail can divide by zero; record as an unsafe case. |
-| Time getter tick boundaries | `Sequencer.getMSTillNextStep`, `Sequencer.getMSTillNextStepAccurate`, `Sequencer.getMSTillNextStep16` | Use controlled clock steps so exact values are repeatable. |
-| Volume and pan effect | `Sequencer.setVolume`, `Sequencer.setPan` | Compare audible output or a recovered native state reader; return values alone are shallow. |
-| Master pulse consumer | `SEQUENCER_SetMasterPulse` | Trace reads of the retail global and compare the affected behavior. |
-| Trigger overload type matrix | `Sequencer.setTrigger`, `Sequencer.setTrigger16`, `Sequencer.setTriggerOnNext` | Cover supported int, float, bool, null, and wrong arity combinations. |
-| Duplicate trigger coordinates | `Sequencer.setTrigger`, `Sequencer.moveTriggerToFront` | Check stable order after insertion and moving first, middle, and tail. |
-| Restart at future step | `Sequencer.restart`, `Sequencer.setTrigger` | Compare same-step callback ordering and one-shot removal. |
-| Callback mutation | `Sequencer.clearTriggers`, `Sequencer.setTrigger`, `SequencerAction.tagForRemoval` | Append, tag, and clear inside a callback; check staged dispatch. |
-| Action wrapper lifetime | `SequencerTrigger.getAction`, `SequencerAction.setTable`, `SequencerAction.tagForRemoval` | Verify alias state after GC, trigger removal, and table replacement. |
-| Trigger cursor during mutation | `Sequencer.getAllTriggers`, `SequencerTriggerList.get`, `SequencerTriggerList.goToNext` | Check insertion and deletion while a cursor is held; avoid retail stale-pointer crash. |
-| Sequencer cursor during mutation | `SEQUENCER_GetAllSequencers`, `SequencerListRef.get`, `SequencerListRef.goToNext` | Compare visibility and ownership when a sequencer is created or collected. |
-| Callback and GC interleave | `SEQUENCERACTION`, `SequencerAction.setTable`, `Sequencer.setTrigger` | Collect between trigger scheduling and dispatch. |
-| Malformed packed sequence | `SEQUENCE_FromTable`, `SEQUENCE_ToTable` | Check short, sparse, oversized, and noninteger tables. |
-| Malformed sequence string | `SEQUENCE_FromString`, `SEQUENCE_ToString` | Check invalid prefix, invalid digits, embedded null, and long strings. |
-| Object ID allocation order | `Sequencer.getObjectID`, `SEQUENCER`, `Sequencer.setTrigger` | Compare ID consumption by sequencers and trigger handles. |
+| Case | Matched | Limits |
+| --- | ---: | --- |
+| BPM zero and negative | 4/4 | Tick behavior after invalid BPM is not covered. |
+| BPM float edge conversion | 3/3 | NaN is not covered. |
+| Pattern length zero and negative | 23/23 | Tick wrap after invalid length is not covered. |
+| Loop length zero and negative | 4/4 | Observed after 12 updates. |
+| Note type outside 0 to 5 | 11/11 | Covers 6 and -1. |
+| Time getter tick boundaries | 3/3 | Raw clock values vary and are excluded. |
+| Volume and pan effect | 2/2 | Return values only; audio output is not measured. |
+| Master pulse consumer | 1/1 | Return value only; no consumer effect measured. |
+| Trigger overload type matrix | 5/5 | Supported forms only; bad types and arity are not covered. |
+| Duplicate trigger coordinates | 3/3 | Moving the last of multiple triggers crashes retail; see retail-crashes.md. |
+| Restart at future step | 2/2 | Callback order against same-step actions is not covered. |
+| Callback mutation | 3/3 | One append, tag, and clear path. |
+| Action wrapper lifetime | 3/3 | Clear and explicit GC covered. |
+| Trigger cursor during mutation | 3/3 | Insertion only; deletion is not covered. |
+| Sequencer cursor during mutation | 2/2 | Creation only; collection is not covered. |
+| Callback and GC interleave | 1/1 | One explicit GC before callback. |
+| Malformed packed sequence | 4/4 | Empty, short, sparse, and float entries; oversized is not covered. |
+| Malformed sequence string | 3/3 | Invalid prefix, bad digit, and long text; embedded NUL is not covered. |
+| Object ID allocation order | 1/1 | One allocation interval. |
 
 Documented sequencer APIs missing from bindings: **0**.
 
@@ -198,5 +198,88 @@ Documented sequencer APIs missing from bindings: **0**.
 | `SequencerListRef.get` | SequencerListRef.get.initial | `1` | `1` | PASS |
 | `SequencerListRef.isValid` | SequencerListRef.isValid.next | `1` | `1` | PASS |
 | `SequencerListRef.isValid` | SequencerListRef.isValid.reset | `1` | `1` | PASS |
+| `Sequencer.getMSTillNextStep` | edge.time.positive | `1` | `1` | PASS |
+| `Sequencer.getMSTillNextStep` | edge.time.accurate | `1` | `1` | PASS |
+| `Sequencer.getMSTillNextStep` | edge.time.sixteenth | `1` | `1` | PASS |
+| `Sequencer.setVolume` | edge.volume.return | `null` | `null` | PASS |
+| `Sequencer.setVolume` | edge.pan.return | `null` | `null` | PASS |
+| `SEQUENCER_SetMasterPulse` | edge.master.return | `null` | `null` | PASS |
+| `Sequencer.setTrigger` | edge.overload.two | `1` | `1` | PASS |
+| `Sequencer.setTrigger` | edge.overload.three | `0` | `0` | PASS |
+| `Sequencer.setTrigger` | edge.overload.four | `2` | `2` | PASS |
+| `Sequencer.setTrigger` | edge.overload.sixteen | `2` | `2` | PASS |
+| `Sequencer.setTrigger` | edge.overload.next | `2` | `2` | PASS |
+| `Sequencer.setTrigger` | edge.duplicate.first | `2` | `2` | PASS |
+| `Sequencer.setTrigger` | edge.duplicate.second | `1` | `1` | PASS |
+| `Sequencer.setTrigger` | edge.duplicate.afterMove | `1` | `1` | PASS |
+| `SequencerTrigger.getAction` | edge.lifetime.value | `12` | `12` | PASS |
+| `SequencerTrigger.getAction` | edge.lifetime.table | `13` | `13` | PASS |
+| `SequencerTrigger.getAction` | edge.lifetime.tag | `1` | `1` | PASS |
+| `Sequencer.getAllTriggers` | edge.triggerCursor.size | `2` | `2` | PASS |
+| `Sequencer.getAllTriggers` | edge.triggerCursor.step | `0` | `0` | PASS |
+| `Sequencer.getAllTriggers` | edge.triggerCursor.next | `1` | `1` | PASS |
+| `SEQUENCER_GetAllSequencers` | edge.sequencerCursor.grew | `1` | `1` | PASS |
+| `SEQUENCER_GetAllSequencers` | edge.sequencerCursor.valid | `1` | `1` | PASS |
+| `Sequencer.restart` | edge.restart.step | `4` | `4` | PASS |
+| `Sequencer.restart` | edge.restart.scheduled | `2` | `2` | PASS |
+| `Sequencer.clearTriggers` | edge.mutation.added | `1` | `1` | PASS |
+| `Sequencer.clearTriggers` | edge.mutation.tagged | `1` | `1` | PASS |
+| `Sequencer.clearTriggers` | edge.mutation.cleared | `0` | `0` | PASS |
+| `SEQUENCERACTION` | edge.gc.callback | `0` | `0` | PASS |
+| `Sequencer.getObjectID` | edge.objectID.delta | `2` | `2` | PASS |
+| `Sequencer.setBPM` | edge.bpm.zero | `0` | `0` | PASS |
+| `Sequencer.setBPM` | edge.bpm.zeroPeriod | `inf` | `inf` | PASS |
+| `Sequencer.setBPM` | edge.bpm.negative | `-1` | `-1` | PASS |
+| `Sequencer.setBPM` | edge.bpm.negativePeriod | `-7499.999512` | `-7499.999512` | PASS |
+| `Sequencer.setBPM` | edge.bpmFloat.positive | `1` | `1` | PASS |
+| `Sequencer.setBPM` | edge.bpmFloat.negative | `-1` | `-1` | PASS |
+| `Sequencer.setBPM` | edge.bpmFloat.overflow | `2147483647` | `2147483647` | PASS |
+| `Sequencer.setLoopLen` | edge.loop.zeroInitial | `0` | `0` | PASS |
+| `Sequencer.setLoopLen` | edge.loop.negativeInitial | `0` | `0` | PASS |
+| `Sequencer.setLoopLen` | edge.loop.zeroAfter | `0` | `0` | PASS |
+| `Sequencer.setLoopLen` | edge.loop.negativeAfter | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.note.before | `1` | `1` | PASS |
+| `Sequencer.getNextNoteStep` | edge.note.nextStep | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.note.nextPattern | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.startSixStep | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.startSixPattern | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.fiveSixStep | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.fiveSixPattern | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.fiveMinusStep | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.fiveMinusPattern | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.endSixStep | `0` | `0` | PASS |
+| `Sequencer.getNextNoteStep` | edge.noteMatrix.endSixPattern | `0` | `0` | PASS |
+| `SEQUENCE_FromTable` | edge.packed.empty | `null` | `null` | PASS |
+| `SEQUENCE_FromTable` | edge.packed.shortSize | `16` | `16` | PASS |
+| `SEQUENCE_FromTable` | edge.packed.sparseWord | `null` | `null` | PASS |
+| `SEQUENCE_FromTable` | edge.packed.floatWord | `null` | `null` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.pattern.zero | `0` | `0` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.pattern.zeroWrap | `-1` | `-1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.pattern.negative | `-2` | `-2` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.pattern.negativeWrap | `-3` | `-3` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.pattern.started | `1` | `1` | PASS |
+| `SEQUENCE_FromString` | edge.string.prefix | `null` | `null` | PASS |
+| `SEQUENCE_FromString` | edge.string.badDigit | `72` | `72` | PASS |
+| `SEQUENCE_FromString` | edge.string.longSize | `128` | `128` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.n5 | `-5` | `-5` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.n1 | `-1` | `-1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.z | `0` | `0` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.p1 | `1` | `1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.p5 | `5` | `5` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.neg.n5 | `-3` | `-3` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.neg.n1 | `-3` | `-3` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.neg.z | `0` | `0` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.neg.p1 | `1` | `1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.neg.p5 | `1` | `1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.n8 | `1` | `1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.n4 | `2` | `2` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.n1 | `2` | `2` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.z | `0` | `0` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.p1 | `1` | `1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.p3 | `0` | `0` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.p4 | `1` | `1` | PASS |
+| `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.p8 | `2` | `2` | PASS |
+
+Retail crash warning: moving the last of multiple triggers faulted on PS3. See `tests/sequencer/retail-crashes.md`.
 
 Local assertion details: `tests/_results/assertions.md`.

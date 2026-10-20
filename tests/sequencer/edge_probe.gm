@@ -1,0 +1,125 @@
+// Paired edge readings. Keep actions alive until their callbacks have run.
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global SeqProbeVolatile=function(name,value) {
+    GameMonkeyScript.loadScript("OEPV__"+name+"__"+value+".gm");
+};
+global EdgeData=table(run=function() {
+    local s=SEQUENCER();
+    s.setBPM(120);
+    local timing=SEQUENCERACTION(); timing.owner=this;
+    timing.execute=function() {
+        local seq=this.owner.timing;
+        local a=seq.getMSTillNextStep();
+        local b=seq.getMSTillNextStepAccurate();
+        local c=seq.getMSTillNextStep16();
+        SeqProbeVolatile("edge.time.raw",a);
+        SeqProbe("edge.time.positive",a>0);
+        SeqProbe("edge.time.accurate",MATH_ABS(a-b)<1);
+        SeqProbe("edge.time.sixteenth",MATH_ABS(a*2-c)<1);
+    };
+    this.timing=SEQUENCER(); this.timing.setBPM(120);
+    this.timing.setTrigger(0,timing,0); this.timing.start();
+
+    SeqProbe("edge.volume.return",s.setVolume(0));
+    SeqProbe("edge.pan.return",s.setPan(1));
+    SeqProbe("edge.master.return",SEQUENCER_SetMasterPulse());
+
+    local a=SEQUENCERACTION(); a.execute=function() {};
+    local forms=SEQUENCER();
+    SeqProbe("edge.overload.two",forms.setTrigger(1,a).getStep());
+    SeqProbe("edge.overload.three",forms.setTrigger(1,a,0).getLooped());
+    SeqProbe("edge.overload.four",forms.setTrigger(1,2,a,0).getStep());
+    SeqProbe("edge.overload.sixteen",forms.setTrigger16(1,a).getStep());
+    SeqProbe("edge.overload.next",forms.setTriggerOnNext(1,a,0).getStep());
+
+    local ordered=SEQUENCER();
+    local one=SEQUENCERACTION(table(value=1));
+    local two=SEQUENCERACTION(table(value=2));
+    local three=SEQUENCERACTION(table(value=3));
+    local first=ordered.setTrigger(0,one,0);
+    local middle=ordered.setTrigger(0,two,0);
+    ordered.setTrigger(0,three,0);
+    ordered.moveTriggerToFront(middle);
+    local order=ordered.getAllTriggers();
+    SeqProbe("edge.duplicate.first",order.get().getAction().value);
+    order.goToNext();
+    SeqProbe("edge.duplicate.second",order.get().getAction().value);
+    ordered.moveTriggerToFront(first);
+    order.reset();
+    SeqProbe("edge.duplicate.afterMove",order.get().getAction().value);
+
+    local aliased=SEQUENCER();
+    local bound=SEQUENCERACTION(table(value=12));
+    local handle=aliased.setTrigger(0,bound,0);
+    local alias=handle.getAction();
+    aliased.clearTriggers();
+    GameMonkeyScript.clean(1);
+    SeqProbe("edge.lifetime.value",alias.value);
+    alias.setTable(table(value=13));
+    SeqProbe("edge.lifetime.table",bound.value);
+    alias.tagForRemoval();
+    SeqProbe("edge.lifetime.tag",bound.isTaggedForRemoval());
+
+    local changing=SEQUENCER();
+    changing.setTrigger(0,a,0);
+    local cursor=changing.getAllTriggers();
+    changing.setTrigger(1,a,0);
+    SeqProbe("edge.triggerCursor.size",cursor.size());
+    SeqProbe("edge.triggerCursor.step",cursor.get().getStep());
+    cursor.goToNext();
+    SeqProbe("edge.triggerCursor.next",cursor.get().getStep());
+
+    this.manager=SEQUENCER_GetAllSequencers();
+    local before=this.manager.size();
+    this.newSeq=SEQUENCER();
+    SeqProbe("edge.sequencerCursor.grew",this.manager.size()==before+1);
+    SeqProbe("edge.sequencerCursor.valid",this.manager.isValid());
+
+    this.restartSeq=SEQUENCER(); this.restartSeq.setBPM(480);
+    local atStep=SEQUENCERACTION(); atStep.owner=this;
+    atStep.execute=function() {
+        SeqProbe("edge.restart.step",this.owner.restartSeq.getCurrentStep());
+    };
+    this.restartAction=atStep;
+    this.restartSeq.setTrigger(4,atStep,0);
+    this.restartSeq.restart(4);
+    SeqProbe("edge.restart.scheduled",this.restartSeq.getNumTriggers());
+    this.restartSeq.start();
+
+    this.mutateSeq=SEQUENCER(); this.mutateSeq.setBPM(480);
+    local mutation=SEQUENCERACTION(); mutation.owner=this;
+    mutation.execute=function() {
+        this.owner.mutateSeq.setTrigger(1,this,0);
+        SeqProbe("edge.mutation.added",this.owner.mutateSeq.getNumTriggers());
+        this.tagForRemoval();
+        SeqProbe("edge.mutation.tagged",this.isTaggedForRemoval());
+        this.owner.mutateSeq.clearTriggers();
+        SeqProbe("edge.mutation.cleared",this.owner.mutateSeq.getNumTriggers());
+    };
+    this.mutation=mutation;
+    this.mutateSeq.setTrigger(0,mutation,0);
+    this.mutateSeq.start();
+
+    this.gcSeq=SEQUENCER(); this.gcSeq.setBPM(480);
+    local gcAction=SEQUENCERACTION(); gcAction.owner=this;
+    gcAction.execute=function() {
+        SeqProbe("edge.gc.callback",this.owner.gcSeq.getCurrentStep());
+    };
+    this.gcAction=gcAction;
+    this.gcSeq.setTrigger(0,gcAction,0);
+    GameMonkeyScript.clean(1);
+    this.gcSeq.start();
+
+    local idSeq=SEQUENCER();
+    local idBefore=idSeq.getObjectID();
+    local idAction=SEQUENCERACTION();
+    idSeq.setTrigger(0,idAction,0);
+    local idAfter=SEQUENCER().getObjectID();
+    SeqProbe("edge.objectID.delta",idAfter-idBefore);
+});
+EdgeData.run();
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

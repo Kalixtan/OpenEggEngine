@@ -38,8 +38,8 @@ def main():
 
     log_dir = ROOT / "tests/_results/sequencer"
     log_dir.mkdir(parents=True, exist_ok=True)
-    boot_log = log_dir / "retail-boot.log"
-    tty_log = log_dir / "retail-tty.log"
+    boot_log = log_dir / f"{args.probe.stem}-retail-boot.log"
+    tty_log = log_dir / f"{args.probe.stem}-retail-tty.log"
     env = os.environ.copy()
     env["QT_QPA_PLATFORM"] = "offscreen"
     try:
