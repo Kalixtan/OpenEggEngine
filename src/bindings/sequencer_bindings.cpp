@@ -584,7 +584,14 @@ int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
                 triggers[i].handle.m_value.m_ref == handle.m_value.m_ref) {
                 SequencerTrigger t = triggers[i];
                 triggers.erase(triggers.begin() + i);
-                InsertTrigger(*s, std::move(t));
+                // Retail walks backward across equal positions before
+                // reinserting, so this trigger fires first at that step.
+                auto firstAtPosition = std::lower_bound(triggers.begin(), triggers.end(), t,
+                    [](const SequencerTrigger& existing, const SequencerTrigger& value) {
+                        return existing.pattern < value.pattern ||
+                            (existing.pattern == value.pattern && existing.step < value.step);
+                    });
+                triggers.insert(firstAtPosition, std::move(t));
                 break;
             }
         }
