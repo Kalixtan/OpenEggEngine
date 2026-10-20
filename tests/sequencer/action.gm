@@ -1,0 +1,43 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            this.frames=0;
+            this.action=SEQUENCERACTION();
+            this.action.value=7;
+            if (this.action.value==7 && this.action.isTaggedForRemoval()==0) {
+                GameSystem.trace("SEQ action fields PASS");
+            } else { GameSystem.trace("SEQ action fields FAIL"); }
+
+            this.action.setTable(table(value=9));
+            if (this.action.value==9) {
+                GameSystem.trace("SEQ action set table PASS");
+            } else { GameSystem.trace("SEQ action set table FAIL"); }
+            local supplied=SEQUENCERACTION(table(value=4));
+            if (supplied.value==4) {
+                GameSystem.trace("SEQ action table constructor PASS");
+            } else { GameSystem.trace("SEQ action table constructor FAIL"); }
+
+            this.seq=SEQUENCER();
+            this.seq.setTrigger(10,this.action,true);
+            this.action.tagForRemoval();
+            if (this.action.isTaggedForRemoval()==1 &&
+                this.seq.getNumTriggers()==1) {
+                GameSystem.trace("SEQ action tag PASS");
+            } else { GameSystem.trace("SEQ action tag FAIL"); }
+        },
+        init=function() { return true; },
+        update=function() {
+            this.frames+=1;
+            if (this.frames==1) { GameMonkeyScript.clean(1); }
+            if (this.frames==30) {
+                if (this.action.value==9) {
+                    GameSystem.trace("SEQ action GC table PASS");
+                } else { GameSystem.trace("SEQ action GC table FAIL"); }
+                if (this.seq.getNumTriggers()==0) {
+                    GameSystem.trace("SEQ action stopped removal PASS");
+                } else { GameSystem.trace("SEQ action stopped removal FAIL"); }
+            }
+        }
+    );
+};
