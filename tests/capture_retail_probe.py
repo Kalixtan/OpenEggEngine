@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture a sequencer probe from an installed PS3 game in RPCS3."""
+"""Capture a paired script probe from an installed PS3 game in RPCS3."""
 
 import argparse
 import hashlib
@@ -36,7 +36,11 @@ def main():
     if not args.eboot.is_file():
         parser.error(f"missing EBOOT: {args.eboot}")
 
-    log_dir = ROOT / "tests/_results/sequencer"
+    try:
+        section = args.probe.resolve().relative_to(ROOT / "tests").parts[0]
+    except ValueError:
+        section = "other"
+    log_dir = ROOT / "tests/_results" / section
     log_dir.mkdir(parents=True, exist_ok=True)
     boot_log = log_dir / f"{args.probe.stem}-retail-boot.log"
     tty_log = log_dir / f"{args.probe.stem}-retail-tty.log"

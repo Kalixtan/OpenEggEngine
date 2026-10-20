@@ -20,7 +20,7 @@ BASELINE = ROOT / "tests" / "sequencer" / "retail-baseline.tsv"
 PLANNED = ROOT / "tests" / "sequencer" / "planned.json"
 EDGE_BASELINES = ROOT / "tests" / "sequencer" / "edge-baselines"
 READING = re.compile(r"OEP__([A-Za-z0-9_.]+)__(.*?)\.gm")
-DECLARED = re.compile(r'SeqProbe\("([A-Za-z0-9_.]+)"')
+DECLARED = re.compile(r'(?:SeqProbe|Probe)\("([A-Za-z0-9_.]+)"')
 KNOWN_GAPS = {}
 ALIASES = {
     "SequencerAction.field.default": "SEQUENCERACTION",
