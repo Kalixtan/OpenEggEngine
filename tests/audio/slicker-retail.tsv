@@ -1,4 +1,5 @@
 # probe-sha256 75e01922a2df70c7ffec577e7aa6d5c86c12d24a434b4baba37c0e05fdf5da90
+# retail-warning fmod-invalid-seek
 Audio.checkDiracPoolIntegrity.spawned	0
 Audio.getNumDiracDSPChannelsUsed.spawned	1
 Audio.getNumDiracDSPsFree.spawned	6

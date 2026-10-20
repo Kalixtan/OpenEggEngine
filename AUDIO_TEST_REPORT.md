@@ -1,10 +1,15 @@
 # Audio test report
 
-Generated: 2026-10-20 23:00 UTC
+Generated: 2026-10-20 23:16 UTC
 
 Matched: **94/98 (96%)** script readings. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 
 Asset probes: tested with user supplied sound. Functions with readings: **54/68**.
+
+## Retail setup warnings
+
+- **Warning:** Retail Slicker setup failed: RPCS3 logged an FMOD invalid-seek error. The captured play call returned 0 with voice volume 0; these readings do not describe successful Slicker playback.
+- **Warning:** Retail playStream setup failed for the tested WAV: preload returned 1, but playStream returned 0 and no voice length. Playback parity cannot be judged from this failed setup.
 
 ## Per function
 

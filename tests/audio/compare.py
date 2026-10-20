@@ -20,6 +20,35 @@ HERE = Path(__file__).resolve().parent
 SOUND = Path("Platformer/sounds/fx/button-high.wav")
 STREAM_SOUND = Path("Platformer/levels/gamescom_master_8.wav")
 REPORT = ROOT / "AUDIO_TEST_REPORT.md"
+RETAIL_WARNING_PREFIX = "# retail-warning "
+
+
+def retail_setup_warnings(baselines):
+    warnings = []
+    for baseline in baselines:
+        for line in baseline.read_text(errors="replace").splitlines():
+            if not line.startswith(RETAIL_WARNING_PREFIX):
+                continue
+            code = line[len(RETAIL_WARNING_PREFIX):]
+            if code == "fmod-invalid-seek" and baseline.stem == "slicker-retail":
+                warnings.append(
+                    "Retail Slicker setup failed: RPCS3 logged an FMOD invalid-seek "
+                    "error. The captured play call returned 0 with voice volume 0; "
+                    "these readings do not describe successful Slicker playback."
+                )
+
+    voice = HERE / "voice_controls-retail.tsv"
+    if voice.exists():
+        retail, _ = read_readings(voice)
+        if (retail.get("Audio.playStream.preloaded") == "1" and
+                retail.get("Audio.playStream.samplePositive") == "0" and
+                retail.get("Audio.playStream.sampleLength") == "0"):
+            warnings.append(
+                "Retail playStream setup failed for the tested WAV: preload returned "
+                "1, but playStream returned 0 and no voice length. Playback parity "
+                "cannot be judged from this failed setup."
+            )
+    return warnings
 
 
 def inventory():
@@ -67,6 +96,10 @@ def main():
     args = parser.parse_args()
 
     names = inventory()
+    baselines = [HERE / f"{stem}-retail.tsv" for stem in
+                 ("state", "manager", "effects", "script_playback",
+                  "voice", "voice_controls", "slicker", "voice_lifetime")]
+    warnings = retail_setup_warnings(baselines)
     log_dir = ROOT / "tests/_results/audio"
     log_dir.mkdir(parents=True, exist_ok=True)
     rows, problems = [], []
@@ -112,6 +145,12 @@ def main():
              "Effect-chain calls without a getter only check completion. "
              "This does not test emitted audio or DSP parity.", "",
              f"Asset probes: {asset_status}. Functions with readings: **{tested}/{len(names)}**.", "",
+             "## Retail setup warnings", ""]
+    lines.extend(f"- **Warning:** {warning}" for warning in warnings)
+    if not warnings:
+        lines.append("- None detected in the captured retail readings.")
+    lines += [
+             "",
              "## Per function", "",
              "| Function | Matched | Cases | Status |", "| --- | ---: | ---: | --- |"]
     for function in names:
@@ -128,6 +167,8 @@ def main():
         lines += ["", "## Capture problems", ""] + [f"- {problem}" for problem in problems]
     args.report.write_text("\n".join(lines) + "\n")
     print(f"audio: {passed}/{len(rows)} matched, {len(problems)} capture problems")
+    for warning in warnings:
+        print(f"WARNING: {warning}")
     print(f"Report: {args.report}")
     return 1 if passed != len(rows) or problems else 0
 

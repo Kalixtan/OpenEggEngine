@@ -88,6 +88,7 @@ def main():
     if "VM: Access violation" in boot_log.read_text(errors="replace"):
         print(f"retail fault; see {boot_log}", file=sys.stderr)
         return 1
+    tty_text = tty_log.read_text(errors="replace")
     readings, duplicates = read_readings(tty_log)
     if set(readings) != expected or duplicates:
         missing = len(expected - set(readings))
@@ -98,7 +99,11 @@ def main():
     source_hash = hashlib.sha256(probe).hexdigest()
     support_hashes = "".join(f"# support-sha256 {target.name} {hashlib.sha256(data).hexdigest()}\n"
                              for target, data, _ in support)
+    retail_warnings = "# retail-warning fmod-invalid-seek\n" if (
+        "FMOD error An invalid seek position was passed to this function." in tty_text
+    ) else ""
     args.baseline.write_text(f"# probe-sha256 {source_hash}\n" + support_hashes +
+                             retail_warnings +
                              "".join(f"{key}\t{value}\n"
                                      for key, value in sorted(readings.items())))
     print(f"captured {len(readings)} retail readings to {args.baseline}")
