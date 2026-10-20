@@ -1,0 +1,9 @@
+{
+  "frames": 12,
+  "scenes": {
+    "free": ["x", "y", "vx", "vy"],
+    "fast": ["x", "y", "vx", "vy"],
+    "solid": ["x", "y", "vx", "vy", "colliding", "bullet"],
+    "sensor": ["x", "y", "vx", "vy", "colliding"]
+  }
+}

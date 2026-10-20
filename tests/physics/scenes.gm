@@ -1,0 +1,71 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global SceneDef=PHYSICSSHAPECOLLECTIONDEF();
+
+global SceneCircle=function(x,y,r,mass,sensor) {
+    local e=EntityManager.createEntity();
+    local pd=e.getPhysicsData();
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,y));
+    SceneDef.reset();
+    SceneDef.setMass(mass);
+    SceneDef.setIsSensor(sensor);
+    SceneDef.addCircle(r,0,0);
+    b.appendShapes(SceneDef);
+    return table(e=e,pd=pd,b=b);
+};
+
+global SceneBox=function(x,y,w,h,mass) {
+    local e=EntityManager.createEntity();
+    local pd=e.getPhysicsData();
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,y));
+    SceneDef.reset();
+    SceneDef.setMass(mass);
+    SceneDef.addBox(w,h,0,0,0);
+    b.appendShapes(SceneDef);
+    return table(e=e,pd=pd,b=b);
+};
+
+global SceneSample=function(scene,tick,body,pd,other) {
+    local name="scene."+scene+".t"+tick+".";
+    local pos=body.getPos();
+    local vel=body.getVel();
+    Probe(name+"x",pos.x);
+    Probe(name+"y",pos.y);
+    Probe(name+"vx",vel.x);
+    Probe(name+"vy",vel.y);
+    if (other!=null) { Probe(name+"colliding",pd.isColliding(other)); }
+};
+
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        constructor=function(){},
+        init=function(){return true;},
+        update=function() {
+            if (this.frame<12) {
+                if (this.frame==0) {
+                    this.free=SceneCircle(-100,100,2,1,0);
+                    this.free.b.setVel(vector2D(0.1,0.05));
+                    this.fast=SceneCircle(-500,500,2,1,0);
+                    this.fast.b.setVel(vector2D(2,0));
+                    this.floor=SceneBox(0,0,50,2,0);
+                    this.solid=SceneCircle(0,20,2,1,0);
+                    this.solid.b.setVel(vector2D(0,-0.2));
+                    this.sensorTarget=SceneCircle(50,0,4,0,1);
+                    this.sensor=SceneCircle(30,0,2,1,0);
+                    this.sensor.b.setVel(vector2D(0.2,0));
+                }
+                SceneSample("free",this.frame,this.free.b,this.free.pd,null);
+                SceneSample("fast",this.frame,this.fast.b,this.fast.pd,null);
+                SceneSample("solid",this.frame,this.solid.b,this.solid.pd,this.floor.e);
+                Probe("scene.solid.t"+this.frame+".bullet",this.solid.b.isBullet());
+                SceneSample("sensor",this.frame,this.sensor.b,this.sensor.pd,this.sensorTarget.e);
+                this.frame+=1;
+            }
+        }
+    );
+};

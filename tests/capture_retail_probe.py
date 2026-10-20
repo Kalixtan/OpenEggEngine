@@ -8,7 +8,8 @@ from pathlib import Path
 import subprocess
 import sys
 
-from compare_probe import BASELINE, DECLARED, PROBE, ROOT, read_readings
+from compare_probe import BASELINE, PROBE, ROOT, read_readings
+from probe_expectations import expected_readings
 
 
 def main():
@@ -21,6 +22,8 @@ def main():
                         default=Path.home() / ".cache/rpcs3/TTY.log")
     parser.add_argument("--rpcs3", type=Path, default=Path("/usr/bin/rpcs3"))
     parser.add_argument("--probe", type=Path, default=PROBE)
+    parser.add_argument("--expected", type=Path,
+                        help="frame-sample plan for probes with generated names")
     parser.add_argument("--baseline", type=Path, default=BASELINE)
     parser.add_argument("--timeout", type=int, default=38)
     args = parser.parse_args()
@@ -28,9 +31,9 @@ def main():
     main_path = args.main.resolve()
     original = main_path.read_bytes()
     probe = args.probe.resolve().read_bytes()
-    expected = set(DECLARED.findall(probe.decode("utf-8")))
+    expected = set(expected_readings(args.probe.resolve(), args.expected))
     if not expected:
-        parser.error("probe has no declared SeqProbe readings")
+        parser.error("probe has no declared readings")
     if b"global Main" not in probe:
         parser.error("probe needs its own Main entry point")
     if not args.eboot.is_file():
