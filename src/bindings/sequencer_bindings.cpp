@@ -111,6 +111,16 @@ struct SequencerActionData {
     bool tagged = false;
 };
 
+struct SequencerActionHandle {
+    std::shared_ptr<SequencerActionData> data;
+};
+
+SequencerActionData* ActionData(gmUserObject* object) {
+    if (!object || object->GetType() != g_sequencerActionType) return nullptr;
+    auto* handle = static_cast<SequencerActionHandle*>(object->m_user);
+    return handle ? handle->data.get() : nullptr;
+}
+
 std::vector<SequencerData*>& AllSequencers() {
     static std::vector<SequencerData*> all;
     return all;
@@ -299,8 +309,7 @@ void FireTrigger(gmMachine& a_machine, const gmVariable& a_action) {
     if (a_action.m_type != g_sequencerActionType) return;
     auto* userObject = static_cast<gmUserObject*>(
         a_machine.GetObject(a_action.m_value.m_ref));
-    auto* action = userObject && userObject->GetType() == g_sequencerActionType
-        ? static_cast<SequencerActionData*>(userObject->m_user) : nullptr;
+    auto* action = ActionData(userObject);
     if (!action || action->boundTable.m_type != GM_TABLE) return;
     gmTableObject* callbackTable = static_cast<gmTableObject*>(
         a_machine.GetObject(action->boundTable.m_value.m_ref));
@@ -356,6 +365,17 @@ int GM_CDECL gmf_trigger_getLooped(gmThread* a_thread) {
 }
 int GM_CDECL gmf_trigger_getAction(gmThread* a_thread) {
     auto* trigger = ThisTriggerHandle(a_thread); if (!trigger) return GM_EXCEPTION;
+    if (trigger->action.m_type == g_sequencerActionType) {
+        auto* object = static_cast<gmUserObject*>(
+            a_thread->GetMachine()->GetObject(trigger->action.m_value.m_ref));
+        auto* handle = object && object->GetType() == g_sequencerActionType
+            ? static_cast<SequencerActionHandle*>(object->m_user) : nullptr;
+        if (handle) {
+            a_thread->PushNewUser(new SequencerActionHandle{handle->data},
+                                  g_sequencerActionType);
+            return GM_OK;
+        }
+    }
     a_thread->Push(trigger->action);
     return GM_OK;
 }
@@ -375,8 +395,7 @@ bool IsActionTagged(gmMachine& a_machine, const gmVariable& a_action) {
     if (a_action.m_type != g_sequencerActionType) return false;
     auto* object = static_cast<gmUserObject*>(
         a_machine.GetObject(a_action.m_value.m_ref));
-    auto* action = object && object->GetType() == g_sequencerActionType
-        ? static_cast<SequencerActionData*>(object->m_user) : nullptr;
+    auto* action = ActionData(object);
     return action && action->tagged;
 }
 
@@ -795,15 +814,15 @@ int GM_CDECL gmf_SEQUENCER_SetMasterPulse(gmThread* a_thread) {
 // ---------------------------------------------------------------------
 
 SequencerActionData* ThisAction(gmThread* a_thread) {
-    return static_cast<SequencerActionData*>(
+    auto* handle = static_cast<SequencerActionHandle*>(
         a_thread->ThisUserCheckType(g_sequencerActionType));
+    return handle ? handle->data.get() : nullptr;
 }
 
 void GM_CDECL SequencerActionGetDot(gmThread* a_thread, gmVariable* a_operands) {
     auto* object = static_cast<gmUserObject*>(
         a_thread->GetMachine()->GetObject(a_operands[0].m_value.m_ref));
-    auto* action = object && object->GetType() == g_sequencerActionType
-        ? static_cast<SequencerActionData*>(object->m_user) : nullptr;
+    auto* action = ActionData(object);
     gmTableObject* table = action && action->boundTable.m_type == GM_TABLE
         ? static_cast<gmTableObject*>(a_thread->GetMachine()->GetObject(
             action->boundTable.m_value.m_ref)) : nullptr;
@@ -813,8 +832,7 @@ void GM_CDECL SequencerActionGetDot(gmThread* a_thread, gmVariable* a_operands) 
 void GM_CDECL SequencerActionSetDot(gmThread* a_thread, gmVariable* a_operands) {
     auto* object = static_cast<gmUserObject*>(
         a_thread->GetMachine()->GetObject(a_operands[0].m_value.m_ref));
-    auto* action = object && object->GetType() == g_sequencerActionType
-        ? static_cast<SequencerActionData*>(object->m_user) : nullptr;
+    auto* action = ActionData(object);
     gmTableObject* table = action && action->boundTable.m_type == GM_TABLE
         ? static_cast<gmTableObject*>(a_thread->GetMachine()->GetObject(
             action->boundTable.m_value.m_ref)) : nullptr;
@@ -856,14 +874,14 @@ gmFunctionEntry s_sequencerActionLib[] = {
 };
 
 void GM_CDECL SequencerActionGCDestruct(gmMachine*, gmUserObject* a_object) {
-    delete static_cast<SequencerActionData*>(a_object->m_user);
+    delete static_cast<SequencerActionHandle*>(a_object->m_user);
 }
 
 #if GM_USE_INCGC
 bool GM_CDECL SequencerActionGCTrace(gmMachine* a_machine, gmUserObject* a_object,
                                     gmGarbageCollector* a_gc,
                                     const int, int& a_workDone) {
-    auto* action = static_cast<SequencerActionData*>(a_object->m_user);
+    auto* action = ActionData(a_object);
     if (action && action->boundTable.IsReference()) {
         gmObject* object = a_machine->GetObject(action->boundTable.m_value.m_ref);
         if (object) {
@@ -877,7 +895,7 @@ bool GM_CDECL SequencerActionGCTrace(gmMachine* a_machine, gmUserObject* a_objec
 #else
 void GM_CDECL SequencerActionGCMark(gmMachine* a_machine, gmUserObject* a_object,
                                    gmuint32 a_mark) {
-    auto* action = static_cast<SequencerActionData*>(a_object->m_user);
+    auto* action = ActionData(a_object);
     auto mark = [a_machine, a_mark](gmObject* object) {
         if (object && object->NeedsMark(a_mark)) object->Mark(a_machine, a_mark);
     };
@@ -892,7 +910,8 @@ int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
     const int numParams = a_thread->GetNumParams();
     if (numParams < 0 || numParams > 1) return GM_EXCEPTION;
     gmMachine* machine = a_thread->GetMachine();
-    auto* action = new SequencerActionData();
+    auto* handle = new SequencerActionHandle{std::make_shared<SequencerActionData>()};
+    auto* action = handle->data.get();
     const bool gcWasEnabled = machine->IsGCEnabled();
     machine->EnableGC(false);
     if (numParams == 1) {
@@ -900,7 +919,7 @@ int GM_CDECL gmf_SEQUENCERACTION(gmThread* a_thread) {
     } else {
         action->boundTable = gmVariable(machine->AllocTableObject());
     }
-    a_thread->PushNewUser(action, g_sequencerActionType);
+    a_thread->PushNewUser(handle, g_sequencerActionType);
     machine->EnableGC(gcWasEnabled);
     return GM_OK;
 }
