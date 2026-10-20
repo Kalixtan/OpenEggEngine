@@ -25,6 +25,7 @@ gmType g_sequencerTriggerType = -1;
 gmType g_sequencerTriggerListType = -1;
 gmType g_sequencerActionType = -1;
 uint64_t g_nextSequencerSerial = 1;
+uint32_t g_nextSequencerObjectId = 0;
 
 // Retail's setNumStepsPerPattern wrapper uses PPC fctiwz for GM_FLOAT and
 // copies the payload word directly for every other GM type. Keep the float
@@ -78,6 +79,7 @@ struct SequencerTriggerHandle {
 };
 
 struct SequencerData {
+    int32_t objectId = 0;       // retail constructor assigns the next object ID
     int bpm = 98;                // retail constructor +0x4c
     int numStepsPerPattern = 32; // retail constructor +0x54
     int loopLen = 1;             // number of patterns before +0x24 wraps, retail +0x58
@@ -379,6 +381,11 @@ int GM_CDECL gmf_getNumStepsPerPattern(gmThread* a_thread) {
     a_thread->PushInt(s->numStepsPerPattern);
     return GM_OK;
 }
+int GM_CDECL gmf_getSequencerObjectID(gmThread* a_thread) {
+    SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
+    a_thread->PushInt(s->objectId);
+    return GM_OK;
+}
 int GM_CDECL gmf_setNumStepsPerPattern(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     const gmVariable& arg = a_thread->Param(0);
@@ -466,7 +473,6 @@ int GM_CDECL gmf_stop(gmThread* a_thread) {
     s->isPlaying = false;
     return GM_OK;
 }
-int GM_CDECL gmf_play(gmThread* a_thread) { return gmf_start(a_thread); }
 int GM_CDECL gmf_isPlaying(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     a_thread->PushInt(s->isPlaying ? 1 : 0);
@@ -667,20 +673,24 @@ int GM_CDECL gmf_getNextNotePattern(gmThread* a_thread) {
     a_thread->PushInt(NextNotePosition(*s, noteType).pattern);
     return GM_OK;
 }
+int GM_CDECL gmf_sequencerTest(gmThread* a_thread) {
+    if (!ThisSequencer(a_thread)) return GM_EXCEPTION;
+    return GM_OK; // retail helper FUN_0016d9c8 is empty
+}
 
 gmFunctionEntry s_sequencerLib[] = {
+    {"getObjectID", gmf_getSequencerObjectID, nullptr},
     {"getNumStepsPerPattern", gmf_getNumStepsPerPattern, nullptr},
     {"setNumStepsPerPattern", gmf_setNumStepsPerPattern, nullptr},
-    {"getBPM", gmf_getBPM, nullptr},
-    {"setLoopLen", gmf_setLoopLen, nullptr},
-    {"setCurrentStep", gmf_setCurrentStep, nullptr},
     {"setVolume", gmf_setVolume, nullptr},
     {"setPan", gmf_setPan, nullptr},
     {"setBPM", gmf_setBPM, nullptr},
+    {"getBPM", gmf_getBPM, nullptr},
+    {"setLoopLen", gmf_setLoopLen, nullptr},
+    {"setCurrentStep", gmf_setCurrentStep, nullptr},
     {"restart", gmf_restart, nullptr},
     {"start", gmf_start, nullptr},
     {"stop", gmf_stop, nullptr},
-    {"play", gmf_play, nullptr},
     {"isPlaying", gmf_isPlaying, nullptr},
     {"getNumStepsPerNote", gmf_getNumStepsPerNote, nullptr},
     {"getNoteTime", gmf_getNoteTime, nullptr},
@@ -703,6 +713,7 @@ gmFunctionEntry s_sequencerLib[] = {
     {"getAllTriggers", gmf_getAllTriggers, nullptr},
     {"getNextNoteStep", gmf_getNextNoteStep, nullptr},
     {"getNextNotePattern", gmf_getNextNotePattern, nullptr},
+    {"test", gmf_sequencerTest, nullptr},
 };
 
 void GM_CDECL SequencerGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
@@ -1105,6 +1116,7 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
 
 gmVariable CreateSequencerInstance(gmMachine& a_machine, int a_initialBpm) {
     SequencerData* data = new SequencerData();
+    data->objectId = static_cast<int32_t>(g_nextSequencerObjectId++);
     data->bpm = a_initialBpm;
     data->msPerStep = data->CalculateMsPerStep();
     data->triggers->machine = &a_machine;
