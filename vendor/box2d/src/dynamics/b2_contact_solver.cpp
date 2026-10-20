@@ -27,6 +27,14 @@
 #include "box2d/b2_fixture.h"
 #include "box2d/b2_stack_allocator.h"
 #include "box2d/b2_world.h"
+#include <cmath>
+
+static b2Vec2 FusedVelocity(const b2Vec2& velocity, float mass,
+                           const b2Vec2& impulse)
+{
+	return b2Vec2(std::fma(mass, impulse.x, velocity.x),
+			  std::fma(mass, impulse.y, velocity.y));
+}
 
 // Solver debugging is normally disabled because the block solver sometimes has to deal with a poorly conditioned effective mass matrix.
 #define B2_DEBUG_SOLVER 0
@@ -282,9 +290,9 @@ void b2ContactSolver::WarmStart()
 			b2VelocityConstraintPoint* vcp = vc->points + j;
 			b2Vec2 P = vcp->normalImpulse * normal + vcp->tangentImpulse * tangent;
 			wA -= iA * b2Cross(vcp->rA, P);
-			vA -= mA * P;
+			vA = FusedVelocity(vA, -mA, P);
 			wB += iB * b2Cross(vcp->rB, P);
-			vB += mB * P;
+			vB = FusedVelocity(vB, mB, P);
 		}
 
 		m_velocities[indexA].v = vA;
@@ -341,10 +349,10 @@ void b2ContactSolver::SolveVelocityConstraints()
 			// Apply contact impulse
 			b2Vec2 P = lambda * tangent;
 
-			vA -= mA * P;
+			vA = FusedVelocity(vA, -mA, P);
 			wA -= iA * b2Cross(vcp->rA, P);
 
-			vB += mB * P;
+			vB = FusedVelocity(vB, mB, P);
 			wB += iB * b2Cross(vcp->rB, P);
 		}
 
@@ -369,10 +377,10 @@ void b2ContactSolver::SolveVelocityConstraints()
 
 				// Apply contact impulse
 				b2Vec2 P = lambda * normal;
-				vA -= mA * P;
+				vA = FusedVelocity(vA, -mA, P);
 				wA -= iA * b2Cross(vcp->rA, P);
 
-				vB += mB * P;
+				vB = FusedVelocity(vB, mB, P);
 				wB += iB * b2Cross(vcp->rB, P);
 			}
 		}
@@ -456,10 +464,10 @@ void b2ContactSolver::SolveVelocityConstraints()
 					// Apply incremental impulse
 					b2Vec2 P1 = d.x * normal;
 					b2Vec2 P2 = d.y * normal;
-					vA -= mA * (P1 + P2);
+					vA = FusedVelocity(vA, -mA, (P1 + P2));
 					wA -= iA * (b2Cross(cp1->rA, P1) + b2Cross(cp2->rA, P2));
 
-					vB += mB * (P1 + P2);
+					vB = FusedVelocity(vB, mB, (P1 + P2));
 					wB += iB * (b2Cross(cp1->rB, P1) + b2Cross(cp2->rB, P2));
 
 					// Accumulate
@@ -499,10 +507,10 @@ void b2ContactSolver::SolveVelocityConstraints()
 					// Apply incremental impulse
 					b2Vec2 P1 = d.x * normal;
 					b2Vec2 P2 = d.y * normal;
-					vA -= mA * (P1 + P2);
+					vA = FusedVelocity(vA, -mA, (P1 + P2));
 					wA -= iA * (b2Cross(cp1->rA, P1) + b2Cross(cp2->rA, P2));
 
-					vB += mB * (P1 + P2);
+					vB = FusedVelocity(vB, mB, (P1 + P2));
 					wB += iB * (b2Cross(cp1->rB, P1) + b2Cross(cp2->rB, P2));
 
 					// Accumulate
@@ -541,10 +549,10 @@ void b2ContactSolver::SolveVelocityConstraints()
 					// Apply incremental impulse
 					b2Vec2 P1 = d.x * normal;
 					b2Vec2 P2 = d.y * normal;
-					vA -= mA * (P1 + P2);
+					vA = FusedVelocity(vA, -mA, (P1 + P2));
 					wA -= iA * (b2Cross(cp1->rA, P1) + b2Cross(cp2->rA, P2));
 
-					vB += mB * (P1 + P2);
+					vB = FusedVelocity(vB, mB, (P1 + P2));
 					wB += iB * (b2Cross(cp1->rB, P1) + b2Cross(cp2->rB, P2));
 
 					// Accumulate
@@ -581,10 +589,10 @@ void b2ContactSolver::SolveVelocityConstraints()
 					// Apply incremental impulse
 					b2Vec2 P1 = d.x * normal;
 					b2Vec2 P2 = d.y * normal;
-					vA -= mA * (P1 + P2);
+					vA = FusedVelocity(vA, -mA, (P1 + P2));
 					wA -= iA * (b2Cross(cp1->rA, P1) + b2Cross(cp2->rA, P2));
 
-					vB += mB * (P1 + P2);
+					vB = FusedVelocity(vB, mB, (P1 + P2));
 					wB += iB * (b2Cross(cp1->rB, P1) + b2Cross(cp2->rB, P2));
 
 					// Accumulate
