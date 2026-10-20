@@ -818,7 +818,22 @@ void StepPhysicsWorld(float a_dt) {
             }
         }
     }
-    GetPhysicsWorld().Step(a_dt * 0.001f, 2, 2);
+    b2World& world = GetPhysicsWorld();
+    const float stepSeconds = a_dt * 0.001f;
+    std::vector<b2Body*> sweptBodies;
+    for (b2Body* body = world.GetBodyList(); body; body = body->GetNext()) {
+        if (body->GetType() != b2_dynamicBody || body->IsBullet()) continue;
+        const b2Vec2 travel = stepSeconds * body->GetLinearVelocity();
+        constexpr float kStockTranslationLimit = 2.0f * b2_lengthUnitsPerMeter;
+        if (travel.LengthSquared() > kStockTranslationLimit * kStockTranslationLimit) {
+            // Retail resolves these crossings even when isBullet() is false.
+            // Use Box2D's sweep for this step, then restore the script flag.
+            body->SetBullet(true);
+            sweptBodies.push_back(body);
+        }
+    }
+    world.Step(stepSeconds, 2, 2);
+    for (b2Body* body : sweptBodies) body->SetBullet(false);
     if (CreatureDebugEnabled() && machine) {
         for (b2Body* body = GetPhysicsWorld().GetBodyList(); body;
              body = body->GetNext()) {
