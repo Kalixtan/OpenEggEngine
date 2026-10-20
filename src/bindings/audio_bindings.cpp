@@ -67,6 +67,7 @@ struct RecordedPlaySoundEvent {
 };
 PlatformFrontend* g_audioFrontend = nullptr;
 bool g_audioOutputStarted = false;
+std::FILE* g_audioCaptureFile = nullptr;
 double g_fractionalOutputFrames = 0.0;
 std::unordered_map<std::string, std::weak_ptr<DecodedSound>> g_decodedSounds;
 struct TimeStretchCacheEntry {
@@ -890,7 +891,7 @@ std::shared_ptr<DecodedSound> DecodeSound(const std::string& a_path) {
 }
 
 void QueueMixedVoices(float a_deltaMs) {
-    if (!g_audioOutputStarted || !g_audioFrontend) return;
+    if ((!g_audioOutputStarted || !g_audioFrontend) && !g_audioCaptureFile) return;
     const double wanted = a_deltaMs * kOutputRate / 1000.0 + g_fractionalOutputFrames;
     int frameCount = (int)std::min(8192.0, std::floor(wanted));
     g_fractionalOutputFrames = wanted - std::floor(wanted);
@@ -958,7 +959,10 @@ void QueueMixedVoices(float a_deltaMs) {
         }
     }
     for (float& sample : mix) sample = std::clamp(sample, -1.0f, 1.0f);
-    g_audioFrontend->QueueAudioSamples(mix.data(), mix.size());
+    if (g_audioCaptureFile)
+        std::fwrite(mix.data(), sizeof(float), mix.size(), g_audioCaptureFile);
+    if (g_audioOutputStarted && g_audioFrontend)
+        g_audioFrontend->QueueAudioSamples(mix.data(), mix.size());
 }
 
 int CreateVoiceState(const std::string& a_path, float a_pan, float a_volume,
@@ -2669,11 +2673,20 @@ void AdvanceAudioVoices(float a_deltaMs) {
 }
 
 void InitializeAudioOutput() {
+    if (const char* capturePath = std::getenv("GE3_AUDIO_CAPTURE_RAW")) {
+        g_audioCaptureFile = std::fopen(capturePath, "wb");
+        if (!g_audioCaptureFile)
+            std::fprintf(stderr, "Audio capture unavailable: %s\n", capturePath);
+    }
     if (std::getenv("GE3_HEADLESS") && !std::getenv("GE3_AUDIO_OUTPUT")) return;
     g_audioOutputStarted = g_audioFrontend && g_audioFrontend->StartAudioOutput(kOutputRate);
 }
 
 void ShutdownAudioOutput() {
+    if (g_audioCaptureFile) {
+        std::fclose(g_audioCaptureFile);
+        g_audioCaptureFile = nullptr;
+    }
     if (g_audioOutputStarted && g_audioFrontend) g_audioFrontend->StopAudioOutput();
     g_audioOutputStarted = false;
     g_decodedSounds.clear();

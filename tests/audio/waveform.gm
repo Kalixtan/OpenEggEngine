@@ -1,0 +1,20 @@
+// Each hit is short, with a second of silence before the next one.
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        constructor=function(){},
+        init=function(){return true;},
+        update=function() {
+            local path="Platformer/sounds/fx/button-high.wav";
+            if (this.frame==20) { Audio.playSound(path); }
+            if (this.frame==80) { Audio.playSound(path,0,0.5); }
+            if (this.frame==140) { Audio.playSound(path,-1,1); }
+            if (this.frame==200) { Audio.playSound(path,1,1); }
+            if (this.frame==260) {
+                GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
+            }
+            this.frame+=1;
+        }
+    );
+};
