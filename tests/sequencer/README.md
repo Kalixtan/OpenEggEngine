@@ -28,7 +28,7 @@ known gaps remain. `python3 tests/run.py` runs only the
 local assertions; section scripts stay separate so cases are easy to edit.
 
 The checked-in baselines let the default command work without RPCS3.
-`planned.json` maps the 19 edge groups and records what each still misses.
+`planned.json` maps the 20 edge groups and records what each still misses.
 Matching output supports parity for tested inputs and visible results; hidden
 side effects and untested behavior remain open.
 
