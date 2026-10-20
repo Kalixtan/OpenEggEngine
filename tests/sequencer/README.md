@@ -24,3 +24,6 @@ The same cases passed against retail.
 
 Run it with `timer.gm` to check the BPM keep/reset flag and pattern-length
 timer reset during a callback. These also passed against retail.
+
+Run it with `loop.gm` to check repeating triggers across two patterns.
+Both callback positions and repeats passed against retail.

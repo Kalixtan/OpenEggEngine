@@ -1,0 +1,37 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            this.seq=SEQUENCER();
+            this.seq.setNumStepsPerPattern(2);
+            this.seq.setLoopLen(2);
+            this.seq.setBPM(120);
+
+            local first=SEQUENCERACTION();
+            first.parent=this;
+            first.count=0;
+            first.execute=function() {
+                this.count+=1;
+                if (this.count==2 && this.parent.seq.getCurrentPattern()==0 &&
+                    this.parent.seq.getCurrentStep()==0) {
+                    GameSystem.trace("SEQ loop first PASS");
+                }
+            };
+            local second=SEQUENCERACTION();
+            second.parent=this;
+            second.count=0;
+            second.execute=function() {
+                this.count+=1;
+                if (this.count==2 && this.parent.seq.getCurrentPattern()==1 &&
+                    this.parent.seq.getCurrentStep()==1) {
+                    GameSystem.trace("SEQ loop second PASS");
+                }
+            };
+            this.seq.setTrigger(0,0,first,true);
+            this.seq.setTrigger(1,1,second,true);
+            this.seq.start();
+        },
+        init=function() { return true; },
+        update=function() {}
+    );
+};
