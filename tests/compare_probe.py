@@ -22,6 +22,12 @@ EDGE_BASELINES = ROOT / "tests" / "sequencer" / "edge-baselines"
 READING = re.compile(r"OEP__([A-Za-z0-9_.]+)__(.*?)\.gm")
 DECLARED = re.compile(r'(?:SeqProbe|Probe)\("([A-Za-z0-9_.]+)"')
 KNOWN_GAPS = {}
+CLOCK_DEPENDENT = {
+    "edge.bpm.negativeTickAfter",
+    "edge.pattern.zeroTickAfter",
+    "edge.pattern.negativeTickAfter",
+    "edge.restart.currentStep",
+}
 ALIASES = {
     "SequencerAction.field.default": "SEQUENCERACTION",
     "Sequencer.callback.step": "Sequencer.setTrigger",
@@ -162,6 +168,7 @@ def run_edge_probes(engine, planned):
             case = matches[0]
             a, b = retail.get(name), local.get(name)
             status = "FAIL" if b is None else "NO RETAIL" if a is None else (
+                "CLOCK" if name in CLOCK_DEPENDENT else
                 "PASS" if a == b else "FAIL")
             functions = EDGE_FUNCTIONS.get(name, case["functions"])
             rows.append({"name": name, "function": functions[0],
@@ -181,10 +188,11 @@ def run_edge_probes(engine, planned):
 def make_report(rows, inventory, retail_path, local_path, problems, assertions,
                 planned, missing_api):
     matched = sum(row["status"] == "PASS" for row in rows)
-    total = len(rows)
+    total = sum(row["status"] != "CLOCK" for row in rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
     uncaptured = sum(row["status"] == "NO RETAIL" for row in rows)
     failures = sum(row["status"] == "FAIL" for row in rows)
+    clock_samples = sum(row["status"] == "CLOCK" for row in rows)
     checks = assertions["entries"]
     local_passed = sum(case["result"] == "PASS" for case in checks)
     edge_rows = [row for row in rows if "case" in row]
@@ -195,7 +203,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         f"OpenEgg: `tests/_results/sequencer/`", "",
         f"Matched: **{matched}/{total} declared readings ({percent(matched, total)})** | "
         f"Known gaps: **{gaps}** | Failures: **{failures}** | Uncaptured: **{uncaptured}** | "
-        f"Edge groups run: **{len(planned)}**", "",
+        f"Edge groups run: **{len(planned)}** | Clock samples: **{clock_samples}**", "",
         f"Local assertions: **{local_passed}/{len(checks)} passed "
         f"({percent(local_passed, len(checks))})**", "",
         f"Verdict: **{'all captured readings match' if matched == total and not problems else 'paired run incomplete or mismatched'}**. "
@@ -203,8 +211,9 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         "One row is one exact string comparison from the same probe file on both engines. "
         "A missing reading or duplicate fails the run. Scores measure tested cases only; "
         "they are not total implementation progress. "
-        "Integration checks can count for several functions. `OEPV__` clock readings "
-        "stay outside the score.", "",
+        "Integration checks can count for several functions. Clock samples "
+        "stay visible but outside the score. Retail's sequencer reads elapsed "
+        "wall time, so frame-count samples vary between runs.", "",
         "## Local assertion sections", "",
         "| Section | Passed | Cases | Score |", "| --- | ---: | ---: | ---: |",
     ]
@@ -236,7 +245,8 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         count = sum(case["status"] == "PASS" for case in cases)
         local_cases = local_grouped[function]
         local_count = sum(case["result"] == "PASS" for case in local_cases)
-        status = "untested" if not cases else (
+        scored_cases = [case for case in cases if case["status"] != "CLOCK"]
+        status = "untested" if not scored_cases else (
             "FAIL" if any(case["status"] == "FAIL" for case in cases) or
                       any(case["result"] == "FAIL" for case in local_cases) else
             "GAP" if any(case["status"] == "GAP" for case in cases) or
@@ -245,7 +255,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         )
         if status == "PASS" and any(case["limit"] for case in planned_grouped[function]):
             status = "LIMITED"
-        lines.append(f"| `{function}` | {count}/{len(cases)} ({percent(count, len(cases))}) | "
+        lines.append(f"| `{function}` | {count}/{len(scored_cases)} ({percent(count, len(scored_cases))}) | "
                      f"{local_count}/{len(local_cases)} | "
                      f"{len(planned_grouped[function])} | {status} |")
     lines.extend(["", "## Edge cases", "",
@@ -253,7 +263,8 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
     for case in planned:
         cases = [row for row in edge_rows if row["case"] == case["name"]]
         count = sum(row["status"] == "PASS" for row in cases)
-        lines.append(f"| {case['name']} | {count}/{len(cases)} | {case['limit']} |")
+        scored_cases = [row for row in cases if row["status"] != "CLOCK"]
+        lines.append(f"| {case['name']} | {count}/{len(scored_cases)} | {case['limit']} |")
     lines.extend(["", f"Documented sequencer APIs missing from bindings: **{len(missing_api)}**."])
     if missing_api:
         lines.extend(f"- `{name}` — not implemented" for name in missing_api)
@@ -372,7 +383,8 @@ def main():
     passed = sum(row["status"] == "PASS" for row in rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
     failures = sum(row["status"] in ("FAIL", "NO RETAIL") for row in rows)
-    print(f"probe: {passed}/{len(rows)} matched, {gaps} known gaps, {failures} failures")
+    scored = sum(row["status"] != "CLOCK" for row in rows)
+    print(f"probe: {passed}/{scored} matched, {gaps} known gaps, {failures} failures")
     print(f"Report: {args.report}")
     local_failures = sum(case["result"] == "FAIL" for case in assertions["entries"])
     local_gaps = sum(case["result"] == "GAP" for case in assertions["entries"])

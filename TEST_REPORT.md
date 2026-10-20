@@ -1,15 +1,15 @@
 # Sequencer test report
 
-Generated: 2026-10-20 20:27 UTC
+Generated: 2026-10-20 20:42 UTC
 Retail: `tests/sequencer/retail-baseline.tsv` and `tests/sequencer/edge-baselines/` | OpenEgg: `tests/_results/sequencer/`
 
-Matched: **188/192 declared readings (98%)** | Known gaps: **0** | Failures: **4** | Uncaptured: **0** | Edge groups run: **20**
+Matched: **188/188 declared readings (100%)** | Known gaps: **0** | Failures: **0** | Uncaptured: **0** | Edge groups run: **20** | Clock samples: **4**
 
 Local assertions: **49/49 passed (100%)**
 
-Verdict: **paired run incomplete or mismatched**. Coverage is limited to the readings below.
+Verdict: **all captured readings match**. Coverage is limited to the readings below.
 
-One row is one exact string comparison from the same probe file on both engines. A missing reading or duplicate fails the run. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. `OEPV__` clock readings stay outside the score.
+One row is one exact string comparison from the same probe file on both engines. A missing reading or duplicate fails the run. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. Clock samples stay visible but outside the score. Retail's sequencer reads elapsed wall time, so frame-count samples vary between runs.
 
 ## Local assertion sections
 
@@ -44,7 +44,7 @@ One row is one exact string comparison from the same probe file on both engines.
 | `Sequencer.getAllTriggers` | 29/29 (100%) | 1/1 | 2 | LIMITED |
 | `Sequencer.getBPM` | 5/5 (100%) | 2/2 | 1 | LIMITED |
 | `Sequencer.getCurrentPattern` | 6/6 (100%) | 5/5 | 1 | LIMITED |
-| `Sequencer.getCurrentStep` | 10/14 (71%) | 5/5 | 0 | FAIL |
+| `Sequencer.getCurrentStep` | 10/10 (100%) | 5/5 | 0 | PASS |
 | `Sequencer.getCurrentStep16` | 1/1 (100%) | 0/0 | 0 | PASS |
 | `Sequencer.getMSPerStep` | 6/6 (100%) | 4/4 | 1 | LIMITED |
 | `Sequencer.getMSTillNextNoteStep` | 1/1 (100%) | 0/0 | 0 | PASS |
@@ -62,11 +62,11 @@ One row is one exact string comparison from the same probe file on both engines.
 | `Sequencer.gotoStep` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.isPlaying` | 5/5 (100%) | 3/3 | 0 | PASS |
 | `Sequencer.moveTriggerToFront` | 19/19 (100%) | 2/2 | 2 | LIMITED |
-| `Sequencer.restart` | 5/6 (83%) | 1/1 | 1 | FAIL |
-| `Sequencer.setBPM` | 11/12 (92%) | 3/3 | 2 | FAIL |
+| `Sequencer.restart` | 5/5 (100%) | 1/1 | 1 | LIMITED |
+| `Sequencer.setBPM` | 11/11 (100%) | 3/3 | 2 | LIMITED |
 | `Sequencer.setCurrentStep` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.setLoopLen` | 5/5 (100%) | 1/1 | 1 | LIMITED |
-| `Sequencer.setNumStepsPerPattern` | 26/28 (93%) | 2/2 | 1 | FAIL |
+| `Sequencer.setNumStepsPerPattern` | 26/26 (100%) | 2/2 | 1 | LIMITED |
 | `Sequencer.setPan` | 3/3 (100%) | 0/0 | 1 | LIMITED |
 | `Sequencer.setTrigger` | 21/21 (100%) | 9/9 | 6 | LIMITED |
 | `Sequencer.setTrigger16` | 6/6 (100%) | 2/2 | 1 | LIMITED |
@@ -97,9 +97,9 @@ One row is one exact string comparison from the same probe file on both engines.
 
 | Case | Matched | Limits |
 | --- | ---: | --- |
-| BPM zero and negative | 7/8 | Zero and negative BPM sampled through 12 updates; longer runs are open. |
+| BPM zero and negative | 7/7 | Zero and negative BPM sampled through 12 updates; longer runs are open. |
 | BPM float edge conversion | 3/3 | NaN is not covered. |
-| Pattern length zero and negative | 25/27 | Tick wrap sampled through 12 updates; longer runs are open. |
+| Pattern length zero and negative | 25/25 | Tick wrap sampled through 12 updates; longer runs are open. |
 | Loop length zero and negative | 4/4 | Observed after 12 updates. |
 | Note type outside 0 to 5 | 11/11 | Covers 6 and -1. |
 | Time getter tick boundaries | 3/3 | Raw clock values vary and are excluded. |
@@ -107,7 +107,7 @@ One row is one exact string comparison from the same probe file on both engines.
 | Master pulse consumer | 1/1 | Return value only; no consumer effect measured. |
 | Trigger overload type matrix | 5/5 | Supported forms only; bad types and arity are not covered. |
 | Duplicate trigger coordinates | 3/3 | Moving the last of multiple triggers crashes retail; see retail-crashes.md. |
-| Restart at future step | 4/5 | Two same-step actions after restart are covered; other callback orders are open. |
+| Restart at future step | 4/4 | Two same-step actions after restart are covered; other callback orders are open. |
 | Callback mutation | 3/3 | One append, tag, and clear path. |
 | Action wrapper lifetime | 3/3 | Clear and explicit GC covered. |
 | Trigger cursor during mutation | 13/13 | Insertion and moving a held trigger covered; deletion is not covered. |
@@ -238,7 +238,7 @@ Documented sequencer APIs missing from bindings: **0**.
 | `Sequencer.getCurrentStep` | edge.bpm.zeroTickInitial | `-1` | `-1` | PASS |
 | `Sequencer.getCurrentStep` | edge.bpm.negativeTickInitial | `-1` | `-1` | PASS |
 | `Sequencer.getCurrentStep` | edge.bpm.zeroTickAfter | `0` | `0` | PASS |
-| `Sequencer.getCurrentStep` | edge.bpm.negativeTickAfter | `11` | `12` | FAIL |
+| `Sequencer.getCurrentStep` | edge.bpm.negativeTickAfter | `11` | `12` | CLOCK |
 | `Sequencer.getAllTriggers` | edge.cursorMove.beforeFirst | `0` | `0` | PASS |
 | `Sequencer.getAllTriggers` | edge.cursorMove.beforeSecond | `1` | `1` | PASS |
 | `Sequencer.getAllTriggers` | edge.cursorMove.beforeThird | `2` | `2` | PASS |
@@ -290,11 +290,11 @@ Documented sequencer APIs missing from bindings: **0**.
 | `Sequencer.setNumStepsPerPattern` | edge.pattern.started | `1` | `1` | PASS |
 | `Sequencer.getCurrentStep` | edge.pattern.zeroTickInitial | `-1` | `-1` | PASS |
 | `Sequencer.getCurrentStep` | edge.pattern.negativeTickInitial | `-1` | `-1` | PASS |
-| `Sequencer.getCurrentStep` | edge.pattern.zeroTickAfter | `8` | `12` | FAIL |
-| `Sequencer.getCurrentStep` | edge.pattern.negativeTickAfter | `8` | `12` | FAIL |
+| `Sequencer.getCurrentStep` | edge.pattern.zeroTickAfter | `8` | `12` | CLOCK |
+| `Sequencer.getCurrentStep` | edge.pattern.negativeTickAfter | `8` | `12` | CLOCK |
 | `Sequencer.getCurrentStep` | edge.restart.initialStep | `-1` | `-1` | PASS |
 | `Sequencer.setTrigger` | edge.restart.actionOrder | `123` | `123` | PASS |
-| `Sequencer.getCurrentStep` | edge.restart.currentStep | `3` | `4` | FAIL |
+| `Sequencer.getCurrentStep` | edge.restart.currentStep | `3` | `4` | CLOCK |
 | `SEQUENCE_FromString` | edge.string.prefix | `null` | `null` | PASS |
 | `SEQUENCE_FromString` | edge.string.badDigit | `72` | `72` | PASS |
 | `SEQUENCE_FromString` | edge.string.longSize | `128` | `128` | PASS |

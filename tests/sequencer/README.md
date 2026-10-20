@@ -4,6 +4,8 @@ The core `probe.gm` and the edge probes run unchanged on both engines. They
 print named values as `OEP__case__value.gm` load errors; no probe files need to
 exist. Risky inputs have separate scripts so a retail crash cannot hide others.
 `OEPV__` marks clock dependent values shown in the logs but excluded from scores.
+Four frame-count samples are also excluded: retail advances sequencers with
+elapsed wall time, so their step at a fixed script frame varies between runs.
 
 To refresh the retail baseline from your own extracted game installation:
 
