@@ -1,0 +1,41 @@
+// Short sounds spaced far enough apart to split the recording.
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        loopVoice=0,
+        pausedVoice=0,
+        constructor=function(){},
+        init=function(){return true;},
+        update=function() {
+            local path="Platformer/sounds/fx/button-high.wav";
+            if (this.frame==20) {
+                local voice=Audio.playSound(path);
+                Audio.setVoiceSpeed(voice,0.5);
+            }
+            if (this.frame==80) {
+                local voice=Audio.playSound(path);
+                Audio.setVoiceSpeed(voice,2);
+            }
+            if (this.frame==140) {
+                local voice=Audio.playSound(path);
+                Audio.fadeOutVoice(voice,40);
+            }
+            if (this.frame==200) {
+                this.loopVoice=Audio.playSound(path);
+                Audio.setVoiceLoop(this.loopVoice,true);
+                Audio.setVoiceLoopCount(this.loopVoice,1);
+            }
+            if (this.frame==225) { Audio.stopVoice(this.loopVoice); }
+            if (this.frame==260) {
+                this.pausedVoice=Audio.playSound(path);
+                Audio.setVoicePause(this.pausedVoice,true);
+            }
+            if (this.frame==265) { Audio.setVoicePause(this.pausedVoice,false); }
+            if (this.frame==320) {
+                GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
+            }
+            this.frame+=1;
+        }
+    );
+};

@@ -38,6 +38,16 @@ python3 tests/audio/waveform.py --game-data /path/to/game_data \
 python3 tests/audio/waveform.py --game-data /path/to/game_data
 ```
 
+`waveform_controls.gm` checks speed, fade, loop, and pause/resume. It uses a
+separate capture and report:
+
+```sh
+python3 tests/audio/waveform.py --suite controls --game-data /path/to/game_data \
+  --capture-retail --main /path/to/installed/game_data/Main.gm \
+  --eboot /path/to/installed/EBOOT.BIN
+python3 tests/audio/waveform.py --suite controls --game-data /path/to/game_data
+```
+
 Needs RPCS3, `pactl`, `parec`, NumPy, SciPy, and SoundFile. The capture uses a
 temporary RPCS3 config and virtual sink. It briefly appends the probe to the
 installed `Main.gm`, then restores it. Retail and OpenEgg audio stays under
