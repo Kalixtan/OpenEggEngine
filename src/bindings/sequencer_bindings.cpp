@@ -613,10 +613,10 @@ int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
         for (size_t i = 0; i < triggers.size(); ++i) {
             if (triggers[i].handle.m_type == g_sequencerTriggerType &&
                 triggers[i].handle.m_value.m_ref == handle.m_value.m_ref) {
-                if (i + 1 == triggers.size()) {
+                if (triggers.size() > 1 && i + 1 == triggers.size()) {
                     static bool warned = false;
                     if (!warned) {
-                        std::fprintf(stderr, "[sequencer] warning: moving the final trigger crashed retail PS3 in the parity probe\n");
+                        std::fprintf(stderr, "[sequencer] warning: moving the last of multiple triggers crashed retail PS3 in the parity probe\n");
                         warned = true;
                     }
                 }

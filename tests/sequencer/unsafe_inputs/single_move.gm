@@ -1,0 +1,12 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+local s=SEQUENCER();
+local a=SEQUENCERACTION();
+local only=s.setTrigger(0,a,0);
+SeqProbe("unsafe.single.before",s.getNumTriggers());
+s.moveTriggerToFront(only);
+SeqProbe("unsafe.single.after",s.getNumTriggers());
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};
