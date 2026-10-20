@@ -1,0 +1,9 @@
+# probe-sha256 033067fe0461b1d215a4c71fd5db7fad45db48716aa10cd472946aa797694a8f
+Audio.hack_setEnabled.disabled	0
+Audio.setRetriggerTime.changed	0
+Audio.startRecording.active	0
+Audio.startRecordingScript.active	1
+Audio.startRetriggering.active	0
+Audio.stopRecording.inactive	0
+Audio.stopRecordingScript.inactive	0
+Audio.stopRetriggering.inactive	0

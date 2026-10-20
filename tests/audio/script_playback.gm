@@ -1,0 +1,14 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+Audio.startRecordingScript();
+Audio.stopRecordingScript();
+Audio.startPlayingScript();
+Probe("Audio.startPlayingScript.active",Audio.isPlayingScript());
+Audio.stopPlayingScript();
+Probe("Audio.stopPlayingScript.inactive",Audio.isPlayingScript());
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

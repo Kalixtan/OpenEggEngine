@@ -1,0 +1,6 @@
+# probe-sha256 27f9ebfddb4428f13e7950926a2797ee2ac60ec84072e0d0665c7c1127535eb3
+Audio.createEffectChain.child	1
+Audio.createEffectChain.effectControls	1
+Audio.freeEffectChain.released	1
+Audio.freeSoundEffect.slotReused	1
+Audio.getMasterEffectChain.clear	1

@@ -1,0 +1,25 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local master=Audio.getMasterEffectChain();
+master.freeAllChildEffects();
+Probe("Audio.getMasterEffectChain.clear",1);
+local chain=Audio.createEffectChain("probe");
+local child=Audio.createEffectChain("child",chain);
+child.freeAllChildEffects();
+Probe("Audio.createEffectChain.child",1);
+local effect=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS,FILTER_CUTOFF,400);
+effect.setParam(FILTER_CUTOFF,800);
+effect.setBypass(true);
+Probe("Audio.createEffectChain.effectControls",1);
+Audio.freeSoundEffect(effect);
+local replacement=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+replacement.setParam(FILTER_CUTOFF,600);
+Probe("Audio.freeSoundEffect.slotReused",1);
+Audio.freeEffectChain(chain);
+Probe("Audio.freeEffectChain.released",1);
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};
