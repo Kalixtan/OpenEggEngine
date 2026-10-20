@@ -1,0 +1,43 @@
+global Main = function(p) {
+    return table(
+        Process=p,
+        constructor=function() {
+            this.frames=0;
+            this.order=0;
+            this.tailMoved=0;
+
+            this.seq=SEQUENCER();
+            local first=SEQUENCERACTION(); first.parent=this;
+            first.execute=function() { this.parent.order=this.parent.order*10+1; };
+            local last=SEQUENCERACTION(); last.parent=this;
+            last.execute=function() { this.parent.order=this.parent.order*10+2; };
+            this.seq.setTrigger(0,first,false);
+            local tail=this.seq.setTrigger(0,last,false);
+            this.seq.moveTriggerToFront(tail);
+            this.tailMoved=1;
+            this.seq.start();
+
+            local cleared=SEQUENCER();
+            local action=SEQUENCERACTION();
+            cleared.setTrigger(2,action);
+            cleared.setTrigger(4,action);
+            local cursor=cleared.getAllTriggers();
+            cleared.clearTriggers();
+            if (cursor.size()==0 && cursor.isValid()==0 && cursor.get()==null) {
+                GameSystem.trace("SEQ cleared cursor safe PASS");
+            } else { GameSystem.trace("SEQ cleared cursor safe FAIL"); }
+            cursor.reset();
+            if (cursor.isValid()==0) { GameSystem.trace("SEQ cursor reset PASS"); }
+            else { GameSystem.trace("SEQ cursor reset FAIL"); }
+        },
+        init=function() { return true; },
+        update=function() {
+            this.frames+=1;
+            if (this.frames==30) {
+                if (this.tailMoved==1 && this.order==21) {
+                    GameSystem.trace("SEQ tail move safe PASS");
+                } else { GameSystem.trace("SEQ tail move safe FAIL"); }
+            }
+        }
+    );
+};
