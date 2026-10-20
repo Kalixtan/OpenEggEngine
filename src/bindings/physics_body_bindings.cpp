@@ -10,6 +10,7 @@
 #include "../core/physics_world.h"
 #include "../core/engine_context.h"
 #include "../core/retail_polygon_geometry.h"
+#include "../core/retail_object_id.h"
 #include "../core/strict_calls.h"
 #include "../core/process_manager.h" // RootGmVariable/UnrootGmVariable
 #include "../ported_native/ground_math.h"
@@ -257,8 +258,10 @@ gmVariable MakePhysicsBody(gmMachine& a_machine, float a_x = 0.0f, float a_y = 0
     gmUserObject* obj = a_machine.AllocUserObject(data, g_physicsBodyType);
     data->selfVar = gmVariable(obj);
     if (g_bodiesByObjectId.empty()) g_bodiesByObjectId.push_back(gmVariable::s_null); // reserve id 0
-    data->objectId = (int)g_bodiesByObjectId.size();
-    g_bodiesByObjectId.push_back(data->selfVar);
+    data->objectId = static_cast<int>(AllocateRetailObjectId());
+    if (g_bodiesByObjectId.size() <= static_cast<size_t>(data->objectId))
+        g_bodiesByObjectId.resize(static_cast<size_t>(data->objectId) + 1, gmVariable::s_null);
+    g_bodiesByObjectId[static_cast<size_t>(data->objectId)] = data->selfVar;
     g_allPhysicsBodies.push_back(data);
     return data->selfVar;
 }
@@ -282,9 +285,13 @@ int RegisterShapeGlobalId(b2Fixture* a_fixture, float a_playerFriction = 0.3f) {
         g_shapesByGlobalId.push_back(nullptr); // reserve id 0
         g_shapePlayerFrictions.push_back(0.3f);
     }
-    int id = (int)g_shapesByGlobalId.size();
-    g_shapesByGlobalId.push_back(a_fixture);
-    g_shapePlayerFrictions.push_back(a_playerFriction);
+    int id = static_cast<int>(AllocateRetailObjectId());
+    if (g_shapesByGlobalId.size() <= static_cast<size_t>(id)) {
+        g_shapesByGlobalId.resize(static_cast<size_t>(id) + 1, nullptr);
+        g_shapePlayerFrictions.resize(static_cast<size_t>(id) + 1, 0.3f);
+    }
+    g_shapesByGlobalId[static_cast<size_t>(id)] = a_fixture;
+    g_shapePlayerFrictions[static_cast<size_t>(id)] = a_playerFriction;
     a_fixture->GetUserData().pointer = (uintptr_t)id;
     return id;
 }
