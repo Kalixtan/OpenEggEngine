@@ -1,0 +1,72 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global RayShape=PHYSICSSHAPECOLLECTIONDEF();
+global RayBody=function(x,sensor) {
+    local e=EntityManager.createEntity();
+    local pd=e.getPhysicsData();
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,0));
+    RayShape.reset();
+    RayShape.setMass(0);
+    RayShape.setIsSensor(sensor);
+    RayShape.addCircle(2,0,0);
+    b.appendShapes(RayShape);
+    return table(e=e,pd=pd,b=b);
+};
+global RayLabel=function(e,a,b,c) {
+    local id=e.getObjectID();
+    if (id==a.e.getObjectID()) { return "A"; }
+    if (id==b.e.getObjectID()) { return "B"; }
+    if (id==c.e.getObjectID()) { return "C"; }
+    return "?";
+};
+global RaySample=function(name,tick,start,end,inside,sensors,a,b,c) {
+    local key="raymove."+name+".t"+tick+".";
+    local it=Physics.raycast(start,end,inside,sensors);
+    local count=0;
+    local trace="";
+    while (it.isValid() && count<10) {
+        trace+=RayLabel(it.get(),a,b,c);
+        count+=1;
+        it.goToNext();
+    }
+    local result=table(lambda=-1,nx=-1,ny=-1,sid=-1,entity=null);
+    local hit=Physics.raycastOne(start,end,inside,sensors,result);
+    local label="none";
+    if (hit) { label=RayLabel(result.entity,a,b,c); }
+    Probe(key+"count",count);
+    Probe(key+"trace",trace);
+    Probe(key+"simple",Physics.raycastSimple(start,end));
+    Probe(key+"hit",hit);
+    Probe(key+"entity",label);
+    Probe(key+"lambda",result.lambda);
+    Probe(key+"nx",result.nx);
+    Probe(key+"ny",result.ny);
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame<12) {
+                if (this.frame==0) {
+                    this.a=RayBody(0,0);
+                    this.b=RayBody(10,1);
+                    this.c=RayBody(20,0);
+                }
+                if (this.frame==2) { this.a.b.setPos(vector2D(40,0)); }
+                if (this.frame==4) { this.b.b.setPos(vector2D(5,0)); }
+                if (this.frame==6) { this.c.b.setPos(vector2D(0,0)); }
+                if (this.frame==8) { this.b.b.setPos(vector2D(30,0)); }
+                if (this.frame==10) { this.a.b.setPos(vector2D(0,0)); }
+                RaySample("solid",this.frame,vector2D(-10,0),vector2D(45,0),
+                          0,0,this.a,this.b,this.c);
+                RaySample("sensor",this.frame,vector2D(-10,0),vector2D(45,0),
+                          0,1,this.a,this.b,this.c);
+                RaySample("inside",this.frame,vector2D(0,0),vector2D(45,0),
+                          1,1,this.a,this.b,this.c);
+                RaySample("miss",this.frame,vector2D(-10,10),vector2D(45,10),
+                          0,1,this.a,this.b,this.c);
+                this.frame+=1;
+            }
+        });
+};

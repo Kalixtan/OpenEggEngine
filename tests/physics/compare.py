@@ -34,6 +34,12 @@ RAY_PLAN = HERE / "rays-plan.json"
 REENTRY = HERE / "filter_reentry.gm"
 REENTRY_BASELINE = HERE / "filter_reentry-retail.tsv"
 REENTRY_PLAN = HERE / "filter_reentry-plan.json"
+JOINTS = HERE / "joints.gm"
+JOINT_BASELINE = HERE / "joints-retail.tsv"
+JOINT_PLAN = HERE / "joints-plan.json"
+RAY_MOTION = HERE / "ray_motion.gm"
+RAY_MOTION_BASELINE = HERE / "ray_motion-retail.tsv"
+RAY_MOTION_PLAN = HERE / "ray_motion-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
@@ -45,6 +51,13 @@ ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
     "PhysicsBody.appendShapes.index": ("shapeDef.addCircle", "Global.PHYSICSSHAPECOLLECTIONDEF"),
+    "joint.distance.t0.type": ("Physics.createJoint", "jointType.setupDistanceJoint"),
+    "joint.revolute.t0.type": ("Physics.createJoint", "jointType.setupJoint"),
+    "joint.pin.t0.type": ("Physics.createJoint", "jointType.setupPinJoint"),
+    "joint.prismatic.t0.type": ("Physics.createJoint", "jointType.setupJoint",
+                                "jointType.setPrismaticWorldAxis"),
+    "joint.relative.t0.type": ("Physics.createJoint", "jointType.setupRelativeJoint",
+                               "jointType.setRelativeVel"),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -101,6 +114,20 @@ RAY_PD_FIELDS = {"pdHit", "pdLambda"}
 REENTRY_FIELDS = {"colliding": "physicsData.isColliding",
                   "mask": "physicsBody.getCategoriesToCollideWith",
                   "bX": "physicsBody.getPos"}
+JOINT_FIELDS = {
+    "type": "jointType.getType", "body1X": "jointType.getBody1",
+    "body2X": "jointType.getBody2", "entity1Same": "jointType.getEntity1",
+    "entity2Same": "jointType.getEntity2",
+    "collidable": "jointType.isBodiesCollidable",
+    "anchorX": "jointType.getAnchorPos", "anchorY": "jointType.getAnchorPos",
+    "forceX": "jointType.getReactionForce", "forceY": "jointType.getReactionForce",
+    "torque": "jointType.getReactionTorque",
+    "aX": "physicsBody.getPos", "bX": "physicsBody.getPos",
+}
+RAY_MOTION_FIELDS = {"count": "Physics.raycast", "trace": "Physics.raycast",
+                     "simple": "Physics.raycastSimple", "hit": "Physics.raycastOne",
+                     "entity": "Physics.raycastOne", "lambda": "Physics.raycastOne",
+                     "nx": "Physics.raycastOne", "ny": "Physics.raycastOne"}
 
 
 def inventory():
@@ -110,6 +137,16 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("joint."):
+        function = JOINT_FIELDS[name.rsplit(".", 1)[1]]
+        if function not in names:
+            raise ValueError(f"unknown joint function: {function}")
+        return function
+    if name.startswith("raymove."):
+        function = RAY_MOTION_FIELDS[name.rsplit(".", 1)[1]]
+        if function not in names:
+            raise ValueError(f"unknown moving ray function: {function}")
+        return function
     if name.startswith("reentry."):
         function = REENTRY_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names:
@@ -179,7 +216,9 @@ def main():
                                            (REMOVAL, REMOVAL_BASELINE, REMOVAL_PLAN, (CONTACT_SUPPORT,)),
                                            (QUERIES, QUERY_BASELINE, QUERY_PLAN, (CONTACT_SUPPORT,)),
                                            (RAYS, RAY_BASELINE, RAY_PLAN, (CONTACT_SUPPORT,)),
-                                           (REENTRY, REENTRY_BASELINE, REENTRY_PLAN, (CONTACT_SUPPORT,))):
+                                           (REENTRY, REENTRY_BASELINE, REENTRY_PLAN, (CONTACT_SUPPORT,)),
+                                           (JOINTS, JOINT_BASELINE, JOINT_PLAN, ()),
+                                           (RAY_MOTION, RAY_MOTION_BASELINE, RAY_MOTION_PLAN, ())):
         check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
         if len(declared) != len(set(declared)):
@@ -204,7 +243,8 @@ def main():
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
-            if case.startswith(("scene.", "contact.", "removal.", "query.", "ray.", "reentry.")):
+            if case.startswith(("scene.", "contact.", "removal.", "query.",
+                                "ray.", "reentry.", "joint.", "raymove.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:
@@ -219,7 +259,7 @@ def main():
              f"Functions with readings: **{tested}/{len(names)}**. The inventory comes from "
              "the local API reference and includes OpenEgg-only methods.", "",
              "## Sample groups", "",
-             "Scenes sample motion; other groups cover callbacks, removal, queries, rays, and filter reentry.", "",
+             "Scenes sample motion; other groups cover callbacks, removal, queries, rays, joints, and filter reentry.", "",
              "| Group | Matched | Cases |", "| --- | ---: | ---: |"]
     for scene, checks in scenes.items():
         lines.append(f"| {scene} | {sum(checks)} | {len(checks)} |")

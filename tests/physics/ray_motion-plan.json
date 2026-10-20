@@ -1,0 +1,10 @@
+{
+  "prefix": "raymove",
+  "frames": 12,
+  "scenes": {
+    "solid": ["count", "trace", "simple", "hit", "entity", "lambda", "nx", "ny"],
+    "sensor": ["count", "trace", "simple", "hit", "entity", "lambda", "nx", "ny"],
+    "inside": ["count", "trace", "simple", "hit", "entity", "lambda", "nx", "ny"],
+    "miss": ["count", "trace", "simple", "hit", "entity", "lambda", "nx", "ny"]
+  }
+}

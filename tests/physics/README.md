@@ -38,6 +38,14 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --support-file tests/physics/ProbeContactEntity.gm \
   --expected tests/physics/filter_reentry-plan.json \
   --baseline tests/physics/filter_reentry-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/joints.gm \
+  --expected tests/physics/joints-plan.json \
+  --baseline tests/physics/joints-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/ray_motion.gm \
+  --expected tests/physics/ray_motion-plan.json \
+  --baseline tests/physics/ray_motion-retail.tsv
 python3 tests/physics/compare.py
 ```
 
@@ -48,9 +56,9 @@ The static probe covers body and shape setup. Scenes sample motion. Contacts
 cover solids, sensors, repeated entry/separation, and callback order. Removal
 checks body destruction inside a collision callback. Queries cover collision
 info and filter changes; rays cover global, body, and PhysicsData calls. Filter
-reentry checks a restored mask through small movement and full separation. The
-report lists each reading and untested physics functions. Joints still need
-probes.
+reentry checks a restored mask through small movement and full separation.
+Joint scenes sample five joint types over time; moving rays check hit order
+after bodies move and overlap. The report keeps mismatches visible.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired

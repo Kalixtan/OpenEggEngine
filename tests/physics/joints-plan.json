@@ -1,0 +1,11 @@
+{
+  "prefix": "joint",
+  "frames": 12,
+  "scenes": {
+    "distance": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
+    "revolute": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
+    "pin": ["type", "body1X", "entity1Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
+    "prismatic": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
+    "relative": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"]
+  }
+}

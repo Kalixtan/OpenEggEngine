@@ -1,0 +1,81 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global JointShape=PHYSICSSHAPECOLLECTIONDEF();
+
+global JointBody=function(x,y,mass) {
+    local e=EntityManager.createEntity();
+    local pd=e.getPhysicsData();
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,y));
+    JointShape.reset();
+    JointShape.setMass(mass);
+    JointShape.addCircle(1,0,0);
+    b.appendShapes(JointShape);
+    return table(e=e,pd=pd,b=b);
+};
+global JointSample=function(name,tick,j,a,b) {
+    local key="joint."+name+".t"+tick+".";
+    local anchor=j.getAnchorPos();
+    local force=j.getReactionForce(60);
+    Probe(key+"type",j.getType());
+    Probe(key+"body1X",j.getBody1().getPos().x);
+    Probe(key+"entity1Same",j.getEntity1().getObjectID()==a.e.getObjectID());
+    if (name!="pin") {
+        Probe(key+"body2X",j.getBody2().getPos().x);
+        Probe(key+"entity2Same",j.getEntity2().getObjectID()==b.e.getObjectID());
+    }
+    Probe(key+"collidable",j.isBodiesCollidable());
+    Probe(key+"anchorX",anchor.x);
+    Probe(key+"anchorY",anchor.y);
+    Probe(key+"forceX",force.x);
+    Probe(key+"forceY",force.y);
+    Probe(key+"torque",j.getReactionTorque(60));
+    Probe(key+"aX",a.b.getPos().x);
+    Probe(key+"bX",b.b.getPos().x);
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame<12) {
+                if (this.frame==0) {
+                    this.da=JointBody(0,100,1);
+                    this.db=JointBody(5,100,1);
+                    this.distance=Physics.createJoint(PHYSICSJOINTTYPE_DISTANCE);
+                    this.distance.setupDistanceJoint(this.da.b,this.db.b,
+                        this.da.b.getPos(),this.db.b.getPos());
+                    this.db.b.setVel(vector2D(0.5,0));
+
+                    this.ra=JointBody(30,200,0);
+                    this.rb=JointBody(35,200,1);
+                    this.revolute=Physics.createJoint(PHYSICSJOINTTYPE_REVOLUTE);
+                    this.revolute.setupJoint(this.ra.b,this.rb.b,vector2D(30,200));
+                    this.rb.b.setVel(vector2D(0,0.3));
+
+                    this.pa=JointBody(60,300,1);
+                    this.pin=Physics.createJoint(PHYSICSJOINTTYPE_PIN);
+                    this.pin.setupPinJoint(this.pa.b,vector2D(60,300));
+                    this.pa.b.setVel(vector2D(0.2,0));
+
+                    this.sa=JointBody(90,400,0);
+                    this.sb=JointBody(95,400,1);
+                    this.prismatic=Physics.createJoint(PHYSICSJOINTTYPE_PRISMATIC);
+                    this.prismatic.setPrismaticWorldAxis(vector2D(1,0));
+                    this.prismatic.setupJoint(this.sa.b,this.sb.b,vector2D(90,400));
+                    this.sb.b.setVel(vector2D(0.1,0));
+
+                    this.la=JointBody(120,500,1);
+                    this.lb=JointBody(125,500,1);
+                    this.relative=Physics.createJoint(PHYSICSJOINTTYPE_RELATIVE);
+                    this.relative.setupRelativeJoint(this.la.b,this.lb.b);
+                    this.relative.setRelativeVel(vector2D(0.1,0));
+                }
+                JointSample("distance",this.frame,this.distance,this.da,this.db);
+                JointSample("revolute",this.frame,this.revolute,this.ra,this.rb);
+                JointSample("pin",this.frame,this.pin,this.pa,this.pa);
+                JointSample("prismatic",this.frame,this.prismatic,this.sa,this.sb);
+                JointSample("relative",this.frame,this.relative,this.la,this.lb);
+                this.frame+=1;
+            }
+        });
+};
