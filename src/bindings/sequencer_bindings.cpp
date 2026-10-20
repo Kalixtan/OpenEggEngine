@@ -116,6 +116,11 @@ std::vector<SequencerData*>& AllSequencers() {
     return all;
 }
 
+std::vector<uint64_t>& PausedSequencerSerials() {
+    static std::vector<uint64_t> paused;
+    return paused;
+}
+
 struct SequencerListRefData { uint64_t currentSerial = 0; };
 
 SequencerTrigger* FindTriggerBySerial(SequencerTriggerList* list, uint64_t serial) {
@@ -717,6 +722,8 @@ gmFunctionEntry s_sequencerLib[] = {
 void GM_CDECL SequencerGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
     SequencerData* data = (SequencerData*)a_object->m_user;
     (void)a_machine; // the shared native trigger-list owns its handle roots
+    auto& paused = PausedSequencerSerials();
+    paused.erase(std::remove(paused.begin(), paused.end(), data->serial), paused.end());
     auto& all = AllSequencers();
     for (auto it = all.begin(); it != all.end(); ++it) {
         if (*it == data) { all.erase(it); break; }
@@ -732,13 +739,19 @@ int GM_CDECL gmf_SEQUENCER_GetAllSequencers(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_SEQUENCER_PauseAllSequencers(gmThread* a_thread) {
-    for (SequencerData* sequencer : AllSequencers())
-        if (sequencer) sequencer->isPlaying = false;
+    for (SequencerData* sequencer : AllSequencers()) {
+        if (!sequencer || !sequencer->isPlaying) continue;
+        sequencer->isPlaying = false;
+        PausedSequencerSerials().push_back(sequencer->serial);
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_SEQUENCER_UnpauseAllSequencers(gmThread* a_thread) {
-    for (SequencerData* sequencer : AllSequencers())
+    for (uint64_t serial : PausedSequencerSerials()) {
+        SequencerData* sequencer = FindSequencerBySerial(serial);
         if (sequencer) sequencer->isPlaying = true;
+    }
+    PausedSequencerSerials().clear();
     return GM_OK;
 }
 int GM_CDECL gmf_SEQUENCER_OnNoteCollect(gmThread* a_thread) {
