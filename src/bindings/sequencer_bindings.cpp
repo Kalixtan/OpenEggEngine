@@ -1071,6 +1071,15 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
     for (size_t sequencerIndex = 0; sequencerIndex < AllSequencers().size(); ++sequencerIndex) {
         SequencerData* s = AllSequencers()[sequencerIndex];
         if (!s) continue;
+        auto& triggers = s->triggers->values;
+        for (size_t i = 0; i < triggers.size(); ) {
+            if (!IsActionTagged(a_machine, triggers[i].action)) {
+                ++i;
+                continue;
+            }
+            UnrootGmVariable(a_machine, triggers[i].handle);
+            triggers.erase(triggers.begin() + i);
+        }
         float msPerStep = s->MsPerStep();
         s->msTillNextStep -= a_deltaMs;
         if (s->msTillNextStep <= 0.0f) {
@@ -1091,7 +1100,6 @@ void UpdateAllSequencers(gmMachine& a_machine, float a_deltaMs) {
                     s->currentStep, s->bpm, s->triggers ? s->triggers->values.size() : 0);
             }
 
-            auto& triggers = s->triggers->values;
             struct DueAction { gmVariable action; bool restart; };
             std::vector<DueAction> dueActions;
             gmTableObject* dueRoot = nullptr;
