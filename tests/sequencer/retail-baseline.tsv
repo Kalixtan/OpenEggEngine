@@ -1,11 +1,15 @@
 # Retail PS3 EBOOT under RPCS3, probe.gm, 2026-10-20
 SEQUENCERACTION.table.value	4
+SEQUENCER_OnNoteCollect.return	null
+SEQUENCER_SetMasterPulse.return	null
 SEQUENCE_FromString.second	1
 SEQUENCE_FromString.size	16
 SEQUENCE_FromTable.last	0
 SEQUENCE_FromTable.size	16
 SEQUENCE_ToString.word	z0120120120120120
 SEQUENCE_ToTable.word	613566756
+Sequencer.callback.count	1
+Sequencer.callback.step	0
 Sequencer.getBPM.changed	120
 Sequencer.getBPM.default	98
 Sequencer.getCurrentPattern.default	0
@@ -18,6 +22,9 @@ Sequencer.getCurrentStep16.five	2
 Sequencer.getMSPerStep.changed	62.500000
 Sequencer.getMSPerStep.default	76.530609
 Sequencer.getMSTillNextNoteStep.default	0.000000
+Sequencer.getMSTillNextStep.positive	1
+Sequencer.getMSTillNextStep16.double	1
+Sequencer.getMSTillNextStepAccurate.same	1
 Sequencer.getNextNotePattern.wrap	1
 Sequencer.getNextNoteStep.wrap	0
 Sequencer.getNoteTime.five	2000.000000
@@ -27,8 +34,10 @@ Sequencer.getNumStepsPerNote.six	0
 Sequencer.getNumStepsPerNote.zero	1
 Sequencer.getNumStepsPerPattern.default	32
 Sequencer.getNumStepsPerPattern.float	16
+Sequencer.getNumTriggers.afterCallback	0
 Sequencer.getNumTriggers.cleared	0
 Sequencer.getNumTriggers.three	3
+Sequencer.getObjectID.unique	1
 Sequencer.getWrappedStep.negative	15
 Sequencer.getWrappedStep.overflow	1
 Sequencer.isPlaying.default	0
@@ -36,12 +45,16 @@ Sequencer.isPlaying.paused	0
 Sequencer.isPlaying.started	1
 Sequencer.isPlaying.stopped	0
 Sequencer.isPlaying.unpaused	1
+Sequencer.moveTriggerToFront.first	2
+Sequencer.setPan.return	null
 Sequencer.setTrigger.implicit.looped	1
 Sequencer.setTrigger.implicit.pattern	0
 Sequencer.setTrigger.implicit.step	15
 Sequencer.setTrigger16.step	2
 Sequencer.setTriggerOnNext.pattern	0
 Sequencer.setTriggerOnNext.step	8
+Sequencer.setVolume.return	null
+Sequencer.test.return	null
 SequencerAction.field.default	7
 SequencerAction.isTaggedForRemoval.default	0
 SequencerAction.isTaggedForRemoval.tagged	1
@@ -53,6 +66,8 @@ SequencerListRef.isValid.reset	1
 SequencerListRef.size.initial	3
 SequencerTrigger.getAction.fresh	1
 SequencerTrigger.getAction.repeat	1
+SequencerTrigger.getAction.sharedTable	11
+SequencerTrigger.getAction.sharedTag	1
 SequencerTriggerList.get.firstStep	2
 SequencerTriggerList.get.fresh	1
 SequencerTriggerList.get.nextStep	8

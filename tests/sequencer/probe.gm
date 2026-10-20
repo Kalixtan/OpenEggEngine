@@ -2,6 +2,9 @@
 global SeqProbe = function(name, value) {
     GameMonkeyScript.loadScript("OEP__" + name + "__" + value + ".gm");
 };
+global SeqProbeVolatile = function(name, value) {
+    GameMonkeyScript.loadScript("OEPV__" + name + "__" + value + ".gm");
+};
 
 global ProbeData = table(
         run=function() {
@@ -15,6 +18,11 @@ global ProbeData = table(
             SeqProbe("Sequencer.isPlaying.default",s.isPlaying());
             SeqProbe("Sequencer.getMSPerStep.default",s.getMSPerStep());
             SeqProbe("Sequencer.getMSTillNextNoteStep.default",s.getMSTillNextNoteStep(1));
+            SeqProbe("Sequencer.setVolume.return",s.setVolume(0.75));
+            SeqProbe("Sequencer.setPan.return",s.setPan(-0.25));
+            SeqProbe("Sequencer.test.return",s.test());
+            SeqProbe("SEQUENCER_OnNoteCollect.return",SEQUENCER_OnNoteCollect());
+            SeqProbe("SEQUENCER_SetMasterPulse.return",SEQUENCER_SetMasterPulse());
             s.setBPM(120);
             SeqProbe("Sequencer.getBPM.changed",s.getBPM());
             SeqProbe("Sequencer.getMSPerStep.changed",s.getMSPerStep());
@@ -46,6 +54,7 @@ global ProbeData = table(
             SeqProbe("SequencerAction.setTable.value",a.value);
             local supplied=SEQUENCERACTION(table(value=4));
             SeqProbe("SEQUENCERACTION.table.value",supplied.value);
+            supplied.execute=function() {};
             a.tagForRemoval();
             SeqProbe("SequencerAction.isTaggedForRemoval.tagged",a.isTaggedForRemoval());
 
@@ -55,6 +64,11 @@ global ProbeData = table(
             SeqProbe("Sequencer.setTrigger.implicit.looped",t.getLooped());
             SeqProbe("SequencerTrigger.getAction.fresh",t.getAction()!=supplied);
             SeqProbe("SequencerTrigger.getAction.repeat",t.getAction()!=t.getAction());
+            local alias=t.getAction();
+            alias.setTable(table(value=11));
+            SeqProbe("SequencerTrigger.getAction.sharedTable",supplied.value);
+            alias.tagForRemoval();
+            SeqProbe("SequencerTrigger.getAction.sharedTag",supplied.isTaggedForRemoval());
             local t16=s.setTrigger16(1,supplied);
             SeqProbe("Sequencer.setTrigger16.step",t16.getStep());
             local next=s.setTriggerOnNext(2,supplied,0);
@@ -90,25 +104,30 @@ global ProbeData = table(
             SeqProbe("SEQUENCE_FromString.size",decoded.size);
             SeqProbe("SEQUENCE_FromString.second",decoded[1]);
 
-            local all=SEQUENCER_GetAllSequencers();
-            SeqProbe("SequencerListRef.size.initial",all.size());
-            SeqProbe("SequencerListRef.isValid.initial",all.isValid());
-            SeqProbe("SequencerListRef.get.initial",all.get()!=null);
-            all.goToNext();
-            SeqProbe("SequencerListRef.isValid.next",all.isValid());
-            all.reset();
-            SeqProbe("SequencerListRef.isValid.reset",all.isValid());
-            s.start();
-            SeqProbe("Sequencer.isPlaying.started",s.isPlaying());
+            local play=SEQUENCER();
+            SeqProbe("Sequencer.getObjectID.unique",s.getObjectID()!=play.getObjectID());
+            play.start();
+            SeqProbe("Sequencer.isPlaying.started",play.isPlaying());
             SEQUENCER_PauseAllSequencers();
-            SeqProbe("Sequencer.isPlaying.paused",s.isPlaying());
+            SeqProbe("Sequencer.isPlaying.paused",play.isPlaying());
             SEQUENCER_UnpauseAllSequencers();
-            SeqProbe("Sequencer.isPlaying.unpaused",s.isPlaying());
-            s.stop();
-            SeqProbe("Sequencer.isPlaying.stopped",s.isPlaying());
-            s.restart();
-            SeqProbe("Sequencer.getCurrentStep.restarted",s.getCurrentStep());
-            s.stop();
+            SeqProbe("Sequencer.isPlaying.unpaused",play.isPlaying());
+            play.stop();
+            SeqProbe("Sequencer.isPlaying.stopped",play.isPlaying());
+            play.restart();
+            SeqProbe("Sequencer.getCurrentStep.restarted",play.getCurrentStep());
+            play.stop();
+
+            local moveSeq=SEQUENCER();
+            local moveA=SEQUENCERACTION(table(value=1));
+            local moveB=SEQUENCERACTION(table(value=2));
+            local moveC=SEQUENCERACTION(table(value=3));
+            moveSeq.setTrigger(0,moveA,0);
+            local middle=moveSeq.setTrigger(0,moveB,0);
+            moveSeq.setTrigger(0,moveC,0);
+            moveSeq.moveTriggerToFront(middle);
+            local movedList=moveSeq.getAllTriggers();
+            SeqProbe("Sequencer.moveTriggerToFront.first",movedList.get().getAction().value);
 
             this.timingSeq=SEQUENCER();
             this.timingSeq.setBPM(120);
@@ -118,9 +137,15 @@ global ProbeData = table(
             this.callback.execute=function() {
                 this.parent.calls+=1;
                 SeqProbe("Sequencer.callback.step",this.parent.timingSeq.getCurrentStep());
-                SeqProbe("Sequencer.getMSTillNextStep.callback",this.parent.timingSeq.getMSTillNextStep());
-                SeqProbe("Sequencer.getMSTillNextStepAccurate.callback",this.parent.timingSeq.getMSTillNextStepAccurate());
-                SeqProbe("Sequencer.getMSTillNextStep16.callback",this.parent.timingSeq.getMSTillNextStep16());
+                local ms=this.parent.timingSeq.getMSTillNextStep();
+                local accurate=this.parent.timingSeq.getMSTillNextStepAccurate();
+                local sixteenth=this.parent.timingSeq.getMSTillNextStep16();
+                SeqProbeVolatile("Sequencer.getMSTillNextStep.raw",ms);
+                SeqProbeVolatile("Sequencer.getMSTillNextStepAccurate.raw",accurate);
+                SeqProbeVolatile("Sequencer.getMSTillNextStep16.raw",sixteenth);
+                SeqProbe("Sequencer.getMSTillNextStep.positive",ms>0);
+                SeqProbe("Sequencer.getMSTillNextStepAccurate.same",MATH_ABS(ms-accurate)<1);
+                SeqProbe("Sequencer.getMSTillNextStep16.double",MATH_ABS(ms*2-sixteenth)<1);
             };
             this.timingSeq.setTrigger(0,this.callback,0);
             this.observer=SEQUENCERACTION();
@@ -128,6 +153,16 @@ global ProbeData = table(
             this.observer.execute=function() {
                 SeqProbe("Sequencer.callback.count",this.parent.calls);
                 SeqProbe("Sequencer.getNumTriggers.afterCallback",this.parent.timingSeq.getNumTriggers());
+                this.parent.all=SEQUENCER_GetAllSequencers();
+                local all=this.parent.all;
+                SeqProbe("SequencerListRef.size.initial",all.size());
+                SeqProbe("SequencerListRef.isValid.initial",all.isValid());
+                this.parent.firstSeq=all.get();
+                SeqProbe("SequencerListRef.get.initial",this.parent.firstSeq!=null);
+                all.goToNext();
+                SeqProbe("SequencerListRef.isValid.next",all.isValid());
+                all.reset();
+                SeqProbe("SequencerListRef.isValid.reset",all.isValid());
             };
             this.timingSeq.setTrigger(1,this.observer,0);
             this.timingSeq.start();

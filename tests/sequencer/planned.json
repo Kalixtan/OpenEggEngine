@@ -1,0 +1,21 @@
+[
+  {"name":"BPM zero and negative", "functions":["Sequencer.setBPM","Sequencer.getMSPerStep"], "note":"Capture native float and tick behavior with a disposable sequencer."},
+  {"name":"BPM float edge conversion", "functions":["Sequencer.setBPM","Sequencer.getBPM"], "note":"Check fractions, NaN, and values outside signed int range."},
+  {"name":"Pattern length zero and negative", "functions":["Sequencer.setNumStepsPerPattern","Sequencer.getWrappedStep","Sequencer.start"], "note":"Compare invalid lengths without using the main game sequencer."},
+  {"name":"Loop length zero and negative", "functions":["Sequencer.setLoopLen","Sequencer.getCurrentPattern"], "note":"Check wrap at the first boundary."},
+  {"name":"Note type outside 0 to 5", "functions":["Sequencer.getNextNoteStep","Sequencer.getNextNotePattern"], "note":"Retail can divide by zero; record as an unsafe case."},
+  {"name":"Time getter tick boundaries", "functions":["Sequencer.getMSTillNextStep","Sequencer.getMSTillNextStepAccurate","Sequencer.getMSTillNextStep16"], "note":"Use controlled clock steps so exact values are repeatable."},
+  {"name":"Volume and pan effect", "functions":["Sequencer.setVolume","Sequencer.setPan"], "note":"Compare audible output or a recovered native state reader; return values alone are shallow."},
+  {"name":"Master pulse consumer", "functions":["SEQUENCER_SetMasterPulse"], "note":"Trace reads of the retail global and compare the affected behavior."},
+  {"name":"Trigger overload type matrix", "functions":["Sequencer.setTrigger","Sequencer.setTrigger16","Sequencer.setTriggerOnNext"], "note":"Cover supported int, float, bool, null, and wrong arity combinations."},
+  {"name":"Duplicate trigger coordinates", "functions":["Sequencer.setTrigger","Sequencer.moveTriggerToFront"], "note":"Check stable order after insertion and moving first, middle, and tail."},
+  {"name":"Restart at future step", "functions":["Sequencer.restart","Sequencer.setTrigger"], "note":"Compare same-step callback ordering and one-shot removal."},
+  {"name":"Callback mutation", "functions":["Sequencer.clearTriggers","Sequencer.setTrigger","SequencerAction.tagForRemoval"], "note":"Append, tag, and clear inside a callback; check staged dispatch."},
+  {"name":"Action wrapper lifetime", "functions":["SequencerTrigger.getAction","SequencerAction.setTable","SequencerAction.tagForRemoval"], "note":"Verify alias state after GC, trigger removal, and table replacement."},
+  {"name":"Trigger cursor during mutation", "functions":["Sequencer.getAllTriggers","SequencerTriggerList.get","SequencerTriggerList.goToNext"], "note":"Check insertion and deletion while a cursor is held; avoid retail stale-pointer crash."},
+  {"name":"Sequencer cursor during mutation", "functions":["SEQUENCER_GetAllSequencers","SequencerListRef.get","SequencerListRef.goToNext"], "note":"Compare visibility and ownership when a sequencer is created or collected."},
+  {"name":"Callback and GC interleave", "functions":["SEQUENCERACTION","SequencerAction.setTable","Sequencer.setTrigger"], "note":"Collect between trigger scheduling and dispatch."},
+  {"name":"Malformed packed sequence", "functions":["SEQUENCE_FromTable","SEQUENCE_ToTable"], "note":"Check short, sparse, oversized, and noninteger tables."},
+  {"name":"Malformed sequence string", "functions":["SEQUENCE_FromString","SEQUENCE_ToString"], "note":"Check invalid prefix, invalid digits, embedded null, and long strings."},
+  {"name":"Object ID allocation order", "functions":["Sequencer.getObjectID","SEQUENCER","Sequencer.setTrigger"], "note":"Compare ID consumption by sequencers and trigger handles."}
+]
