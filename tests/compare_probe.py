@@ -121,6 +121,8 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         f"Planned: **{len(planned)}**", "",
         f"Local assertions: **{local_passed}/{len(checks)} passed "
         f"({percent(local_passed, len(checks))})**", "",
+        f"Verdict: **{'all captured readings match' if matched == total and not problems else 'paired run incomplete or mismatched'}**. "
+        f"**{len(planned)} edge cases still need paired retail runs.**", "",
         "One row is one exact string comparison from the same `probe.gm` on both engines. "
         "A missing reading or duplicate fails the run. Scores measure tested cases only; "
         "they are not total implementation progress. "
@@ -286,7 +288,7 @@ def main():
     local_failures = sum(case["result"] == "FAIL" for case in assertions["entries"])
     local_gaps = sum(case["result"] == "GAP" for case in assertions["entries"])
     return 1 if failures or local_failures or problems or missing_api or assertions["problems"] or (
-        args.strict_parity and (gaps or local_gaps)) else 0
+        args.strict_parity and (gaps or local_gaps or planned)) else 0
 
 
 if __name__ == "__main__":

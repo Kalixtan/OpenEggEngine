@@ -1,11 +1,13 @@
 # Sequencer test report
 
-Generated: 2026-10-20 16:34 UTC
+Generated: 2026-10-20 16:35 UTC
 Retail: `tests/sequencer/retail-baseline.tsv` | OpenEgg: `tests/_results/sequencer/probe.log`
 
 Matched: **75/75 declared readings (100%)** | Known gaps: **0** | Uncaptured: **0** | Planned: **19**
 
 Local assertions: **49/49 passed (100%)**
+
+Verdict: **all captured readings match**. **19 edge cases still need paired retail runs.**
 
 One row is one exact string comparison from the same `probe.gm` on both engines. A missing reading or duplicate fails the run. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. `OEPV__` clock readings stay outside the score.
 
