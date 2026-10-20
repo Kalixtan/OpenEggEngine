@@ -145,14 +145,17 @@ int GM_CDECL gmf_Physics_raycastOne(gmThread* a_thread) {
             for (b2Fixture* fixture = body->GetFixtureList(); fixture;
                  fixture = fixture->GetNext()) {
                 if (!fixture->TestPoint(cb.rayStart) || cb.Skip(fixture)) continue;
+                const int shapeId = (int)fixture->GetUserData().pointer;
+                const int currentId = cb.fixture
+                    ? (int)cb.fixture->GetUserData().pointer : 0;
+                if (cb.fraction == 0.0f && currentId > 0 &&
+                    (shapeId <= 0 || shapeId >= currentId)) continue;
                 cb.hit = true;
                 cb.fixture = fixture;
                 cb.point = cb.rayStart;
                 cb.normal.SetZero();
                 cb.fraction = 0.0f;
-                break;
             }
-            if (cb.fraction == 0.0f) break;
         }
     }
 
@@ -186,7 +189,7 @@ int GM_CDECL gmf_Physics_raycastSimple(gmThread* a_thread) {
 // entity iterator (matches the ENTITYLISTREFCONTAINER idiom used
 // elsewhere, e.g. PhysicsData.getCollidingEntities).
 struct AllHitsRayCastCallback : b2RayCastCallback {
-    struct Hit { gmVariable entity; float fraction; };
+    struct Hit { gmVariable entity; float fraction; int shapeId; };
     b2Vec2 rayStart;
     bool ignoreSensors = true;
     bool ignoreAlreadyColliding = true;
@@ -205,12 +208,17 @@ struct AllHitsRayCastCallback : b2RayCastCallback {
         if (!Skip(a_fx)) {
             gmVariable e = FindOwnerEntityForB2Body(a_fx->GetBody());
             if (e.m_type == GM_TABLE) {
+                const int shapeId = (int)a_fx->GetUserData().pointer;
                 for (Hit& hit : hits) {
                     if (hit.entity.m_value.m_ref != e.m_value.m_ref) continue;
-                    hit.fraction = std::min(hit.fraction, a_fraction);
+                    if (a_fraction < hit.fraction ||
+                        (a_fraction == hit.fraction && shapeId < hit.shapeId)) {
+                        hit.fraction = a_fraction;
+                        hit.shapeId = shapeId;
+                    }
                     return;
                 }
-                hits.push_back({e, a_fraction});
+                hits.push_back({e, a_fraction, shapeId});
             }
         }
     }
@@ -373,9 +381,13 @@ int GM_CDECL gmf_Physics_raycast(gmThread* a_thread) {
             }
         }
     }
-    // Box2D visits broadphase nodes in tree order; retail yields ray order.
+    // Box2D visits broadphase nodes in tree order. Retail uses shape order
+    // when several hits have the same ray fraction.
     std::stable_sort(cb.hits.begin(), cb.hits.end(),
-        [](const auto& a, const auto& b) { return a.fraction < b.fraction; });
+        [](const auto& a, const auto& b) {
+            return a.fraction < b.fraction ||
+                (a.fraction == b.fraction && a.shapeId < b.shapeId);
+        });
     std::vector<gmVariable> entities;
     entities.reserve(cb.hits.size());
     for (const auto& hit : cb.hits) entities.push_back(hit.entity);

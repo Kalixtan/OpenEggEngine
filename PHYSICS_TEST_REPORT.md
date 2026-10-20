@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-20 20:22 UTC
+Generated: 2026-10-20 20:34 UTC
 
-Matched: **4241/4387 declared readings (97%)**. This measures captured cases, not total physics parity.
+Matched: **4245/4387 declared readings (97%)**. This measures captured cases, not total physics parity.
 
 Functions with readings: **72/293**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -38,7 +38,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | joint.relative | 132 | 156 |
 | raymove.solid | 96 | 96 |
 | raymove.sensor | 96 | 96 |
-| raymove.inside | 92 | 96 |
+| raymove.inside | 96 | 96 |
 | raymove.miss | 96 | 96 |
 
 ## Per function
@@ -61,8 +61,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.getShapesRoughlyWithin` | 0 | 0 | untested |
 | `Physics.getShapesWithin` | 0 | 0 | untested |
 | `Physics.isShapeSensor` | 0 | 0 | untested |
-| `Physics.raycast` | 102 | 104 | FAIL |
-| `Physics.raycastOne` | 262 | 264 | FAIL |
+| `Physics.raycast` | 104 | 104 | PASS |
+| `Physics.raycastOne` | 264 | 264 | PASS |
 | `Physics.raycastShapes` | 0 | 0 | untested |
 | `Physics.raycastSimple` | 52 | 52 | PASS |
 | `Physics.setNumFramesToIgnoreCollisions` | 0 | 0 | untested |
@@ -3609,8 +3609,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.isBodiesCollidable` | joint.distance.t0.collidable | `0` | `0` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t0.anchorX | `0.000000` | `0.000000` | PASS |
 | `jointType.getAnchorPos` | joint.distance.t0.anchorY | `100.000000` | `100.000000` | PASS |
-| `jointType.getReactionForce` | joint.distance.t0.forceX | `null` | `-nan` | FAIL |
-| `jointType.getReactionForce` | joint.distance.t0.forceY | `null` | `-nan` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t0.forceX | `null` | `0.000000` | FAIL |
+| `jointType.getReactionForce` | joint.distance.t0.forceY | `null` | `0.000000` | FAIL |
 | `jointType.getReactionTorque` | joint.distance.t0.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t0.aX | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.distance.t0.bX | `5.000000` | `5.000000` | PASS |
@@ -4694,10 +4694,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.raycastOne` | raymove.sensor.t10.nx | `-1.000000` | `-1.000000` | PASS |
 | `Physics.raycastOne` | raymove.sensor.t10.ny | `0.000000` | `0.000000` | PASS |
 | `Physics.raycast` | raymove.inside.t10.count | `3` | `3` | PASS |
-| `Physics.raycast` | raymove.inside.t10.trace | `ACB` | `CAB` | FAIL |
+| `Physics.raycast` | raymove.inside.t10.trace | `ACB` | `ACB` | PASS |
 | `Physics.raycastSimple` | raymove.inside.t10.simple | `1.000000` | `1.000000` | PASS |
 | `Physics.raycastOne` | raymove.inside.t10.hit | `1` | `1` | PASS |
-| `Physics.raycastOne` | raymove.inside.t10.entity | `A` | `C` | FAIL |
+| `Physics.raycastOne` | raymove.inside.t10.entity | `A` | `A` | PASS |
 | `Physics.raycastOne` | raymove.inside.t10.lambda | `0.000000` | `0.000000` | PASS |
 | `Physics.raycastOne` | raymove.inside.t10.nx | `0.000000` | `0.000000` | PASS |
 | `Physics.raycastOne` | raymove.inside.t10.ny | `0.000000` | `0.000000` | PASS |
@@ -4726,10 +4726,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.raycastOne` | raymove.sensor.t11.nx | `-1.000000` | `-1.000000` | PASS |
 | `Physics.raycastOne` | raymove.sensor.t11.ny | `0.000000` | `0.000000` | PASS |
 | `Physics.raycast` | raymove.inside.t11.count | `3` | `3` | PASS |
-| `Physics.raycast` | raymove.inside.t11.trace | `ACB` | `CAB` | FAIL |
+| `Physics.raycast` | raymove.inside.t11.trace | `ACB` | `ACB` | PASS |
 | `Physics.raycastSimple` | raymove.inside.t11.simple | `1.000000` | `1.000000` | PASS |
 | `Physics.raycastOne` | raymove.inside.t11.hit | `1` | `1` | PASS |
-| `Physics.raycastOne` | raymove.inside.t11.entity | `A` | `C` | FAIL |
+| `Physics.raycastOne` | raymove.inside.t11.entity | `A` | `A` | PASS |
 | `Physics.raycastOne` | raymove.inside.t11.lambda | `0.000000` | `0.000000` | PASS |
 | `Physics.raycastOne` | raymove.inside.t11.nx | `0.000000` | `0.000000` | PASS |
 | `Physics.raycastOne` | raymove.inside.t11.ny | `0.000000` | `0.000000` | PASS |
