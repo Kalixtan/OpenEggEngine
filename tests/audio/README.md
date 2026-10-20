@@ -1,18 +1,19 @@
 # Audio probes
 
-`state.gm` checks script-visible values without game files. `voice.gm` uses
+`state.gm`, `manager.gm`, `effects.gm`, and `script_playback.gm` check
+script-visible state without game files. `voice.gm`, `voice_controls.gm`,
+`voice_lifetime.gm`, and `slicker.gm` use
 `Platformer/sounds/fx/button-high.wav` from your own extracted game data.
-Neither probe checks the sound sent to the speakers.
+These probes check script responses; `waveform.gm` checks emitted audio.
 
 Capture retail readings with your installed PS3 game:
 
 ```sh
-python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
-  --eboot /path/to/EBOOT.BIN --probe tests/audio/state.gm \
-  --baseline tests/audio/state-retail.tsv
-python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
-  --eboot /path/to/EBOOT.BIN --probe tests/audio/voice.gm \
-  --baseline tests/audio/voice-retail.tsv
+for probe in state manager effects script_playback voice voice_controls slicker voice_lifetime; do
+  python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+    --eboot /path/to/EBOOT.BIN --probe "tests/audio/$probe.gm" \
+    --baseline "tests/audio/$probe-retail.tsv"
+done
 ```
 
 Compare headlessly:
@@ -22,7 +23,7 @@ python3 tests/audio/compare.py
 python3 tests/audio/compare.py --game-data /path/to/game_data
 ```
 
-The voice run makes a temporary copy of the supplied sound. Reports go to
+The asset runs make a temporary copy of the supplied sound. Reports go to
 `AUDIO_TEST_REPORT.md`; raw logs stay in `tests/_results/audio/`.
 
 ## Waveforms

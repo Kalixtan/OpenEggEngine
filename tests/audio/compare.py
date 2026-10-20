@@ -68,8 +68,13 @@ def main():
     names = inventory()
     log_dir = ROOT / "tests/_results/audio"
     log_dir.mkdir(parents=True, exist_ok=True)
-    rows, problems = compare_section(args.engine.resolve(), HERE / "state.gm",
-                                     HERE / "state-retail.tsv", HERE, log_dir, names)
+    rows, problems = [], []
+    for stem in ("state", "manager", "effects", "script_playback"):
+        section_rows, section_problems = compare_section(
+            args.engine.resolve(), HERE / f"{stem}.gm",
+            HERE / f"{stem}-retail.tsv", HERE, log_dir, names)
+        rows.extend(section_rows)
+        problems.extend(section_problems)
     asset_status = "skipped (pass --game-data to test voices)"
     if args.game_data:
         source = args.game_data.expanduser().resolve() / SOUND
@@ -80,12 +85,13 @@ def main():
             target = root / SOUND
             target.parent.mkdir(parents=True)
             shutil.copyfile(source, target)
-            shutil.copyfile(HERE / "voice.gm", root / "voice.gm")
-            voice_rows, voice_problems = compare_section(
-                args.engine.resolve(), HERE / "voice.gm",
-                HERE / "voice-retail.tsv", root, log_dir, names)
-        rows.extend(voice_rows)
-        problems.extend(voice_problems)
+            for stem in ("voice", "voice_controls", "slicker", "voice_lifetime"):
+                shutil.copyfile(HERE / f"{stem}.gm", root / f"{stem}.gm")
+                section_rows, section_problems = compare_section(
+                    args.engine.resolve(), HERE / f"{stem}.gm",
+                    HERE / f"{stem}-retail.tsv", root, log_dir, names)
+                rows.extend(section_rows)
+                problems.extend(section_problems)
         asset_status = "tested with user supplied sound"
 
     grouped = defaultdict(list)
@@ -96,8 +102,9 @@ def main():
     lines = ["# Audio test report", "",
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
              f"Matched: **{passed}/{len(rows)} ({percent(passed, len(rows))})** script readings. "
+             "Effect-chain calls without a getter only check completion. "
              "This does not test emitted audio or DSP parity.", "",
-             f"Voice probe: {asset_status}. Functions with readings: **{tested}/{len(names)}**.", "",
+             f"Asset probes: {asset_status}. Functions with readings: **{tested}/{len(names)}**.", "",
              "## Per function", "",
              "| Function | Matched | Cases | Status |", "| --- | ---: | ---: | --- |"]
     for function in names:
