@@ -710,6 +710,33 @@ bool GetPhysicsContactManifoldPointCount(b2Contact* a_contact, int& a_count) {
                            g_physicsDataPairsByContact.end())
         return false;
     a_count = a_contact->GetManifold()->pointCount;
+    if (a_count == 0 && a_contact->IsTouching() &&
+        (a_contact->GetFixtureA()->IsSensor() ||
+         a_contact->GetFixtureB()->IsSensor()) &&
+        a_contact->GetFixtureA()->GetShape()->GetType() == b2Shape::e_circle &&
+        a_contact->GetFixtureB()->GetShape()->GetType() == b2Shape::e_circle)
+        a_count = 1;
+    return true;
+}
+
+bool SensorCircleContact(b2Contact* a_contact, b2Vec2& a_normal,
+                         b2Vec2& a_point) {
+    b2Fixture* fixtureA = a_contact->GetFixtureA();
+    b2Fixture* fixtureB = a_contact->GetFixtureB();
+    if (!a_contact->IsTouching() ||
+        !(fixtureA->IsSensor() || fixtureB->IsSensor()) ||
+        fixtureA->GetShape()->GetType() != b2Shape::e_circle ||
+        fixtureB->GetShape()->GetType() != b2Shape::e_circle)
+        return false;
+    const auto* circleA = static_cast<const b2CircleShape*>(fixtureA->GetShape());
+    const auto* circleB = static_cast<const b2CircleShape*>(fixtureB->GetShape());
+    const b2Vec2 centerA = fixtureA->GetBody()->GetWorldPoint(circleA->m_p);
+    const b2Vec2 centerB = fixtureB->GetBody()->GetWorldPoint(circleB->m_p);
+    a_normal = centerB - centerA;
+    if (a_normal.LengthSquared() > 0.0f) a_normal.Normalize();
+    else a_normal.Set(1.0f, 0.0f);
+    a_point = 0.5f * ((centerA + circleA->m_radius * a_normal) +
+                      (centerB - circleB->m_radius * a_normal));
     return true;
 }
 
@@ -718,6 +745,12 @@ bool GetPhysicsContactWorldNormal(b2Contact* a_contact, float a_orientationSign,
     if (!a_contact || g_physicsDataPairsByContact.find(a_contact) ==
                            g_physicsDataPairsByContact.end())
         return false;
+    b2Vec2 sensorNormal, sensorPoint;
+    if (SensorCircleContact(a_contact, sensorNormal, sensorPoint)) {
+        a_x = sensorNormal.x * a_orientationSign;
+        a_y = sensorNormal.y * a_orientationSign;
+        return true;
+    }
     b2WorldManifold manifold;
     a_contact->GetWorldManifold(&manifold);
     a_x = manifold.normal.x * a_orientationSign;
@@ -731,6 +764,13 @@ bool GetPhysicsContactWorldPoint(b2Contact* a_contact, int a_pointIndex,
         g_physicsDataPairsByContact.find(a_contact) ==
             g_physicsDataPairsByContact.end())
         return false;
+    b2Vec2 sensorNormal, sensorPoint;
+    if (a_pointIndex == 0 &&
+        SensorCircleContact(a_contact, sensorNormal, sensorPoint)) {
+        a_x = sensorPoint.x;
+        a_y = sensorPoint.y;
+        return true;
+    }
     b2WorldManifold manifold;
     a_contact->GetWorldManifold(&manifold);
     const b2Vec2 point = manifold.points[a_pointIndex];

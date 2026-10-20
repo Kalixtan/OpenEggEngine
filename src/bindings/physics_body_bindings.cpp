@@ -157,6 +157,7 @@ void ApplyDesiredFixtureFilter(PhysicsBodyData* body, b2Fixture* fixture,
     if (!body->isCollidable) {
         body->savedCollidableFilters[fixture] = desired;
         b2Filter disabled = desired;
+        disabled.categoryBits = 0;
         disabled.maskBits = 0;
         fixture->SetFilterData(disabled);
     } else {
@@ -173,6 +174,7 @@ void SetBodyCollidable(PhysicsBodyData* body, bool collidable) {
             const b2Filter desired = DesiredFixtureFilter(body, fixture);
             body->savedCollidableFilters[fixture] = desired;
             b2Filter disabled = desired;
+            disabled.categoryBits = 0;
             disabled.maskBits = 0;
             fixture->SetFilterData(disabled);
         }
@@ -195,6 +197,7 @@ void TrackNewFixture(PhysicsBodyData* body, b2Fixture* fixture) {
     const b2Filter desired = fixture->GetFilterData();
     body->savedCollidableFilters[fixture] = desired;
     b2Filter disabled = desired;
+    disabled.categoryBits = 0;
     disabled.maskBits = 0;
     fixture->SetFilterData(disabled);
 }
@@ -1064,13 +1067,13 @@ int GM_CDECL gmf_pb_setCategoriesToCollideWith(gmThread* a_thread) {
 int GM_CDECL gmf_pb_getCollisionCategory(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).categoryBits : 0);
+    a_thread->PushInt(f ? (int)f->GetFilterData().categoryBits : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).maskBits : -1);
+    a_thread->PushInt(f ? (int)f->GetFilterData().maskBits : -1);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
@@ -1143,7 +1146,9 @@ int GM_CDECL gmf_pb_setIsCollidable(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pb_isCollidable(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    a_thread->PushInt(b->isCollidable ? 1 : 0);
+    b2Fixture* fixture = b->body->GetFixtureList();
+    a_thread->PushInt(b->isCollidable && fixture &&
+                      fixture->GetFilterData().maskBits != 0 ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setFriction(gmThread* a_thread) {
@@ -2598,8 +2603,12 @@ CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_my
         contact->GetWorldManifold(&wm);
         ContactPoints cp;
         cp.count = contact->GetManifold()->pointCount;
-        for (int point = 0; point < cp.count && point < 2; ++point)
-            cp.pts[point] = wm.points[point];
+        GetPhysicsContactManifoldPointCount(contact, cp.count);
+        for (int point = 0; point < cp.count && point < 2; ++point) {
+            float px = 0.0f, py = 0.0f;
+            if (GetPhysicsContactWorldPoint(contact, point, px, py))
+                cp.pts[point].Set(px, py);
+        }
 
         ShapeContactEntry* entry = nullptr;
         for (auto& candidate : info->contacts)
@@ -2613,7 +2622,11 @@ CollisionInfoData* BuildCollisionInfo(gmMachine& a_machine, PhysicsDataObj* a_my
             entry = &info->contacts.back();
         }
         entry->myShapeIds.push_back(record.myShapeId);
-        entry->normals.push_back(record.normalSign * wm.normal);
+        float nx = 0.0f, ny = 0.0f;
+        if (GetPhysicsContactWorldNormal(contact, record.normalSign, nx, ny))
+            entry->normals.emplace_back(nx, ny);
+        else
+            entry->normals.push_back(record.normalSign * wm.normal);
         entry->normalSigns.push_back(record.normalSign);
         entry->points.push_back(cp);
         entry->contacts.push_back(contact);
@@ -3634,14 +3647,14 @@ int GM_CDECL gmf_pd_getCollisionCategory(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).categoryBits : 0);
+    a_thread->PushInt(f ? (int)f->GetFilterData().categoryBits : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).maskBits : -1);
+    a_thread->PushInt(f ? (int)f->GetFilterData().maskBits : -1);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setCollisionCategory(gmThread* a_thread) {
@@ -3897,7 +3910,9 @@ int GM_CDECL gmf_pd_setIsCollidable(gmThread* a_thread) {
 int GM_CDECL gmf_pd_isCollidable(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushInt((b && b->isCollidable) ? 1 : 0);
+    b2Fixture* fixture = b ? b->body->GetFixtureList() : nullptr;
+    a_thread->PushInt((b && b->isCollidable && fixture &&
+                       fixture->GetFilterData().maskBits != 0) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setRestitution(gmThread* a_thread) {
