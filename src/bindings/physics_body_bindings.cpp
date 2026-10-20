@@ -37,22 +37,19 @@ gmType g_collisionInfoType = -1;
 std::unordered_map<gmMachine*, std::unordered_map<int, size_t>>
     g_collisionInfoRootLeases;
 
-// Game scripts express velocity and angular velocity per millisecond. Stock
-// Box2D expresses both per second, so keep the unit conversion at this
-// boundary and leave all script-visible values in their original units.
-constexpr float kPhysicsSecondsPerMillisecond = 0.001f;
-constexpr float kPhysicsMillisecondsPerSecond = 1000.0f;
+// The retail physics step and its script velocities both use milliseconds.
+// Keep the names here to make the script-facing calls clear.
 inline b2Vec2 ScriptVelocity(const b2Vec2& a_velocity) {
-    return kPhysicsSecondsPerMillisecond * a_velocity;
+    return a_velocity;
 }
 inline b2Vec2 Box2DVelocity(const b2Vec2& a_velocity) {
-    return kPhysicsMillisecondsPerSecond * a_velocity;
+    return a_velocity;
 }
 inline float ScriptAngularVelocity(float a_velocity) {
-    return a_velocity * kPhysicsSecondsPerMillisecond;
+    return a_velocity;
 }
 inline float Box2DAngularVelocity(float a_velocity) {
-    return a_velocity * kPhysicsMillisecondsPerSecond;
+    return a_velocity;
 }
 
 // Opt-in trace for the Sparkle Darkle ground-walking creatures. This lets a
@@ -693,8 +690,7 @@ int GM_CDECL gmf_pb_applyForce(gmThread* a_thread) {
     float fx, fy, ox, oy;
     if (!GetVector2D(m, a_thread->Param(0), fx, fy)) return GM_EXCEPTION;
     if (!GetVector2D(m, a_thread->Param(1), ox, oy)) { ox = 0.0f; oy = 0.0f; }
-    b->body->ApplyForce((kPhysicsMillisecondsPerSecond * kPhysicsMillisecondsPerSecond) *
-                        b2Vec2(fx, fy),
+    b->body->ApplyForce(b2Vec2(fx, fy),
                         b2Vec2(ox, oy), true);
     return GM_OK;
 }

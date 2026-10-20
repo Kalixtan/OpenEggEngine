@@ -464,10 +464,10 @@ public:
                     a_contact->GetFixtureB()->IsSensor() ? 1 : 0,
                     bodyA->GetPosition().x, bodyA->GetPosition().y,
                     bodyB->GetPosition().x, bodyB->GetPosition().y,
-                    bodyA->GetLinearVelocity().x * 0.001f,
-                    bodyA->GetLinearVelocity().y * 0.001f,
-                    bodyB->GetLinearVelocity().x * 0.001f,
-                    bodyB->GetLinearVelocity().y * 0.001f);
+                    bodyA->GetLinearVelocity().x,
+                    bodyA->GetLinearVelocity().y,
+                    bodyB->GetLinearVelocity().x,
+                    bodyB->GetLinearVelocity().y);
             }
         }
         if (EntityCollisionId(m, ownerA) == EntityCollisionId(m, ownerB)) return;
@@ -591,7 +591,7 @@ public:
                     "normalToPlayer=(%.3f,%.3f) catmask=%04x/%04x,%04x/%04x "
                     "sensor=%d/%d enabled=%d disabledByScript=%d\n",
                     idA, idB, shapeA, shapeB, playerPos.x, playerPos.y,
-                    playerVel.x * 0.001f, playerVel.y * 0.001f,
+                    playerVel.x, playerVel.y,
                     playerBody->GetAngle(), playerClimbing,
                     normalToPlayer.x, normalToPlayer.y,
                     fa.categoryBits, fa.maskBits, fb.categoryBits, fb.maskBits,
@@ -655,8 +655,8 @@ public:
             (unsigned long long)ownerRefA, (unsigned long long)ownerRefB,
             ownerNameA, ownerNameB,
             manifold.normal.x, manifold.normal.y, count,
-            normalImpulse, tangentImpulse, velA.x * 0.001f,
-            velA.y * 0.001f, velB.x * 0.001f, velB.y * 0.001f);
+            normalImpulse, tangentImpulse, velA.x,
+            velA.y, velB.x, velB.y);
     }
 
 private:
@@ -779,11 +779,7 @@ bool PhysicsDataPairIsColliding(uintptr_t a_myPhysicsData,
 }
 
 void StepPhysicsWorld(float a_dt) {
-    // Scripts use milliseconds and world-units per millisecond. Stock
-    // Box2D uses seconds and world-units per second; its solver assumes
-    // that time base for contact bias, friction, and position correction.
-    // The bindings convert script velocities at that boundary, so only the
-    // step duration changes here.
+    // Retail physics uses milliseconds for both the step and body velocity.
     static const bool s_playerFrameDebug =
         std::getenv("GE3_CONTACT_FRAME_DEBUG") != nullptr;
     gmMachine* machine = GetEngineContext().machine;
@@ -808,8 +804,8 @@ void StepPhysicsWorld(float a_dt) {
                     "[physics-frame] dtMs=%.3f id=%d pos=(%.6f,%.6f) "
                     "velMs=(%.6f,%.6f) angle=%.6f bullet=%d awake=%d "
                     "shape=%u type=%d filter=%04x/%04x group=%d sensor=%d\n",
-                    a_dt, objectId, pos.x, pos.y, vel.x * 0.001f,
-                    vel.y * 0.001f, body->GetAngle(), body->IsBullet() ? 1 : 0,
+                    a_dt, objectId, pos.x, pos.y, vel.x,
+                    vel.y, body->GetAngle(), body->IsBullet() ? 1 : 0,
                     body->IsAwake() ? 1 : 0,
                     (unsigned)fixture->GetUserData().pointer,
                     (int)fixture->GetShape()->GetType(), filter.categoryBits,
@@ -819,11 +815,11 @@ void StepPhysicsWorld(float a_dt) {
         }
     }
     b2World& world = GetPhysicsWorld();
-    const float stepSeconds = a_dt * 0.001f;
+    const float stepMilliseconds = a_dt;
     std::vector<b2Body*> sweptBodies;
     for (b2Body* body = world.GetBodyList(); body; body = body->GetNext()) {
         if (body->GetType() != b2_dynamicBody || body->IsBullet()) continue;
-        const b2Vec2 travel = stepSeconds * body->GetLinearVelocity();
+        const b2Vec2 travel = stepMilliseconds * body->GetLinearVelocity();
         constexpr float kStockTranslationLimit = 2.0f * b2_lengthUnitsPerMeter;
         if (travel.LengthSquared() > kStockTranslationLimit * kStockTranslationLimit) {
             // Retail resolves these crossings even when isBullet() is false.
@@ -832,7 +828,7 @@ void StepPhysicsWorld(float a_dt) {
             sweptBodies.push_back(body);
         }
     }
-    world.Step(stepSeconds, 2, 2);
+    world.Step(stepMilliseconds, 2, 2);
     for (b2Body* body : sweptBodies) body->SetBullet(false);
     if (CreatureDebugEnabled() && machine) {
         for (b2Body* body = GetPhysicsWorld().GetBodyList(); body;
@@ -850,8 +846,8 @@ void StepPhysicsWorld(float a_dt) {
                 "velMs=(%.7f,%.7f) angle=%.6f omegaMs=%.7f fixtures=%d "
                 "mass=%.6g awake=%d\n",
                 GetEngineContext().gameSystem.currentTick, a_dt, entityId,
-                pos.x, pos.y, vel.x * 0.001f, vel.y * 0.001f,
-                body->GetAngle(), body->GetAngularVelocity() * 0.001f,
+                pos.x, pos.y, vel.x, vel.y,
+                body->GetAngle(), body->GetAngularVelocity(),
                 fixtureCount, body->GetMass(), body->IsAwake() ? 1 : 0);
         }
     }

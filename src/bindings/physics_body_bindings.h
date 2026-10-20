@@ -18,8 +18,7 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine);
 gmVariable MakeIntListRefContainer(gmMachine& a_machine, std::vector<int> a_values);
 
 // Replays retail's PhysicsShape movement update immediately before the world
-// step. a_dt is the raw millisecond delta passed to both phases;
-// StepPhysicsWorld converts it to seconds only at the Box2D call boundary.
+// step. a_dt is the millisecond delta passed to both phases.
 void StepPhysicsBodyMovement(float a_dt);
 
 // Call when entity enabled/no-physics membership or a PhysicsData owner

@@ -106,19 +106,19 @@
 /// that overlap is removed in one time step. However using values close to 1 often lead
 /// to overshoot.
 #define b2_baumgarte				0.2f
-#define b2_toiBaumgarte				0.75f
+// A fast circle landing on a box reaches the retail 0.005-unit gap in one tick.
+#define b2_toiBaumgarte				1.0f
 
 
 // Sleep
 
-/// The time that a body must be still before it will go to sleep.
-#define b2_timeToSleep				0.5f
+/// Milliseconds a body must be still before it can sleep.
+#define b2_timeToSleep				500.0f
 
-/// A body cannot sleep if its linear velocity is above this tolerance.
-#define b2_linearSleepTolerance		(0.01f * b2_lengthUnitsPerMeter)
+/// Sleep velocity limits use world units and radians per millisecond.
+#define b2_linearSleepTolerance		(0.00001f * b2_lengthUnitsPerMeter)
 
-/// A body cannot sleep if its angular velocity is above this tolerance.
-#define b2_angularSleepTolerance	(2.0f / 180.0f * b2_pi)
+#define b2_angularSleepTolerance	(0.002f / 180.0f * b2_pi)
 
 /// Dump to a file. Only one dump file allowed at a time.
 void b2OpenDump(const char* fileName);
