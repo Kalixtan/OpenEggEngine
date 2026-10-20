@@ -1,0 +1,8 @@
+# probe-sha256 a123016e4b26bf4c4126d7ad2a226da086a3c2f674ab175a3953ef61ffcedc00
+Audio.checkDiracPoolIntegrity.spawned	0
+Audio.getNumDiracDSPChannelsUsed.spawned	1
+Audio.getNumDiracDSPsFree.spawned	6
+Audio.getNumDiracDSPsUsed.spawned	1
+Audio.playSoundSlicker.sameVoice	0
+Audio.playSoundSlicker.volume	0.000000
+Audio.spawnSoundSlicker.positive	1

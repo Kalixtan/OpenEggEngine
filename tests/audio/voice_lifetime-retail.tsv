@@ -1,0 +1,5 @@
+# probe-sha256 380032ccf37846e1029ee39fa4c7b143c9f3e60484b57d0dc241aa7299128862
+Audio.fadeOutVoice.pending	1
+Audio.onVoiceEndFreeEffectChain.active	1
+Audio.stopAllVoices.fadePending	1
+Audio.stopVoice.timedPending	1

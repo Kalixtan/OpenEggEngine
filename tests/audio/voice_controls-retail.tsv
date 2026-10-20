@@ -1,0 +1,15 @@
+# probe-sha256 d7d7014c40fa21364430da52fffef815b03a2994241a9177ab6a8a1e70348169
+Audio.loadSoundSlicker.sample	1
+Audio.playSound.controlPositive	1
+Audio.playStream.sampleLength	0
+Audio.playStream.samplePositive	0
+Audio.setVoiceLoop.valid	1
+Audio.setVoiceNote.base	1.000000
+Audio.setVoicePause.paused	1
+Audio.setVoicePause.resumed	0
+Audio.setVoicePitchBend.immediate	1.000000
+Audio.setVoicePosition.changed	25
+Audio.setVoiceSpeed.immediate	1.500000
+Audio.setVoiceSpeed.rampStart	1.500000
+Audio.stopVoice.pending	1
+Audio.unloadSound.length	87

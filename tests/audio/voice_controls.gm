@@ -1,0 +1,40 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local path="Platformer/sounds/fx/button-high.wav";
+Probe("Audio.loadSoundSlicker.sample",Audio.loadSoundSlicker(path));
+
+local voice=Audio.playSound(path);
+Probe("Audio.playSound.controlPositive",voice>0);
+Audio.setVoiceSpeed(voice,1.5);
+Probe("Audio.setVoiceSpeed.immediate",Audio.getVoiceSpeed(voice));
+Audio.setVoiceSpeed(voice,0.75,100.0);
+Probe("Audio.setVoiceSpeed.rampStart",Audio.getVoiceSpeed(voice));
+Audio.setVoiceNote(voice,48);
+Probe("Audio.setVoiceNote.base",Audio.getVoiceSpeed(voice));
+Audio.setVoicePitchBend(voice,60,0.0);
+Probe("Audio.setVoicePitchBend.immediate",Audio.getVoiceSpeed(voice));
+Audio.setVoicePosition(voice,25);
+Probe("Audio.setVoicePosition.changed",Audio.getVoicePosition(voice));
+Audio.setVoicePause(voice,true);
+Probe("Audio.setVoicePause.paused",Audio.isVoicePaused(voice));
+Audio.setVoicePause(voice,false);
+Probe("Audio.setVoicePause.resumed",Audio.isVoicePaused(voice));
+Audio.setVoiceLoop(voice,true);
+Audio.setVoiceLoopCount(voice,2);
+Audio.setVoiceGateTime(voice,0);
+Probe("Audio.setVoiceLoop.valid",Audio.isVoiceValid(voice));
+Audio.stopVoice(voice);
+Probe("Audio.stopVoice.pending",Audio.isVoiceValid(voice));
+
+local stream=Audio.playStream(path);
+Probe("Audio.playStream.samplePositive",stream>0);
+Probe("Audio.playStream.sampleLength",Audio.getVoiceLength(stream));
+Audio.stopVoice(stream);
+Audio.unloadSound(path);
+Probe("Audio.unloadSound.length",Audio.getSoundLength(path));
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

@@ -1,0 +1,24 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local path="Platformer/sounds/fx/button-high.wav";
+local fade=Audio.playSound(path);
+Audio.fadeOutVoice(fade,100);
+Probe("Audio.fadeOutVoice.pending",Audio.isVoiceValid(fade));
+
+local timed=Audio.playSound(path);
+Audio.stopVoice(timed,100);
+Probe("Audio.stopVoice.timedPending",Audio.isVoiceValid(timed));
+
+local chained=Audio.playSound(path);
+local chain=Audio.createEffectChain("voice_lifetime");
+Audio.onVoiceEndFreeEffectChain(chained,chain);
+Probe("Audio.onVoiceEndFreeEffectChain.active",Audio.isVoiceValid(chained));
+
+Audio.stopAllVoices();
+Probe("Audio.stopAllVoices.fadePending",Audio.isVoiceValid(chained));
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};
