@@ -19,8 +19,6 @@ global Main=function(p) {
             }
             if (this.frame==140) {
                 this.fadeVoice=Audio.playSound(path);
-            }
-            if (this.frame==141) {
                 Audio.fadeOutVoice(this.fadeVoice,40);
             }
             if (this.frame==200) {

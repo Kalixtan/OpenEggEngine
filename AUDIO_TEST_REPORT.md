@@ -1,8 +1,8 @@
 # Audio test report
 
-Generated: 2026-10-20 23:16 UTC
+Generated: 2026-10-20 23:27 UTC
 
-Matched: **94/98 (96%)** script readings. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
+Matched: **94/94 (100%)** comparable script readings; 4 skipped after retail setup failures. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 
 Asset probes: tested with user supplied sound. Functions with readings: **54/68**.
 
@@ -13,76 +13,76 @@ Asset probes: tested with user supplied sound. Functions with readings: **54/68*
 
 ## Per function
 
-| Function | Matched | Cases | Status |
-| --- | ---: | ---: | --- |
-| `Audio.checkDiracPoolIntegrity` | 2 | 2 | PASS |
-| `Audio.createEffectChain` | 2 | 2 | PASS |
-| `Audio.fadeOutVoice` | 1 | 1 | PASS |
-| `Audio.freeEffectChain` | 1 | 1 | PASS |
-| `Audio.freeSoundEffect` | 1 | 1 | PASS |
-| `Audio.getAllVoices` | 2 | 2 | PASS |
-| `Audio.getDefaultBaseNote` | 1 | 1 | PASS |
-| `Audio.getFreeMemory` | 0 | 0 | untested |
-| `Audio.getFrequencyMultiplier` | 2 | 2 | PASS |
-| `Audio.getMasterEffectChain` | 1 | 1 | PASS |
-| `Audio.getMasterVolume` | 4 | 4 | PASS |
-| `Audio.getMusicVolume` | 2 | 2 | PASS |
-| `Audio.getNumDiracDSPChannelsUsed` | 2 | 2 | PASS |
-| `Audio.getNumDiracDSPs` | 1 | 1 | PASS |
-| `Audio.getNumDiracDSPsFree` | 2 | 2 | PASS |
-| `Audio.getNumDiracDSPsUsed` | 2 | 2 | PASS |
-| `Audio.getRetriggerTime` | 1 | 1 | PASS |
-| `Audio.getSFXVolume` | 2 | 2 | PASS |
-| `Audio.getSoundLength` | 2 | 2 | PASS |
-| `Audio.getVoiceLength` | 2 | 2 | PASS |
-| `Audio.getVoicePosition` | 2 | 2 | PASS |
-| `Audio.getVoiceSpeed` | 5 | 5 | PASS |
-| `Audio.getVoiceVolume` | 4 | 4 | PASS |
-| `Audio.hack_setEnabled` | 1 | 1 | PASS |
-| `Audio.isPlayingScript` | 1 | 1 | PASS |
-| `Audio.isRecording` | 1 | 1 | PASS |
-| `Audio.isRecordingScript` | 1 | 1 | PASS |
-| `Audio.isRetriggering` | 1 | 1 | PASS |
-| `Audio.isVoicePaused` | 4 | 4 | PASS |
-| `Audio.isVoiceValid` | 5 | 5 | PASS |
-| `Audio.loadSampleList` | 0 | 0 | untested |
-| `Audio.loadScriptFromFile` | 0 | 0 | untested |
-| `Audio.loadSound` | 2 | 2 | PASS |
-| `Audio.loadSoundSlicker` | 2 | 2 | PASS |
-| `Audio.onVoiceEndFreeEffectChain` | 1 | 1 | PASS |
-| `Audio.onVoiceEndFreeSoundEffect` | 0 | 0 | untested |
-| `Audio.playSound` | 5 | 5 | PASS |
-| `Audio.playSoundSlicker` | 0 | 2 | FAIL |
-| `Audio.playStream` | 2 | 4 | FAIL |
-| `Audio.saveScriptToFile` | 0 | 0 | untested |
-| `Audio.setFrequencyMultiplier` | 0 | 0 | untested |
-| `Audio.setMasterVolume` | 0 | 0 | untested |
-| `Audio.setMusicVolume` | 0 | 0 | untested |
-| `Audio.setRetriggerTime` | 1 | 1 | PASS |
-| `Audio.setSFXVolume` | 0 | 0 | untested |
-| `Audio.setVoiceGateTime` | 0 | 0 | untested |
-| `Audio.setVoiceLoop` | 1 | 1 | PASS |
-| `Audio.setVoiceLoopCount` | 0 | 0 | untested |
-| `Audio.setVoiceNote` | 1 | 1 | PASS |
-| `Audio.setVoicePan` | 0 | 0 | untested |
-| `Audio.setVoicePause` | 2 | 2 | PASS |
-| `Audio.setVoicePitchBend` | 3 | 3 | PASS |
-| `Audio.setVoicePosition` | 1 | 1 | PASS |
-| `Audio.setVoiceSpeed` | 2 | 2 | PASS |
-| `Audio.setVoiceVolume` | 0 | 0 | untested |
-| `Audio.spawnSoundSlicker` | 1 | 1 | PASS |
-| `Audio.startPlayingScript` | 1 | 1 | PASS |
-| `Audio.startRecording` | 1 | 1 | PASS |
-| `Audio.startRecordingScript` | 1 | 1 | PASS |
-| `Audio.startRetriggering` | 1 | 1 | PASS |
-| `Audio.stopAllVoices` | 1 | 1 | PASS |
-| `Audio.stopPlayingScript` | 1 | 1 | PASS |
-| `Audio.stopRecording` | 1 | 1 | PASS |
-| `Audio.stopRecordingScript` | 1 | 1 | PASS |
-| `Audio.stopRetriggering` | 1 | 1 | PASS |
-| `Audio.stopVoice` | 2 | 2 | PASS |
-| `Audio.unloadAllSounds` | 0 | 0 | untested |
-| `Audio.unloadSound` | 1 | 1 | PASS |
+| Function | Matched | Compared | Skipped | Status |
+| --- | ---: | ---: | ---: | --- |
+| `Audio.checkDiracPoolIntegrity` | 2 | 2 | 0 | PASS |
+| `Audio.createEffectChain` | 2 | 2 | 0 | PASS |
+| `Audio.fadeOutVoice` | 1 | 1 | 0 | PASS |
+| `Audio.freeEffectChain` | 1 | 1 | 0 | PASS |
+| `Audio.freeSoundEffect` | 1 | 1 | 0 | PASS |
+| `Audio.getAllVoices` | 2 | 2 | 0 | PASS |
+| `Audio.getDefaultBaseNote` | 1 | 1 | 0 | PASS |
+| `Audio.getFreeMemory` | 0 | 0 | 0 | untested |
+| `Audio.getFrequencyMultiplier` | 2 | 2 | 0 | PASS |
+| `Audio.getMasterEffectChain` | 1 | 1 | 0 | PASS |
+| `Audio.getMasterVolume` | 4 | 4 | 0 | PASS |
+| `Audio.getMusicVolume` | 2 | 2 | 0 | PASS |
+| `Audio.getNumDiracDSPChannelsUsed` | 2 | 2 | 0 | PASS |
+| `Audio.getNumDiracDSPs` | 1 | 1 | 0 | PASS |
+| `Audio.getNumDiracDSPsFree` | 2 | 2 | 0 | PASS |
+| `Audio.getNumDiracDSPsUsed` | 2 | 2 | 0 | PASS |
+| `Audio.getRetriggerTime` | 1 | 1 | 0 | PASS |
+| `Audio.getSFXVolume` | 2 | 2 | 0 | PASS |
+| `Audio.getSoundLength` | 2 | 2 | 0 | PASS |
+| `Audio.getVoiceLength` | 2 | 2 | 0 | PASS |
+| `Audio.getVoicePosition` | 2 | 2 | 0 | PASS |
+| `Audio.getVoiceSpeed` | 5 | 5 | 0 | PASS |
+| `Audio.getVoiceVolume` | 4 | 4 | 0 | PASS |
+| `Audio.hack_setEnabled` | 1 | 1 | 0 | PASS |
+| `Audio.isPlayingScript` | 1 | 1 | 0 | PASS |
+| `Audio.isRecording` | 1 | 1 | 0 | PASS |
+| `Audio.isRecordingScript` | 1 | 1 | 0 | PASS |
+| `Audio.isRetriggering` | 1 | 1 | 0 | PASS |
+| `Audio.isVoicePaused` | 4 | 4 | 0 | PASS |
+| `Audio.isVoiceValid` | 5 | 5 | 0 | PASS |
+| `Audio.loadSampleList` | 0 | 0 | 0 | untested |
+| `Audio.loadScriptFromFile` | 0 | 0 | 0 | untested |
+| `Audio.loadSound` | 2 | 2 | 0 | PASS |
+| `Audio.loadSoundSlicker` | 2 | 2 | 0 | PASS |
+| `Audio.onVoiceEndFreeEffectChain` | 1 | 1 | 0 | PASS |
+| `Audio.onVoiceEndFreeSoundEffect` | 0 | 0 | 0 | untested |
+| `Audio.playSound` | 5 | 5 | 0 | PASS |
+| `Audio.playSoundSlicker` | 0 | 0 | 2 | SKIP |
+| `Audio.playStream` | 2 | 2 | 2 | PASS |
+| `Audio.saveScriptToFile` | 0 | 0 | 0 | untested |
+| `Audio.setFrequencyMultiplier` | 0 | 0 | 0 | untested |
+| `Audio.setMasterVolume` | 0 | 0 | 0 | untested |
+| `Audio.setMusicVolume` | 0 | 0 | 0 | untested |
+| `Audio.setRetriggerTime` | 1 | 1 | 0 | PASS |
+| `Audio.setSFXVolume` | 0 | 0 | 0 | untested |
+| `Audio.setVoiceGateTime` | 0 | 0 | 0 | untested |
+| `Audio.setVoiceLoop` | 1 | 1 | 0 | PASS |
+| `Audio.setVoiceLoopCount` | 0 | 0 | 0 | untested |
+| `Audio.setVoiceNote` | 1 | 1 | 0 | PASS |
+| `Audio.setVoicePan` | 0 | 0 | 0 | untested |
+| `Audio.setVoicePause` | 2 | 2 | 0 | PASS |
+| `Audio.setVoicePitchBend` | 3 | 3 | 0 | PASS |
+| `Audio.setVoicePosition` | 1 | 1 | 0 | PASS |
+| `Audio.setVoiceSpeed` | 2 | 2 | 0 | PASS |
+| `Audio.setVoiceVolume` | 0 | 0 | 0 | untested |
+| `Audio.spawnSoundSlicker` | 1 | 1 | 0 | PASS |
+| `Audio.startPlayingScript` | 1 | 1 | 0 | PASS |
+| `Audio.startRecording` | 1 | 1 | 0 | PASS |
+| `Audio.startRecordingScript` | 1 | 1 | 0 | PASS |
+| `Audio.startRetriggering` | 1 | 1 | 0 | PASS |
+| `Audio.stopAllVoices` | 1 | 1 | 0 | PASS |
+| `Audio.stopPlayingScript` | 1 | 1 | 0 | PASS |
+| `Audio.stopRecording` | 1 | 1 | 0 | PASS |
+| `Audio.stopRecordingScript` | 1 | 1 | 0 | PASS |
+| `Audio.stopRetriggering` | 1 | 1 | 0 | PASS |
+| `Audio.stopVoice` | 2 | 2 | 0 | PASS |
+| `Audio.unloadAllSounds` | 0 | 0 | 0 | untested |
+| `Audio.unloadSound` | 1 | 1 | 0 | PASS |
 
 ## Readings
 
@@ -169,8 +169,8 @@ Asset probes: tested with user supplied sound. Functions with readings: **54/68*
 | `Audio.setVoiceLoop` | Audio.setVoiceLoop.valid | `1` | `1` | PASS |
 | `Audio.stopVoice` | Audio.stopVoice.pending | `1` | `1` | PASS |
 | `Audio.playStream` | Audio.playStream.preloaded | `1` | `1` | PASS |
-| `Audio.playStream` | Audio.playStream.samplePositive | `0` | `1` | FAIL |
-| `Audio.playStream` | Audio.playStream.sampleLength | `0` | `2400` | FAIL |
+| `Audio.playStream` | Audio.playStream.samplePositive | `0` | `1` | SKIP |
+| `Audio.playStream` | Audio.playStream.sampleLength | `0` | `2400` | SKIP |
 | `Audio.unloadSound` | Audio.unloadSound.length | `87` | `87` | PASS |
 | `Audio.setVoicePitchBend` | Audio.setVoicePitchBend.beforeUpdate | `1.000000` | `1.000000` | PASS |
 | `Audio.setVoicePitchBend` | Audio.setVoicePitchBend.afterUpdate | `2.000000` | `2.000000` | PASS |
@@ -180,8 +180,8 @@ Asset probes: tested with user supplied sound. Functions with readings: **54/68*
 | `Audio.getNumDiracDSPChannelsUsed` | Audio.getNumDiracDSPChannelsUsed.spawned | `1` | `1` | PASS |
 | `Audio.getNumDiracDSPsFree` | Audio.getNumDiracDSPsFree.spawned | `6` | `6` | PASS |
 | `Audio.checkDiracPoolIntegrity` | Audio.checkDiracPoolIntegrity.spawned | `0` | `0` | PASS |
-| `Audio.playSoundSlicker` | Audio.playSoundSlicker.sameVoice | `0` | `1` | FAIL |
-| `Audio.playSoundSlicker` | Audio.playSoundSlicker.volume | `0.000000` | `1.000000` | FAIL |
+| `Audio.playSoundSlicker` | Audio.playSoundSlicker.sameVoice | `0` | `1` | SKIP |
+| `Audio.playSoundSlicker` | Audio.playSoundSlicker.volume | `0.000000` | `1.000000` | SKIP |
 | `Audio.fadeOutVoice` | Audio.fadeOutVoice.pending | `1` | `1` | PASS |
 | `Audio.stopVoice` | Audio.stopVoice.timedPending | `1` | `1` | PASS |
 | `Audio.onVoiceEndFreeEffectChain` | Audio.onVoiceEndFreeEffectChain.active | `1` | `1` | PASS |

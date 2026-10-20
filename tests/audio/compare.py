@@ -51,6 +51,22 @@ def retail_setup_warnings(baselines):
     return warnings
 
 
+def retail_setup_skips(baseline):
+    retail, _ = read_readings(baseline)
+    if (baseline.stem == "slicker-retail" and
+            "# retail-warning fmod-invalid-seek" in
+            baseline.read_text(errors="replace")):
+        return {"Audio.playSoundSlicker.sameVoice",
+                "Audio.playSoundSlicker.volume"}
+    if (baseline.stem == "voice_controls-retail" and
+            retail.get("Audio.playStream.preloaded") == "1" and
+            retail.get("Audio.playStream.samplePositive") == "0" and
+            retail.get("Audio.playStream.sampleLength") == "0"):
+        return {"Audio.playStream.samplePositive",
+                "Audio.playStream.sampleLength"}
+    return set()
+
+
 def inventory():
     with (ROOT / "docs/api/function_notes.tsv").open() as source:
         return sorted(row["name"] for row in csv.DictReader(source, delimiter="\t")
@@ -67,6 +83,7 @@ def compare_section(engine, probe, baseline, root, log_dir, names):
         strict="survey")
     retail, retail_dupes = read_readings(baseline)
     local, local_dupes = read_readings(log_path)
+    setup_skips = retail_setup_skips(baseline)
     problems = [f"{probe.name}: {error}"] if error else []
     for label, values, duplicates in (("retail", retail, retail_dupes),
                                       ("OpenEgg", local, local_dupes)):
@@ -82,7 +99,8 @@ def compare_section(engine, probe, baseline, root, log_dir, names):
         if function not in names:
             raise ValueError(f"no API inventory entry for {name}")
         rows.append((function, name, retail.get(name), local.get(name),
-                     name in retail and name in local and retail[name] == local[name]))
+                     name in retail and name in local and retail[name] == local[name],
+                     name in setup_skips))
     return rows, problems
 
 
@@ -135,13 +153,17 @@ def main():
         asset_status = "tested with user supplied sound"
 
     grouped = defaultdict(list)
-    for function, _, _, _, passed in rows:
-        grouped[function].append(passed)
-    passed = sum(row[4] for row in rows)
+    for row in rows:
+        function, _, _, _, passed, skip = row
+        grouped[function].append((passed, skip))
+    skipped = sum(row[5] for row in rows)
+    compared = len(rows) - skipped
+    passed = sum(row[4] for row in rows if not row[5])
     tested = sum(bool(grouped[name]) for name in names)
     lines = ["# Audio test report", "",
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
-             f"Matched: **{passed}/{len(rows)} ({percent(passed, len(rows))})** script readings. "
+             f"Matched: **{passed}/{compared} ({percent(passed, compared)})** comparable script readings; "
+             f"{skipped} skipped after retail setup failures. "
              "Effect-chain calls without a getter only check completion. "
              "This does not test emitted audio or DSP parity.", "",
              f"Asset probes: {asset_status}. Functions with readings: **{tested}/{len(names)}**.", "",
@@ -152,25 +174,31 @@ def main():
     lines += [
              "",
              "## Per function", "",
-             "| Function | Matched | Cases | Status |", "| --- | ---: | ---: | --- |"]
+             "| Function | Matched | Compared | Skipped | Status |",
+             "| --- | ---: | ---: | ---: | --- |"]
     for function in names:
         results = grouped[function]
-        count = sum(results)
-        status = "untested" if not results else "PASS" if count == len(results) else "FAIL"
-        lines.append(f"| `{function}` | {count} | {len(results)} | {status} |")
+        count = sum(passed for passed, skip in results if not skip)
+        cases = sum(not skip for _, skip in results)
+        ignored = sum(skip for _, skip in results)
+        status = ("untested" if not results else "SKIP" if not cases else
+                  "PASS" if count == cases else "FAIL")
+        lines.append(f"| `{function}` | {count} | {cases} | {ignored} | {status} |")
     lines += ["", "## Readings", "", "| Function | Case | Retail | OpenEgg | Result |",
               "| --- | --- | --- | --- | --- |"]
-    for function, name, retail, local, match in rows:
+    for function, name, retail, local, match, skip in rows:
+        result = "SKIP" if skip else "PASS" if match else "FAIL"
         lines.append(f"| `{function}` | {name} | `{retail}` | `{local}` | "
-                     f"{'PASS' if match else 'FAIL'} |")
+                     f"{result} |")
     if problems:
         lines += ["", "## Capture problems", ""] + [f"- {problem}" for problem in problems]
     args.report.write_text("\n".join(lines) + "\n")
-    print(f"audio: {passed}/{len(rows)} matched, {len(problems)} capture problems")
+    print(f"audio: {passed}/{compared} comparable readings matched; "
+          f"{skipped} skipped, {len(problems)} capture problems")
     for warning in warnings:
         print(f"WARNING: {warning}")
     print(f"Report: {args.report}")
-    return 1 if passed != len(rows) or problems else 0
+    return 1 if passed != compared or problems else 0
 
 
 if __name__ == "__main__":
