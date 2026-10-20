@@ -28,13 +28,27 @@ Probe("Audio.setVoiceLoop.valid",Audio.isVoiceValid(voice));
 Audio.stopVoice(voice);
 Probe("Audio.stopVoice.pending",Audio.isVoiceValid(voice));
 
-local stream=Audio.playStream(path);
+local streamPath="Platformer/levels/gamescom_master_8.wav";
+Probe("Audio.playStream.preloaded",Audio.loadSound(streamPath));
+local stream=Audio.playStream(streamPath);
 Probe("Audio.playStream.samplePositive",stream>0);
 Probe("Audio.playStream.sampleLength",Audio.getVoiceLength(stream));
 Audio.stopVoice(stream);
+Audio.unloadSound(streamPath);
 Audio.unloadSound(path);
 Probe("Audio.unloadSound.length",Audio.getSoundLength(path));
 
+global pitchVoice=Audio.playSound(streamPath);
+Audio.setVoicePitchBend(pitchVoice,60,0.0);
+Probe("Audio.setVoicePitchBend.beforeUpdate",Audio.getVoiceSpeed(pitchVoice));
+
 global Main=function(p) {
-    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==1) {
+                Probe("Audio.setVoicePitchBend.afterUpdate",Audio.getVoiceSpeed(pitchVoice));
+                Audio.stopVoice(pitchVoice);
+            }
+            this.frame+=1;
+        });
 };

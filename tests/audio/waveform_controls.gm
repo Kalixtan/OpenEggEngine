@@ -18,12 +18,13 @@ global Main=function(p) {
                 Audio.setVoiceSpeed(voice,2);
             }
             if (this.frame==140) {
-                local voice=Audio.playSound(path);
-                Audio.fadeOutVoice(voice,40);
+                this.fadeVoice=Audio.playSound(path);
+            }
+            if (this.frame==141) {
+                Audio.fadeOutVoice(this.fadeVoice,40);
             }
             if (this.frame==200) {
                 this.loopVoice=Audio.playSound(path);
-                Audio.setVoiceLoop(this.loopVoice,true);
                 Audio.setVoiceLoopCount(this.loopVoice,1);
             }
             if (this.frame==225) { Audio.stopVoice(this.loopVoice); }

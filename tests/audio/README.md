@@ -1,10 +1,9 @@
 # Audio probes
 
 `state.gm`, `manager.gm`, `effects.gm`, and `script_playback.gm` check
-script-visible state without game files. `voice.gm`, `voice_controls.gm`,
-`voice_lifetime.gm`, and `slicker.gm` use
-`Platformer/sounds/fx/button-high.wav` from your own extracted game data.
-These probes check script responses; `waveform.gm` checks emitted audio.
+script-visible state without game files. Voice probes copy sound samples from
+your extracted game data into a temporary folder. These probes check script
+responses; `waveform.gm` checks emitted audio.
 
 Capture retail readings with your installed PS3 game:
 

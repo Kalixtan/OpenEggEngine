@@ -2,17 +2,28 @@ global Probe=function(name,value) {
     GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
 };
 
-local path="Platformer/sounds/fx/button-high.wav";
-local voice=Audio.spawnSoundSlicker(path,0,0,1,0);
-Probe("Audio.spawnSoundSlicker.positive",voice>0);
+global slickerPath="Platformer/levels/gamescom_master_8.wav";
+Probe("Audio.loadSoundSlicker.ready",Audio.loadSoundSlicker(slickerPath));
+global slickerVoice=Audio.spawnSoundSlicker(slickerPath,0,0,1,0);
+Probe("Audio.spawnSoundSlicker.positive",slickerVoice>0);
 Probe("Audio.getNumDiracDSPsUsed.spawned",Audio.getNumDiracDSPsUsed());
 Probe("Audio.getNumDiracDSPChannelsUsed.spawned",Audio.getNumDiracDSPChannelsUsed());
 Probe("Audio.getNumDiracDSPsFree.spawned",Audio.getNumDiracDSPsFree());
 Probe("Audio.checkDiracPoolIntegrity.spawned",Audio.checkDiracPoolIntegrity());
-Probe("Audio.playSoundSlicker.sameVoice",Audio.playSoundSlicker(voice,0,0,1)==voice);
-Probe("Audio.playSoundSlicker.volume",Audio.getVoiceVolume(voice));
-Audio.stopVoice(voice);
 
 global Main=function(p) {
-    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==1) {
+                Probe("Audio.playSoundSlicker.sameVoice",
+                    Audio.playSoundSlicker(slickerVoice,0,0,1)==slickerVoice);
+                Probe("Audio.playSoundSlicker.volume",
+                    Audio.getVoiceVolume(slickerVoice));
+            }
+            if (this.frame==3) {
+                Audio.stopVoice(slickerVoice);
+                Audio.unloadSound(slickerPath);
+            }
+            this.frame+=1;
+        });
 };

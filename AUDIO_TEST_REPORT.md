@@ -1,8 +1,8 @@
 # Audio test report
 
-Generated: 2026-10-20 22:29 UTC
+Generated: 2026-10-20 23:00 UTC
 
-Matched: **89/94 (95%)** script readings. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
+Matched: **94/98 (96%)** script readings. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 
 Asset probes: tested with user supplied sound. Functions with readings: **54/68**.
 
@@ -43,12 +43,12 @@ Asset probes: tested with user supplied sound. Functions with readings: **54/68*
 | `Audio.loadSampleList` | 0 | 0 | untested |
 | `Audio.loadScriptFromFile` | 0 | 0 | untested |
 | `Audio.loadSound` | 2 | 2 | PASS |
-| `Audio.loadSoundSlicker` | 1 | 1 | PASS |
+| `Audio.loadSoundSlicker` | 2 | 2 | PASS |
 | `Audio.onVoiceEndFreeEffectChain` | 1 | 1 | PASS |
 | `Audio.onVoiceEndFreeSoundEffect` | 0 | 0 | untested |
 | `Audio.playSound` | 5 | 5 | PASS |
 | `Audio.playSoundSlicker` | 0 | 2 | FAIL |
-| `Audio.playStream` | 1 | 3 | FAIL |
+| `Audio.playStream` | 2 | 4 | FAIL |
 | `Audio.saveScriptToFile` | 0 | 0 | untested |
 | `Audio.setFrequencyMultiplier` | 0 | 0 | untested |
 | `Audio.setMasterVolume` | 0 | 0 | untested |
@@ -61,7 +61,7 @@ Asset probes: tested with user supplied sound. Functions with readings: **54/68*
 | `Audio.setVoiceNote` | 1 | 1 | PASS |
 | `Audio.setVoicePan` | 0 | 0 | untested |
 | `Audio.setVoicePause` | 2 | 2 | PASS |
-| `Audio.setVoicePitchBend` | 0 | 1 | FAIL |
+| `Audio.setVoicePitchBend` | 3 | 3 | PASS |
 | `Audio.setVoicePosition` | 1 | 1 | PASS |
 | `Audio.setVoiceSpeed` | 2 | 2 | PASS |
 | `Audio.setVoiceVolume` | 0 | 0 | untested |
@@ -157,15 +157,19 @@ Asset probes: tested with user supplied sound. Functions with readings: **54/68*
 | `Audio.setVoiceSpeed` | Audio.setVoiceSpeed.immediate | `1.500000` | `1.500000` | PASS |
 | `Audio.setVoiceSpeed` | Audio.setVoiceSpeed.rampStart | `1.500000` | `1.500000` | PASS |
 | `Audio.setVoiceNote` | Audio.setVoiceNote.base | `1.000000` | `1.000000` | PASS |
-| `Audio.setVoicePitchBend` | Audio.setVoicePitchBend.immediate | `1.000000` | `2.000000` | FAIL |
+| `Audio.setVoicePitchBend` | Audio.setVoicePitchBend.immediate | `1.000000` | `1.000000` | PASS |
 | `Audio.setVoicePosition` | Audio.setVoicePosition.changed | `25` | `25` | PASS |
 | `Audio.setVoicePause` | Audio.setVoicePause.paused | `1` | `1` | PASS |
 | `Audio.setVoicePause` | Audio.setVoicePause.resumed | `0` | `0` | PASS |
 | `Audio.setVoiceLoop` | Audio.setVoiceLoop.valid | `1` | `1` | PASS |
 | `Audio.stopVoice` | Audio.stopVoice.pending | `1` | `1` | PASS |
+| `Audio.playStream` | Audio.playStream.preloaded | `1` | `1` | PASS |
 | `Audio.playStream` | Audio.playStream.samplePositive | `0` | `1` | FAIL |
-| `Audio.playStream` | Audio.playStream.sampleLength | `0` | `87` | FAIL |
+| `Audio.playStream` | Audio.playStream.sampleLength | `0` | `2400` | FAIL |
 | `Audio.unloadSound` | Audio.unloadSound.length | `87` | `87` | PASS |
+| `Audio.setVoicePitchBend` | Audio.setVoicePitchBend.beforeUpdate | `1.000000` | `1.000000` | PASS |
+| `Audio.setVoicePitchBend` | Audio.setVoicePitchBend.afterUpdate | `2.000000` | `2.000000` | PASS |
+| `Audio.loadSoundSlicker` | Audio.loadSoundSlicker.ready | `1` | `1` | PASS |
 | `Audio.spawnSoundSlicker` | Audio.spawnSoundSlicker.positive | `1` | `1` | PASS |
 | `Audio.getNumDiracDSPsUsed` | Audio.getNumDiracDSPsUsed.spawned | `1` | `1` | PASS |
 | `Audio.getNumDiracDSPChannelsUsed` | Audio.getNumDiracDSPChannelsUsed.spawned | `1` | `1` | PASS |

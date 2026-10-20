@@ -18,6 +18,7 @@ from run import ROOT, percent, run_script
 
 HERE = Path(__file__).resolve().parent
 SOUND = Path("Platformer/sounds/fx/button-high.wav")
+STREAM_SOUND = Path("Platformer/levels/gamescom_master_8.wav")
 REPORT = ROOT / "AUDIO_TEST_REPORT.md"
 
 
@@ -85,6 +86,12 @@ def main():
             target = root / SOUND
             target.parent.mkdir(parents=True)
             shutil.copyfile(source, target)
+            stream_source = args.game_data.expanduser().resolve() / STREAM_SOUND
+            if not stream_source.is_file():
+                parser.error(f"stream sample missing: {stream_source}")
+            stream_target = root / STREAM_SOUND
+            stream_target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(stream_source, stream_target)
             for stem in ("voice", "voice_controls", "slicker", "voice_lifetime"):
                 shutil.copyfile(HERE / f"{stem}.gm", root / f"{stem}.gm")
                 section_rows, section_problems = compare_section(

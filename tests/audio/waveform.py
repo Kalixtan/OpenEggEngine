@@ -189,11 +189,15 @@ def compare(target, cases, report):
                 correlation = 0.0
             else:
                 if shift > 0:
-                    b = np.pad(b, (shift, 0))[:len(a)]
-                    local = np.pad(local, ((shift, 0), (0, 0)))[:len(retail)]
+                    a = a[shift:]
+                    b = b[:-shift]
+                    retail = retail[shift:]
+                    local = local[:-shift]
                 elif shift < 0:
-                    b = np.pad(b[-shift:], (0, -shift))
-                    local = np.pad(local[-shift:], ((0, -shift), (0, 0)))
+                    a = a[:shift]
+                    b = b[-shift:]
+                    retail = retail[:shift]
+                    local = local[-shift:]
                 correlation = float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
         rms = lambda x: float(np.sqrt(np.mean(x * x)))
         def ratio(reference, actual):
