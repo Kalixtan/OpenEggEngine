@@ -166,7 +166,6 @@ public:
 private:
     gmMachine& m_machine;
     std::vector<Process> m_processes;
-    int m_nextId = 1;
     // Incremented immediately after each retail-style operation-queue drain.
     // CreateProcess assigns the following generation, so creation before a
     // drain becomes eligible during that frame and creation during a frame

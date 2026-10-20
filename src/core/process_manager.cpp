@@ -14,6 +14,7 @@
 #include "../render/draw_context.h"
 #include "../render/renderer.h"
 #include "engine_context.h"
+#include "retail_object_id.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -138,7 +139,7 @@ int ProcessManager::CreateProcess(const std::string& a_name) {
         return -1;
     }
 
-    int id = m_nextId++;
+    int id = static_cast<int>(AllocateRetailObjectId());
     Process proc;
     proc.id = id;
     proc.name = a_name;
@@ -273,7 +274,7 @@ void ProcessManager::DrainOperationQueue() {
             ResetProcessList();
             NativeCleanupController controller;
             controller.targetProcessId = op.processId;
-            controller.processFacade.id = m_nextId++;
+            controller.processFacade.id = static_cast<int>(AllocateRetailObjectId());
             controller.processFacade.name = "ParanoidCleanUpProcess";
             controller.processFacade.constructed = true;
             controller.processFacade.initialized = true;
