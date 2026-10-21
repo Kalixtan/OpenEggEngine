@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 19:04 UTC
+Generated: 2026-10-21 19:11 UTC
 
-Matched: **4844/4844 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4852/4852 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **289/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **291/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -72,6 +72,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityCallbacks.noHookEnable | 1 | 1 |
 | entityCallbacks.noHookDisable | 1 | 1 |
 | entityCallbacks.finalOrder | 1 | 1 |
+| entityGC.scheduled | 1 | 1 |
+| entityGC.collectingBeforeTick | 1 | 1 |
+| entityGC.collectingAfterTick | 1 | 1 |
+| entityGC.activeAfterGC | 1 | 1 |
+| entityGC.lookupAfterGC | 1 | 1 |
+| entityGC.deletedBeforeGC | 1 | 1 |
+| entityGC.collectingAfterDeleteGC | 1 | 1 |
+| entityGC.deletedAfterGC | 1 | 1 |
 | process.created | 1 | 1 |
 | process.constructed | 1 | 1 |
 | process.running | 2 | 2 |
@@ -261,7 +269,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.createEntity` | 2 | 2 | PASS |
 | `EntityManager.createEntityAsPlayer` | 0 | 0 | untested |
 | `EntityManager.deleteAllEntities` | 5 | 5 | PASS |
-| `EntityManager.flush` | 13 | 13 | PASS |
+| `EntityManager.flush` | 14 | 14 | PASS |
 | `EntityManager.getAllEntities` | 11 | 11 | PASS |
 | `EntityManager.getAllManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllNonManualEntities` | 1 | 1 | PASS |
@@ -270,7 +278,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.getDummyEntity` | 1 | 1 | PASS |
 | `EntityManager.getEntitiesNear` | 7 | 7 | PASS |
 | `EntityManager.getEntitiesRoughlyWithin` | 2 | 2 | PASS |
-| `EntityManager.getEntity` | 4 | 4 | PASS |
+| `EntityManager.getEntity` | 5 | 5 | PASS |
 | `EntityManager.getEntityFromUID` | 2 | 2 | PASS |
 | `EntityManager.getEntityPerfCost` | 3 | 3 | PASS |
 | `EntityManager.getEntityPerfMaxCost` | 1 | 1 | PASS |
@@ -280,9 +288,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.getNumPlayers` | 1 | 1 | PASS |
 | `EntityManager.getRandomEntity` | 1 | 1 | PASS |
 | `EntityManager.getRandomPlayer` | 1 | 1 | PASS |
-| `EntityManager.isEntityIDValid` | 47 | 47 | PASS |
+| `EntityManager.isEntityIDValid` | 49 | 49 | PASS |
 | `EntityManager.setEntityPerfCost` | 2 | 2 | PASS |
 | `EntityManager.setEntityPerfMaxCost` | 1 | 1 | PASS |
+| `GameMonkeyScript.clean` | 1 | 1 | PASS |
+| `GameMonkeyScript.isCollectingGarbage` | 3 | 3 | PASS |
 | `GameSystem.TemporaryStorageCopy` | 0 | 0 | untested |
 | `GameSystem.TemporaryStoragePaste` | 0 | 0 | untested |
 | `GameSystem.debug_isStopped` | 0 | 0 | untested |
@@ -5435,6 +5445,14 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.onEnable` | entityCallbacks.noHookEnable | `1` | `1` | PASS |
 | `Entity.onDisable` | entityCallbacks.noHookDisable | `1` | `1` | PASS |
 | `Entity.onEnable` | entityCallbacks.finalOrder | `EED` | `EED` | PASS |
+| `GameMonkeyScript.clean` | entityGC.scheduled | `1` | `1` | PASS |
+| `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingBeforeTick | `1` | `1` | PASS |
+| `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterTick | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityGC.activeAfterGC | `1` | `1` | PASS |
+| `EntityManager.getEntity` | entityGC.lookupAfterGC | `1` | `1` | PASS |
+| `EntityManager.flush` | entityGC.deletedBeforeGC | `1` | `1` | PASS |
+| `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterDeleteGC | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityGC.deletedAfterGC | `1` | `1` | PASS |
 | `GameSystem.runProcess` | process.created | `1` | `1` | PASS |
 | `GameSystem.runProcess` | process.constructed | `1` | `1` | PASS |
 | `GameSystem.isProcessRunning` | process.running | `1` | `1` | PASS |

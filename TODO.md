@@ -52,7 +52,9 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 - [ ] Verify load/unload order, callbacks, object retention, and cleanup during
       scene transitions.
 - [ ] Compare entity iterators, filters, and mutation during iteration.
-- [ ] Verify native object identity and garbage-collection behavior.
+- [ ] Verify native object identity and garbage collection. Active-entity
+      retention and post-delete ID invalidation match in 8 probe readings;
+      direct object reclamation remains unobserved.
 
 ## Audio and sequencing
 

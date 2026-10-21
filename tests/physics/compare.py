@@ -66,6 +66,10 @@ ENTITY_CALLBACKS_PLAN = HERE / "entity_callbacks-plan.json"
 ENTITY_CALLBACKS_BASELINE = HERE / "entity_callbacks-retail.tsv"
 ENTITY_CALLBACKS_SUPPORT = (HERE / "EntityCallbackProbe.gm",
                             HERE / "EntityCallbackNoHooks.gm")
+ENTITY_GC = HERE / "entity_gc.gm"
+ENTITY_GC_PLAN = HERE / "entity_gc-plan.json"
+ENTITY_GC_BASELINE = HERE / "entity_gc-retail.tsv"
+ENTITY_GC_SUPPORT = HERE / "EntityGCProbe.gm"
 PROCESS_ORDER = HERE / "process_order.gm"
 PROCESS_ORDER_PLAN = HERE / "process_order-plan.json"
 PROCESS_ORDER_BASELINE = HERE / "process_order-retail.tsv"
@@ -98,7 +102,8 @@ SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "EntityManager.getAllPlayerEntitiesRandomly", "EntityManager.getRandomEntity",
            "EntityManager.getRandomPlayer", "EntityManager.getEntitiesNear",
            "EntityManager.getEntitiesRoughlyWithin", "ALARM.setIntervalAndHardReset",
-           "Global.TRIANGLELFO"}
+           "Global.TRIANGLELFO", "GameMonkeyScript.clean",
+           "GameMonkeyScript.isCollectingGarbage"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
@@ -398,6 +403,16 @@ ENTITY_CALLBACK_FIELDS = {
     "noHookDisable": "Entity.onDisable",
     "finalOrder": "Entity.onEnable",
 }
+ENTITY_GC_FIELDS = {
+    "scheduled": "GameMonkeyScript.clean",
+    "collectingBeforeTick": "GameMonkeyScript.isCollectingGarbage",
+    "collectingAfterTick": "GameMonkeyScript.isCollectingGarbage",
+    "activeAfterGC": "EntityManager.isEntityIDValid",
+    "lookupAfterGC": "EntityManager.getEntity",
+    "deletedBeforeGC": "EntityManager.flush",
+    "collectingAfterDeleteGC": "GameMonkeyScript.isCollectingGarbage",
+    "deletedAfterGC": "EntityManager.isEntityIDValid",
+}
 BODY_CONTROL_FIELDS = {
     "position": "physicsBody.setPos", "velocity": "physicsBody.setVel",
     "speed": "physicsBody.getSpeed", "setSpeed": "physicsBody.setSpeed",
@@ -508,6 +523,11 @@ def owner(name, names):
         function = ENTITY_CALLBACK_FIELDS[name[len("entityCallbacks."):]]
         if function not in names:
             raise ValueError(f"unknown entity callback function: {function}")
+        return function
+    if name.startswith("entityGC."):
+        function = ENTITY_GC_FIELDS[name[len("entityGC."):]]
+        if function not in names:
+            raise ValueError(f"unknown entity GC function: {function}")
         return function
     if name.startswith("bodyCtl."):
         function = BODY_CONTROL_FIELDS[name[len("bodyCtl."):]]
@@ -627,6 +647,8 @@ def main():
                                            (ENTITY_CALLBACKS, ENTITY_CALLBACKS_BASELINE,
                                             ENTITY_CALLBACKS_PLAN,
                                             ENTITY_CALLBACKS_SUPPORT),
+                                           (ENTITY_GC, ENTITY_GC_BASELINE,
+                                            ENTITY_GC_PLAN, (ENTITY_GC_SUPPORT,)),
                                            (PROCESS_ORDER, PROCESS_ORDER_BASELINE,
                                             PROCESS_ORDER_PLAN, (PROCESS_ORDER_SUPPORT,)),
                                            (PROCESS_PAUSE, PROCESS_PAUSE_BASELINE,
@@ -687,7 +709,7 @@ def main():
                                 "entityMgr.", "entityQ.", "query.",
                                 "ray.", "reentry.", "joint.", "raymove.",
                                 "bodyCtl.", "process.", "processPause.",
-                                "entityCallbacks.")):
+                                "entityCallbacks.", "entityGC.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

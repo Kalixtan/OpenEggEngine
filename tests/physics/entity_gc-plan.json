@@ -1,0 +1,15 @@
+{
+  "prefix": "entityGC",
+  "frames": 3,
+  "scenes": {},
+  "extra": [
+    "entityGC.scheduled",
+    "entityGC.collectingBeforeTick",
+    "entityGC.collectingAfterTick",
+    "entityGC.activeAfterGC",
+    "entityGC.lookupAfterGC",
+    "entityGC.deletedBeforeGC",
+    "entityGC.collectingAfterDeleteGC",
+    "entityGC.deletedAfterGC"
+  ]
+}

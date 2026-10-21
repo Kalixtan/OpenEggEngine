@@ -1,0 +1,10 @@
+# probe-sha256 59eb910f0e8a96945b7b6456ca40aad55422f6bb0bed2b139e1478b73dbe92ce
+# support-sha256 EntityGCProbe.gm fe3f1ce0f8f2e345fcac79f31812d884f455eaeab391705cc7923877f651824d
+entityGC.activeAfterGC	1
+entityGC.collectingAfterDeleteGC	0
+entityGC.collectingAfterTick	0
+entityGC.collectingBeforeTick	1
+entityGC.deletedAfterGC	1
+entityGC.deletedBeforeGC	1
+entityGC.lookupAfterGC	1
+entityGC.scheduled	1
