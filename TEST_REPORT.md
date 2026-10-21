@@ -1,6 +1,6 @@
 # Sequencer test report
 
-Generated: 2026-10-20 20:42 UTC
+Generated: 2026-10-21 16:09 UTC
 Retail: `tests/sequencer/retail-baseline.tsv` and `tests/sequencer/edge-baselines/` | OpenEgg: `tests/_results/sequencer/`
 
 Matched: **188/188 declared readings (100%)** | Known gaps: **0** | Failures: **0** | Uncaptured: **0** | Edge groups run: **20** | Clock samples: **4**
@@ -316,6 +316,17 @@ Documented sequencer APIs missing from bindings: **0**.
 | `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.p3 | `0` | `0` | PASS |
 | `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.p4 | `1` | `1` | PASS |
 | `Sequencer.setNumStepsPerPattern` | edge.wrap.pos.p8 | `2` | `2` | PASS |
+
+## Volatile readings (excluded from score)
+
+These samples vary with runtime timing and are retained for review.
+
+| Reading | OpenEgg |
+| --- | --- |
+| `Sequencer.getMSTillNextStep.raw` | `45.833336` |
+| `Sequencer.getMSTillNextStep16.raw` | `91.666672` |
+| `Sequencer.getMSTillNextStepAccurate.raw` | `45.833336` |
+| `edge.time.raw` | `45.833336` |
 
 Retail crash warning: moving the last of multiple triggers faulted on PS3. See `tests/sequencer/retail-crashes.md`.
 

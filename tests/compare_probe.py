@@ -21,6 +21,7 @@ PLANNED = ROOT / "tests" / "sequencer" / "planned.json"
 EDGE_BASELINES = ROOT / "tests" / "sequencer" / "edge-baselines"
 READING = re.compile(r"OEPV?__([A-Za-z0-9_.]+)__(.*?)\.gm")
 DECLARED = re.compile(r'(?:SeqProbe|Probe)\("([A-Za-z0-9_.]+)"')
+VOLATILE_DECLARED = re.compile(r'(?:SeqProbeVolatile|ProbeVolatile)\("([A-Za-z0-9_.]+)"')
 KNOWN_GAPS = {}
 CLOCK_DEPENDENT = {
     "edge.bpm.negativeTickAfter",
@@ -149,6 +150,7 @@ def run_edge_probes(engine, planned):
     log_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     problems = []
+    volatile_samples = []
     for probe in probes:
         baseline = EDGE_BASELINES / f"{probe.stem}.tsv"
         check_baseline_source(baseline, probe)
@@ -157,7 +159,9 @@ def run_edge_probes(engine, planned):
             engine, probe.parent, probe.name, probe_dir / "smoke.harness",
             15, log_dir, strict="survey")
         local, local_duplicates = read_readings(local_path)
-        expected = DECLARED.findall(probe.read_text())
+        source = probe.read_text()
+        expected = DECLARED.findall(source)
+        volatile = set(VOLATILE_DECLARED.findall(source))
         if len(expected) != len(set(expected)):
             raise ValueError(f"{probe}: duplicate declared reading")
         for name in expected:
@@ -176,17 +180,18 @@ def run_edge_probes(engine, planned):
                          "retail": a, "local": b, "status": status})
         if process_error:
             problems.append(f"{probe.name}: {process_error}")
+        volatile_samples.extend((name, local.get(name)) for name in sorted(volatile))
         for origin, readings, duplicates in (("retail", retail, retail_duplicates),
                                              ("OpenEgg", local, local_duplicates)):
-            for name in sorted(set(readings) - set(expected)):
+            for name in sorted(set(readings) - set(expected) - volatile):
                 problems.append(f"Unexpected {origin} reading in {probe.name}: {name}")
-            for name in sorted(duplicates):
+            for name in sorted(duplicates - volatile):
                 problems.append(f"Duplicate {origin} reading in {probe.name}: {name}")
-    return rows, problems
+    return rows, problems, volatile_samples
 
 
 def make_report(rows, inventory, retail_path, local_path, problems, assertions,
-                planned, missing_api):
+                planned, missing_api, volatile_samples):
     matched = sum(row["status"] == "PASS" for row in rows)
     total = sum(row["status"] != "CLOCK" for row in rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
@@ -276,6 +281,12 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
                      f"`{row['retail'] if row['retail'] is not None else '—'}` | "
                      f"`{row['local'] if row['local'] is not None else '—'}` | "
                      f"{row['status']} |")
+    if volatile_samples:
+        lines.extend(["", "## Volatile readings (excluded from score)", "",
+                      "These samples vary with runtime timing and are retained for review.", "",
+                      "| Reading | OpenEgg |", "| --- | --- |"])
+        for name, value in volatile_samples:
+            lines.append(f"| `{name}` | `{value if value is not None else '—'}` |")
     if gaps:
         lines.extend(["", "## Known gaps", ""])
         for name, reason in KNOWN_GAPS.items():
@@ -327,6 +338,7 @@ def main():
             raise ValueError(f"{case['name']}: no edge reading prefix")
     missing_api = sorted(documented_sequencer_api() - set(inventory))
     expected = DECLARED.findall(PROBE.read_text())
+    volatile = set(VOLATILE_DECLARED.findall(PROBE.read_text()))
     if len(expected) != len(set(expected)):
         raise ValueError("duplicate SeqProbe case names")
     process_error = ""
@@ -366,20 +378,23 @@ def main():
     problems = []
     if process_error:
         problems.append(f"OpenEgg probe run: {process_error}")
+    volatile_samples = [(name, local.get(name)) for name in sorted(volatile)]
     for origin, readings, duplicates in (("retail", retail, retail_duplicates),
                                          ("OpenEgg", local, local_duplicates)):
-        for name in sorted(set(readings) - set(expected)):
+        for name in sorted(set(readings) - set(expected) - volatile):
             problems.append(f"Unexpected {origin} reading: {name}")
-        for name in sorted(duplicates):
+        for name in sorted(duplicates - volatile):
             problems.append(f"Duplicate {origin} reading: {name}")
-    edge_rows, edge_problems = run_edge_probes(args.engine.resolve(), planned)
+    edge_rows, edge_problems, edge_volatile = run_edge_probes(args.engine.resolve(), planned)
     rows.extend(edge_rows)
+    volatile_samples.extend(edge_volatile)
     problems.extend(edge_problems)
     for case in planned:
         if not any(row["case"] == case["name"] for row in edge_rows):
             problems.append(f"No paired readings for edge case: {case['name']}")
     args.report.write_text(make_report(rows, inventory, retail_path, local_path,
-                                       problems, assertions, planned, missing_api))
+                                       problems, assertions, planned, missing_api,
+                                       volatile_samples))
     passed = sum(row["status"] == "PASS" for row in rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
     failures = sum(row["status"] in ("FAIL", "NO RETAIL") for row in rows)
