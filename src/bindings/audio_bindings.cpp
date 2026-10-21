@@ -47,6 +47,7 @@ namespace {
 constexpr int kOutputRate = 48000;
 struct DecodedSound {
     std::vector<float> stereo;
+    int sourceChannels = 2;
 };
 struct DeferredEffectCleanup {
     int voiceId = 0;
@@ -442,11 +443,7 @@ double PlaybackAdvanceMs(const VoiceState& a_voice, double a_elapsedMs) {
            (a_elapsedMs - rampMs) * a_voice.targetSpeed;
 }
 
-// Keep the real-time mixer inexpensive. The prior windowed-sinc implementation
-// did sixteen filtered reads per output frame (two channels x eight taps) for
-// every active voice; on dense music passages this can overrun the frame
-// budget, starve SDL's queue, and present as loud crackle plus game slowdown.
-// This is the same linear interpolation used before that filter change.
+// Short windowed-sinc filter limits aliasing when playback rate changes.
 using ResampleReader = float (*)(const void*, size_t, size_t);
 float ReadStereoFloat(const void* a_samples, size_t a_frame, size_t a_channel) {
     const auto* samples = static_cast<const float*>(a_samples);
@@ -551,6 +548,7 @@ std::shared_ptr<DecodedSound> BuildTimeStretchedSample(
     const size_t maxSourceStart = sourceFrames - window;
 
     auto stretched = std::make_shared<DecodedSound>();
+    stretched->sourceChannels = a_source->sourceChannels;
     stretched->stereo.assign(outputFrames * 2, 0.0f);
     const size_t firstCopy = std::min(window, outputFrames);
     std::copy_n(a_source->stereo.begin(), firstCopy * 2,
@@ -748,7 +746,8 @@ int SoundLengthMs(const std::string& a_path) {
     return cache.emplace(a_path, ReadSoundLengthMs(a_path)).first->second;
 }
 
-bool DecodeVagFile(const std::string& a_filePath, std::vector<float>& a_stereo) {
+bool DecodeVagFile(const std::string& a_filePath, std::vector<float>& a_stereo,
+                   int& a_sourceChannels) {
     std::ifstream stream(std::filesystem::u8path(a_filePath), std::ios::binary);
     if (!stream) return false;
     std::array<unsigned char, 48> header{};
@@ -767,6 +766,7 @@ bool DecodeVagFile(const std::string& a_filePath, std::vector<float>& a_stereo) 
     const size_t blockCount = payloadBytes / 16;
     const size_t frameCount = blockCount * 28;
     if (!frameCount || frameCount > std::numeric_limits<size_t>::max() / 2) return false;
+    a_sourceChannels = 1;
     std::vector<unsigned char> payload(payloadBytes);
     if (!stream.read(reinterpret_cast<char*>(payload.data()), payload.size())) return false;
 
@@ -831,7 +831,8 @@ bool DecodeVagFile(const std::string& a_filePath, std::vector<float>& a_stereo) 
     return true;
 }
 
-bool DecodeMp3File(const std::string& a_filePath, std::vector<float>& a_stereo) {
+bool DecodeMp3File(const std::string& a_filePath, std::vector<float>& a_stereo,
+                   int& a_sourceChannels) {
     mp3dec_t decoder{};
     mp3dec_init(&decoder);
     mp3dec_file_info_t info{};
@@ -856,6 +857,7 @@ bool DecodeMp3File(const std::string& a_filePath, std::vector<float>& a_stereo) 
         return false;
     }
 
+    a_sourceChannels = info.channels;
     a_stereo.resize(outputFrames * 2);
     const Pcm16Source source{
         static_cast<const int16_t*>(info.buffer), static_cast<size_t>(info.channels)};
@@ -897,15 +899,18 @@ std::shared_ptr<DecodedSound> DecodeSound(const std::string& a_path) {
     const bool isFsb = a_path.size() >= 4 &&
         a_path.compare(a_path.size() - 4, 4, ".fsb") == 0;
     if (isVag) {
-        if (!DecodeVagFile(*resolved, sample->stereo)) return {};
+        if (!DecodeVagFile(*resolved, sample->stereo, sample->sourceChannels))
+            return {};
     } else if (isMp3) {
-        if (!DecodeMp3File(*resolved, sample->stereo)) return {};
+        if (!DecodeMp3File(*resolved, sample->stereo, sample->sourceChannels))
+            return {};
     } else if (isFsb) {
         // Retail has a distinct FSB loader path; do not pass an unsupported
         // bank to the WAV decoder and accidentally treat it as a default sample.
         return {};
-    } else if (!g_audioFrontend ||
-               !g_audioFrontend->DecodeWave(*resolved, kOutputRate, sample->stereo)) {
+    } else if (!g_audioFrontend || !g_audioFrontend->DecodeWave(
+                   *resolved, kOutputRate, sample->stereo,
+                   sample->sourceChannels)) {
         return {};
     }
     g_decodedSounds[a_path] = sample;
@@ -944,8 +949,11 @@ void QueueMixedVoices(float a_deltaMs) {
         const float rateGain = voice.speed > 0.0f
             ? static_cast<float>(std::pow(voice.speed, -0.047)) : 1.0f;
         const float panAngle = (pan + 1.0f) * 0.7853981633974483f;
-        const float leftPan = std::cos(panAngle);
-        const float rightPan = std::sin(panAngle);
+        const bool monoSource = playbackSample->sourceChannels == 1;
+        const float leftPan = monoSource ? std::cos(panAngle)
+            : (pan > 0.0f ? 1.0f - pan : 1.0f);
+        const float rightPan = monoSource ? std::sin(panAngle)
+            : (pan < 0.0f ? 1.0f + pan : 1.0f);
         for (int frame = 0; frame < frameCount; ++frame) {
             const double frameMs = (double)frame * 1000.0 / kOutputRate;
             if (voice.stopping && voice.fadeDurationMs > 0.0 &&
@@ -1523,8 +1531,7 @@ int GM_CDECL gmf_setVoiceGateTime(gmThread* a_thread) {
     const float gateMs = static_cast<float>(gateValue);
     if (VoiceState* v = FindVoice(voice)) {
         v->gateDurationMs = gateMs;
-        // Retail's manager alarm pass runs before script updates. Calls made
-        // by the current script tick therefore first advance on next pass.
+        // The retail timer begins on the manager pass after script setup.
         v->gateSetAfterLastAudioUpdate = true;
     }
     return GM_OK;
@@ -2640,15 +2647,11 @@ void AdvanceAudioVoices(float a_deltaMs) {
                 if (voice.gateElapsedMs >= voice.gateDurationMs) {
                     StartVoiceFade(voice, 60.0);
                     voice.gateElapsedMs = 0.0;
-                    // Retail skips the remainder of this voice update after
-                    // the gate expires; fade starts on next manager pass.
                     gateTriggered = true;
                 }
             }
         }
         if (gateTriggered) {
-            // Retail branches to the per-voice loop tail after scheduling
-            // the gate stop, so playback/ramp/fade state advances next tick.
             ++it;
             continue;
         }

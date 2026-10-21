@@ -41,7 +41,8 @@ public:
     void StartTextInput() override { SDL_StartTextInput(); }
     void StopTextInput() override { SDL_StopTextInput(); }
     bool DecodeWave(const std::string& path, int outputRate,
-                    std::vector<float>& stereoSamples) override;
+                    std::vector<float>& stereoSamples,
+                    int& sourceChannels) override;
     bool StartAudioOutput(int sampleRate) override;
     void StopAudioOutput() override;
     size_t QueuedAudioBytes() override;

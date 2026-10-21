@@ -351,7 +351,8 @@ void SdlFrontend::SetActiveControllerSoftRumble(bool enabled) {
 }
 
 bool SdlFrontend::DecodeWave(const std::string& path, int outputRate,
-                             std::vector<float>& stereoSamples) {
+                             std::vector<float>& stereoSamples,
+                             int& sourceChannels) {
     stereoSamples.clear();
     SDL_AudioSpec source{};
     Uint8* bytes = nullptr;
@@ -362,6 +363,7 @@ bool SdlFrontend::DecodeWave(const std::string& path, int outputRate,
         SDL_FreeWAV(bytes);
         return false;
     }
+    sourceChannels = source.channels;
     SDL_AudioCVT cvt{};
     if (SDL_BuildAudioCVT(&cvt, source.format, source.channels, source.freq,
                           AUDIO_F32SYS, 2, outputRate) < 0) {

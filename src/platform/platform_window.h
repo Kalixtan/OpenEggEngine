@@ -102,7 +102,8 @@ public:
     virtual void StartTextInput() = 0;
     virtual void StopTextInput() = 0;
     virtual bool DecodeWave(const std::string& path, int outputRate,
-                           std::vector<float>& stereoSamples) = 0;
+                           std::vector<float>& stereoSamples,
+                           int& sourceChannels) = 0;
     virtual bool StartAudioOutput(int sampleRate) = 0;
     virtual void StopAudioOutput() = 0;
     virtual size_t QueuedAudioBytes() = 0;
