@@ -1,6 +1,6 @@
 # Audio test report
 
-Generated: 2026-10-21 21:04 UTC
+Generated: 2026-10-21 21:19 UTC
 
 Matched: **128/132 (97%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 

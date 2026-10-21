@@ -929,20 +929,16 @@ void QueueMixedVoices(float a_deltaMs) {
                 voice.fadeRemainingMs <= frameMs) continue;
             if (voice.stopping && voice.stopRemainingMs > 0.0 &&
                 voice.stopRemainingMs <= frameMs) continue;
-            float fade = voice.stopping ? voice.fadeGain : 1.0f;
-            if (voice.stopping && voice.fadeDurationMs > 0.0) {
-                fade = static_cast<float>(std::clamp(
+            // Retail updates backend gain once per audio-manager tick. Use
+            // that tick's resulting gain for the whole queued block instead
+            // of applying a smooth per-sample ramp. Gate expiry is handled
+            // after this block by AdvanceAudioVoices, then fades next tick.
+            const float fade = voice.stopping && voice.fadeDurationMs > 0.0
+                ? static_cast<float>(std::clamp(
                     static_cast<double>(voice.fadeGain) -
-                        frameMs / voice.fadeDurationMs,
-                    0.0, 1.0));
-            }
-            if (!voice.stopping && voice.gateDurationMs > 0.0 &&
-                voice.gateElapsedMs + frameMs >= voice.gateDurationMs) {
-                const double sinceGateMs = voice.gateElapsedMs + frameMs -
-                                           voice.gateDurationMs;
-                fade = std::min(fade, (float)std::clamp(
-                    (60.0 - sinceGateMs) / 60.0, 0.0, 1.0));
-            }
+                        a_deltaMs / voice.fadeDurationMs,
+                    0.0, 1.0))
+                : voice.stopping ? voice.fadeGain : 1.0f;
             const double positionMs = voice.positionMs +
                 PlaybackAdvanceMs(voice, frameMs);
             double sourceFrame = positionMs * kOutputRate / 1000.0;

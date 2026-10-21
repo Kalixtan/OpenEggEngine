@@ -9,10 +9,10 @@ Correlation uses aligned samples; RMS ratio is OpenEgg divided by retail.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | speed_half | 0.9 | 0.994 | 0.964 | 0.964 | 0.964 | FAIL |
 | speed_double | -2.0 | 0.986 | 1.044 | 1.044 | 1.044 | FAIL |
-| fade_40 | 0.4 | 0.976 | 1.497 | 1.497 | 1.497 | FAIL |
+| fade_40 | 0.4 | 0.991 | 0.999 | 0.999 | 0.999 | PASS |
 | loop_one | -2.2 | 0.776 | 0.964 | 0.964 | 0.964 | FAIL |
 | pause_resume | -2.9 | 0.993 | 0.990 | 0.990 | 0.990 | PASS |
 | pan_left | -7.4 | 0.996 | 1.352 | 1.352 | silent | FAIL |
 | pan_right | -4.9 | 0.993 | 0.990 | silent | 0.990 | PASS |
 
-Matched: **2/7**. Thresholds: correlation ≥0.99 and RMS within 2%. This checks a few short sounds, not full audio parity.
+Matched: **3/7**. Thresholds: correlation ≥0.99 and RMS within 2%. This checks a few short sounds, not full audio parity.
