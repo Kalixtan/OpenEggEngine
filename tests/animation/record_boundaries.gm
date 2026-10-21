@@ -1,0 +1,25 @@
+global AnimProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            local anim=AnimationModule.loadAnimation(
+                "PS3_Platformer/gameAssets/goalTriggered.fsa");
+            anim.finishLoad();
+            AnimProbe("Animation.records.images",anim.getNumImages());
+            AnimProbe("Animation.records.frames",anim.getNumFrames());
+            anim.setCurrentFrame(0);
+            AnimProbe("Animation.records.first",anim.getCurrentFrame());
+            anim.setCurrentFrame(9);
+            AnimProbe("Animation.records.middle",anim.getCurrentFrame());
+            anim.setCurrentFrame(18);
+            AnimProbe("Animation.records.last",anim.getCurrentFrame());
+            anim.setCurrentFrame(19);
+            AnimProbe("Animation.records.clamped",anim.getCurrentFrame());
+            AnimationModule.unloadAnimation(anim);
+        });
+};

@@ -1,0 +1,46 @@
+global AnimProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("AnimationProbeEntity.gm");
+global AnimationShape=PHYSICSSHAPECOLLECTIONDEF();
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                GameSystem.setIsShouldUpdateEntities(0);
+                this.entity=EntityManager.createEntity("AnimationProbeEntity");
+                this.physics=this.entity.getPhysicsData();
+                this.body=this.physics.getBody(this.physics.createBody());
+                AnimationShape.reset();
+                AnimationShape.setMass(1);
+                AnimationShape.addCircle(1,0,0);
+                this.body.appendShapes(AnimationShape);
+                this.entity.setIsEnabled(1);
+                this.animation=this.entity.loadAnimation(
+                    "Platformer/gameAssets/checkpointTriggeredInactive.fsa");
+                this.animation.finishLoad();
+                this.animation.setPlayTime(3000);
+                this.animation.play(1);
+                AnimProbe("Animation.entity.enabled.initial",this.entity.isEnabled());
+            }
+            if (this.frame==5) {
+                this.positionAtDisable=this.animation.getPlayPosition();
+                this.entity.setIsEnabled(0);
+                AnimProbe("Animation.entity.enabled.disabled",this.entity.isEnabled());
+            }
+            if (this.frame==10) {
+                this.pausedPosition=this.animation.getPlayPosition();
+                AnimProbe("Animation.entity.disabled.clockStopped",
+                    MATH_ABS(this.pausedPosition-this.positionAtDisable)<0.01);
+                this.entity.setIsEnabled(1);
+                AnimProbe("Animation.entity.enabled.restored",this.entity.isEnabled());
+            }
+            if (this.frame==15) {
+                local resumedPosition=this.animation.getPlayPosition();
+                AnimProbe("Animation.entity.enabled.clockResumed",
+                    resumedPosition>this.pausedPosition);
+                this.entity.unloadAnimation(this.animation);
+            }
+            this.frame+=1;
+        });
+};

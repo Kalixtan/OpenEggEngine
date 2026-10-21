@@ -46,8 +46,9 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 - [x] Add headless probes for FSA loading, playback state, seeking, custom
       sequences, shared resources, and unload. All 39 readings match retail;
       missing-resource handling remains an intentional safety difference.
-- [ ] Verify multi-record FSA resources and negative-index behavior against
-      retail.
+- [x] Check PS3 FSA record bounds, negative frame indices, and entity animation
+      stop/resume. 12 readings match retail; negative indices fault retail and
+      are rejected with a warning in OpenEgg.
 - [ ] Verify load/unload order, callbacks, object retention, and cleanup during
       scene transitions.
 - [ ] Compare entity iterators, filters, and mutation during iteration.

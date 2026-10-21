@@ -1,29 +1,29 @@
 # Animation probes
 
-Run playback checks with extracted game data:
+Run local playback and edge checks with extracted game data:
 
 ```sh
 python3 tests/animation/run.py --game-data /path/to/game_data
+python3 tests/animation/extended.py --game-data /path/to/game_data
 ```
 
-This copies one FSA to a temporary data root. No retail files enter Git. Results
-go to `reports/ANIMATION.md`.
+The probes copy only the needed files to temporary folders. Results go to
+`reports/ANIMATION.md` and `reports/ANIMATION_EXTENDED.md`.
 
-Capture matching readings from RPCS3:
+Refresh the paired retail readings with RPCS3:
 
 ```sh
-python3 tests/capture_retail_probe.py \
-  --main /path/to/installed/game_data/Main.gm \
-  --eboot /path/to/installed/USRDIR/EBOOT.BIN \
-  --probe tests/animation/probe.gm \
-  --baseline tests/animation/retail-baseline.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/USRDIR/EBOOT.BIN --probe tests/animation/record_boundaries.gm \
+  --baseline tests/animation/records-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/USRDIR/EBOOT.BIN --probe tests/animation/entity_clock.gm \
+  --support-file tests/animation/AnimationProbeEntity.gm \
+  --baseline tests/animation/entity-clock-retail.tsv
+python3 tests/animation/capture_negative_frame.py \
+  --main /path/to/game_data/Main.gm --eboot /path/to/USRDIR/EBOOT.BIN
 ```
 
-The retail probe uses the same extracted FSA path and must be run with the
-matching retail game data installed. A capture that produces no complete TTY
-readings is inconclusive; it is not a parity failure.
-
-Missing-resource cases are separate because retail faults when the FSA is
-absent. Capture them on their own with `--probe tests/animation/missing_resource.gm`
-or `--probe tests/animation/entity_missing_resource.gm`. OpenEgg returns an
-empty animation safely and warns; see `retail-crashes.md`.
+The negative-index capture is isolated because retail faults there. See
+`retail-crashes.md` for the observed failure and OpenEgg warning. A failed or
+incomplete capture does not count as a parity mismatch.

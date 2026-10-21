@@ -1,0 +1,7 @@
+# probe-sha256 a8ab47b089f005b1e44522cfd69965852a020962eeb826ebfbd2d929565f5bda
+# support-sha256 AnimationProbeEntity.gm 6d7370eed58ad5b3304ae2498975884df1e68258e82ceb2340f6f99da68bd8a2
+Animation.entity.disabled.clockStopped	1
+Animation.entity.enabled.clockResumed	1
+Animation.entity.enabled.disabled	0
+Animation.entity.enabled.initial	1
+Animation.entity.enabled.restored	1

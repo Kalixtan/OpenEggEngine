@@ -552,7 +552,14 @@ int GM_CDECL gmf_anim_setCurrentFrame(gmThread* a_thread) {
     // A negative index is not handled safely by retail: its signed compare
     // lets it through, then its unsigned loop count walks outside the vector.
     // Fail explicitly instead of reproducing an uncontrolled memory walk.
-    if (frame < 0) return GM_EXCEPTION;
+    if (frame < 0) {
+        std::fprintf(stderr,
+            "WARNING: Animation.setCurrentFrame(%d) would fault retail "
+            "(observed PPU access violation at 0x000b6848 reading 0x%08x); "
+            "OpenEgg rejects the index.\n",
+            frame, static_cast<unsigned>(0x38600004u));
+        return GM_EXCEPTION;
+    }
     const auto& sequence = CustomSequence(a);
     float normalizedPosition = 0.0f;
     for (int i = 0; i < frame; ++i)

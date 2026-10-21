@@ -1,0 +1,19 @@
+global AnimProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            local anim=AnimationModule.loadAnimation(
+                "Platformer/gameAssets/checkpointTriggeredInactive.fsa");
+            anim.finishLoad();
+            AnimProbe("Animation.negativeFrame.started",1);
+            anim.setCurrentFrame(-1);
+            AnimProbe("Animation.negativeFrame.returned",1);
+            AnimProbe("Animation.negativeFrame.value",anim.getCurrentFrame());
+            AnimationModule.unloadAnimation(anim);
+        });
+};
