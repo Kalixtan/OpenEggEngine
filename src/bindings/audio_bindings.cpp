@@ -1000,7 +1000,10 @@ int CreateVoiceState(const std::string& a_path, float a_pan, float a_volume,
 
 int GM_CDECL gmf_loadSound(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
-    if (count != 1 && count != 2) return GM_EXCEPTION;
+    if (count != 1 && count != 2) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
     GM_STRING_PARAM(path, 0, "");
     int mode = 0;
     if (count == 2) {
@@ -1067,7 +1070,10 @@ int GM_CDECL gmf_loadSampleList(gmThread* a_thread) {
 
 int GM_CDECL gmf_playSound(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
-    if (count != 1 && count != 3 && (count < 5 || count > 8)) return GM_EXCEPTION;
+    if (count != 1 && count != 3 && (count < 5 || count > 8)) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
     GM_STRING_PARAM(path, 0, "");
     // The retail 1-argument route supplies gate=0, pan=0, volume=1 from
     // constants at 0x1a870/0x1a874 and note=0x60. The 3-argument route uses
@@ -1210,7 +1216,10 @@ void DispatchRecordedPlaySounds() {
 }
 
 int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
-    if (a_thread->GetNumParams() != 5) return GM_EXCEPTION;
+    if (a_thread->GetNumParams() != 5) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
     GM_STRING_PARAM(path, 0, "");
     const float gateMs = a_thread->ParamFloatOrInt(1, 0.0f);
     const float noteOffset = a_thread->ParamFloatOrInt(2, 0.0f);
@@ -1258,7 +1267,10 @@ int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_playSoundSlicker(gmThread* a_thread) {
-    if (a_thread->GetNumParams() != 4) return GM_EXCEPTION;
+    if (a_thread->GetNumParams() != 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
     const int voiceId = a_thread->Param(0).m_value.m_int;
     const float gateMs = a_thread->ParamFloatOrInt(1, 0.0f);
     const float pan = a_thread->ParamFloatOrInt(2, 0.0f);
@@ -1284,7 +1296,11 @@ int GM_CDECL gmf_playSoundSlicker(gmThread* a_thread) {
 
 int GM_CDECL gmf_playStream(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
-    if (count != 1 && count != 3 && count != 6) return GM_EXCEPTION;
+    if (count != 1 && count != 3 && count != 6) {
+        // The retail wrapper returns integer -1 for every other arity.
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
     std::string path;
     float gate = 0.0f;
     float pan = 0.0f;
