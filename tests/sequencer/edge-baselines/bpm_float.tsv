@@ -1,4 +1,6 @@
-# probe-sha256 d334a8af8904b01f4048d4d29aa47af699e4ca19d655e4fc4985af1c9127d6e9
+# probe-sha256 53d93df86788f25f6f48c5743d99d8a756e3e99644da66a1ca88498b5a5fec74
 edge.bpmFloat.negative	-1
+edge.bpmFloat.negativeFraction	0
 edge.bpmFloat.overflow	2147483647
 edge.bpmFloat.positive	1
+edge.bpmFloat.positiveFraction	0

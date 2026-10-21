@@ -1,0 +1,35 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local source={};
+local word=0;
+for (word=0;word<17;word+=1) { source[word]=0x55555555; }
+source[16]=0xFFFFFFFF;
+local decoded={};
+SEQUENCE_FromTable(source,decoded);
+SeqProbe("edge.packed.oversizedDecodedSize",decoded.size);
+SeqProbe("edge.packed.oversizedLastState",decoded[255]);
+SeqProbe("edge.packed.oversizedIgnoredState",decoded[256]);
+
+local values={}; values.size=513;
+local step=0;
+for (step=0;step<513;step+=1) { values[step]=1; }
+local packed={};
+SEQUENCE_ToTable(values,packed);
+SeqProbe("edge.packed.oversizedSourceLast",values[511]);
+SeqProbe("edge.packed.oversizedLastWord",packed[31]);
+SeqProbe("edge.packed.oversizedIgnoredWord",packed[32]);
+
+local exact={}; exact.size=512;
+for (step=0;step<512;step+=1) { exact[step]=1; }
+local exactPacked={};
+SEQUENCE_ToTable(exact,exactPacked);
+SeqProbe("edge.packed.exactLimitWord",exactPacked[31]);
+local exactPackedAgain={};
+SEQUENCE_ToTable(exact,exactPackedAgain);
+SeqProbe("edge.packed.exactLimitWordRepeat",exactPackedAgain[31]);
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

@@ -21,7 +21,7 @@
     "prefixes": [
       "edge.bpmFloat."
     ],
-    "limit": "NaN is not covered."
+    "limit": "NaN is not covered; fractional truncation edges are captured."
   },
   {
     "name": "Pattern length zero and negative",
@@ -172,9 +172,10 @@
     "note": "Check insertion and deletion while a cursor is held; avoid retail stale-pointer crash.",
     "prefixes": [
       "edge.triggerCursor.",
-      "edge.cursorMove."
+      "edge.cursorMove.",
+      "edge.triggerClear."
     ],
-    "limit": "Insertion and moving a held trigger covered; deletion is not covered."
+    "limit": "Insertion, moving, and clearing after cursor advance are covered. Retail keeps a cleared cursor valid; OpenEgg invalidates it. Single-node deletion is not exposed."
   },
   {
     "name": "Move trigger ordering",
@@ -226,7 +227,7 @@
     "prefixes": [
       "edge.packed."
     ],
-    "limit": "Empty, short, sparse, and float entries; oversized is not covered."
+    "limit": "Empty, short, sparse, float, and oversized inputs are captured; retail's final packed word at 512 steps differs from OpenEgg."
   },
   {
     "name": "Malformed sequence string",
@@ -238,7 +239,7 @@
     "prefixes": [
       "edge.string."
     ],
-    "limit": "Invalid prefix, bad digit, and long text; embedded NUL is not covered."
+    "limit": "Invalid prefix, bad digit, long text, and embedded NUL are captured."
   },
   {
     "name": "Object ID allocation order",

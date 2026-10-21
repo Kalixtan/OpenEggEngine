@@ -59,6 +59,11 @@ ASSOCIATED = {
     "SequencerTriggerList.get.resetStep": ["SequencerTriggerList.reset"],
 }
 EDGE_FUNCTIONS = {
+    "edge.packed.oversizedLastWord": ["SEQUENCE_ToTable"],
+    "edge.packed.oversizedIgnoredWord": ["SEQUENCE_ToTable"],
+    "edge.packed.oversizedSourceLast": ["SEQUENCE_ToTable"],
+    "edge.packed.exactLimitWord": ["SEQUENCE_ToTable"],
+    "edge.packed.exactLimitWordRepeat": ["SEQUENCE_ToTable"],
     "edge.bpm.zeroTickInitial": ["Sequencer.getCurrentStep", "Sequencer.setBPM"],
     "edge.bpm.negativeTickInitial": ["Sequencer.getCurrentStep", "Sequencer.setBPM"],
     "edge.bpm.zeroTickAfter": ["Sequencer.getCurrentStep", "Sequencer.setBPM"],

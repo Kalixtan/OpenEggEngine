@@ -1,0 +1,14 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local decoded={};
+local result=SEQUENCE_FromString("z12\0xxx",decoded);
+SeqProbe("edge.string.nulResult",result!=null);
+SeqProbe("edge.string.nulSize",decoded.size);
+SeqProbe("edge.string.nulLastValue",decoded[1]);
+SeqProbe("edge.string.nulSuffixIgnored",decoded[2]);
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

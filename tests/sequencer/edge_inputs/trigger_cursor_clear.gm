@@ -1,0 +1,23 @@
+global SeqProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local sequence=SEQUENCER();
+local action=SEQUENCERACTION();
+sequence.setTrigger(0,action,0);
+sequence.setTrigger(1,action,0);
+sequence.setTrigger(2,action,0);
+local cursor=sequence.getAllTriggers();
+cursor.goToNext();
+cursor.goToNext();
+SeqProbe("edge.triggerClear.currentStep",cursor.get().getStep());
+sequence.clearTriggers();
+SeqProbe("edge.triggerClear.size",cursor.size());
+SeqProbe("edge.triggerClear.valid",cursor.isValid());
+SeqProbe("edge.triggerClear.getNull",cursor.get()==null);
+cursor.reset();
+SeqProbe("edge.triggerClear.resetInvalid",!cursor.isValid());
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

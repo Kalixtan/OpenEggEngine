@@ -2,6 +2,8 @@ global SeqProbe=function(name,value) {
     GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
 };
 local s=SEQUENCER();
+s.setBPM(0.9); SeqProbe("edge.bpmFloat.positiveFraction",s.getBPM());
+s.setBPM(-0.9); SeqProbe("edge.bpmFloat.negativeFraction",s.getBPM());
 s.setBPM(1.9); SeqProbe("edge.bpmFloat.positive",s.getBPM());
 s.setBPM(-1.9); SeqProbe("edge.bpmFloat.negative",s.getBPM());
 s.setBPM(2147483648.0); SeqProbe("edge.bpmFloat.overflow",s.getBPM());

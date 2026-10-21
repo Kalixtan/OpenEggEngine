@@ -1,13 +1,13 @@
 # Sequencer test report
 
-Generated: 2026-10-21 16:09 UTC
+Generated: 2026-10-21 21:03 UTC
 Retail: `tests/sequencer/retail-baseline.tsv` and `tests/sequencer/edge-baselines/` | OpenEgg: `tests/_results/sequencer/`
 
-Matched: **188/188 declared readings (100%)** | Known gaps: **0** | Failures: **0** | Uncaptured: **0** | Edge groups run: **20** | Clock samples: **4**
+Matched: **202/207 declared readings (98%)** | Known gaps: **0** | Failures: **5** | Uncaptured: **0** | Edge groups run: **20** | Clock samples: **4**
 
 Local assertions: **49/49 passed (100%)**
 
-Verdict: **all captured readings match**. Coverage is limited to the readings below.
+Verdict: **paired run incomplete or mismatched**. Coverage is limited to the readings below.
 
 One row is one exact string comparison from the same probe file on both engines. A missing reading or duplicate fails the run. Scores measure tested cases only; they are not total implementation progress. Integration checks can count for several functions. Clock samples stay visible but outside the score. Retail's sequencer reads elapsed wall time, so frame-count samples vary between runs.
 
@@ -36,13 +36,13 @@ One row is one exact string comparison from the same probe file on both engines.
 | `SEQUENCER_PauseAllSequencers` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `SEQUENCER_SetMasterPulse` | 2/2 (100%) | 0/0 | 1 | LIMITED |
 | `SEQUENCER_UnpauseAllSequencers` | 1/1 (100%) | 1/1 | 0 | PASS |
-| `SEQUENCE_FromString` | 5/5 (100%) | 4/4 | 1 | LIMITED |
-| `SEQUENCE_FromTable` | 6/6 (100%) | 3/3 | 1 | LIMITED |
-| `SEQUENCE_ToString` | 4/4 (100%) | 3/3 | 1 | LIMITED |
-| `SEQUENCE_ToTable` | 5/5 (100%) | 3/3 | 1 | LIMITED |
+| `SEQUENCE_FromString` | 9/9 (100%) | 4/4 | 1 | LIMITED |
+| `SEQUENCE_FromTable` | 9/9 (100%) | 3/3 | 1 | LIMITED |
+| `SEQUENCE_ToString` | 8/8 (100%) | 3/3 | 1 | LIMITED |
+| `SEQUENCE_ToTable` | 10/13 (77%) | 3/3 | 1 | FAIL |
 | `Sequencer.clearTriggers` | 4/4 (100%) | 2/2 | 1 | LIMITED |
-| `Sequencer.getAllTriggers` | 29/29 (100%) | 1/1 | 2 | LIMITED |
-| `Sequencer.getBPM` | 5/5 (100%) | 2/2 | 1 | LIMITED |
+| `Sequencer.getAllTriggers` | 32/34 (94%) | 1/1 | 2 | FAIL |
+| `Sequencer.getBPM` | 7/7 (100%) | 2/2 | 1 | LIMITED |
 | `Sequencer.getCurrentPattern` | 6/6 (100%) | 5/5 | 1 | LIMITED |
 | `Sequencer.getCurrentStep` | 10/10 (100%) | 5/5 | 0 | PASS |
 | `Sequencer.getCurrentStep16` | 1/1 (100%) | 0/0 | 0 | PASS |
@@ -63,7 +63,7 @@ One row is one exact string comparison from the same probe file on both engines.
 | `Sequencer.isPlaying` | 5/5 (100%) | 3/3 | 0 | PASS |
 | `Sequencer.moveTriggerToFront` | 19/19 (100%) | 2/2 | 2 | LIMITED |
 | `Sequencer.restart` | 5/5 (100%) | 1/1 | 1 | LIMITED |
-| `Sequencer.setBPM` | 11/11 (100%) | 3/3 | 2 | LIMITED |
+| `Sequencer.setBPM` | 13/13 (100%) | 3/3 | 2 | LIMITED |
 | `Sequencer.setCurrentStep` | 1/1 (100%) | 1/1 | 0 | PASS |
 | `Sequencer.setLoopLen` | 5/5 (100%) | 1/1 | 1 | LIMITED |
 | `Sequencer.setNumStepsPerPattern` | 26/26 (100%) | 2/2 | 1 | LIMITED |
@@ -87,8 +87,8 @@ One row is one exact string comparison from the same probe file on both engines.
 | `SequencerTrigger.getLooped` | 1/1 (100%) | 7/7 | 0 | PASS |
 | `SequencerTrigger.getPattern` | 1/1 (100%) | 8/8 | 0 | PASS |
 | `SequencerTrigger.getStep` | 1/1 (100%) | 8/8 | 0 | PASS |
-| `SequencerTriggerList.get` | 17/17 (100%) | 4/4 | 1 | LIMITED |
-| `SequencerTriggerList.goToNext` | 29/29 (100%) | 2/2 | 2 | LIMITED |
+| `SequencerTriggerList.get` | 20/22 (91%) | 4/4 | 1 | FAIL |
+| `SequencerTriggerList.goToNext` | 32/34 (94%) | 2/2 | 2 | FAIL |
 | `SequencerTriggerList.isValid` | 1/1 (100%) | 4/4 | 0 | PASS |
 | `SequencerTriggerList.reset` | 1/1 (100%) | 2/2 | 0 | PASS |
 | `SequencerTriggerList.size` | 1/1 (100%) | 3/3 | 0 | PASS |
@@ -98,7 +98,7 @@ One row is one exact string comparison from the same probe file on both engines.
 | Case | Matched | Limits |
 | --- | ---: | --- |
 | BPM zero and negative | 7/7 | Zero and negative BPM sampled through 12 updates; longer runs are open. |
-| BPM float edge conversion | 3/3 | NaN is not covered. |
+| BPM float edge conversion | 5/5 | NaN is not covered; fractional truncation edges are captured. |
 | Pattern length zero and negative | 25/25 | Tick wrap sampled through 12 updates; longer runs are open. |
 | Loop length zero and negative | 4/4 | Observed after 12 updates. |
 | Note type outside 0 to 5 | 11/11 | Covers 6 and -1. |
@@ -110,12 +110,12 @@ One row is one exact string comparison from the same probe file on both engines.
 | Restart at future step | 4/4 | Two same-step actions after restart are covered; other callback orders are open. |
 | Callback mutation | 3/3 | One append, tag, and clear path. |
 | Action wrapper lifetime | 3/3 | Clear and explicit GC covered. |
-| Trigger cursor during mutation | 13/13 | Insertion and moving a held trigger covered; deletion is not covered. |
+| Trigger cursor during mutation | 16/18 | Insertion, moving, and clearing after cursor advance are covered. Retail keeps a cleared cursor valid; OpenEgg invalidates it. Single-node deletion is not exposed. |
 | Move trigger ordering | 15/15 | Moving the last of multiple triggers crashes retail; see retail-crashes.md. |
 | Sequencer cursor during mutation | 2/2 | Creation only; collection is not covered. |
 | Callback and GC interleave | 1/1 | One explicit GC before callback. |
-| Malformed packed sequence | 4/4 | Empty, short, sparse, and float entries; oversized is not covered. |
-| Malformed sequence string | 3/3 | Invalid prefix, bad digit, and long text; embedded NUL is not covered. |
+| Malformed packed sequence | 9/12 | Empty, short, sparse, float, and oversized inputs are captured; retail's final packed word at 512 steps differs from OpenEgg. |
+| Malformed sequence string | 7/7 | Invalid prefix, bad digit, long text, and embedded NUL are captured. |
 | Object ID allocation order | 1/1 | One allocation interval. |
 
 Documented sequencer APIs missing from bindings: **0**.
@@ -232,6 +232,8 @@ Documented sequencer APIs missing from bindings: **0**.
 | `Sequencer.setBPM` | edge.bpm.zeroPeriod | `inf` | `inf` | PASS |
 | `Sequencer.setBPM` | edge.bpm.negative | `-1` | `-1` | PASS |
 | `Sequencer.setBPM` | edge.bpm.negativePeriod | `-7499.999512` | `-7499.999512` | PASS |
+| `Sequencer.setBPM` | edge.bpmFloat.positiveFraction | `0` | `0` | PASS |
+| `Sequencer.setBPM` | edge.bpmFloat.negativeFraction | `0` | `0` | PASS |
 | `Sequencer.setBPM` | edge.bpmFloat.positive | `1` | `1` | PASS |
 | `Sequencer.setBPM` | edge.bpmFloat.negative | `-1` | `-1` | PASS |
 | `Sequencer.setBPM` | edge.bpmFloat.overflow | `2147483647` | `2147483647` | PASS |
@@ -283,6 +285,14 @@ Documented sequencer APIs missing from bindings: **0**.
 | `SEQUENCE_FromTable` | edge.packed.shortSize | `16` | `16` | PASS |
 | `SEQUENCE_FromTable` | edge.packed.sparseWord | `null` | `null` | PASS |
 | `SEQUENCE_FromTable` | edge.packed.floatWord | `null` | `null` | PASS |
+| `SEQUENCE_FromTable` | edge.packed.oversizedDecodedSize | `256` | `256` | PASS |
+| `SEQUENCE_FromTable` | edge.packed.oversizedLastState | `1` | `1` | PASS |
+| `SEQUENCE_FromTable` | edge.packed.oversizedIgnoredState | `null` | `null` | PASS |
+| `SEQUENCE_ToTable` | edge.packed.oversizedSourceLast | `1` | `1` | PASS |
+| `SEQUENCE_ToTable` | edge.packed.oversizedLastWord | `1440077661` | `1431655765` | FAIL |
+| `SEQUENCE_ToTable` | edge.packed.oversizedIgnoredWord | `null` | `null` | PASS |
+| `SEQUENCE_ToTable` | edge.packed.exactLimitWord | `1440077661` | `1431655765` | FAIL |
+| `SEQUENCE_ToTable` | edge.packed.exactLimitWordRepeat | `1440077661` | `1431655765` | FAIL |
 | `Sequencer.setNumStepsPerPattern` | edge.pattern.zero | `0` | `0` | PASS |
 | `Sequencer.setNumStepsPerPattern` | edge.pattern.zeroWrap | `-1` | `-1` | PASS |
 | `Sequencer.setNumStepsPerPattern` | edge.pattern.negative | `-2` | `-2` | PASS |
@@ -298,6 +308,15 @@ Documented sequencer APIs missing from bindings: **0**.
 | `SEQUENCE_FromString` | edge.string.prefix | `null` | `null` | PASS |
 | `SEQUENCE_FromString` | edge.string.badDigit | `72` | `72` | PASS |
 | `SEQUENCE_FromString` | edge.string.longSize | `128` | `128` | PASS |
+| `SEQUENCE_FromString` | edge.string.nulResult | `1` | `1` | PASS |
+| `SEQUENCE_FromString` | edge.string.nulSize | `2` | `2` | PASS |
+| `SEQUENCE_FromString` | edge.string.nulLastValue | `2` | `2` | PASS |
+| `SEQUENCE_FromString` | edge.string.nulSuffixIgnored | `null` | `null` | PASS |
+| `Sequencer.getAllTriggers` | edge.triggerClear.currentStep | `2` | `2` | PASS |
+| `Sequencer.getAllTriggers` | edge.triggerClear.size | `0` | `0` | PASS |
+| `Sequencer.getAllTriggers` | edge.triggerClear.valid | `1` | `0` | FAIL |
+| `Sequencer.getAllTriggers` | edge.triggerClear.getNull | `0` | `1` | FAIL |
+| `Sequencer.getAllTriggers` | edge.triggerClear.resetInvalid | `1` | `1` | PASS |
 | `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.n5 | `-5` | `-5` | PASS |
 | `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.n1 | `-1` | `-1` | PASS |
 | `Sequencer.setNumStepsPerPattern` | edge.wrap.zero.z | `0` | `0` | PASS |
