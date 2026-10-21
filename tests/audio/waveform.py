@@ -25,7 +25,7 @@ SUITES = {
     "basic": ("waveform.gm", ("normal", "half_volume", "pan_left", "pan_right"), ()),
     "controls": ("waveform_controls.gm", ("speed_half", "speed_double",
                                   "fade_40", "loop_one", "pause_resume",
-                                  "pan_left", "pan_right", "gate_one_ms"),
+                                  "pan_left", "pan_right", "gate_100_ms"),
                  (GATE_SOUND,)),
 }
 RATE = 48000

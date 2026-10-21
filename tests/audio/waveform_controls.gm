@@ -9,7 +9,11 @@ global Main=function(p) {
         panRightVoice=0,
         gateVoice=0,
         constructor=function(){},
-        init=function(){return true;},
+        init=function() {
+            Audio.stopAllVoices();
+            Audio.setMusicVolume(0);
+            return true;
+        },
         update=function() {
             local path="Platformer/sounds/fx/button-high.wav";
             if (this.frame==20) {
@@ -45,7 +49,7 @@ global Main=function(p) {
             if (this.frame==440) {
                 this.gateVoice=Audio.playSound(
                     "Platformer/sounds/singlenote/tone.wav");
-                Audio.setVoiceGateTime(this.gateVoice,1);
+                Audio.setVoiceGateTime(this.gateVoice,100);
             }
             if (this.frame==500) {
                 GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
