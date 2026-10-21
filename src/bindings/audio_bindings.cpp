@@ -2675,6 +2675,12 @@ void AdvanceAudioVoices(float a_deltaMs) {
             length = static_cast<double>(
                 voice.timeStretchedSample->stereo.size() / 2) *
                 1000.0 / kOutputRate;
+        } else if (voice.sample && voice.sample->stereo.size() >= 2) {
+            // Advance the software cursor against decoded sample frames, not
+            // the integer-millisecond query value. The mixer loops at this
+            // exact boundary, so rounding here shifts the next pass.
+            length = static_cast<double>(voice.sample->stereo.size() / 2) *
+                     1000.0 / kOutputRate;
         }
         // A missing or unsupported asset has no known end marker. Keep its
         // handle available for explicit stop, while still advancing its
