@@ -32,6 +32,12 @@ global Main=function(p) {
             local nativeOther=other.Entity;
             native.PhysicsData=entity.getPhysicsData();
             nativeOther.PhysicsData=other.getPhysicsData();
+            Probe("entityState.hasAlwaysProcessedGetter",?native.isAlwaysProcessed);
+            Probe("entityState.hasCreationPosGetter",?native.getEntityCreationPos);
+            Probe("entityState.hasAddAlarm",?native.addAlarm);
+            Probe("entityState.hasAddLFO",?native.addLFO);
+            Probe("entityState.hasCallMethod",?native.callMethod);
+            Probe("entityState.hasWhichSide",?native.getWhichSide);
             entity.setIsInvisible(1);
             entity.setIsStaticDraw(1);
             entity.setIsEditable(1);

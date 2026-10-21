@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 14:39 UTC
+Generated: 2026-10-21 14:41 UTC
 
-Matched: **4765/4773 comparable readings (99.8%)**. 2 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4765/4779 comparable readings (99.7%)**. 2 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **268/434**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -84,10 +84,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
-| `Entity.addAlarm` | 0 | 2 | FAIL |
-| `Entity.addLFO` | 0 | 2 | FAIL |
+| `Entity.addAlarm` | 0 | 3 | FAIL |
+| `Entity.addLFO` | 0 | 3 | FAIL |
 | `Entity.addTelescope` | 1 | 1 | PASS |
-| `Entity.callMethod` | 0 | 1 | FAIL |
+| `Entity.callMethod` | 0 | 2 | FAIL |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
 | `Entity.configure` | 0 | 0 | untested |
 | `Entity.constructorSetIsManual` | 0 | 0 | untested |
@@ -111,7 +111,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getCurrentScreenY` | 0 | 0 | untested |
 | `Entity.getDescriptionBits` | 1 | 1 | PASS |
 | `Entity.getDistanceTo` | 1 | 1 | PASS |
-| `Entity.getEntityCreationPos` | 0 | 2 | FAIL |
+| `Entity.getEntityCreationPos` | 0 | 3 | FAIL |
 | `Entity.getLimitVolPerc` | 1 | 1 | PASS |
 | `Entity.getMainBody` | 0 | 0 | untested |
 | `Entity.getMaxCX` | 1 | 1 | PASS |
@@ -134,11 +134,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getVectorTo` | 2 | 2 | PASS |
 | `Entity.getVectorToNormalized` | 2 | 2 | PASS |
 | `Entity.getVertexShaderParamIndex` | 0 | 0 | untested |
-| `Entity.getWhichSide` | 0 | 1 | FAIL |
+| `Entity.getWhichSide` | 0 | 2 | FAIL |
 | `Entity.giveBackToBulletCache` | 0 | 0 | untested |
 | `Entity.initializeScreenExtents` | 4 | 4 | PASS |
 | `Entity.isAlwaysMusicTriggered` | 0 | 0 | untested |
-| `Entity.isAlwaysProcessed` | 0 | 1 | FAIL |
+| `Entity.isAlwaysProcessed` | 0 | 2 | FAIL |
 | `Entity.isBeingEdited` | 1 | 1 | PASS |
 | `Entity.isBoundedToGameBoard` | 0 | 0 | untested |
 | `Entity.isEditable` | 1 | 1 | PASS |
@@ -5183,6 +5183,12 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.isGot` | entityState.gotCleared | `1` | `1` | PASS |
 | `Entity.isGot` | entityState.gotDefault | `1` | `1` | PASS |
 | `Entity.isGot` | entityState.gotSet | `1` | `1` | PASS |
+| `Entity.addAlarm` | entityState.hasAddAlarm | `0` | `1` | FAIL |
+| `Entity.addLFO` | entityState.hasAddLFO | `0` | `1` | FAIL |
+| `Entity.isAlwaysProcessed` | entityState.hasAlwaysProcessedGetter | `0` | `1` | FAIL |
+| `Entity.callMethod` | entityState.hasCallMethod | `0` | `1` | FAIL |
+| `Entity.getEntityCreationPos` | entityState.hasCreationPosGetter | `0` | `1` | FAIL |
+| `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | FAIL |
 | `Entity.isInvisible` | entityState.invisible | `1` | `1` | PASS |
 | `Entity.isType` | entityState.isType | `1` | `1` | PASS |
 | `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |

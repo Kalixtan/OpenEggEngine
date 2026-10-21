@@ -1,4 +1,4 @@
-# probe-sha256 7047cf9d8a05811ce30ea9b55332a8aecbc0a6110abb80ca173a66e0ea7d3bf4
+# probe-sha256 7bc4051ff61d7fb458c05fd5c2761ad2e91e049961e54e6a59d69ff4613725e3
 # support-sha256 EntityStateProbeEntity.gm 6053836e3665758db2642bcc9588e072ae938d5bd44d85611c0e1975195d3dfe
 entityState.addLFO	0
 entityState.alarmDeleted	1
@@ -22,6 +22,12 @@ entityState.getting	0
 entityState.gotCleared	1
 entityState.gotDefault	1
 entityState.gotSet	1
+entityState.hasAddAlarm	0
+entityState.hasAddLFO	0
+entityState.hasAlwaysProcessedGetter	0
+entityState.hasCallMethod	0
+entityState.hasCreationPosGetter	0
+entityState.hasWhichSide	0
 entityState.invisible	1
 entityState.isType	1
 entityState.limitVolPerc	0.375000
