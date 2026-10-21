@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 20:14 UTC
+Generated: 2026-10-21 20:17 UTC
 
-Matched: **4877/4877 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4886/4886 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **291/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -98,6 +98,15 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityGCCycles.clearCount | 1 | 1 |
 | entityGCCycles.clearAValid | 1 | 1 |
 | entityGCCycles.clearDValid | 1 | 1 |
+| entityGCIter.retainedSize | 1 | 1 |
+| entityGCIter.retainedEntity | 1 | 1 |
+| entityGCIter.deletedSize | 1 | 1 |
+| entityGCIter.deletedEntryNull | 1 | 1 |
+| entityGCIter.nullAfterGC | 1 | 1 |
+| entityGCIter.newIteratorSize | 1 | 1 |
+| entityGCIter.reusedIteratorSize | 1 | 1 |
+| entityGCIter.secondFound | 1 | 1 |
+| entityGCIter.clearCount | 1 | 1 |
 | process.created | 1 | 1 |
 | process.constructed | 1 | 1 |
 | process.running | 2 | 2 |
@@ -300,7 +309,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.getEntityFromUID` | 2 | 2 | PASS |
 | `EntityManager.getEntityPerfCost` | 3 | 3 | PASS |
 | `EntityManager.getEntityPerfMaxCost` | 1 | 1 | PASS |
-| `EntityManager.getNumEntities` | 17 | 17 | PASS |
+| `EntityManager.getNumEntities` | 18 | 18 | PASS |
 | `EntityManager.getNumManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumNonManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumPlayers` | 1 | 1 | PASS |
@@ -725,10 +734,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.onEntityCollidePreSolve` | 64 | 64 |
 | `Entity.onEntitySeparate` | 64 | 64 |
 | `Entity.onEntityTouch` | 64 | 64 |
-| `EntityListRef.get` | 3 | 3 |
+| `EntityListRef.get` | 7 | 7 |
 | `EntityListRef.goToNext` | 5 | 5 |
 | `EntityListRef.isValid` | 1 | 1 |
-| `EntityListRef.size` | 4 | 4 |
+| `EntityListRef.size` | 8 | 8 |
 
 ## Inconclusive probes
 
@@ -5507,6 +5516,15 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityManager.getNumEntities` | entityGCCycles.clearCount | `0` | `0` | PASS |
 | `EntityManager.isEntityIDValid` | entityGCCycles.clearAValid | `0` | `0` | PASS |
 | `EntityManager.isEntityIDValid` | entityGCCycles.clearDValid | `0` | `0` | PASS |
+| `EntityListRef.size` | entityGCIter.retainedSize | `1` | `1` | PASS |
+| `EntityListRef.get` | entityGCIter.retainedEntity | `1` | `1` | PASS |
+| `EntityListRef.size` | entityGCIter.deletedSize | `0` | `0` | PASS |
+| `EntityListRef.get` | entityGCIter.deletedEntryNull | `1` | `1` | PASS |
+| `EntityListRef.get` | entityGCIter.nullAfterGC | `1` | `1` | PASS |
+| `EntityListRef.size` | entityGCIter.newIteratorSize | `1` | `1` | PASS |
+| `EntityListRef.size` | entityGCIter.reusedIteratorSize | `2` | `2` | PASS |
+| `EntityListRef.get` | entityGCIter.secondFound | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | entityGCIter.clearCount | `0` | `0` | PASS |
 | `GameSystem.runProcess` | process.created | `1` | `1` | PASS |
 | `GameSystem.runProcess` | process.constructed | `1` | `1` | PASS |
 | `GameSystem.isProcessRunning` | process.running | `1` | `1` | PASS |

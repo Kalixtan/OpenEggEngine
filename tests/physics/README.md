@@ -79,6 +79,11 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --expected tests/physics/entity_gc_cycles-plan.json \
   --baseline tests/physics/entity_gc_cycles-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_gc_iterator.gm \
+  --support-file tests/physics/EntityGCProbe.gm \
+  --expected tests/physics/entity_gc_iterator-plan.json \
+  --baseline tests/physics/entity_gc_iterator-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/process_order.gm \
   --support-file tests/physics/ProcessParityProbe.gm \
   --expected tests/physics/process_order-plan.json \
@@ -118,6 +123,8 @@ observable from GameMonkeyScript. Retail faults on the retained-body
 OpenEgg.
 GC-cycle probe checks body positions through repeated collection, single
 deletion, recreation, and clear-all.
+GC-iterator probe checks iterator-held entities through collection, removal,
+and reuse after collection.
 Process probes compare creation, deferred init, queued termination, pause
 state, callback order, and registry counts with retail.
 

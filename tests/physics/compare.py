@@ -73,6 +73,9 @@ ENTITY_GC_SUPPORT = HERE / "EntityGCProbe.gm"
 ENTITY_GC_CYCLES = HERE / "entity_gc_cycles.gm"
 ENTITY_GC_CYCLES_PLAN = HERE / "entity_gc_cycles-plan.json"
 ENTITY_GC_CYCLES_BASELINE = HERE / "entity_gc_cycles-retail.tsv"
+ENTITY_GC_ITERATOR = HERE / "entity_gc_iterator.gm"
+ENTITY_GC_ITERATOR_PLAN = HERE / "entity_gc_iterator-plan.json"
+ENTITY_GC_ITERATOR_BASELINE = HERE / "entity_gc_iterator-retail.tsv"
 PROCESS_ORDER = HERE / "process_order.gm"
 PROCESS_ORDER_PLAN = HERE / "process_order-plan.json"
 PROCESS_ORDER_BASELINE = HERE / "process_order-retail.tsv"
@@ -446,6 +449,17 @@ ENTITY_GC_CYCLE_FIELDS = {
     "clearAValid": "EntityManager.isEntityIDValid",
     "clearDValid": "EntityManager.isEntityIDValid",
 }
+ENTITY_GC_ITERATOR_FIELDS = {
+    "retainedSize": "EntityListRef.size",
+    "retainedEntity": "EntityListRef.get",
+    "deletedSize": "EntityListRef.size",
+    "deletedEntryNull": "EntityListRef.get",
+    "nullAfterGC": "EntityListRef.get",
+    "newIteratorSize": "EntityListRef.size",
+    "reusedIteratorSize": "EntityListRef.size",
+    "secondFound": "EntityListRef.get",
+    "clearCount": "EntityManager.getNumEntities",
+}
 BODY_CONTROL_FIELDS = {
     "position": "physicsBody.setPos", "velocity": "physicsBody.setVel",
     "speed": "physicsBody.getSpeed", "setSpeed": "physicsBody.setSpeed",
@@ -566,6 +580,11 @@ def owner(name, names):
         function = ENTITY_GC_CYCLE_FIELDS[name[len("entityGCCycles."):]]
         if function not in names:
             raise ValueError(f"unknown entity GC cycle function: {function}")
+        return function
+    if name.startswith("entityGCIter."):
+        function = ENTITY_GC_ITERATOR_FIELDS[name[len("entityGCIter."):]]
+        if function not in names and not function.startswith("EntityListRef."):
+            raise ValueError(f"unknown entity GC iterator function: {function}")
         return function
     if name.startswith("bodyCtl."):
         function = BODY_CONTROL_FIELDS[name[len("bodyCtl."):]]
@@ -690,6 +709,8 @@ def main():
                                             ENTITY_GC_PLAN, (ENTITY_GC_SUPPORT,)),
                                            (ENTITY_GC_CYCLES, ENTITY_GC_CYCLES_BASELINE,
                                             ENTITY_GC_CYCLES_PLAN, (ENTITY_GC_SUPPORT,)),
+                                           (ENTITY_GC_ITERATOR, ENTITY_GC_ITERATOR_BASELINE,
+                                            ENTITY_GC_ITERATOR_PLAN, (ENTITY_GC_SUPPORT,)),
                                            (PROCESS_ORDER, PROCESS_ORDER_BASELINE,
                                             PROCESS_ORDER_PLAN, (PROCESS_ORDER_SUPPORT,)),
                                            (PROCESS_PAUSE, PROCESS_PAUSE_BASELINE,
@@ -753,7 +774,7 @@ def main():
                                 "ray.", "reentry.", "joint.", "raymove.",
                                 "bodyCtl.", "process.", "processPause.",
                                 "entityCallbacks.", "entityGC.",
-                                "entityGCCycles.")):
+                                "entityGCCycles.", "entityGCIter.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

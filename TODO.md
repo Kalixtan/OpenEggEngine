@@ -58,7 +58,8 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
       and owned-body retention match retail. RPCS3 faults after deletion when
       calling `PhysicsBody.isSleeping()` on retained body; direct object
       reclamation remains unobserved. Repeated body retention, deletion,
-      recreation, and clear-all match in 14 readings.
+      recreation, and clear-all match in 14 readings. Iterator retention,
+      removal, and reuse match in 9 more readings.
 
 ## Audio and sequencing
 

@@ -1,0 +1,16 @@
+{
+  "prefix": "entityGCIter",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "entityGCIter.retainedSize",
+    "entityGCIter.retainedEntity",
+    "entityGCIter.deletedSize",
+    "entityGCIter.deletedEntryNull",
+    "entityGCIter.nullAfterGC",
+    "entityGCIter.newIteratorSize",
+    "entityGCIter.reusedIteratorSize",
+    "entityGCIter.secondFound",
+    "entityGCIter.clearCount"
+  ]
+}

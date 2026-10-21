@@ -1,0 +1,53 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityGCProbe.gm");
+global GCIterState=table(stage=0,id=-1,iter=null);
+global ProbeGCIter=function(name,value) {
+    Probe("entityGCIter."+name,value);
+};
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},
+        update=function() {
+            local state=GCIterState;
+            if (state.stage==0) {
+                GameSystem.setIsShouldUpdateEntities(0);
+                local entity=EntityManager.createEntity("EntityGCProbe");
+                state.id=entity.getObjectID();
+                EntityManager.flush();
+                state.iter=EntityManager.getAllEntities("EntityGCProbe");
+                GameMonkeyScript.clean(1);
+                state.stage=1;
+            } else if (state.stage==1) {
+                ProbeGCIter("retainedSize",state.iter.size());
+                ProbeGCIter("retainedEntity",state.iter.get().getObjectID()==state.id);
+                EntityManager.getEntity(state.id).tagForDeletion();
+                EntityManager.flush();
+                ProbeGCIter("deletedSize",state.iter.size());
+                ProbeGCIter("deletedEntryNull",state.iter.get()==null);
+                GameMonkeyScript.clean(1);
+                state.stage=2;
+            } else if (state.stage==2) {
+                ProbeGCIter("nullAfterGC",state.iter.get()==null);
+                state.iter=null;
+                GameMonkeyScript.clean(1);
+                state.stage=3;
+            } else if (state.stage==3) {
+                local first=EntityManager.createEntity("EntityGCProbe");
+                EntityManager.flush();
+                local iter=EntityManager.getAllEntities("EntityGCProbe");
+                ProbeGCIter("newIteratorSize",iter.size());
+                local second=EntityManager.createEntity("EntityGCProbe");
+                EntityManager.flush();
+                ProbeGCIter("reusedIteratorSize",iter.size());
+                ProbeGCIter("secondFound",iter.get().getObjectID()==first.getObjectID());
+                EntityManager.deleteAllEntities();
+                EntityManager.flush();
+                GameMonkeyScript.clean(1);
+                state.stage=4;
+            } else if (state.stage==4) {
+                ProbeGCIter("clearCount",EntityManager.getNumEntities("EntityGCProbe"));
+                state.stage=5;
+            }
+        });
+};

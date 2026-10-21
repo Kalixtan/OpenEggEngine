@@ -1,0 +1,11 @@
+# probe-sha256 4adff5452206af3c69c8a191b63b9f823f63fadfd68042e78e765de9041b11b4
+# support-sha256 EntityGCProbe.gm fe3f1ce0f8f2e345fcac79f31812d884f455eaeab391705cc7923877f651824d
+entityGCIter.clearCount	0
+entityGCIter.deletedEntryNull	1
+entityGCIter.deletedSize	0
+entityGCIter.newIteratorSize	1
+entityGCIter.nullAfterGC	1
+entityGCIter.retainedEntity	1
+entityGCIter.retainedSize	1
+entityGCIter.reusedIteratorSize	2
+entityGCIter.secondFound	1
