@@ -1,0 +1,14 @@
+global EntityCallbackProbe=function(handle) {
+    return table(Entity=handle,callbackState=EntityCallbackState,
+        constructor=function() {},
+        configure=function() { return true; },
+        onEnable=function() {
+            this.callbackState.enabled+=1;
+            this.callbackState.order+="E";
+        },
+        onDisable=function() {
+            this.callbackState.disabled+=1;
+            this.callbackState.order+="D";
+        });
+};
+

@@ -2807,6 +2807,9 @@ gmVariable CreateEntityFromFactory(gmMachine& a_machine, const std::string& a_ty
                                    int a_uid, int a_physicsType) {
     gmTableObject* handleTable = a_machine.AllocTableObject();
     InjectEntityHandleMethods(a_machine, handleTable, a_uid, a_typeName, a_physicsType);
+    // Retail-created entities begin disabled; configure/activation enables
+    // them after their bodies and level state are ready.
+    handleTable->Set(&a_machine, "__enabled", gmVariable((gmint)0));
     // ENGINE PATCH: the raw handle is entirely C++-built -- unlike the
     // factory's RETURNED table below, which is script-authored gameplay
     // logic with native methods dual-injected on top of it and must stay

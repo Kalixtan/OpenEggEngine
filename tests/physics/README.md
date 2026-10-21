@@ -62,6 +62,12 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --expected tests/physics/entity_state-plan.json \
   --baseline tests/physics/entity_state-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_callbacks.gm \
+  --support-file tests/physics/EntityCallbackProbe.gm \
+  --support-file tests/physics/EntityCallbackNoHooks.gm \
+  --expected tests/physics/entity_callbacks-plan.json \
+  --baseline tests/physics/entity_callbacks-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/process_order.gm \
   --support-file tests/physics/ProcessParityProbe.gm \
   --expected tests/physics/process_order-plan.json \
@@ -91,6 +97,8 @@ committed entities, iterator snapshots, repeated tags, observer-queued deletion
 and creation, and clear-all behavior. The entity state probe exercises exposed
 state, identity, geometry, alarms, particles, compatibility stubs, and perf
 cost calls. Its cases without retail captures remain outside the parity score.
+Entity callback probe checks enable and disable delegation separately from
+the enabled flag, including repeated and missing behavior callbacks.
 Process probes compare creation, deferred init, queued termination, pause
 state, callback order, and registry counts with retail.
 

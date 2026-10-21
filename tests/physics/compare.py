@@ -61,6 +61,11 @@ ENTITY_STATE = HERE / "entity_state.gm"
 ENTITY_STATE_PLAN = HERE / "entity_state-plan.json"
 ENTITY_STATE_BASELINE = HERE / "entity_state-retail.tsv"
 ENTITY_STATE_SUPPORT = HERE / "EntityStateProbeEntity.gm"
+ENTITY_CALLBACKS = HERE / "entity_callbacks.gm"
+ENTITY_CALLBACKS_PLAN = HERE / "entity_callbacks-plan.json"
+ENTITY_CALLBACKS_BASELINE = HERE / "entity_callbacks-retail.tsv"
+ENTITY_CALLBACKS_SUPPORT = (HERE / "EntityCallbackProbe.gm",
+                            HERE / "EntityCallbackNoHooks.gm")
 PROCESS_ORDER = HERE / "process_order.gm"
 PROCESS_ORDER_PLAN = HERE / "process_order-plan.json"
 PROCESS_ORDER_BASELINE = HERE / "process_order-retail.tsv"
@@ -376,6 +381,21 @@ ENTITY_STATE_FIELDS = {
     "perfMax": "EntityManager.getEntityPerfMaxCost",
     "perfMissing": "EntityManager.getEntityPerfCost",
 }
+ENTITY_CALLBACK_FIELDS = {
+    "initialEnabled": "Entity.isEnabled",
+    "enabledAfterSet": "Entity.isEnabled",
+    "orderAfterSetEnable": "Entity.setIsEnabled",
+    "enabledAfterCallback": "Entity.onEnable",
+    "orderAfterEnable": "Entity.onEnable",
+    "enabledAfterRepeat": "Entity.onEnable",
+    "disabledAfterSet": "Entity.isEnabled",
+    "orderAfterSetDisable": "Entity.setIsEnabled",
+    "disabledAfterCallback": "Entity.onDisable",
+    "orderAfterDisable": "Entity.onDisable",
+    "noHookEnable": "Entity.onEnable",
+    "noHookDisable": "Entity.onDisable",
+    "finalOrder": "Entity.onEnable",
+}
 BODY_CONTROL_FIELDS = {
     "position": "physicsBody.setPos", "velocity": "physicsBody.setVel",
     "speed": "physicsBody.getSpeed", "setSpeed": "physicsBody.setSpeed",
@@ -481,6 +501,11 @@ def owner(name, names):
         function = ENTITY_STATE_FIELDS[name[len("entityState."):]]
         if function not in names:
             raise ValueError(f"unknown entity state function: {function}")
+        return function
+    if name.startswith("entityCallbacks."):
+        function = ENTITY_CALLBACK_FIELDS[name[len("entityCallbacks."):]]
+        if function not in names:
+            raise ValueError(f"unknown entity callback function: {function}")
         return function
     if name.startswith("bodyCtl."):
         function = BODY_CONTROL_FIELDS[name[len("bodyCtl."):]]
@@ -597,6 +622,9 @@ def main():
                                            (ENTITY_STATE, ENTITY_STATE_BASELINE,
                                             ENTITY_STATE_PLAN,
                                             (ENTITY_STATE_SUPPORT,)),
+                                           (ENTITY_CALLBACKS, ENTITY_CALLBACKS_BASELINE,
+                                            ENTITY_CALLBACKS_PLAN,
+                                            ENTITY_CALLBACKS_SUPPORT),
                                            (PROCESS_ORDER, PROCESS_ORDER_BASELINE,
                                             PROCESS_ORDER_PLAN, (PROCESS_ORDER_SUPPORT,)),
                                            (PROCESS_PAUSE, PROCESS_PAUSE_BASELINE,
@@ -656,7 +684,8 @@ def main():
             if case.startswith(("scene.", "contact.", "removal.", "entityLife.",
                                 "entityMgr.", "entityQ.", "query.",
                                 "ray.", "reentry.", "joint.", "raymove.",
-                                "bodyCtl.", "process.", "processPause.")):
+                                "bodyCtl.", "process.", "processPause.",
+                                "entityCallbacks.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

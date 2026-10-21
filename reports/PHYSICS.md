@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 18:21 UTC
+Generated: 2026-10-21 18:59 UTC
 
-Matched: **4829/4829 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4842/4842 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **286/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **289/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -58,6 +58,19 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityQ.shape | 13 | 13 |
 | entityQ.collisionIgnore | 2 | 2 |
 | entityQ.iterator | 5 | 5 |
+| entityCallbacks.initialEnabled | 1 | 1 |
+| entityCallbacks.enabledAfterSet | 1 | 1 |
+| entityCallbacks.orderAfterSetEnable | 1 | 1 |
+| entityCallbacks.enabledAfterCallback | 1 | 1 |
+| entityCallbacks.orderAfterEnable | 1 | 1 |
+| entityCallbacks.enabledAfterRepeat | 1 | 1 |
+| entityCallbacks.disabledAfterSet | 1 | 1 |
+| entityCallbacks.orderAfterSetDisable | 1 | 1 |
+| entityCallbacks.disabledAfterCallback | 1 | 1 |
+| entityCallbacks.orderAfterDisable | 1 | 1 |
+| entityCallbacks.noHookEnable | 1 | 1 |
+| entityCallbacks.noHookDisable | 1 | 1 |
+| entityCallbacks.finalOrder | 1 | 1 |
 | process.created | 1 | 1 |
 | process.constructed | 1 | 1 |
 | process.running | 2 | 2 |
@@ -184,7 +197,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.isBeingEdited` | 1 | 1 | PASS |
 | `Entity.isBoundedToGameBoard` | 0 | 0 | untested |
 | `Entity.isEditable` | 1 | 1 | PASS |
-| `Entity.isEnabled` | 7 | 7 | PASS |
+| `Entity.isEnabled` | 10 | 10 | PASS |
 | `Entity.isGetting` | 1 | 1 | PASS |
 | `Entity.isGot` | 3 | 3 | PASS |
 | `Entity.isGround` | 0 | 0 | untested |
@@ -206,8 +219,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.isWizard` | 0 | 0 | untested |
 | `Entity.is_getAudibilityPerc_neverOnScreen` | 1 | 1 | PASS |
 | `Entity.loadAnimation` | 0 | 0 | untested |
-| `Entity.onDisable` | 0 | 0 | untested |
-| `Entity.onEnable` | 0 | 0 | untested |
+| `Entity.onDisable` | 3 | 3 | PASS |
+| `Entity.onEnable` | 5 | 5 | PASS |
 | `Entity.onMusicTrigger` | 0 | 0 | untested |
 | `Entity.playInstrumentWithMixer` | 0 | 0 | untested |
 | `Entity.playSound` | 0 | 0 | untested |
@@ -227,7 +240,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.setIsBoundedToGameBoard` | 0 | 0 | untested |
 | `Entity.setIsDeletable` | 0 | 0 | untested |
 | `Entity.setIsEditable` | 2 | 2 | PASS |
-| `Entity.setIsEnabled` | 0 | 0 | untested |
+| `Entity.setIsEnabled` | 2 | 2 | PASS |
 | `Entity.setIsInvisible` | 2 | 2 | PASS |
 | `Entity.setIsPlacing` | 2 | 2 | PASS |
 | `Entity.setIsSauceBase` | 2 | 2 | PASS |
@@ -5406,6 +5419,19 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.getVectorTo` | entityState.vectorToX | `3.000000` | `3.000000` | PASS |
 | `Entity.getVectorTo` | entityState.vectorToY | `4.000000` | `4.000000` | PASS |
 | `Entity.isType` | entityState.wrongType | `1` | `1` | PASS |
+| `Entity.isEnabled` | entityCallbacks.initialEnabled | `0` | `0` | PASS |
+| `Entity.isEnabled` | entityCallbacks.enabledAfterSet | `1` | `1` | PASS |
+| `Entity.setIsEnabled` | entityCallbacks.orderAfterSetEnable | `` | `` | PASS |
+| `Entity.onEnable` | entityCallbacks.enabledAfterCallback | `1` | `1` | PASS |
+| `Entity.onEnable` | entityCallbacks.orderAfterEnable | `E` | `E` | PASS |
+| `Entity.onEnable` | entityCallbacks.enabledAfterRepeat | `2` | `2` | PASS |
+| `Entity.isEnabled` | entityCallbacks.disabledAfterSet | `1` | `1` | PASS |
+| `Entity.setIsEnabled` | entityCallbacks.orderAfterSetDisable | `EE` | `EE` | PASS |
+| `Entity.onDisable` | entityCallbacks.disabledAfterCallback | `1` | `1` | PASS |
+| `Entity.onDisable` | entityCallbacks.orderAfterDisable | `EED` | `EED` | PASS |
+| `Entity.onEnable` | entityCallbacks.noHookEnable | `1` | `1` | PASS |
+| `Entity.onDisable` | entityCallbacks.noHookDisable | `1` | `1` | PASS |
+| `Entity.onEnable` | entityCallbacks.finalOrder | `EED` | `EED` | PASS |
 | `GameSystem.runProcess` | process.created | `1` | `1` | PASS |
 | `GameSystem.runProcess` | process.constructed | `1` | `1` | PASS |
 | `GameSystem.isProcessRunning` | process.running | `1` | `1` | PASS |

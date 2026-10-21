@@ -1,0 +1,19 @@
+{
+  "prefix": "entityCallbacks",
+  "frames": 0,
+  "extra": [
+    "entityCallbacks.initialEnabled",
+    "entityCallbacks.enabledAfterSet",
+    "entityCallbacks.orderAfterSetEnable",
+    "entityCallbacks.enabledAfterCallback",
+    "entityCallbacks.orderAfterEnable",
+    "entityCallbacks.enabledAfterRepeat",
+    "entityCallbacks.disabledAfterSet",
+    "entityCallbacks.orderAfterSetDisable",
+    "entityCallbacks.disabledAfterCallback",
+    "entityCallbacks.orderAfterDisable",
+    "entityCallbacks.noHookEnable",
+    "entityCallbacks.noHookDisable",
+    "entityCallbacks.finalOrder"
+  ]
+}

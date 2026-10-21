@@ -1,0 +1,16 @@
+# probe-sha256 0f041a60598050b826aa4ffab43d1666f3311470fca6892a59707cb853e4e0da
+# support-sha256 EntityCallbackProbe.gm a3b77aa56b1d57c1bea1dd21e801a1dd429c2a56ad335d9fbdb9a569f38a30e7
+# support-sha256 EntityCallbackNoHooks.gm 9de8f9869d277931cb28bcd23c808d926183c5c0b90b974e58037130edd82633
+entityCallbacks.disabledAfterCallback	1
+entityCallbacks.disabledAfterSet	1
+entityCallbacks.enabledAfterCallback	1
+entityCallbacks.enabledAfterRepeat	2
+entityCallbacks.enabledAfterSet	1
+entityCallbacks.finalOrder	EED
+entityCallbacks.initialEnabled	0
+entityCallbacks.noHookDisable	1
+entityCallbacks.noHookEnable	1
+entityCallbacks.orderAfterDisable	EED
+entityCallbacks.orderAfterEnable	E
+entityCallbacks.orderAfterSetDisable	EE
+entityCallbacks.orderAfterSetEnable	

@@ -1,0 +1,46 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityCallbackProbe.gm");
+global CallbackShape=PHYSICSSHAPECOLLECTIONDEF();
+global AddCallbackBody=function(entity) {
+    local data=entity.getPhysicsData();
+    local body=data.getBody(data.createBody());
+    CallbackShape.reset();
+    CallbackShape.setMass(1);
+    CallbackShape.addCircle(1,0,0);
+    body.appendShapes(CallbackShape);
+    return body;
+};
+global EntityCallbackState=table(enabled=0,disabled=0,order="");
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            GameSystem.setIsShouldUpdateEntities(0);
+            local entity=EntityManager.createEntity("EntityCallbackProbe");
+            local native=entity.Entity;
+            AddCallbackBody(entity);
+            Probe("entityCallbacks.initialEnabled",native.isEnabled());
+            entity.setIsEnabled(1);
+            Probe("entityCallbacks.enabledAfterSet",native.isEnabled());
+            Probe("entityCallbacks.orderAfterSetEnable",EntityCallbackState.order);
+            native.onEnable();
+            Probe("entityCallbacks.enabledAfterCallback",EntityCallbackState.enabled);
+            Probe("entityCallbacks.orderAfterEnable",EntityCallbackState.order);
+            native.onEnable();
+            Probe("entityCallbacks.enabledAfterRepeat",EntityCallbackState.enabled);
+            entity.setIsEnabled(0);
+            Probe("entityCallbacks.disabledAfterSet",!native.isEnabled());
+            Probe("entityCallbacks.orderAfterSetDisable",EntityCallbackState.order);
+            native.onDisable();
+            Probe("entityCallbacks.disabledAfterCallback",EntityCallbackState.disabled);
+            Probe("entityCallbacks.orderAfterDisable",EntityCallbackState.order);
+            local noHooks=EntityManager.createEntity("EntityCallbackNoHooks");
+            local noHookHandle=noHooks.Entity;
+            Probe("entityCallbacks.noHookEnable",noHookHandle.onEnable()==null);
+            Probe("entityCallbacks.noHookDisable",noHookHandle.onDisable()==null);
+            Probe("entityCallbacks.finalOrder",EntityCallbackState.order);
+        });
+};

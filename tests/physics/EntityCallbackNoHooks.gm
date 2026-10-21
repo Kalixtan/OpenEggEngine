@@ -1,0 +1,4 @@
+global EntityCallbackNoHooks=function(handle) {
+    return table(Entity=handle,constructor=function() {},
+        configure=function() { return true; });
+};
