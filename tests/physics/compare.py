@@ -70,7 +70,7 @@ REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "shapeCollisionInfo.", "intIter.",
             "jointType.", "jointIter.", "Physics.", "Entity.",
-            "EntityManager.", "EntityListRef.", "ALARM.")
+            "EntityManager.", "EntityListRef.", "ALARM.", "LFO.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "Global.PHYSICSSHAPECOLLECTIONDEF", "Entity.isEnabled",
            "EntityManager.isEntityIDValid", "EntityManager.getNumEntities",
@@ -83,7 +83,8 @@ SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "EntityManager.getAllNonManualEntities", "EntityManager.getAllPlayerEntities",
            "EntityManager.getAllPlayerEntitiesRandomly", "EntityManager.getRandomEntity",
            "EntityManager.getRandomPlayer", "EntityManager.getEntitiesNear",
-           "EntityManager.getEntitiesRoughlyWithin", "ALARM.setIntervalAndHardReset"}
+           "EntityManager.getEntitiesRoughlyWithin", "ALARM.setIntervalAndHardReset",
+           "Global.TRIANGLELFO"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
@@ -116,6 +117,7 @@ ASSOCIATED = {
     "entityState.alarmElapsedResetAlias": ("ALARM.reset",),
     "entityState.alarmRandomResetRange": ("ALARM.randomReset",),
     "entityState.alarmEnabledDisabled": ("ALARM.setIsEnabled",),
+    "entityState.lfoPhase0": ("LFO.setPhase",),
     "entityState.addLFO": ("Entity.addLFO",),
     "entityState.compatibilityCallsComplete": (
         "Entity.deleteLFO", "Entity.addTelescope", "Entity.clearTelescopes",
@@ -350,14 +352,13 @@ ENTITY_STATE_FIELDS = {
     "alarmElapsedResetAlias": "ALARM.reset", "alarmRandomResetRange": "ALARM.randomReset",
     "alarmIntervalReset": "ALARM.setIntervalAndHardReset", "alarmElapsedPhase": "ALARM.phaseReset",
     "alarmUpdateDisabled": "ALARM.update", "alarmElapsedDisabled": "ALARM.getMSElapsed",
-    "addLFO": "Entity.addLFO", "lfoObjectNonNull": "Entity.addLFO",
-    "lfoRate": "Entity.addLFO",
-    "lfoRate50": "Entity.addLFO", "lfoRate100": "Entity.addLFO",
-    "lfoRate400": "Entity.addLFO", "lfoPhase0": "Entity.addLFO",
-    "lfoPhaseQuarter": "Entity.addLFO", "lfoPhaseHalf": "Entity.addLFO",
-    "lfoPhaseThreeQuarter": "Entity.addLFO",
-    "lfoContourBefore": "Entity.addLFO", "lfoContourAfter": "Entity.addLFO",
-    "lfoValue": "Entity.addLFO", "lfoUpdatedValue": "Entity.addLFO",
+    "addLFO": "Entity.addLFO", "lfoObjectNonNull": "Global.TRIANGLELFO",
+    "lfoRate": "LFO.setRate", "lfoRate50": "LFO.setRate",
+    "lfoRate100": "LFO.setRate", "lfoRate400": "LFO.setRate",
+    "lfoPhase0": "LFO.setRange", "lfoPhaseQuarter": "LFO.setPhase",
+    "lfoPhaseHalf": "LFO.setPhase", "lfoPhaseThreeQuarter": "LFO.setPhase",
+    "lfoContourBefore": "LFO.setContour", "lfoContourAfter": "LFO.setContour",
+    "lfoValue": "LFO.getValue", "lfoUpdatedValue": "LFO.update",
     "compatibilityCallsComplete": "Entity.update",
     "okToRun": "Entity.isOkToRun", "deleted": "EntityManager.isEntityIDValid",
     "otherDeleted": "EntityManager.isEntityIDValid", "dummyStable": "EntityManager.getDummyEntity",

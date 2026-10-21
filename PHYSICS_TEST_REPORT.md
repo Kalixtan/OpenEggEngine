@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 15:26 UTC
+Generated: 2026-10-21 15:28 UTC
 
 Matched: **4796/4800 comparable readings (99.9%)**. 10 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **275/448**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **281/456**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -99,7 +99,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `ALARM.setIsEnabled` | 1 | 1 | PASS |
 | `ALARM.update` | 3 | 3 | PASS |
 | `Entity.addAlarm` | 0 | 0 | untested |
-| `Entity.addLFO` | 13 | 13 | PASS |
+| `Entity.addLFO` | 0 | 0 | untested |
 | `Entity.addTelescope` | 1 | 1 | PASS |
 | `Entity.callMethod` | 0 | 2 | FAIL |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
@@ -242,6 +242,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.setEntityPerfCost` | 2 | 2 | PASS |
 | `EntityManager.setEntityPerfMaxCost` | 1 | 1 | PASS |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
+| `Global.TRIANGLELFO` | 1 | 1 | PASS |
+| `LFO.getValue` | 1 | 1 | PASS |
+| `LFO.setContour` | 2 | 2 | PASS |
+| `LFO.setPhase` | 4 | 4 | PASS |
+| `LFO.setRandomPhase` | 0 | 0 | untested |
+| `LFO.setRange` | 1 | 1 | PASS |
+| `LFO.setRate` | 4 | 4 | PASS |
+| `LFO.update` | 1 | 1 | PASS |
 | `Physics.createJoint` | 5 | 5 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
 | `Physics.deleteJoint` | 0 | 0 | untested |
@@ -5222,19 +5230,19 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.isInvisible` | entityState.invisible | `1` | `1` | PASS |
 | `Entity.isType` | entityState.isType | `1` | `1` | PASS |
 | `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
-| `Entity.addLFO` | entityState.lfoRate | `50.000000` | `50.000000` | PASS |
-| `Entity.addLFO` | entityState.lfoObjectNonNull | `1` | `1` | PASS |
-| `Entity.addLFO` | entityState.lfoRate50 | `12.500000` | `12.500000` | PASS |
-| `Entity.addLFO` | entityState.lfoRate100 | `25.000000` | `25.000000` | PASS |
-| `Entity.addLFO` | entityState.lfoRate400 | `100.000000` | `100.000000` | PASS |
-| `Entity.addLFO` | entityState.lfoPhase0 | `-1.000000` | `-1.000000` | PASS |
-| `Entity.addLFO` | entityState.lfoPhaseQuarter | `-0.500000` | `-0.500000` | PASS |
-| `Entity.addLFO` | entityState.lfoPhaseHalf | `0.000000` | `0.000000` | PASS |
-| `Entity.addLFO` | entityState.lfoPhaseThreeQuarter | `0.500000` | `0.500000` | PASS |
-| `Entity.addLFO` | entityState.lfoContourBefore | `-0.250000` | `-0.250000` | PASS |
-| `Entity.addLFO` | entityState.lfoContourAfter | `0.750000` | `0.750000` | PASS |
-| `Entity.addLFO` | entityState.lfoUpdatedValue | `0.500000` | `0.500000` | PASS |
-| `Entity.addLFO` | entityState.lfoValue | `-0.500000` | `-0.500000` | PASS |
+| `LFO.setRate` | entityState.lfoRate | `50.000000` | `50.000000` | PASS |
+| `Global.TRIANGLELFO` | entityState.lfoObjectNonNull | `1` | `1` | PASS |
+| `LFO.setRate` | entityState.lfoRate50 | `12.500000` | `12.500000` | PASS |
+| `LFO.setRate` | entityState.lfoRate100 | `25.000000` | `25.000000` | PASS |
+| `LFO.setRate` | entityState.lfoRate400 | `100.000000` | `100.000000` | PASS |
+| `LFO.setRange` | entityState.lfoPhase0 | `-1.000000` | `-1.000000` | PASS |
+| `LFO.setPhase` | entityState.lfoPhaseQuarter | `-0.500000` | `-0.500000` | PASS |
+| `LFO.setPhase` | entityState.lfoPhaseHalf | `0.000000` | `0.000000` | PASS |
+| `LFO.setPhase` | entityState.lfoPhaseThreeQuarter | `0.500000` | `0.500000` | PASS |
+| `LFO.setContour` | entityState.lfoContourBefore | `-0.250000` | `-0.250000` | PASS |
+| `LFO.setContour` | entityState.lfoContourAfter | `0.750000` | `0.750000` | PASS |
+| `LFO.update` | entityState.lfoUpdatedValue | `0.500000` | `0.500000` | PASS |
+| `LFO.getValue` | entityState.lfoValue | `-0.500000` | `-0.500000` | PASS |
 | `Entity.getMixerID` | entityState.mixerID | `7` | `7` | PASS |
 | `Entity.is_getAudibilityPerc_neverOnScreen` | entityState.neverOnScreen | `1` | `1` | PASS |
 | `Entity.isOkToRun` | entityState.notOkToRun | `1` | `1` | PASS |
