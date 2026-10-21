@@ -98,8 +98,8 @@ Joint scenes sample five joint types over time; moving rays check hit order
 after bodies move and overlap. The report keeps mismatches visible.
 Entity lifecycle checks enable/disable, contact callbacks, re-enable, and
 delete/flush while bodies overlap. Entity manager probes cover pending versus
-committed entities, iterator snapshots, repeated tags, observer-queued deletion
-and creation, and clear-all behavior. The entity state probe exercises exposed
+committed entities, iterator snapshots, live-iterator deletion/appends, repeated
+tags, observer-queued deletion and creation, and clear-all behavior. The entity state probe exercises exposed
 state, identity, geometry, alarms, particles, compatibility stubs, and perf
 cost calls. Its cases without retail captures remain outside the parity score.
 Entity callback probe checks enable and disable delegation separately from

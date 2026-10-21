@@ -3046,8 +3046,20 @@ int GM_CDECL gmf_entityListIter_goToNext(gmThread* a_thread) {
     // the last item, goToNext follows sentinel.next back to the first item.
     // An empty list's sentinel points to itself and therefore remains invalid.
     if (it) {
-        if (it->index < it->entities.size()) ++it->index;
-        else if (!it->entities.empty()) it->index = 0;
+        if (!it->tracksEntities) {
+            if (it->index < it->entities.size()) ++it->index;
+            else if (!it->entities.empty()) it->index = 0;
+        } else if (it->index < it->entities.size()) {
+            size_t next = it->index + 1;
+            while (next < it->entities.size() && it->entities[next].m_type == GM_NULL)
+                ++next;
+            it->index = next;
+        } else {
+            it->index = 0;
+            while (it->index < it->entities.size() &&
+                   it->entities[it->index].m_type == GM_NULL)
+                ++it->index;
+        }
     }
     return GM_OK;
 }

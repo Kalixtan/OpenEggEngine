@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 20:00 UTC
+Generated: 2026-10-21 20:10 UTC
 
-Matched: **4853/4853 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4861/4861 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **291/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -50,6 +50,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityMgr.getAllEntities | 7 | 7 |
 | entityMgr.tagForDeletion | 3 | 3 |
 | entityMgr.flush | 9 | 9 |
+| entityMgr.iteratorAfterDelete | 3 | 3 |
+| entityMgr.iteratorAfterAdd | 5 | 5 |
 | entityMgr.deleteAll | 7 | 7 |
 | entityQ.id | 5 | 5 |
 | entityQ.count | 4 | 4 |
@@ -708,9 +710,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.onEntityCollidePreSolve` | 64 | 64 |
 | `Entity.onEntitySeparate` | 64 | 64 |
 | `Entity.onEntityTouch` | 64 | 64 |
-| `EntityListRef.get` | 1 | 1 |
-| `EntityListRef.goToNext` | 1 | 1 |
+| `EntityListRef.get` | 3 | 3 |
+| `EntityListRef.goToNext` | 5 | 5 |
 | `EntityListRef.isValid` | 1 | 1 |
+| `EntityListRef.size` | 2 | 2 |
 
 ## Inconclusive probes
 
@@ -5304,6 +5307,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityManager.getNumEntities` | entityMgr.tagForDeletion.countBeforeFlush | `3` | `3` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.flush.aRemoved | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.flush.cRemovedByObserver | `1` | `1` | PASS |
+| `EntityListRef.size` | entityMgr.iteratorAfterDelete.size | `1` | `1` | PASS |
+| `EntityListRef.get` | entityMgr.iteratorAfterDelete.currentNull | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | entityMgr.iteratorAfterDelete.nextIsB | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.flush.bRetained | `1` | `1` | PASS |
 | `Entity callbacks` | entityMgr.flush.destroyCount | `2` | `2` | PASS |
 | `Entity callbacks` | entityMgr.flush.destroyOrder | `a;c;` | `a;c;` | PASS |
@@ -5311,6 +5317,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityManager.getNumEntities` | entityMgr.flush.pendingCount | `2` | `2` | PASS |
 | `EntityManager.getAllEntities` | entityMgr.flush.committedCount | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.flush.destructorSpawnCommitted | `1` | `1` | PASS |
+| `EntityListRef.size` | entityMgr.iteratorAfterAdd.size | `2` | `2` | PASS |
+| `EntityListRef.get` | entityMgr.iteratorAfterAdd.currentTag | `b` | `b` | PASS |
+| `EntityListRef.goToNext` | entityMgr.iteratorAfterAdd.step1Tag | `destructorSpawn` | `destructorSpawn` | PASS |
+| `EntityListRef.goToNext` | entityMgr.iteratorAfterAdd.step2Tag | `null` | `null` | PASS |
+| `EntityListRef.goToNext` | entityMgr.iteratorAfterAdd.step3Tag | `b` | `b` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.deleteAll.activeStillValid | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.deleteAll.pendingStillInvalid | `1` | `1` | PASS |
 | `EntityManager.getNumEntities` | entityMgr.deleteAll.countBeforeFlush | `3` | `3` | PASS |

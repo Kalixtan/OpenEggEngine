@@ -15,6 +15,10 @@ global MakeManagerProbeEntity=function(tag) {
 global ProbeManager=function(name,value) {
     Probe("entityMgr."+name,value);
 };
+global EntityManagerProbeTag=function(entity) {
+    if (!?entity) { return "null"; }
+    return entity.matrixTag;
+};
 global ProbeManagerUpdate=function(tick) {
     local key="entityMgr.update.t"+tick+".";
     local state=EntityManagerProbeState;
@@ -82,6 +86,13 @@ global Main=function(p) {
             EntityManager.flush();
             ProbeManager("flush.aRemoved",!EntityManager.isEntityIDValid(a.getObjectID()));
             ProbeManager("flush.cRemovedByObserver",!EntityManager.isEntityIDValid(c.getObjectID()));
+            ProbeManager("iteratorAfterDelete.size",iter.size());
+            local currentAfterDelete=iter.get();
+            ProbeManager("iteratorAfterDelete.currentNull",currentAfterDelete==null);
+            iter.goToNext();
+            local nextAfterDelete=iter.get();
+            ProbeManager("iteratorAfterDelete.nextIsB",nextAfterDelete!=null &&
+                nextAfterDelete.getObjectID()==b.getObjectID());
             ProbeManager("flush.bRetained",EntityManager.isEntityIDValid(b.getObjectID()));
             ProbeManager("flush.destroyCount",state.destroyed);
             ProbeManager("flush.destroyOrder",state.destroyOrder);
@@ -92,6 +103,18 @@ global Main=function(p) {
             ProbeManager("flush.committedCount",refill.size());
             EntityManager.flush();
             ProbeManager("flush.destructorSpawnCommitted",EntityManager.isEntityIDValid(state.destructorSpawn.getObjectID()));
+            ProbeManager("iteratorAfterAdd.size",iter.size());
+            local atAddStart=iter.get();
+            ProbeManager("iteratorAfterAdd.currentTag",EntityManagerProbeTag(atAddStart));
+            iter.goToNext();
+            local afterAddStep1=iter.get();
+            ProbeManager("iteratorAfterAdd.step1Tag",EntityManagerProbeTag(afterAddStep1));
+            iter.goToNext();
+            local afterAddStep2=iter.get();
+            ProbeManager("iteratorAfterAdd.step2Tag",EntityManagerProbeTag(afterAddStep2));
+            iter.goToNext();
+            local afterAddStep3=iter.get();
+            ProbeManager("iteratorAfterAdd.step3Tag",EntityManagerProbeTag(afterAddStep3));
             local d=MakeManagerProbeEntity("d");
             EntityManager.deleteAllEntities();
             ProbeManager("deleteAll.activeStillValid",EntityManager.isEntityIDValid(b.getObjectID()));
