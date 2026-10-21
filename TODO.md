@@ -43,8 +43,11 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 
 - [ ] Recheck `Entity.callMethod` and `Entity.getWhichSide` against retail.
       Current capture is inconclusive: headless RPCS3 produced no TTY output.
-- [ ] Exercise multi-record animation resources, custom sequences, and boundary
-      frame values.
+- [x] Add headless probes for FSA loading, playback state, seeking, custom
+      sequences, shared resources, and unload. OpenEgg passes locally; retail
+      readings are pending.
+- [ ] Verify multi-record animation resources and boundary frame values against
+      retail.
 - [ ] Verify load/unload order, callbacks, object retention, and cleanup during
       scene transitions.
 - [ ] Compare entity iterators, filters, and mutation during iteration.

@@ -3,7 +3,7 @@
 import json
 import re
 
-DECLARED = re.compile(r'(?:SeqProbe|ProbeVolatile|Probe)\("([A-Za-z0-9_.]+)"')
+DECLARED = re.compile(r'(?:SeqProbe|AnimProbe|ProbeVolatile|Probe)\("([A-Za-z0-9_.]+)"')
 
 
 def expected_readings(probe, plan=None):
