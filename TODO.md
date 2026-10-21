@@ -18,6 +18,8 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 ## Runtime and physics
 
 - [ ] Match frame timing, pause handling, update order, and physics-step inputs.
+- [ ] Probe `GameSystem.runProcess`, process start/stop timing, pause behavior,
+      and `update`/`postUpdate` order against the same retail script.
 - [ ] Compare contact creation, callback order, deferred events, and body
       destruction against observed game behavior.
 - [ ] Verify contact queries, shape membership, collision filtering, and
@@ -39,6 +41,8 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 
 ## Animation and entities
 
+- [ ] Recheck `Entity.callMethod` and `Entity.getWhichSide` against retail.
+      Current capture is inconclusive: headless RPCS3 produced no TTY output.
 - [ ] Exercise multi-record animation resources, custom sequences, and boundary
       frame values.
 - [ ] Verify load/unload order, callbacks, object retention, and cleanup during
@@ -48,6 +52,11 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 
 ## Audio and sequencing
 
+- [x] Convert the 48 kHz mixer stream to the SDL device format, prebuffer two
+      callback periods, and clear audio backlog above 250 ms. Headless dummy-
+      device startup passed; retail mixer and DSP parity remain open.
+- [x] Return retail's integer `-1` for unsupported load, play, and Slicker
+      audio-call arities; middleware behavior remains open.
 - [ ] Compare voice allocation, priority, routing, pan, pitch, and timing.
 - [ ] Implement and compare effect-chain behavior and streamed audio paths.
 - [ ] Verify sequencer triggers, event ordering, removal, and timer boundaries.
@@ -56,6 +65,9 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 
 ## Input, files, and platform behavior
 
+- [ ] Compare the SDL text-entry path for `Input.openIME`, `getIMEStatus`, and
+      `getStringIME` against retail callbacks; title/keyboard-mask behavior and
+      completion/cancel status parity remain unverified.
 - [ ] Compare controller selection, axis values, button mapping, and rumble.
 - [ ] Verify keyboard and controller behavior through menus and gameplay.
 - [ ] Check file-area resolution, asynchronous operations, save requests, and
