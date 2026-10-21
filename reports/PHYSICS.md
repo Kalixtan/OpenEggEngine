@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 19:11 UTC
+Generated: 2026-10-21 20:00 UTC
 
-Matched: **4852/4852 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4853/4853 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **291/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -77,6 +77,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityGC.collectingAfterTick | 1 | 1 |
 | entityGC.activeAfterGC | 1 | 1 |
 | entityGC.lookupAfterGC | 1 | 1 |
+| entityGC.bodyAfterGC | 1 | 1 |
 | entityGC.deletedBeforeGC | 1 | 1 |
 | entityGC.collectingAfterDeleteGC | 1 | 1 |
 | entityGC.deletedAfterGC | 1 | 1 |
@@ -288,11 +289,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.getNumPlayers` | 1 | 1 | PASS |
 | `EntityManager.getRandomEntity` | 1 | 1 | PASS |
 | `EntityManager.getRandomPlayer` | 1 | 1 | PASS |
-| `EntityManager.isEntityIDValid` | 49 | 49 | PASS |
+| `EntityManager.isEntityIDValid` | 49 | 50 | AWAITING RETAIL |
 | `EntityManager.setEntityPerfCost` | 2 | 2 | PASS |
 | `EntityManager.setEntityPerfMaxCost` | 1 | 1 | PASS |
 | `GameMonkeyScript.clean` | 1 | 1 | PASS |
-| `GameMonkeyScript.isCollectingGarbage` | 3 | 3 | PASS |
+| `GameMonkeyScript.isCollectingGarbage` | 3 | 4 | AWAITING RETAIL |
 | `GameSystem.TemporaryStorageCopy` | 0 | 0 | untested |
 | `GameSystem.TemporaryStoragePaste` | 0 | 0 | untested |
 | `GameSystem.debug_isStopped` | 0 | 0 | untested |
@@ -502,7 +503,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getNumShapeVerts` | 1 | 1 | PASS |
 | `physicsBody.getNumShapes` | 3 | 3 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
-| `physicsBody.getPos` | 619 | 619 | PASS |
+| `physicsBody.getPos` | 620 | 620 | PASS |
 | `physicsBody.getPosRef` | 1 | 1 | PASS |
 | `physicsBody.getPosVec` | 1 | 1 | PASS |
 | `physicsBody.getRadius` | 2 | 2 | PASS |
@@ -538,7 +539,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.isRect` | 0 | 1 | LOCAL-ONLY |
 | `physicsBody.isSensor` | 8 | 8 | PASS |
 | `physicsBody.isShapeSensor` | 1 | 1 | PASS |
-| `physicsBody.isSleeping` | 1 | 1 | PASS |
+| `physicsBody.isSleeping` | 1 | 2 | AWAITING RETAIL |
 | `physicsBody.putToSleep` | 0 | 0 | untested |
 | `physicsBody.raycast` | 12 | 12 | PASS |
 | `physicsBody.raycastShapesOne` | 9 | 9 | PASS |
@@ -739,6 +740,16 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsBody.isCircle` | bodyApi.physicsBody.isCircle | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | bodyApi.physicsBody.isRect | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
+
+## Awaiting retail capture
+
+These cases ran on OpenEgg but lack comparable retail readings; excluded from parity scores.
+
+| Function | Case | OpenEgg | Note |
+| --- | --- | --- | --- |
+| `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
+| `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
+| `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
 
 ## Readings
 
@@ -5450,6 +5461,7 @@ These extensions have no corresponding retail method and are excluded from the p
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterTick | `0` | `0` | PASS |
 | `EntityManager.isEntityIDValid` | entityGC.activeAfterGC | `1` | `1` | PASS |
 | `EntityManager.getEntity` | entityGC.lookupAfterGC | `1` | `1` | PASS |
+| `physicsBody.getPos` | entityGC.bodyAfterGC | `7.000000` | `7.000000` | PASS |
 | `EntityManager.flush` | entityGC.deletedBeforeGC | `1` | `1` | PASS |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterDeleteGC | `0` | `0` | PASS |
 | `EntityManager.isEntityIDValid` | entityGC.deletedAfterGC | `1` | `1` | PASS |

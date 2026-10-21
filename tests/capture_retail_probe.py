@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -34,6 +35,11 @@ def main():
     original = main_path.read_bytes()
     probe = args.probe.resolve().read_bytes()
     expected = set(expected_readings(args.probe.resolve(), args.expected))
+    plan = json.loads(args.expected.read_text()) if args.expected else {}
+    awaiting_retail = set(plan.get("awaitingRetail", []))
+    retail_crash = plan.get("retailCrash", {})
+    if not set(retail_crash) <= awaiting_retail <= expected:
+        parser.error("retailCrash readings must be declared in awaitingRetail")
     if not expected:
         parser.error("probe has no declared readings")
     if b"global Main" not in probe:
@@ -85,13 +91,12 @@ def main():
         print(f"no RPCS3 TTY log; see {boot_log}", file=sys.stderr)
         return 1
     tty_log.write_bytes(args.tty.read_bytes())
-    if "VM: Access violation" in boot_log.read_text(errors="replace"):
-        print(f"retail fault; see {boot_log}", file=sys.stderr)
-        return 1
+    retail_fault = "VM: Access violation" in boot_log.read_text(errors="replace")
     tty_text = tty_log.read_text(errors="replace")
     readings, duplicates = read_readings(tty_log)
-    if set(readings) != expected or duplicates:
-        missing = len(expected - set(readings))
+    expected_capture = expected - awaiting_retail if retail_fault and retail_crash else expected
+    if (retail_fault and not retail_crash) or set(readings) != expected_capture or duplicates:
+        missing = len(expected_capture - set(readings))
         extra = len(set(readings) - expected)
         print(f"retail capture incomplete: {missing} missing, {extra} extra, "
               f"{len(duplicates)} duplicates; see {tty_log}", file=sys.stderr)
@@ -106,7 +111,10 @@ def main():
                              retail_warnings +
                              "".join(f"{key}\t{value}\n"
                                      for key, value in sorted(readings.items())))
-    print(f"captured {len(readings)} retail readings to {args.baseline}")
+    if retail_fault:
+        print(f"captured {len(readings)} readings before expected retail fault")
+    else:
+        print(f"captured {len(readings)} retail readings to {args.baseline}")
     return 0
 
 

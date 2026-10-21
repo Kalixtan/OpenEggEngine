@@ -1,15 +1,27 @@
 {
   "prefix": "entityGC",
-  "frames": 3,
+  "frames": 4,
   "scenes": {},
+  "awaitingRetail": [
+    "entityGC.detachedBodySleeping",
+    "entityGC.collectingAfterReleaseGC",
+    "entityGC.entityStillDeleted"
+  ],
+  "retailCrash": {
+    "entityGC.detachedBodySleeping": "RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached."
+  },
   "extra": [
     "entityGC.scheduled",
     "entityGC.collectingBeforeTick",
     "entityGC.collectingAfterTick",
     "entityGC.activeAfterGC",
     "entityGC.lookupAfterGC",
+    "entityGC.bodyAfterGC",
     "entityGC.deletedBeforeGC",
     "entityGC.collectingAfterDeleteGC",
-    "entityGC.deletedAfterGC"
+    "entityGC.deletedAfterGC",
+    "entityGC.detachedBodySleeping",
+    "entityGC.collectingAfterReleaseGC",
+    "entityGC.entityStillDeleted"
   ]
 }

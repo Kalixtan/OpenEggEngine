@@ -53,8 +53,9 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
       scene transitions.
 - [ ] Compare entity iterators, filters, and mutation during iteration.
 - [ ] Verify native object identity and garbage collection. Active-entity
-      retention and post-delete ID invalidation match in 8 probe readings;
-      direct object reclamation remains unobserved.
+      and owned-body retention match retail. RPCS3 faults after deletion when
+      calling `PhysicsBody.isSleeping()` on retained body; direct object
+      reclamation remains unobserved.
 
 ## Audio and sequencing
 

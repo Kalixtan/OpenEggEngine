@@ -104,7 +104,11 @@ state, identity, geometry, alarms, particles, compatibility stubs, and perf
 cost calls. Its cases without retail captures remain outside the parity score.
 Entity callback probe checks enable and disable delegation separately from
 the enabled flag, including repeated and missing behavior callbacks.
-Entity GC probe checks active entity retention through collection and deletion.
+Entity GC probe checks entity/body retention through collection, detached-body
+safety after deletion, and ID invalidation. Heap reclamation itself is not
+observable from GameMonkeyScript. Retail faults on the retained-body
+`isSleeping()` call after owner deletion; the later readings run only on
+OpenEgg.
 Process probes compare creation, deferred init, queued termination, pause
 state, callback order, and registry counts with retail.
 

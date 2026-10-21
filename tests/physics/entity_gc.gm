@@ -14,6 +14,9 @@ global Main=function(p) {
                 GameSystem.setIsShouldUpdateEntities(0);
                 local entity=EntityManager.createEntity("EntityGCProbe");
                 state.id=entity.getObjectID();
+                local data=entity.getPhysicsData();
+                local body=data.getBody(data.createBody());
+                body.setPos(vector2D(7,11));
                 EntityManager.flush();
                 ProbeGC("scheduled",GameMonkeyScript.clean(1)==null);
                 ProbeGC("collectingBeforeTick",GameMonkeyScript.isCollectingGarbage());
@@ -23,6 +26,9 @@ global Main=function(p) {
                 ProbeGC("activeAfterGC",EntityManager.isEntityIDValid(state.id));
                 ProbeGC("lookupAfterGC",
                     EntityManager.getEntity(state.id).getObjectID()==state.id);
+                local retained=EntityManager.getEntity(state.id).getPhysicsData().getBody(0);
+                ProbeGC("bodyAfterGC",retained.getPos().x);
+                state.retainedBody=retained;
                 EntityManager.deleteAllEntities();
                 EntityManager.flush();
                 ProbeGC("deletedBeforeGC",!EntityManager.isEntityIDValid(state.id));
@@ -31,7 +37,15 @@ global Main=function(p) {
             } else if (state.stage==2) {
                 ProbeGC("collectingAfterDeleteGC",GameMonkeyScript.isCollectingGarbage());
                 ProbeGC("deletedAfterGC",!EntityManager.isEntityIDValid(state.id));
+                local detachedSleeping=state.retainedBody.isSleeping();
+                ProbeGC("detachedBodySleeping",detachedSleeping);
+                state.retainedBody=null;
+                GameMonkeyScript.clean(1);
                 state.stage=3;
+            } else if (state.stage==3) {
+                ProbeGC("collectingAfterReleaseGC",GameMonkeyScript.isCollectingGarbage());
+                ProbeGC("entityStillDeleted",!EntityManager.isEntityIDValid(state.id));
+                state.stage=4;
             }
         });
 };

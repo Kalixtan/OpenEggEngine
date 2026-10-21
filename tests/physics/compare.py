@@ -409,9 +409,13 @@ ENTITY_GC_FIELDS = {
     "collectingAfterTick": "GameMonkeyScript.isCollectingGarbage",
     "activeAfterGC": "EntityManager.isEntityIDValid",
     "lookupAfterGC": "EntityManager.getEntity",
+    "bodyAfterGC": "physicsBody.getPos",
     "deletedBeforeGC": "EntityManager.flush",
     "collectingAfterDeleteGC": "GameMonkeyScript.isCollectingGarbage",
     "deletedAfterGC": "EntityManager.isEntityIDValid",
+    "detachedBodySleeping": "physicsBody.isSleeping",
+    "collectingAfterReleaseGC": "GameMonkeyScript.isCollectingGarbage",
+    "entityStillDeleted": "EntityManager.isEntityIDValid",
 }
 BODY_CONTROL_FIELDS = {
     "position": "physicsBody.setPos", "velocity": "physicsBody.setVel",
@@ -659,6 +663,7 @@ def main():
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
         awaiting_retail = set(plan_data.get("awaitingRetail", []))
+        retail_crash = plan_data.get("retailCrash", {})
         if not awaiting_retail:
             check_baseline_source(baseline, probe, support)
         inconclusive = plan_data.get("inconclusive", {})
@@ -686,7 +691,8 @@ def main():
         for case in declared:
             function = owner(case, names)
             if case in awaiting_retail:
-                awaiting_retail_rows.append((case, function, local.get(case)))
+                reason = retail_crash.get(case, "No retail reading captured.")
+                awaiting_retail_rows.append((case, function, local.get(case), reason))
                 awaiting_retail_counts[function] += 1
                 for extra in ASSOCIATED.get(case, ()):
                     if extra not in names:
@@ -763,10 +769,10 @@ def main():
             lines.append(f"| `{function}` | {case} | `{retail_value}` | `{local_value}` | {reason} |")
     if awaiting_retail_rows:
         lines += ["", "## Awaiting retail capture", "",
-                  "These cases ran on OpenEgg but have no retail readings yet; they are excluded from parity scores.", "",
-                  "| Function | Case | OpenEgg |", "| --- | --- | --- |"]
-        for case, function, local_value in awaiting_retail_rows:
-            lines.append(f"| `{function}` | {case} | `{local_value}` |")
+                  "These cases ran on OpenEgg but lack comparable retail readings; excluded from parity scores.", "",
+                  "| Function | Case | OpenEgg | Note |", "| --- | --- | --- | --- |"]
+        for case, function, local_value, reason in awaiting_retail_rows:
+            lines.append(f"| `{function}` | {case} | `{local_value}` | {reason} |")
     lines += ["", "## Readings", "", "| Function | Case | Retail | OpenEgg | Result |",
               "| --- | --- | --- | --- | --- |"]
     for case, function, a, b, passed in rows:
