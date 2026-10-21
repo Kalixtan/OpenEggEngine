@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 23:48 UTC
+Generated: 2026-10-21 23:58 UTC
 
-Matched: **4908/4908 comparable readings (100.0%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **5909/6060 comparable readings (97.5%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **292/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **302/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -156,6 +156,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.pointInside | 1 | 1 |
 | bodyCtl.pointOutside | 1 | 1 |
 | bodyCtl.sleeping | 1 | 1 |
+| bodyCmd.thrust | 288 | 288 |
+| bodyCmd.brake | 235 | 288 |
+| bodyCmd.turn | 218 | 288 |
+| bodyCmd.sleep | 260 | 288 |
 
 ## Per function
 
@@ -502,7 +506,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.setupRelativeJoint` | 1 | 1 | PASS |
 | `physicsBody.appendShapes` | 2 | 2 | PASS |
 | `physicsBody.applyForce` | 0 | 0 | untested |
-| `physicsBody.brake` | 0 | 0 | untested |
+| `physicsBody.brake` | 235 | 288 | FAIL |
 | `physicsBody.computeAngularVel` | 0 | 0 | untested |
 | `physicsBody.disableRestitutionThisFrame` | 0 | 0 | untested |
 | `physicsBody.doesRotationResponse` | 1 | 1 | PASS |
@@ -515,7 +519,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getCenterOfMass` | 1 | 1 | PASS |
 | `physicsBody.getCollisionCategory` | 59 | 59 | PASS |
 | `physicsBody.getCollisionGroup` | 57 | 57 | PASS |
-| `physicsBody.getDir` | 1 | 1 | PASS |
+| `physicsBody.getDir` | 257 | 257 | PASS |
 | `physicsBody.getDirRef` | 0 | 0 | untested |
 | `physicsBody.getDirty` | 0 | 0 | untested |
 | `physicsBody.getEntity` | 0 | 0 | untested |
@@ -529,13 +533,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getNumShapeVerts` | 1 | 1 | PASS |
 | `physicsBody.getNumShapes` | 3 | 3 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
-| `physicsBody.getPos` | 625 | 625 | PASS |
+| `physicsBody.getPos` | 870 | 881 | FAIL |
 | `physicsBody.getPosRef` | 1 | 1 | PASS |
 | `physicsBody.getPosVec` | 1 | 1 | PASS |
 | `physicsBody.getRadius` | 2 | 2 | PASS |
 | `physicsBody.getRestitution` | 1 | 1 | PASS |
 | `physicsBody.getRotateAcc` | 1 | 1 | PASS |
-| `physicsBody.getRotateVel` | 1 | 1 | PASS |
+| `physicsBody.getRotateVel` | 129 | 129 | PASS |
 | `physicsBody.getShape` | 0 | 0 | untested |
 | `physicsBody.getShapeCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsBody.getShapeHeight` | 2 | 2 | PASS |
@@ -549,9 +553,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getShapeWidth` | 2 | 2 | PASS |
 | `physicsBody.getShapeWorldCenterPos` | 1 | 1 | PASS |
 | `physicsBody.getShapeWorldVert` | 1 | 1 | PASS |
-| `physicsBody.getSpeed` | 3 | 3 | PASS |
+| `physicsBody.getSpeed` | 127 | 131 | FAIL |
 | `physicsBody.getThrustAcc` | 1 | 1 | PASS |
-| `physicsBody.getVel` | 482 | 482 | PASS |
+| `physicsBody.getVel` | 654 | 738 | FAIL |
 | `physicsBody.getVelRef` | 1 | 1 | PASS |
 | `physicsBody.getWidth` | 1 | 1 | PASS |
 | `physicsBody.getWorldDir` | 1 | 1 | PASS |
@@ -565,22 +569,22 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.isRect` | 0 | 1 | LOCAL-ONLY |
 | `physicsBody.isSensor` | 8 | 8 | PASS |
 | `physicsBody.isShapeSensor` | 1 | 1 | PASS |
-| `physicsBody.isSleeping` | 1 | 2 | AWAITING RETAIL |
-| `physicsBody.putToSleep` | 0 | 0 | untested |
+| `physicsBody.isSleeping` | 77 | 130 | FAIL |
+| `physicsBody.putToSleep` | 260 | 288 | FAIL |
 | `physicsBody.raycast` | 12 | 12 | PASS |
 | `physicsBody.raycastShapesOne` | 9 | 9 | PASS |
 | `physicsBody.rebuildBodyMass` | 0 | 0 | untested |
 | `physicsBody.removeShape` | 0 | 0 | untested |
-| `physicsBody.reverseThrust` | 0 | 0 | untested |
+| `physicsBody.reverseThrust` | 288 | 288 | PASS |
 | `physicsBody.rotate` | 0 | 0 | untested |
 | `physicsBody.rotateLeft` | 0 | 0 | untested |
 | `physicsBody.rotateRight` | 0 | 0 | untested |
-| `physicsBody.rotateTo` | 0 | 0 | untested |
-| `physicsBody.setAllowSleeping` | 0 | 0 | untested |
+| `physicsBody.rotateTo` | 218 | 288 | FAIL |
+| `physicsBody.setAllowSleeping` | 260 | 288 | FAIL |
 | `physicsBody.setAngularVel` | 1 | 1 | PASS |
 | `physicsBody.setAsCircle` | 0 | 0 | untested |
 | `physicsBody.setAsRect` | 0 | 0 | untested |
-| `physicsBody.setBrakeAcc` | 0 | 0 | untested |
+| `physicsBody.setBrakeAcc` | 235 | 288 | FAIL |
 | `physicsBody.setCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsBody.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsBody.setCollisionGroup` | 1 | 1 | PASS |
@@ -594,24 +598,24 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setIsShapeSensor` | 0 | 0 | untested |
 | `physicsBody.setIsUsingContinuousPhysics` | 0 | 0 | untested |
 | `physicsBody.setMass` | 1 | 1 | PASS |
-| `physicsBody.setMaxRotateSpeed` | 1 | 1 | PASS |
+| `physicsBody.setMaxRotateSpeed` | 219 | 289 | FAIL |
 | `physicsBody.setMaxRotationDecayRate` | 0 | 0 | untested |
-| `physicsBody.setMaxSpeed` | 1 | 1 | PASS |
+| `physicsBody.setMaxSpeed` | 289 | 289 | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | 0 | 0 | untested |
 | `physicsBody.setPolygonShapeVertices` | 0 | 0 | untested |
 | `physicsBody.setPos` | 1 | 1 | PASS |
 | `physicsBody.setRestitution` | 1 | 1 | PASS |
-| `physicsBody.setRotateAcc` | 0 | 0 | untested |
+| `physicsBody.setRotateAcc` | 218 | 288 | FAIL |
 | `physicsBody.setRotateVel` | 0 | 0 | untested |
 | `physicsBody.setRotationDecayRate` | 0 | 0 | untested |
 | `physicsBody.setShapeCategoriesToCollideWith` | 0 | 0 | untested |
 | `physicsBody.setShapeDensity` | 0 | 0 | untested |
 | `physicsBody.setSpeed` | 1 | 1 | PASS |
-| `physicsBody.setThrustAcc` | 0 | 0 | untested |
-| `physicsBody.setVel` | 1 | 1 | PASS |
+| `physicsBody.setThrustAcc` | 288 | 288 | PASS |
+| `physicsBody.setVel` | 261 | 289 | FAIL |
 | `physicsBody.setVelocityDecayRate` | 0 | 0 | untested |
-| `physicsBody.stopRotatingTo` | 0 | 0 | untested |
-| `physicsBody.thrust` | 0 | 0 | untested |
+| `physicsBody.stopRotatingTo` | 218 | 288 | FAIL |
+| `physicsBody.thrust` | 288 | 288 | PASS |
 | `physicsData.appendShapes` | 0 | 0 | untested |
 | `physicsData.brake` | 0 | 0 | untested |
 | `physicsData.createBody` | 2 | 2 | PASS |
@@ -5705,3 +5709,1155 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `shapeDef.getRestitution` | bodyApi.shapeDef.getRestitution | `0.000000` | `0.000000` | PASS |
 | `shapeDef.addPolygon` | bodyApi.shapeDef.addPolygon | `1` | `1` | PASS |
 | `shapeDef.addEdges` | bodyApi.shapeDef.addEdges | `1` | `1` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t0.x | `-100.000000` | `-100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t0.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t0.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t0.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t0.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t0.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t0.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t0.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t0.x | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t0.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t0.vx | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t0.speed | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t0.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t0.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t0.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t0.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t0.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t0.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t0.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t0.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t0.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t0.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t0.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t0.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t0.x | `200.000000` | `200.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t0.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t0.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t0.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t0.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t0.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t0.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t0.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t1.x | `-50.000000` | `-50.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t1.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t1.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t1.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t1.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t1.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t1.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t1.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t1.x | `33.333332` | `33.333332` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t1.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t1.vx | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t1.speed | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t1.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t1.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t1.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t1.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t1.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t1.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t1.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t1.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t1.dirX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t1.dirY | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t1.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t1.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t1.x | `200.000000` | `200.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t1.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t1.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t1.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t1.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t1.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t1.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t1.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t2.x | `-0.000002` | `-0.000002` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t2.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t2.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t2.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t2.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t2.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t2.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t2.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t2.x | `66.666664` | `66.666664` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t2.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t2.vx | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t2.speed | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t2.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t2.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t2.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t2.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t2.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t2.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t2.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t2.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t2.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t2.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t2.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t2.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t2.x | `200.000000` | `200.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t2.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t2.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t2.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t2.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t2.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t2.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t2.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t3.x | `49.999996` | `49.999996` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t3.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t3.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t3.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t3.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t3.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t3.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t3.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t3.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t3.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t3.vx | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t3.speed | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t3.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t3.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t3.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t3.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t3.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t3.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t3.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t3.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t3.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t3.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t3.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t3.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t3.x | `200.000000` | `200.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t3.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t3.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t3.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t3.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t3.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t3.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t3.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t4.x | `99.999992` | `99.999992` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t4.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t4.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t4.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t4.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t4.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t4.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t4.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t4.x | `133.333328` | `133.333328` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t4.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t4.vx | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t4.speed | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t4.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t4.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t4.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t4.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t4.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t4.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t4.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t4.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t4.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t4.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t4.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t4.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t4.x | `200.000000` | `200.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t4.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t4.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t4.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t4.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t4.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t4.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t4.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t5.x | `149.999985` | `149.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t5.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t5.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t5.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t5.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t5.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t5.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t5.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t5.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t5.x | `166.666656` | `166.666656` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t5.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t5.vx | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t5.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t5.speed | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t5.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t5.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t5.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t5.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t5.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t5.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t5.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t5.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t5.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t5.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t5.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t5.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t5.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t5.x | `200.000000` | `200.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t5.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t5.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t5.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t5.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t5.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t5.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t5.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t5.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t6.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t6.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t6.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t6.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t6.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t6.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t6.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t6.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t6.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t6.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t6.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t6.vx | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t6.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t6.speed | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t6.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t6.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t6.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t6.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t6.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t6.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t6.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t6.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t6.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t6.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t6.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t6.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t6.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t6.x | `216.666672` | `216.666672` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t6.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t6.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t6.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t6.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t6.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t6.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t6.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t6.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t7.x | `249.999985` | `249.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t7.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t7.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t7.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t7.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t7.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t7.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t7.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t7.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t7.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t7.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t7.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t7.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t7.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t7.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t7.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t7.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t7.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t7.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t7.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t7.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t7.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t7.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t7.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t7.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t7.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t7.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t7.x | `233.333344` | `233.333344` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t7.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t7.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t7.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t7.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t7.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t7.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t7.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t7.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t8.x | `299.999969` | `299.999969` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t8.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t8.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t8.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t8.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t8.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t8.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t8.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t8.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t8.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t8.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t8.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t8.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t8.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t8.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t8.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t8.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t8.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t8.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t8.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t8.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t8.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.turn.t8.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t8.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t8.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t8.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t8.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t8.x | `250.000015` | `250.000015` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t8.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t8.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t8.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t8.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t8.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t8.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t8.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t8.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t9.x | `349.999969` | `349.999969` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t9.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t9.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t9.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t9.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t9.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t9.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t9.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t9.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t9.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t9.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t9.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t9.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t9.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t9.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t9.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t9.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t9.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t9.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t9.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t9.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t9.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t9.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t9.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t9.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t9.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t9.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t9.x | `266.666687` | `266.666687` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t9.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t9.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t9.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t9.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t9.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t9.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t9.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t9.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t10.x | `399.999969` | `399.999969` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t10.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t10.vx | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t10.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t10.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t10.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t10.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t10.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t10.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t10.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t10.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t10.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t10.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t10.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t10.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t10.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t10.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t10.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t10.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t10.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t10.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t10.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t10.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t10.dirX | `0.047565` | `0.047565` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t10.dirY | `0.998868` | `0.998868` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t10.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t10.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t10.x | `283.333344` | `283.333344` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t10.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t10.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t10.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t10.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t10.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t10.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t10.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t10.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t11.x | `394.444427` | `394.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t11.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t11.vx | `-0.333333` | `-0.333333` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t11.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t11.speed | `0.333333` | `0.333333` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t11.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t11.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t11.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t11.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t11.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t11.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t11.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t11.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t11.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t11.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t11.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t11.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t11.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t11.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t11.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t11.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t11.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t11.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t11.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t11.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t11.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t11.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t11.x | `300.000000` | `300.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t11.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t11.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t11.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t11.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t11.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t11.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t11.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t11.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t12.x | `344.444427` | `344.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t12.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t12.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t12.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t12.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t12.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t12.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t12.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t12.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t12.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t12.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t12.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t12.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t12.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t12.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t12.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t12.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t12.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t12.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t12.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t12.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t12.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t12.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t12.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t12.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t12.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t12.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t12.x | `316.666656` | `316.666656` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t12.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t12.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t12.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t12.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t12.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t12.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t12.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t12.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t13.x | `294.444427` | `294.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t13.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t13.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t13.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t13.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t13.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t13.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t13.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t13.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t13.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t13.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t13.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t13.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t13.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t13.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t13.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t13.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t13.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t13.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t13.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t13.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t13.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t13.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t13.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t13.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t13.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t13.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t13.x | `333.333313` | `333.333313` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t13.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t13.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t13.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t13.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t13.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t13.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t13.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t13.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t14.x | `244.444427` | `244.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t14.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t14.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t14.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t14.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t14.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t14.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t14.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t14.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t14.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t14.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t14.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t14.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.brake.t14.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t14.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t14.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t14.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t14.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t14.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t14.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t14.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t14.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t14.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t14.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t14.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t14.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t14.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t14.x | `349.999969` | `349.999969` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t14.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t14.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t14.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t14.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t14.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t14.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t14.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t14.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t15.x | `194.444427` | `194.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t15.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t15.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t15.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t15.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t15.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t15.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t15.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t15.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t15.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t15.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t15.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t15.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t15.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t15.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t15.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t15.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t15.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t15.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t15.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t15.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t15.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t15.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t15.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t15.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t15.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t15.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t15.x | `366.666626` | `366.666626` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t15.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t15.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t15.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t15.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t15.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t15.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t15.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t15.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t16.x | `144.444427` | `144.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t16.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t16.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t16.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t16.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t16.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t16.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t16.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t16.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t16.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t16.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t16.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t16.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t16.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t16.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t16.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t16.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t16.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t16.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t16.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t16.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t16.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t16.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t16.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t16.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t16.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t16.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t16.x | `383.333282` | `383.333282` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t16.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t16.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t16.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t16.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t16.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t16.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t16.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t16.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t17.x | `94.444427` | `94.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t17.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t17.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t17.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t17.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t17.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t17.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t17.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t17.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t17.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t17.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t17.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t17.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t17.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t17.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t17.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t17.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t17.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t17.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t17.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t17.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t17.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t17.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t17.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t17.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t17.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t17.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t17.x | `399.999939` | `399.999939` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t17.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t17.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t17.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t17.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t17.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t17.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t17.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t17.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t18.x | `44.444427` | `44.444427` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t18.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t18.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t18.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t18.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t18.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t18.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t18.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t18.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t18.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t18.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t18.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t18.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t18.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t18.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t18.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t18.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t18.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t18.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t18.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t18.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t18.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t18.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t18.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t18.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t18.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t18.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t18.x | `416.666595` | `416.666595` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t18.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t18.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t18.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t18.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t18.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t18.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t18.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t18.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t19.x | `-5.555571` | `-5.555571` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t19.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t19.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t19.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t19.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t19.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t19.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t19.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t19.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t19.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t19.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t19.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t19.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t19.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t19.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t19.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t19.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t19.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t19.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t19.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t19.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t19.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t19.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t19.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t19.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t19.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t19.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t19.x | `433.333252` | `433.333252` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t19.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t19.vx | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t19.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t19.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t19.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t19.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t19.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t19.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t20.x | `-55.555569` | `-55.555569` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t20.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t20.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t20.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t20.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t20.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t20.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t20.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t20.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t20.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t20.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t20.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t20.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t20.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t20.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t20.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t20.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t20.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t20.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t20.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t20.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t20.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t20.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t20.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t20.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t20.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t20.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t20.x | `449.999908` | `449.999908` | PASS |
+| `physicsBody.getPos` | bodyCmd.sleep.t20.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t20.vx | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.sleep.t20.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t20.speed | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.sleep.t20.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t20.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t20.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t20.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t21.x | `-105.555565` | `-105.555565` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t21.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t21.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t21.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t21.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t21.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t21.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t21.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t21.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t21.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t21.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t21.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t21.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t21.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t21.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t21.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t21.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t21.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t21.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t21.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t21.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t21.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t21.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t21.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t21.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t21.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t21.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t21.x | `466.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t21.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t21.vx | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.sleep.t21.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t21.speed | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.sleep.t21.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t21.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t21.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t21.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t22.x | `-155.555557` | `-155.555557` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t22.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t22.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t22.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t22.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t22.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t22.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t22.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t22.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t22.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t22.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t22.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t22.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t22.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t22.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t22.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t22.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t22.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t22.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t22.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t22.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t22.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t22.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t22.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t22.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t22.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t22.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t22.x | `483.333221` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t22.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t22.vx | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.sleep.t22.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t22.speed | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.sleep.t22.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t22.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t22.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t22.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t23.x | `-205.555557` | `-205.555557` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t23.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t23.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t23.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t23.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t23.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t23.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t23.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t23.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t23.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t23.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t23.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t23.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t23.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t23.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t23.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t23.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t23.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t23.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t23.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t23.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t23.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t23.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t23.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t23.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t23.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t23.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t23.x | `499.999878` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t23.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t23.vx | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.sleep.t23.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t23.speed | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.sleep.t23.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t23.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t23.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t23.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.thrust.t24.x | `-255.555557` | `-255.555557` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t24.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t24.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t24.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t24.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t24.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t24.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t24.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t24.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t24.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t24.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t24.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t24.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t24.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t24.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t24.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t24.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t24.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t24.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t24.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t24.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t24.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t24.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t24.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t24.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t24.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t24.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t24.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t24.y | `3000.000000` | `3000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t24.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t24.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t24.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t24.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t24.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t24.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t24.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t25.x | `-305.555542` | `-305.555542` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t25.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t25.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t25.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t25.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t25.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t25.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t25.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t25.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t25.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t25.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t25.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t25.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t25.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t25.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t25.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t25.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t25.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t25.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t25.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t25.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t25.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t25.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t25.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t25.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t25.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t25.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t25.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t25.y | `3016.666748` | `3016.666748` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t25.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t25.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t25.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t25.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t25.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t25.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t25.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t26.x | `-355.555542` | `-355.555542` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t26.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t26.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t26.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t26.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t26.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t26.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t26.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t26.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t26.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t26.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t26.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t26.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t26.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t26.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t26.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t26.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t26.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t26.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t26.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t26.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t26.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t26.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t26.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t26.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t26.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t26.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t26.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t26.y | `3033.333496` | `3033.333496` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t26.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t26.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t26.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t26.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t26.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t26.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t26.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t27.x | `-405.555542` | `-405.555542` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t27.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t27.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t27.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t27.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t27.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t27.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t27.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t27.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t27.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t27.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t27.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t27.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t27.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t27.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t27.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t27.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t27.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t27.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t27.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t27.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t27.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t27.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t27.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t27.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t27.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t27.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t27.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t27.y | `3050.000244` | `3050.000244` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t27.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t27.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t27.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t27.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t27.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t27.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t27.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t28.x | `-455.555542` | `-455.555542` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t28.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t28.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t28.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t28.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t28.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t28.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t28.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t28.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t28.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t28.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t28.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t28.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t28.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t28.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t28.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t28.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t28.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t28.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t28.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t28.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t28.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t28.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t28.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t28.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t28.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t28.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t28.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t28.y | `3066.666992` | `3066.666992` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t28.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t28.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t28.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t28.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t28.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t28.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t28.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t29.x | `-505.555542` | `-505.555542` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t29.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t29.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t29.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t29.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t29.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t29.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t29.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t29.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t29.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t29.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t29.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t29.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t29.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t29.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t29.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t29.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t29.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t29.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t29.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t29.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t29.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t29.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t29.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t29.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t29.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t29.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t29.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t29.y | `3083.333740` | `3083.333740` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t29.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t29.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t29.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t29.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t29.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t29.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t29.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t30.x | `-555.555542` | `-555.555542` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t30.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t30.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t30.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t30.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t30.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t30.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t30.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t30.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t30.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t30.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t30.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t30.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t30.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t30.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t30.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t30.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t30.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t30.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t30.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t30.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t30.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t30.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t30.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t30.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t30.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t30.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t30.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t30.y | `3100.000488` | `3100.000488` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t30.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t30.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t30.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t30.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t30.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t30.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t30.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t31.x | `-605.555542` | `-605.555542` | PASS |
+| `physicsBody.getPos` | bodyCmd.thrust.t31.y | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t31.vx | `-3.000000` | `-3.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.thrust.t31.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.thrust.t31.speed | `3.000000` | `3.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t31.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.thrust.t31.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.thrust.t31.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.thrust.t31.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t31.x | `199.999985` | `199.999985` | PASS |
+| `physicsBody.getPos` | bodyCmd.brake.t31.y | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t31.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t31.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.brake.t31.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t31.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.brake.t31.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.brake.t31.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.brake.t31.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.turn.t31.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.getPos` | bodyCmd.turn.t31.y | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.turn.t31.vx | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.turn.t31.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getSpeed` | bodyCmd.turn.t31.speed | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t31.dirX | `0.052559` | `0.052559` | PASS |
+| `physicsBody.getDir` | bodyCmd.turn.t31.dirY | `0.998618` | `0.998618` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.turn.t31.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.turn.t31.sleeping | `1.000000` | `0.000000` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t31.x | `516.666565` | `449.999908` | FAIL |
+| `physicsBody.getPos` | bodyCmd.sleep.t31.y | `3116.667236` | `3116.667236` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t31.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.sleep.t31.vy | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getSpeed` | bodyCmd.sleep.t31.speed | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t31.dirX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.sleep.t31.dirY | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.sleep.t31.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCmd.sleep.t31.sleeping | `0.000000` | `0.000000` | PASS |

@@ -87,6 +87,10 @@ PROCESS_PAUSE_SUPPORT = (HERE / "ProcessPauseA.gm", HERE / "ProcessPauseB.gm")
 BODY_CONTROLS = HERE / "body_controls.gm"
 BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
+BODY_COMMANDS = HERE / "body_commands.gm"
+BODY_COMMANDS_BASELINE = HERE / "body_commands-retail.tsv"
+BODY_COMMANDS_PLAN = HERE / "body_commands-plan.json"
+BODY_COMMANDS_SUPPORT = HERE / "BodyCommandProbeEntity.gm"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "reports" / "PHYSICS.md"
@@ -512,6 +516,22 @@ BODY_CONTROL_FIELDS = {
     "pointInside": "physicsBody.isPointWithin", "pointOutside": "physicsBody.isPointWithin",
     "shapeCount": "physicsBody.getNumShapes", "sleeping": "physicsBody.isSleeping",
 }
+BODY_COMMAND_FIELDS = {
+    "x": "physicsBody.getPos", "y": "physicsBody.getPos",
+    "vx": "physicsBody.getVel", "vy": "physicsBody.getVel",
+    "speed": "physicsBody.getSpeed", "dirX": "physicsBody.getDir",
+    "dirY": "physicsBody.getDir", "rotateVel": "physicsBody.getRotateVel",
+    "sleeping": "physicsBody.isSleeping",
+}
+BODY_COMMAND_EFFECTS = {
+    "thrust": ("physicsBody.thrust", "physicsBody.reverseThrust",
+               "physicsBody.setThrustAcc", "physicsBody.setMaxSpeed"),
+    "brake": ("physicsBody.brake", "physicsBody.setBrakeAcc"),
+    "turn": ("physicsBody.rotateTo", "physicsBody.stopRotatingTo",
+             "physicsBody.setRotateAcc", "physicsBody.setMaxRotateSpeed"),
+    "sleep": ("physicsBody.putToSleep", "physicsBody.setAllowSleeping",
+              "physicsBody.setVel"),
+}
 LOCAL_ONLY = {
     "physicsBody.isCircle": "OpenEgg convenience method; no retail method exists",
     "physicsBody.isRect": "OpenEgg convenience method; no retail method exists",
@@ -628,6 +648,12 @@ def owner(name, names):
         function = BODY_CONTROL_FIELDS[name[len("bodyCtl."):]]
         if function not in names:
             raise ValueError(f"unknown body-control function: {function}")
+        return function
+    if name.startswith("bodyCmd."):
+        field = name.rsplit(".", 1)[1]
+        function = BODY_COMMAND_FIELDS[field]
+        if function not in names:
+            raise ValueError(f"unknown body-command function: {function}")
         return function
     if name.startswith("bodyApi."):
         function = name[len("bodyApi."):]
@@ -755,7 +781,10 @@ def main():
                                             PROCESS_PAUSE_PLAN, PROCESS_PAUSE_SUPPORT),
                                            (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
                                             BODY_CONTROLS_PLAN,
-                                            (ENTITY_QUERIES_SUPPORT,))):
+                                            (ENTITY_QUERIES_SUPPORT,)),
+                                           (BODY_COMMANDS, BODY_COMMANDS_BASELINE,
+                                            BODY_COMMANDS_PLAN,
+                                            (BODY_COMMANDS_SUPPORT,))):
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
         awaiting_retail = set(plan_data.get("awaitingRetail", []))
@@ -821,7 +850,7 @@ def main():
             if case.startswith(("scene.", "contact.", "removal.", "entityLife.",
                                 "entityMgr.", "entityQ.", "query.",
                                 "ray.", "reentry.", "joint.", "raymove.",
-                                "bodyCtl.", "process.", "processPause.",
+                                "bodyCtl.", "bodyCmd.", "process.", "processPause.",
                                 "entityCallbacks.", "entityGC.",
                                 "entityGCCycles.", "entityGCIter.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
@@ -829,6 +858,12 @@ def main():
                 if extra not in names:
                     raise ValueError(f"unknown associated function: {extra}")
                 grouped[extra].append(passed)
+            if case.startswith("bodyCmd."):
+                effect = case.split(".", 2)[1]
+                for extra in BODY_COMMAND_EFFECTS[effect]:
+                    if extra not in names:
+                        raise ValueError(f"unknown associated function: {extra}")
+                    grouped[extra].append(passed)
     count = sum(row[4] for row in rows)
     tested = sum(bool(grouped[name]) or bool(local_only_counts[name]) or
                  bool(awaiting_retail_counts[name]) for name in names)
@@ -853,9 +888,9 @@ def main():
         matched = sum(checks)
         local_count = local_only_counts[function]
         pending_count = awaiting_retail_counts[function]
-        status = ("LOCAL-ONLY" if local_count else "AWAITING RETAIL" if pending_count else
-                  "untested" if not checks else
-                  "PASS" if matched == len(checks) else "FAIL")
+        status = ("FAIL" if checks and matched != len(checks) else
+                  "LOCAL-ONLY" if local_count else "AWAITING RETAIL" if pending_count else
+                  "untested" if not checks else "PASS")
         lines.append(f"| `{function}` | {matched} | {len(checks) + local_count + pending_count} | {status} |")
     lines += ["", "## Contact callbacks", "",
               "| Hook | Matched | Cases |", "| --- | ---: | ---: |"]

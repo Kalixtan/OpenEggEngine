@@ -14,6 +14,11 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --expected tests/physics/scenes-plan.json \
   --baseline tests/physics/scenes-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/body_commands.gm \
+  --support-file tests/physics/BodyCommandProbeEntity.gm \
+  --expected tests/physics/body_commands-plan.json \
+  --baseline tests/physics/body_commands-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/contacts.gm \
   --support-file tests/physics/ProbeContactEntity.gm \
   --expected tests/physics/contacts-plan.json \
@@ -105,6 +110,8 @@ cover solids, sensors, repeated entry/separation, and callback order. Removal
 checks body destruction inside a collision callback. Queries cover collision
 info and filter changes; rays cover global, body, and PhysicsData calls. Filter
 reentry checks a restored mask through small movement and full separation.
+Body command probe follows thrust, braking, target rotation, and sleep/wake state
+over 32 ticks per scenario; mismatches remain in the report for follow-up.
 Joint scenes sample five joint types over time; moving rays check hit order
 after bodies move and overlap. The report keeps mismatches visible.
 Entity lifecycle checks enable/disable, contact callbacks, re-enable, and

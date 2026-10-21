@@ -1,0 +1,10 @@
+{
+  "prefix": "bodyCmd",
+  "frames": 32,
+  "scenes": {
+    "thrust": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "sleeping"],
+    "brake": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "sleeping"],
+    "turn": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "sleeping"],
+    "sleep": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "sleeping"]
+  }
+}
