@@ -299,7 +299,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         lines.extend(["", "Missing retail readings are marked NO RETAIL and fail the run."])
     lines.extend(["", "Retail crash warning: moving the last of multiple triggers faulted on PS3. "
                   "See `tests/sequencer/retail-crashes.md`."])
-    lines.extend(["", "Local assertion details: `tests/_results/assertions.md`.", ""])
+    lines.extend(["", "Local assertion details: `reports/LOCAL_ASSERTIONS.md`.", ""])
     return "\n".join(lines)
 
 
@@ -310,7 +310,7 @@ def main():
     parser.add_argument("--local-log", type=Path,
                         help="use a saved OpenEgg log instead of running the engine")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
-    parser.add_argument("--report", type=Path, default=ROOT / "TEST_REPORT.md")
+    parser.add_argument("--report", type=Path, default=ROOT / "reports" / "SEQUENCER.md")
     parser.add_argument("--strict-parity", action="store_true")
     parser.add_argument("--skip-assertions", action="store_true",
                         help="reuse the last local assertion results")
@@ -392,6 +392,7 @@ def main():
     for case in planned:
         if not any(row["case"] == case["name"] for row in edge_rows):
             problems.append(f"No paired readings for edge case: {case['name']}")
+    args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(make_report(rows, inventory, retail_path, local_path,
                                        problems, assertions, planned, missing_api,
                                        volatile_samples))

@@ -20,7 +20,7 @@ from run import ROOT, percent, run_script
 HERE = Path(__file__).resolve().parent
 SOUND = Path("Platformer/sounds/fx/button-high.wav")
 STREAM_SOUND = Path("Platformer/levels/gamescom_master_8.wav")
-REPORT = ROOT / "AUDIO_TEST_REPORT.md"
+REPORT = ROOT / "reports" / "AUDIO.md"
 RETAIL_WARNING_PREFIX = "# retail-warning "
 VOLATILE_READING = re.compile(
     r'ProbeVolatile\("([A-Za-z0-9_.]+)"')
@@ -201,6 +201,7 @@ def main():
                      f"{result} |")
     if problems:
         lines += ["", "## Capture problems", ""] + [f"- {problem}" for problem in problems]
+    args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text("\n".join(lines) + "\n")
     print(f"audio: {passed}/{compared} comparable readings matched; "
           f"{skipped} setup skips, {clock_dependent} clock-dependent, "

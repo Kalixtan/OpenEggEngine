@@ -7,7 +7,7 @@ python3 tests/animation/run.py --game-data /path/to/game_data
 ```
 
 This copies one FSA to a temporary data root. No retail files enter Git. Results
-go to `tests/_results/animation.md`.
+go to `reports/ANIMATION.md`.
 
 Capture matching readings from RPCS3:
 

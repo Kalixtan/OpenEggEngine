@@ -330,4 +330,4 @@ These samples vary with runtime timing and are retained for review.
 
 Retail crash warning: moving the last of multiple triggers faulted on PS3. See `tests/sequencer/retail-crashes.md`.
 
-Local assertion details: `tests/_results/assertions.md`.
+Local assertion details: `reports/LOCAL_ASSERTIONS.md`.

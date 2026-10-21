@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the headless script probes and write TEST_REPORT.md."""
+"""Run headless checks and write the local assertion report."""
 
 import argparse
 from collections import defaultdict
@@ -135,7 +135,7 @@ def main():
     parser.add_argument("--suite", default="sequencer")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--report", type=Path,
-                        default=ROOT / "tests" / "_results" / "assertions.md")
+                        default=ROOT / "reports" / "LOCAL_ASSERTIONS.md")
     parser.add_argument("--json", type=Path,
                         default=ROOT / "tests" / "_results" / "assertions.json")
     parser.add_argument("--timeout", type=int, default=30)
@@ -198,6 +198,7 @@ def main():
         if not expected and not process_error:
             problems.append(f"`{script}` has no declared checks")
 
+    report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(make_report(args.suite, engine, entries, problems, inventory))
     args.json.parent.mkdir(parents=True, exist_ok=True)
     args.json.write_text(json.dumps({"entries": entries, "problems": problems}, indent=2) + "\n")

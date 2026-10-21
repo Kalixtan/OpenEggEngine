@@ -24,7 +24,7 @@ python3 tests/compare_probe.py --retail-log /path/to/TTY.log
 ```
 
 The command runs OpenEgg headlessly, compares exact output strings, runs the local
-assertion scripts, and writes `TEST_REPORT.md`. Missing or duplicate readings
+assertion scripts, and writes `reports/SEQUENCER.md`. Missing or duplicate readings
 fail the comparison. `--strict-parity` also fails while coverage limits or
 known gaps remain. `python3 tests/run.py` runs only the
 local assertions; section scripts stay separate so cases are easy to edit.

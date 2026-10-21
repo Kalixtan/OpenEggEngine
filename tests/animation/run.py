@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--game-data", type=Path, required=True,
                         help="extracted game_data directory; no assets are copied into the repo")
     parser.add_argument("--engine", type=Path, default=ROOT / "build/OpenEgg")
-    parser.add_argument("--report", type=Path, default=ROOT / "tests/_results/animation.md")
+    parser.add_argument("--report", type=Path, default=ROOT / "reports/ANIMATION.md")
     args = parser.parse_args()
 
     source = args.game_data.resolve() / ASSET

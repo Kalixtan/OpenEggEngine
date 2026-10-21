@@ -214,6 +214,7 @@ def compare(target, cases, report):
         show = lambda value: "silent" if value is None else f"{value:.3f}"
         lines.append(f"| {name} | {shift * 1000 / RATE:.1f} | {correlation:.3f} | {show(total)} | {show(left)} | "
                      f"{show(right)} | {'PASS' if ok else 'FAIL'} |")
+    report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text("\n".join(lines) + f"\n\nMatched: **{passed}/{len(cases)}**. "
                       "Thresholds: correlation ≥0.99 and RMS within 2%. "
                       "This checks a few short sounds, not full audio parity.\n")
@@ -235,8 +236,8 @@ def main():
     probe_name, cases = SUITES[args.suite]
     probe = HERE / probe_name
     target = RESULTS if args.suite == "basic" else RESULTS / args.suite
-    report = ROOT / ("AUDIO_WAVEFORM_REPORT.md" if args.suite == "basic"
-                     else "AUDIO_CONTROL_WAVEFORM_REPORT.md")
+    report = ROOT / "reports" / ("AUDIO_WAVEFORM.md" if args.suite == "basic"
+                                else "AUDIO_CONTROLS_WAVEFORM.md")
     sound = args.game_data.resolve() / SOUND
     if not sound.is_file():
         parser.error(f"sound missing: {sound}")

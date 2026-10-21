@@ -72,7 +72,7 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
 python3 tests/physics/compare.py
 ```
 
-The comparison runs OpenEgg headlessly and writes `PHYSICS_TEST_REPORT.md`.
+The comparison runs OpenEgg headlessly and writes `reports/PHYSICS.md`.
 `python3 tests/compare_all.py` runs this and the sequencer suite together.
 
 The static probe covers body and shape setup. Scenes sample motion. Contacts

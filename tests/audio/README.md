@@ -26,7 +26,7 @@ python3 tests/audio/compare.py --game-data /path/to/game_data
 ```
 
 The asset runs make a temporary copy of the supplied sound. Reports go to
-`AUDIO_TEST_REPORT.md`; raw logs stay in `tests/_results/audio/`.
+`reports/AUDIO.md`; raw logs stay in `tests/_results/audio/`.
 The report flags failed retail setup when its captured readings or TTY log show
 no voice was created. These warnings only inspect saved capture data; they do
 not call audio functions or change playback state.

@@ -72,7 +72,7 @@ BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
-REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
+REPORT = ROOT / "reports" / "PHYSICS.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "shapeCollisionInfo.", "intIter.",
             "jointType.", "jointIter.", "Physics.", "Entity.",
@@ -713,6 +713,7 @@ def main():
         lines.append(f"| `{function}` | {case} | `{a}` | `{b}` | {'PASS' if passed else 'FAIL'} |")
     if problems:
         lines += ["", "## Capture problems", ""] + [f"- {item}" for item in problems]
+    args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text("\n".join(lines) + "\n")
     print(f"physics: {count}/{len(rows)} matched, {len(problems)} capture problems")
     print(f"Report: {args.report}")
