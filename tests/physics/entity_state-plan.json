@@ -93,6 +93,12 @@
     "entityState.onScreenInside",
     "entityState.onScreenOutside",
     "entityState.otherDeleted",
+    "entityState.ownedLfoAfterHalf",
+    "entityState.ownedLfoAfterQuarter",
+    "entityState.ownedLfoHandleAfterDelete",
+    "entityState.ownedLfoIDsDistinct",
+    "entityState.ownedLfoInitial",
+    "entityState.ownedLfoReplacementInitial",
     "entityState.particleCount",
     "entityState.particleIterator",
     "entityState.perfAdditional",
@@ -154,7 +160,13 @@
     "entityState.lfoNegativePhase",
     "entityState.lfoPhaseAboveOne",
     "entityState.lfoZeroDelta",
-    "entityState.lfoZeroRate"
+    "entityState.lfoZeroRate",
+    "entityState.ownedLfoAfterHalf",
+    "entityState.ownedLfoAfterQuarter",
+    "entityState.ownedLfoHandleAfterDelete",
+    "entityState.ownedLfoIDsDistinct",
+    "entityState.ownedLfoInitial",
+    "entityState.ownedLfoReplacementInitial"
   ],
   "retailCrash": {},
   "awaitingRetailReason": {
@@ -174,6 +186,12 @@
     "entityState.lfoNegativePhase": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
     "entityState.lfoPhaseAboveOne": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
     "entityState.lfoZeroDelta": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
-    "entityState.lfoZeroRate": "RPCS3 did not mount the retail PSARC, so no retail reading was captured."
+    "entityState.lfoZeroRate": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
+    "entityState.ownedLfoAfterHalf": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
+    "entityState.ownedLfoAfterQuarter": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
+    "entityState.ownedLfoHandleAfterDelete": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
+    "entityState.ownedLfoIDsDistinct": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
+    "entityState.ownedLfoInitial": "RPCS3 did not mount the retail PSARC, so no retail reading was captured.",
+    "entityState.ownedLfoReplacementInitial": "RPCS3 did not mount the retail PSARC, so no retail reading was captured."
   }
 }

@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 23:21 UTC
+Generated: 2026-10-21 23:26 UTC
 
-Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 20 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 26 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **295/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **297/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -176,7 +176,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `ALARM.setIsEnabled` | 1 | 1 | PASS |
 | `ALARM.update` | 3 | 5 | AWAITING RETAIL |
 | `Entity.addAlarm` | 0 | 1 | AWAITING RETAIL |
-| `Entity.addLFO` | 0 | 0 | untested |
+| `Entity.addLFO` | 0 | 1 | AWAITING RETAIL |
 | `Entity.addTelescope` | 1 | 1 | PASS |
 | `Entity.callMethod` | 1 | 1 | PASS |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
@@ -190,7 +190,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.createParticle` | 1 | 1 | PASS |
 | `Entity.deleteAlarm` | 0 | 1 | AWAITING RETAIL |
 | `Entity.deleteAllParticles` | 0 | 0 | untested |
-| `Entity.deleteLFO` | 1 | 1 | PASS |
+| `Entity.deleteLFO` | 1 | 2 | AWAITING RETAIL |
 | `Entity.die` | 1 | 1 | PASS |
 | `Entity.disownVoice` | 1 | 1 | PASS |
 | `Entity.drawExplosionIfGot` | 0 | 0 | untested |
@@ -221,7 +221,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getTypeName` | 1 | 1 | PASS |
 | `Entity.getUID` | 0 | 0 | untested |
 | `Entity.getUniqueAlarmID` | 0 | 0 | untested |
-| `Entity.getUniqueLFOID` | 0 | 0 | untested |
+| `Entity.getUniqueLFOID` | 0 | 1 | AWAITING RETAIL |
 | `Entity.getVectorTo` | 2 | 2 | PASS |
 | `Entity.getVectorToNormalized` | 2 | 2 | PASS |
 | `Entity.getVertexShaderParamIndex` | 0 | 0 | untested |
@@ -369,13 +369,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.trace` | 0 | 0 | untested |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
-| `LFO.getValue` | 1 | 1 | PASS |
+| `LFO.getValue` | 1 | 2 | AWAITING RETAIL |
 | `LFO.setContour` | 2 | 2 | PASS |
 | `LFO.setPhase` | 4 | 6 | AWAITING RETAIL |
 | `LFO.setRandomPhase` | 0 | 0 | untested |
 | `LFO.setRange` | 1 | 1 | PASS |
 | `LFO.setRate` | 4 | 5 | AWAITING RETAIL |
-| `LFO.update` | 1 | 3 | AWAITING RETAIL |
+| `LFO.update` | 1 | 5 | AWAITING RETAIL |
 | `Physics.createJoint` | 5 | 5 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
 | `Physics.deleteJoint` | 0 | 0 | untested |
@@ -795,6 +795,12 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `LFO.setPhase` | entityState.lfoPhaseAboveOne | `2.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
 | `LFO.update` | entityState.lfoZeroDelta | `2.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
 | `LFO.setRate` | entityState.lfoZeroRate | `3.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.update` | entityState.ownedLfoAfterHalf | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.update` | entityState.ownedLfoAfterQuarter | `-1.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `Entity.deleteLFO` | entityState.ownedLfoHandleAfterDelete | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `Entity.getUniqueLFOID` | entityState.ownedLfoIDsDistinct | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.getValue` | entityState.ownedLfoInitial | `-2.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `Entity.addLFO` | entityState.ownedLfoReplacementInitial | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
 | `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
