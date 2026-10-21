@@ -303,6 +303,11 @@ def owner(name, names):
         if function not in names:
             raise ValueError(f"unknown body-control function: {function}")
         return function
+    if name.startswith("bodyApi."):
+        function = name[len("bodyApi."):]
+        if function not in names:
+            raise ValueError(f"unknown body API function: {function}")
+        return function
     if name.startswith("entityLife."):
         function = ENTITY_LIFECYCLE_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names and function != "Entity callbacks" and \

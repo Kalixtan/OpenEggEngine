@@ -1271,7 +1271,7 @@ int GM_CDECL gmf_pb_setAngularVel(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pb_getCenterOfMass(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    b2Vec2 c = b->body->GetWorldCenter();
+    b2Vec2 c = b->body->GetLocalCenter();
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), c.x, c.y));
     return GM_OK;
 }
@@ -1539,11 +1539,9 @@ int GM_CDECL gmf_pb_getShapeWorldVert(gmThread* a_thread) {
     GM_INT_PARAM(vertexIndex, 1, 0);
     b2Fixture* fixture = FixtureAtShapeIndex(b->body, shapeIndex);
     b2Vec2 vertex(0.0f, 0.0f);
-    if (fixture && fixture->GetShape()->GetType() == b2Shape::e_polygon) {
-        const b2PolygonShape* polygon = static_cast<const b2PolygonShape*>(fixture->GetShape());
-        if (vertexIndex >= 0 && vertexIndex < polygon->m_count) {
-            vertex = b->body->GetWorldPoint(polygon->m_vertices[vertexIndex]);
-        }
+    b2Vec2 local;
+    if (fixture && RetailShapeLocalVertex(fixture->GetShape(), vertexIndex, local)) {
+        vertex = b->body->GetWorldPoint(local);
     }
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), vertex.x, vertex.y));
     return GM_OK;
