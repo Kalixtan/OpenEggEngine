@@ -4,6 +4,7 @@
 #include "gmCall.h"
 #include "../core/engine_context.h"
 #include "vector2d_bindings.h"
+#include <algorithm>
 #include <cstdlib>
 #include <cmath>
 #include <string>
@@ -153,7 +154,8 @@ int GM_CDECL gmf_alarm_getTimeTillAlarm(gmThread* a_thread) {
 }
 int GM_CDECL gmf_alarm_getAlarmPercentage(gmThread* a_thread) {
     AlarmState* a = ThisAlarm(a_thread);
-    float pct = (a && a->intervalMs > 0.0001f) ? std::min(1.0f, a->elapsedMs / a->intervalMs) : 0.0f;
+    float pct = !a ? 0.0f : (a->intervalMs <= 0.0f ? 1.0f :
+        std::min(1.0f, a->elapsedMs / a->intervalMs));
     a_thread->PushFloat(pct);
     return GM_OK;
 }
