@@ -3,6 +3,7 @@
 #include <string>
 
 void RegisterAnimationBindings(gmMachine& a_machine);
+void ReportMissingAnimationResource(const char* a_api, const char* a_path);
 
 // Advances the shared animation clock by the frame delta. Retail's animation
 // manager updates active animations once per frame with that same delta.

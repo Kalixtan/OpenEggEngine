@@ -23,7 +23,7 @@ The retail probe uses the same extracted FSA path and must be run with the
 matching retail game data installed. A capture that produces no complete TTY
 readings is inconclusive; it is not a parity failure.
 
-The missing-resource case is separate because retail faults when that FSA is
-absent. Capture it on its own with `--probe tests/animation/missing_resource.gm`;
-the OpenEgg runner also checks that it returns an empty animation safely. See
-`retail-crashes.md` for the observed fault.
+Missing-resource cases are separate because retail faults when the FSA is
+absent. Capture them on their own with `--probe tests/animation/missing_resource.gm`
+or `--probe tests/animation/entity_missing_resource.gm`. OpenEgg returns an
+empty animation safely and warns; see `retail-crashes.md`.

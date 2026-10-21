@@ -3777,7 +3777,7 @@ int GM_CDECL gmf_entity_loadAnimation(gmThread* a_thread) {
     std::string resolved;
     auto r = GetEngineContext().fileHelper->Resolve(path);
     if (r) resolved = *r;
-    else std::fprintf(stderr, "Entity.loadAnimation: '%s' not found\n", path);
+    else ReportMissingAnimationResource("Entity.loadAnimation", path);
     gmTableObject* entity = a_thread->ThisTable();
     gmMachine& machine = *a_thread->GetMachine();
     gmVariable enabled = GetEntityNativeField(machine, entity, "__enabled");

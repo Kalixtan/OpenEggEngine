@@ -940,7 +940,7 @@ int GM_CDECL gmf_animationModuleLoad(gmThread* a_thread) {
         if (result) resolved = *result;
     }
     if (resolved.empty())
-        std::fprintf(stderr, "AnimationModule.loadAnimation: '%s' not found\n", path);
+        ReportMissingAnimationResource("AnimationModule.loadAnimation", path);
     // Standalone module loads are not attached to the entity animation clock.
     PushNewAnimation(a_thread, resolved, false, centeredLayout ? 1 : 0);
     return GM_OK;
@@ -983,6 +983,13 @@ void GM_CDECL AnimGCDestruct(gmMachine* a_machine, gmUserObject* a_object) {
 }
 
 } // namespace
+
+void ReportMissingAnimationResource(const char* a_api, const char* a_path) {
+    std::fprintf(stderr,
+        "WARNING: %s('%s') would fault retail (observed VM access violation reading 0x48); "
+        "OpenEgg returns an empty Animation.\n",
+        a_api ? a_api : "animation loader", a_path ? a_path : "");
+}
 
 void AdvanceAnimationClock(float a_msElapsed) {
     for (AnimationData* animation : s_animationInstances) {

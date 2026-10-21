@@ -55,6 +55,13 @@ def main():
             [str(engine), str(data_root), missing_script, "Main"], cwd=ROOT,
             env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, errors="replace", timeout=15, check=False)
+        entity_missing_script = "EntityMissingAnimationProbe.gm"
+        shutil.copyfile(ROOT / "tests/animation/entity_missing_resource.gm",
+                        data_root / entity_missing_script)
+        entity_missing_result = subprocess.run(
+            [str(engine), str(data_root), entity_missing_script, "Main"], cwd=ROOT,
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, errors="replace", timeout=15, check=False)
 
     readings = READING.findall(result.stdout)
     expected = [
@@ -83,6 +90,10 @@ def main():
         r"OEP__Animation\.getNumImages\.missingResource__(.*?)\.gm",
         missing_result.stdout)
     missing_images = missing_reading.group(1) if missing_reading else None
+    entity_missing_reading = re.search(
+        r"OEP__Entity\.loadAnimation\.missingResource__(.*?)\.gm",
+        entity_missing_result.stdout)
+    entity_missing_images = entity_missing_reading.group(1) if entity_missing_reading else None
     baseline_path = ROOT / "tests/animation/retail-baseline.tsv"
     retail = {}
     if baseline_path.is_file():
@@ -119,6 +130,13 @@ def main():
             observed.get("Animation.getNumImages.afterUnloadAll") == "35" and
             observed.get("Animation.getNumFrames.afterUnloadAll") == "35",
         "missing resource stays empty": missing_images == "0" and missing_result.returncode == 0,
+        "retail fault warning is precise":
+            "WARNING: AnimationModule.loadAnimation('Platformer/gameAssets/openegg_probe_missing.fsa')" in missing_result.stdout and
+            "would fault retail (observed VM access violation reading 0x48)" in missing_result.stdout and
+            "would fault retail (observed VM access violation reading 0x48)" not in result.stdout,
+        "entity missing resource warns": entity_missing_images == "0" and
+            entity_missing_result.returncode == 0 and
+            "WARNING: Entity.loadAnimation('Platformer/gameAssets/openegg_probe_missing.fsa')" in entity_missing_result.stdout,
         "module load remains detached; speed has no effect":
             observed.get("Animation.setPlayTimeSpeed.noEffect") == "1" and
             observed.get("Animation.getPlayPosition.moduleLoadDetached") == "1",
@@ -158,6 +176,9 @@ def main():
     report.append("| `Animation.getNumImages.missingResource` | "
                    f"`{missing_images or 'missing'}` | `retail fault at 0x48` | "
                    "retail crash confirmed |")
+    report.append("| `Entity.loadAnimation.missingResource` | "
+                   f"`{entity_missing_images or 'missing'}` | `retail fault at 0x48` | "
+                   "retail crash confirmed |")
     if mismatches:
         report.extend(["", "Retail mismatches: " + ", ".join(f"`{name}`" for name in mismatches)])
     if missing:
@@ -170,11 +191,13 @@ def main():
                       if comparable else "; retail readings pending")
     print(f"Animation probe: {checks_passed}/{len(local_checks)} local checks passed; "
           f"{len(readings)}/{len(expected)} readings{retail_summary}. Report: {args.report}")
-    if (result.returncode or missing_result.returncode or missing or mismatches or
+    if (result.returncode or missing_result.returncode or entity_missing_result.returncode or missing or mismatches or
             checks_passed != len(local_checks)):
         print(result.stdout)
         if missing_result.returncode or not missing_images:
             print(missing_result.stdout)
+        if entity_missing_result.returncode or not entity_missing_images:
+            print(entity_missing_result.stdout)
         return 1
     return 0
 
