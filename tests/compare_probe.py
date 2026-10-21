@@ -29,6 +29,11 @@ CLOCK_DEPENDENT = {
     "edge.pattern.negativeTickAfter",
     "edge.restart.currentStep",
 }
+RETAIL_UNDEFINED = {
+    "edge.packed.oversizedLastWord",
+    "edge.packed.exactLimitWord",
+    "edge.packed.exactLimitWordRepeat",
+}
 ALIASES = {
     "SequencerAction.field.default": "SEQUENCERACTION",
     "Sequencer.callback.step": "Sequencer.setTrigger",
@@ -177,6 +182,7 @@ def run_edge_probes(engine, planned):
             case = matches[0]
             a, b = retail.get(name), local.get(name)
             status = "FAIL" if b is None else "NO RETAIL" if a is None else (
+                "UNDEFINED" if name in RETAIL_UNDEFINED else
                 "CLOCK" if name in CLOCK_DEPENDENT else
                 "PASS" if a == b else "FAIL")
             functions = EDGE_FUNCTIONS.get(name, case["functions"])
@@ -198,7 +204,8 @@ def run_edge_probes(engine, planned):
 def make_report(rows, inventory, retail_path, local_path, problems, assertions,
                 planned, missing_api, volatile_samples):
     matched = sum(row["status"] == "PASS" for row in rows)
-    total = sum(row["status"] != "CLOCK" for row in rows)
+    total = sum(row["status"] not in ("CLOCK", "UNDEFINED") for row in rows)
+    undefined = sum(row["status"] == "UNDEFINED" for row in rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
     uncaptured = sum(row["status"] == "NO RETAIL" for row in rows)
     failures = sum(row["status"] == "FAIL" for row in rows)
@@ -213,7 +220,8 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         f"OpenEgg: `tests/_results/sequencer/`", "",
         f"Matched: **{matched}/{total} declared readings ({percent(matched, total)})** | "
         f"Known gaps: **{gaps}** | Failures: **{failures}** | Uncaptured: **{uncaptured}** | "
-        f"Edge groups run: **{len(planned)}** | Clock samples: **{clock_samples}**", "",
+        f"Edge groups run: **{len(planned)}** | Clock samples: **{clock_samples}** | "
+        f"Undefined retail outputs: **{undefined}**", "",
         f"Local assertions: **{local_passed}/{len(checks)} passed "
         f"({percent(local_passed, len(checks))})**", "",
         f"Verdict: **{'all captured readings match' if matched == total and not problems else 'paired run incomplete or mismatched'}**. "
@@ -224,6 +232,12 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         "Integration checks can count for several functions. Clock samples "
         "stay visible but outside the score. Retail's sequencer reads elapsed "
         "wall time, so frame-count samples vary between runs.", "",
+        *( [
+            "Retail marks final packed words in 512-step `SEQUENCE_ToTable` cases "
+            "undefined for scoring: recovered routine clears only first 16-word "
+            "scratch block, then ORs into remaining uninitialized stack words. "
+            "Captured values stay listed below.", "",
+        ] if undefined else [] ),
         "## Local assertion sections", "",
         "| Section | Passed | Cases | Score |", "| --- | ---: | ---: | ---: |",
     ]
@@ -255,7 +269,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
         count = sum(case["status"] == "PASS" for case in cases)
         local_cases = local_grouped[function]
         local_count = sum(case["result"] == "PASS" for case in local_cases)
-        scored_cases = [case for case in cases if case["status"] != "CLOCK"]
+        scored_cases = [case for case in cases if case["status"] not in ("CLOCK", "UNDEFINED")]
         status = "untested" if not scored_cases else (
             "FAIL" if any(case["status"] == "FAIL" for case in cases) or
                       any(case["result"] == "FAIL" for case in local_cases) else
@@ -273,7 +287,7 @@ def make_report(rows, inventory, retail_path, local_path, problems, assertions,
     for case in planned:
         cases = [row for row in edge_rows if row["case"] == case["name"]]
         count = sum(row["status"] == "PASS" for row in cases)
-        scored_cases = [row for row in cases if row["status"] != "CLOCK"]
+        scored_cases = [row for row in cases if row["status"] not in ("CLOCK", "UNDEFINED")]
         lines.append(f"| {case['name']} | {count}/{len(scored_cases)} | {case['limit']} |")
     lines.extend(["", f"Documented sequencer APIs missing from bindings: **{len(missing_api)}**."])
     if missing_api:
@@ -404,7 +418,7 @@ def main():
     passed = sum(row["status"] == "PASS" for row in rows)
     gaps = sum(row["status"] == "GAP" for row in rows)
     failures = sum(row["status"] in ("FAIL", "NO RETAIL") for row in rows)
-    scored = sum(row["status"] != "CLOCK" for row in rows)
+    scored = sum(row["status"] not in ("CLOCK", "UNDEFINED") for row in rows)
     print(f"probe: {passed}/{scored} matched, {gaps} known gaps, {failures} failures")
     print(f"Report: {args.report}")
     local_failures = sum(case["result"] == "FAIL" for case in assertions["entries"])

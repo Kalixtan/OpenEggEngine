@@ -205,10 +205,10 @@
     {
       "name": "Safety",
       "script": "edge.gm",
-      "retail": "safe difference",
+      "retail": "cleared cursor retains current trigger",
       "cases": [
         {
-          "name": "SEQ cleared cursor safe",
+          "name": "SEQ cleared cursor parity",
           "functions": [
             "Sequencer.clearTriggers",
             "SequencerTriggerList.size",

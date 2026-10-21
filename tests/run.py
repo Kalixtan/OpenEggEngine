@@ -125,8 +125,9 @@ def make_report(suite, engine, entries, problems, inventory):
             lines.append(f"- **{entry['name']}**: {entry['reason']} (log: `{entry['log']}`)")
         for problem in problems:
             lines.append(f"- {problem}")
-    lines.extend(["", "Known safety differences: retail crashes when moving the final trigger "
-                  "and leaves a stale cursor after `clearTriggers()`; OpenEgg handles both safely.", ""])
+    lines.extend(["", "Known safety differences: retail crashes when moving the final trigger; "
+                  "OpenEgg avoids that. After `clearTriggers()`, OpenEgg keeps a safe copy "
+                  "of the current trigger so existing cursors match retail.", ""])
     return "\n".join(lines)
 
 

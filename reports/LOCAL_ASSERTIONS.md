@@ -1,6 +1,6 @@
 # Test report
 
-Generated: 2026-10-21 17:27 UTC
+Generated: 2026-10-21 21:16 UTC
 Suite: sequencer
 Engine: `OpenEgg`
 Result: **49/49 checks passed (100%); 0 known gaps**
@@ -109,9 +109,9 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | Sequencer / Timers | SEQ BPM timer reset | PASS | paired probe |
 | Sequencer / Loops | SEQ loop first | PASS | paired probe |
 | Sequencer / Loops | SEQ loop second | PASS | paired probe |
-| Sequencer / Safety | SEQ cleared cursor safe | PASS | safe difference |
-| Sequencer / Safety | SEQ cursor reset | PASS | safe difference |
-| Sequencer / Safety | SEQ tail move safe | PASS | safe difference |
+| Sequencer / Safety | SEQ cleared cursor parity | PASS | cleared cursor retains current trigger |
+| Sequencer / Safety | SEQ cursor reset | PASS | cleared cursor retains current trigger |
+| Sequencer / Safety | SEQ tail move safe | PASS | cleared cursor retains current trigger |
 | Sequencer / Trigger forms | SEQ trigger implicit | PASS | paired probe |
 | Sequencer / Trigger forms | SEQ action wrapper identity | PASS | paired probe |
 | Sequencer / Trigger forms | SEQ trigger implicit flag | PASS | paired probe |
@@ -141,4 +141,4 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | Sequencer / Sequence conversion | SEQ partial word | PASS | local check |
 | Sequencer / Sequence conversion | SEQ empty packed | PASS | local check |
 
-Known safety differences: retail crashes when moving the final trigger and leaves a stale cursor after `clearTriggers()`; OpenEgg handles both safely.
+Known safety differences: retail crashes when moving the final trigger; OpenEgg avoids that. After `clearTriggers()`, OpenEgg keeps a safe copy of the current trigger so existing cursors match retail.

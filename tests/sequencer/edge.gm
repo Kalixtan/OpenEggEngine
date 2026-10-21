@@ -23,9 +23,10 @@ global Main = function(p) {
             cleared.setTrigger(4,action);
             local cursor=cleared.getAllTriggers();
             cleared.clearTriggers();
-            if (cursor.size()==0 && cursor.isValid()==0 && cursor.get()==null) {
-                GameSystem.trace("SEQ cleared cursor safe PASS");
-            } else { GameSystem.trace("SEQ cleared cursor safe FAIL"); }
+            if (cursor.size()==0 && cursor.isValid()==1 &&
+                cursor.get()!=null && cursor.get().getStep()==2) {
+                GameSystem.trace("SEQ cleared cursor parity PASS");
+            } else { GameSystem.trace("SEQ cleared cursor parity FAIL"); }
             cursor.reset();
             if (cursor.isValid()==0) { GameSystem.trace("SEQ cursor reset PASS"); }
             else { GameSystem.trace("SEQ cursor reset FAIL"); }

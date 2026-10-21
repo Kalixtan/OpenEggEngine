@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -63,9 +64,15 @@ struct SequencerTriggerList {
     gmMachine* machine = nullptr;
     uint64_t nextSerial = 1;
     std::vector<SequencerTrigger> values;
+    // Retail trigger iterators retain their current node after clearTriggers.
+    // Keep cleared nodes alive for existing cursors, but exclude them from
+    // list size, reset, and normal traversal.
+    std::vector<SequencerTrigger> retired;
     ~SequencerTriggerList() {
         if (!machine) return;
         for (const auto& trigger : values)
+            UnrootGmVariable(*machine, trigger.handle);
+        for (const auto& trigger : retired)
             UnrootGmVariable(*machine, trigger.handle);
     }
 };
@@ -136,6 +143,8 @@ struct SequencerListRefData { uint64_t currentSerial = 0; };
 SequencerTrigger* FindTriggerBySerial(SequencerTriggerList* list, uint64_t serial) {
     if (!list || serial == 0) return nullptr;
     for (auto& trigger : list->values)
+        if (trigger.serial == serial) return &trigger;
+    for (auto& trigger : list->retired)
         if (trigger.serial == serial) return &trigger;
     return nullptr;
 }
@@ -650,10 +659,11 @@ int GM_CDECL gmf_moveTriggerToFront(gmThread* a_thread) {
 }
 int GM_CDECL gmf_clearTriggers(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
-    for (auto& t : s->triggers->values) {
-        UnrootGmVariable(*a_thread->GetMachine(), t.handle);
-    }
-    s->triggers->values.clear();
+    auto& values = s->triggers->values;
+    s->triggers->retired.insert(s->triggers->retired.end(),
+        std::make_move_iterator(values.begin()),
+        std::make_move_iterator(values.end()));
+    values.clear();
     return GM_OK;
 }
 int GM_CDECL gmf_getNumTriggers(gmThread* a_thread) {
