@@ -44,16 +44,13 @@ def load_raw(path):
     return data.reshape(-1, 2)
 
 
-def save_cases(raw, target, cases, fixed_spacing=False):
+def save_cases(raw, target, cases):
     # Merge gaps within each short hit, then find isolated events.
     peak = maximum_filter1d(np.max(np.abs(raw), axis=1), size=240)
     active = np.flatnonzero(peak > 0.008)
     if len(active) == 0:
         raise RuntimeError("capture is silent")
-    if fixed_spacing:
-        starts = active[0] + np.arange(len(cases)) * RATE
-    else:
-        starts = np.r_[active[0], active[1:][np.diff(active) > RATE // 3]]
+    starts = np.r_[active[0], active[1:][np.diff(active) > RATE // 3]]
     if len(starts) != len(cases):
         raise RuntimeError(f"expected {len(cases)} isolated sounds, found {len(starts)}")
     target.mkdir(parents=True, exist_ok=True)
@@ -138,8 +135,7 @@ def capture_retail(args, sound, extra_sounds, target, probe, cases):
                 recorder.wait(timeout=5)
             main.write_bytes(original)
             subprocess.run(["pactl", "unload-module", module], check=True)
-    starts = save_cases(load_raw(raw_path), target / "retail", cases,
-                        args.suite == "controls")
+    starts = save_cases(load_raw(raw_path), target / "retail", cases)
     (target / "retail.json").write_text(json.dumps({
         "probe_sha256": sha(probe), "sound_sha256": sha(sound),
         "extra_sound_sha256": {str(relative): sha(args.game_data / relative)
@@ -175,8 +171,7 @@ def capture_openegg(args, sound, extra_sounds, target, probe, cases):
         (target / "openegg.log").write_text(result.stdout)
         if result.returncode or "wave_done" not in result.stdout:
             raise RuntimeError(f"OpenEgg probe failed; see {target / 'openegg.log'}")
-    return save_cases(load_raw(raw_path), target / "openegg", cases,
-                      args.suite == "controls")
+    return save_cases(load_raw(raw_path), target / "openegg", cases)
 
 
 def compare(target, cases, report):
