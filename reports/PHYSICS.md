@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 20:10 UTC
+Generated: 2026-10-21 20:12 UTC
 
-Matched: **4861/4861 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4863/4863 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **291/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -51,7 +51,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityMgr.tagForDeletion | 3 | 3 |
 | entityMgr.flush | 9 | 9 |
 | entityMgr.iteratorAfterDelete | 3 | 3 |
-| entityMgr.iteratorAfterAdd | 5 | 5 |
+| entityMgr.iteratorAfterAdd | 6 | 6 |
+| entityMgr.iteratorEmptyStayedEmpty | 1 | 1 |
 | entityMgr.deleteAll | 7 | 7 |
 | entityQ.id | 5 | 5 |
 | entityQ.count | 4 | 4 |
@@ -713,7 +714,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityListRef.get` | 3 | 3 |
 | `EntityListRef.goToNext` | 5 | 5 |
 | `EntityListRef.isValid` | 1 | 1 |
-| `EntityListRef.size` | 2 | 2 |
+| `EntityListRef.size` | 4 | 4 |
 
 ## Inconclusive probes
 
@@ -5322,6 +5323,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityListRef.goToNext` | entityMgr.iteratorAfterAdd.step1Tag | `destructorSpawn` | `destructorSpawn` | PASS |
 | `EntityListRef.goToNext` | entityMgr.iteratorAfterAdd.step2Tag | `null` | `null` | PASS |
 | `EntityListRef.goToNext` | entityMgr.iteratorAfterAdd.step3Tag | `b` | `b` | PASS |
+| `EntityListRef.size` | entityMgr.iteratorAfterAdd.foreignFiltered | `1` | `1` | PASS |
+| `EntityListRef.size` | entityMgr.iteratorEmptyStayedEmpty | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.deleteAll.activeStillValid | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.deleteAll.pendingStillInvalid | `1` | `1` | PASS |
 | `EntityManager.getNumEntities` | entityMgr.deleteAll.countBeforeFlush | `3` | `3` | PASS |

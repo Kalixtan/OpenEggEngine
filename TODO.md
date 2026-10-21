@@ -52,8 +52,8 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 - [ ] Verify load/unload order, callbacks, object retention, and cleanup during
       scene transitions.
 - [ ] Compare entity iterators, filters, and mutation during iteration.
-      Removal and append behavior now match in 8 live-iterator readings;
-      remaining filters and mutation cases need coverage.
+      Removal, append, type-filter, and empty-iterator behavior now match in
+      10 readings; remaining filters and mutation cases need coverage.
 - [ ] Verify native object identity and garbage collection. Active-entity
       and owned-body retention match retail. RPCS3 faults after deletion when
       calling `PhysicsBody.isSleeping()` on retained body; direct object

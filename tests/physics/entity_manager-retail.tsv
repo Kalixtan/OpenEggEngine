@@ -1,5 +1,6 @@
-# probe-sha256 30c1040a379356e87e856a5ce3d931fcab6681076498ed47ce4bb34753ee6d03
+# probe-sha256 581fcc8b7b1fcaf40b4edf3910b85988953c7637ad89f4c944cdd0a502507f80
 # support-sha256 EntityManagerProbeEntity.gm dc355571761cef732976880d167b96dcfb78d544ae54814adfbeff99452fa5a0
+# support-sha256 EntityGCProbe.gm fe3f1ce0f8f2e345fcac79f31812d884f455eaeab391705cc7923877f651824d
 entityMgr.create.count	3
 entityMgr.deleteAll.activeStillValid	1
 entityMgr.deleteAll.bRemoved	1
@@ -32,6 +33,7 @@ entityMgr.getNumEntities.totalPending	3
 entityMgr.isEntityIDValid.committed	1
 entityMgr.isEntityIDValid.pending	0
 entityMgr.iteratorAfterAdd.currentTag	b
+entityMgr.iteratorAfterAdd.foreignFiltered	1
 entityMgr.iteratorAfterAdd.size	2
 entityMgr.iteratorAfterAdd.step1Tag	destructorSpawn
 entityMgr.iteratorAfterAdd.step2Tag	null
@@ -39,6 +41,7 @@ entityMgr.iteratorAfterAdd.step3Tag	b
 entityMgr.iteratorAfterDelete.currentNull	1
 entityMgr.iteratorAfterDelete.nextIsB	1
 entityMgr.iteratorAfterDelete.size	1
+entityMgr.iteratorEmptyStayedEmpty	1
 entityMgr.tagForDeletion.countBeforeFlush	3
 entityMgr.tagForDeletion.stillValid	1
 entityMgr.tagForDeletion.tagged	1

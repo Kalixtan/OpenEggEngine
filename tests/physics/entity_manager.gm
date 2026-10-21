@@ -2,6 +2,7 @@ global Probe=function(name,value) {
     GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
 };
 GameMonkeyScript.loadScript("EntityManagerProbeEntity.gm");
+GameMonkeyScript.loadScript("EntityGCProbe.gm");
 global EntityManagerProbeState=table(created=0,destroyed=0,destroyOrder="",
     spawnedInDestructor=0,destructorSpawn=null,aID=0,c=null,ran=0,
     parentID=-1,parentUpdates=0,updateSpawned=0,updateChildID=-1,
@@ -49,6 +50,7 @@ global Main=function(p) {
             if (!state.ran) {
             state.ran=1;
             GameSystem.setIsShouldUpdateEntities(0);
+            local initiallyEmpty=EntityManager.getAllEntities("EntityGCProbe");
             local a=MakeManagerProbeEntity("a");
             local b=MakeManagerProbeEntity("b");
             local c=MakeManagerProbeEntity("c");
@@ -115,6 +117,10 @@ global Main=function(p) {
             iter.goToNext();
             local afterAddStep3=iter.get();
             ProbeManager("iteratorAfterAdd.step3Tag",EntityManagerProbeTag(afterAddStep3));
+            EntityManager.createEntity("EntityGCProbe");
+            EntityManager.flush();
+            ProbeManager("iteratorAfterAdd.foreignFiltered",iter.size()==2);
+            ProbeManager("iteratorEmptyStayedEmpty",initiallyEmpty.size()==0);
             local d=MakeManagerProbeEntity("d");
             EntityManager.deleteAllEntities();
             ProbeManager("deleteAll.activeStillValid",EntityManager.isEntityIDValid(b.getObjectID()));

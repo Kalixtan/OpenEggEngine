@@ -49,6 +49,8 @@
     "entityMgr.iteratorAfterAdd.step1Tag",
     "entityMgr.iteratorAfterAdd.step2Tag",
     "entityMgr.iteratorAfterAdd.step3Tag",
+    "entityMgr.iteratorAfterAdd.foreignFiltered",
+    "entityMgr.iteratorEmptyStayedEmpty",
     "entityMgr.deleteAll.activeStillValid",
     "entityMgr.deleteAll.pendingStillInvalid",
     "entityMgr.deleteAll.countBeforeFlush",

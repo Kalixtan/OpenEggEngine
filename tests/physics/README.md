@@ -54,6 +54,7 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_manager.gm \
   --support-file tests/physics/EntityManagerProbeEntity.gm \
+  --support-file tests/physics/EntityGCProbe.gm \
   --expected tests/physics/entity_manager-plan.json \
   --baseline tests/physics/entity_manager-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
@@ -98,8 +99,9 @@ Joint scenes sample five joint types over time; moving rays check hit order
 after bodies move and overlap. The report keeps mismatches visible.
 Entity lifecycle checks enable/disable, contact callbacks, re-enable, and
 delete/flush while bodies overlap. Entity manager probes cover pending versus
-committed entities, iterator snapshots, live-iterator deletion/appends, repeated
-tags, observer-queued deletion and creation, and clear-all behavior. The entity state probe exercises exposed
+committed entities, iterator snapshots, live-iterator deletion/appends,
+type-filter behavior, repeated tags, observer-queued deletion and creation,
+and clear-all behavior. The entity state probe exercises exposed
 state, identity, geometry, alarms, particles, compatibility stubs, and perf
 cost calls. Its cases without retail captures remain outside the parity score.
 Entity callback probe checks enable and disable delegation separately from
