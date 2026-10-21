@@ -446,6 +446,7 @@ int main(int argc, char** argv) {
                     running = false;
                     break;
                 case PlatformEventType::KeyDown:
+                    if (HandleImeKeyDown(event.code)) break;
                     // Escape is an in-game cancel action; close the host
                     // window to quit rather than swallowing that key.
                     if (event.repeat) break;
@@ -502,6 +503,9 @@ int main(int argc, char** argv) {
                 }
                 case PlatformEventType::Resized:
                     renderer.OnWindowResized(event.width, event.height);
+                    break;
+                case PlatformEventType::TextInput:
+                    HandleImeText(event.text);
                     break;
                 case PlatformEventType::None:
                     break;

@@ -38,6 +38,8 @@ public:
     bool IsControllerButtonDown(int index, int buttonCode) override;
     float ControllerAxis(int index, int axis) override;
     void SetActiveControllerSoftRumble(bool enabled) override;
+    void StartTextInput() override { SDL_StartTextInput(); }
+    void StopTextInput() override { SDL_StopTextInput(); }
     bool DecodeWave(const std::string& path, int outputRate,
                     std::vector<float>& stereoSamples) override;
     bool StartAudioOutput(int sampleRate) override;
@@ -55,4 +57,7 @@ private:
     int m_controllerDeviceCount = -1;
     bool m_controllerSubsystemInitialized = false;
     SDL_AudioDeviceID m_audioDevice = 0;
+    SDL_AudioStream* m_audioStream = nullptr;
+    size_t m_audioFrameBytes = 0;
+    size_t m_audioQueueLimitBytes = 0;
 };

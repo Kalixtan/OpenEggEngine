@@ -27,7 +27,7 @@ public:
 enum class PlatformEventType {
     None, Quit, KeyDown, KeyUp, ControllerAdded, ControllerRemoved,
     ControllerButtonDown, ControllerButtonUp, MouseButtonDown,
-    MouseButtonUp, Resized
+    MouseButtonUp, Resized, TextInput
 };
 
 struct PlatformEvent {
@@ -37,6 +37,7 @@ struct PlatformEvent {
     int width = 0;
     int height = 0;
     bool repeat = false;
+    std::string text;
 };
 
 // Stable keyboard usage codes (USB HID keyboard page), independent of the
@@ -98,6 +99,8 @@ public:
     virtual bool IsControllerButtonDown(int index, int buttonCode) = 0;
     virtual float ControllerAxis(int index, int axis) = 0;
     virtual void SetActiveControllerSoftRumble(bool enabled) = 0;
+    virtual void StartTextInput() = 0;
+    virtual void StopTextInput() = 0;
     virtual bool DecodeWave(const std::string& path, int outputRate,
                            std::vector<float>& stereoSamples) = 0;
     virtual bool StartAudioOutput(int sampleRate) = 0;

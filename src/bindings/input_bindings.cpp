@@ -1,10 +1,13 @@
 #include "gmThread.h"
 #include "input_bindings.h"
 #include "gmTableObject.h"
+#include "gmStringObject.h"
 #include "../bindings/vector2d_bindings.h"
 #include "../core/engine_context.h"
 #include "../render/renderer.h"
 #include <string>
+#include <algorithm>
+#include <utility>
 #include <cctype>
 #include <cmath>
 #include <limits>
@@ -12,6 +15,8 @@
 // Frontend-neutral input bindings. Keyboard usage codes and logical pad
 // buttons are translated by the active platform frontend.
 namespace {
+
+PlatformFrontend& Frontend();
 
 constexpr int kNumberedButtonBase = 1024;
 constexpr int kAliasBase = 2048;
@@ -72,6 +77,90 @@ int GM_CDECL gmf_zeroFloat(gmThread* a_thread) { a_thread->PushFloat(0.0f); retu
 int GM_CDECL gmf_zeroInt(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_emptyString(gmThread* a_thread) { a_thread->PushNewString(""); return GM_OK; }
 int GM_CDECL gmf_noop(gmThread* a_thread) { return GM_OK; }
+
+struct ImeState {
+    std::string text;
+    size_t maxCharacters = 64;
+    int status = 0;
+    bool active = false;
+    bool multiline = false;
+};
+ImeState g_ime;
+
+size_t Utf8Characters(const std::string& a_text) {
+    size_t count = 0;
+    for (unsigned char byte : a_text)
+        if ((byte & 0xc0) != 0x80) ++count;
+    return count;
+}
+
+std::string StringValue(gmMachine& a_machine, const gmVariable& a_value) {
+    if (a_value.m_type != GM_STRING) return {};
+    auto* object = static_cast<gmStringObject*>(a_machine.GetObject(a_value.m_value.m_ref));
+    return object ? object->GetString() : "";
+}
+
+int IntegerValue(const gmVariable& a_value, int a_default) {
+    if (a_value.IsFloat()) return static_cast<int>(a_value.GetFloat());
+    if (a_value.m_type == GM_INT) return a_value.m_value.m_int;
+    return a_default;
+}
+
+int GM_CDECL gmf_openIME(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    if (count < 1 || count > 3) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+
+    gmMachine& machine = *a_thread->GetMachine();
+    if (g_ime.active) Frontend().StopTextInput();
+    std::string initial;
+    int maxCharacters = 64;
+    bool multiline = false;
+    if (count == 1 && a_thread->Param(0).m_type == GM_TABLE) {
+        auto* table = static_cast<gmTableObject*>(
+            machine.GetObject(a_thread->Param(0).m_value.m_ref));
+        if (table) {
+            initial = StringValue(machine, table->Get(&machine, "defaultTxt"));
+            maxCharacters = IntegerValue(table->Get(&machine, "maxLen"), maxCharacters);
+            multiline = IntegerValue(table->Get(&machine, "multiLine"), 0) != 0;
+        }
+    } else {
+        initial = StringValue(machine, a_thread->Param(0));
+        if (count >= 2) maxCharacters = IntegerValue(a_thread->Param(1), maxCharacters);
+    }
+
+    g_ime.text = std::move(initial);
+    if (maxCharacters <= 0) maxCharacters = 64;
+    g_ime.maxCharacters = static_cast<size_t>(std::clamp(maxCharacters, 1, 4096));
+    g_ime.multiline = multiline;
+    if (!multiline) {
+        const size_t newline = g_ime.text.find_first_of("\r\n");
+        if (newline != std::string::npos) g_ime.text.resize(newline);
+    }
+    while (Utf8Characters(g_ime.text) > g_ime.maxCharacters) {
+        size_t cut = g_ime.text.size() - 1;
+        while (cut > 0 && (static_cast<unsigned char>(g_ime.text[cut]) & 0xc0) == 0x80)
+            --cut;
+        g_ime.text.resize(cut);
+    }
+    g_ime.active = true;
+    g_ime.status = 1;
+    Frontend().StartTextInput();
+    a_thread->PushInt(g_ime.status);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_getIMEStatus(gmThread* a_thread) {
+    a_thread->PushInt(g_ime.status);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_getStringIME(gmThread* a_thread) {
+    a_thread->PushNewString(g_ime.text.c_str());
+    return GM_OK;
+}
 
 // These retail Input methods target the DualShock speaker, which has no
 // desktop equivalent. Preserve the argument contracts used by the shipped
@@ -447,12 +536,12 @@ gmFunctionEntry s_inputLib[] = {
     // The wrapper booleanizes its unchanged non-null `this` pointer, so the
     // observable result is always true for this concrete retail input type.
     {"getIsShaking", gmf_trueBool, nullptr},
-    {"openIME", gmf_noop, nullptr},
+    {"openIME", gmf_openIME, nullptr},
     // Retail getIMEResults is currently a literal integer-zero stub (Input.c
     // 0x74148), not an empty string. Keep the GM value type identical.
     {"getIMEResults", gmf_zeroInt, nullptr},
-    {"getIMEStatus", gmf_zeroInt, nullptr},
-    {"getStringIME", gmf_emptyString, nullptr},
+    {"getIMEStatus", gmf_getIMEStatus, nullptr},
+    {"getStringIME", gmf_getStringIME, nullptr},
     {"disableShaking", gmf_noop, nullptr},
     {"enableShaking", gmf_noop, nullptr},
     {"enableBackPanel", gmf_noop, nullptr},
@@ -466,6 +555,49 @@ gmFunctionEntry s_inputLib[] = {
 };
 
 } // namespace
+
+void HandleImeText(const std::string& a_text) {
+    if (!g_ime.active) return;
+    if (g_ime.text.size() + a_text.size() > 16384) return;
+    std::string candidate = g_ime.text + a_text;
+    if (!g_ime.multiline) {
+        const size_t newline = candidate.find_first_of("\r\n");
+        if (newline != std::string::npos) candidate.resize(newline);
+    }
+    if (Utf8Characters(candidate) <= g_ime.maxCharacters)
+        g_ime.text = std::move(candidate);
+}
+
+bool HandleImeKeyDown(int a_scancode) {
+    if (!g_ime.active) return false;
+    if (a_scancode == KeyCode::Return) {
+        if (g_ime.multiline) {
+            if (Utf8Characters(g_ime.text) < g_ime.maxCharacters)
+                g_ime.text.push_back('\n');
+            return true;
+        }
+        g_ime.active = false;
+        g_ime.status = 4;
+        if (g_frontend) Frontend().StopTextInput();
+        return true;
+    }
+    if (a_scancode == KeyCode::Escape) {
+        g_ime.active = false;
+        g_ime.status = 5;
+        if (g_frontend) Frontend().StopTextInput();
+        return true;
+    }
+    if (a_scancode == KeyCode::Backspace) {
+        if (!g_ime.text.empty()) {
+            size_t cut = g_ime.text.size() - 1;
+            while (cut > 0 && (static_cast<unsigned char>(g_ime.text[cut]) & 0xc0) == 0x80)
+                --cut;
+            g_ime.text.resize(cut);
+        }
+        return true;
+    }
+    return false;
+}
 
 void RefreshPlatformControllers() {
     if (g_frontend) Frontend().RefreshControllers();

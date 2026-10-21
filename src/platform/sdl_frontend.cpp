@@ -199,6 +199,10 @@ bool SdlFrontend::PollEvent(PlatformEvent& output) {
             output.type = PlatformEventType::KeyUp;
             output.code = static_cast<int>(event.key.keysym.scancode);
             return true;
+        case SDL_TEXTINPUT:
+            output.type = PlatformEventType::TextInput;
+            output.text = event.text.text;
+            return true;
         case SDL_CONTROLLERDEVICEADDED:
             output.type = PlatformEventType::ControllerAdded;
             output.device = event.cdevice.which;
@@ -409,20 +413,68 @@ bool SdlFrontend::StartAudioOutput(int sampleRate) {
     wanted.format = AUDIO_F32SYS;
     wanted.channels = 2;
     wanted.samples = 1024;
-    m_audioDevice = SDL_OpenAudioDevice(nullptr, 0, &wanted, nullptr, 0);
+    SDL_AudioSpec obtained{};
+    const int allowedChanges = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE |
+                               SDL_AUDIO_ALLOW_FORMAT_CHANGE |
+                               SDL_AUDIO_ALLOW_CHANNELS_CHANGE;
+    m_audioDevice = SDL_OpenAudioDevice(nullptr, 0, &wanted, &obtained,
+                                        allowedChanges);
     if (!m_audioDevice) {
         std::fprintf(stderr, "Audio output unavailable: %s\n", SDL_GetError());
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
         return false;
     }
+
+    const int bitsPerSample = SDL_AUDIO_BITSIZE(obtained.format);
+    if (obtained.freq <= 0 || obtained.channels == 0 || bitsPerSample <= 0 ||
+        bitsPerSample % 8 != 0 || obtained.samples == 0) {
+        std::fprintf(stderr, "Audio output unavailable: invalid device format\n");
+        StopAudioOutput();
+        return false;
+    }
+
+    m_audioStream = SDL_NewAudioStream(
+        wanted.format, wanted.channels, wanted.freq,
+        obtained.format, obtained.channels, obtained.freq);
+    if (!m_audioStream) {
+        std::fprintf(stderr, "Audio output unavailable: %s\n", SDL_GetError());
+        StopAudioOutput();
+        return false;
+    }
+    m_audioFrameBytes = static_cast<size_t>(bitsPerSample / 8) * obtained.channels;
+    m_audioQueueLimitBytes = static_cast<size_t>(obtained.freq) *
+                             m_audioFrameBytes / 4;
+
+    const size_t prebufferFrames = static_cast<size_t>(obtained.samples) * 2;
+    std::vector<Uint8> silence(prebufferFrames * m_audioFrameBytes,
+                               obtained.silence);
+    if (SDL_QueueAudio(m_audioDevice, silence.data(),
+                       static_cast<Uint32>(silence.size())) != 0) {
+        std::fprintf(stderr, "Audio output unavailable: %s\n", SDL_GetError());
+        StopAudioOutput();
+        return false;
+    }
+
+    std::fprintf(stderr,
+                 "Audio output: %d Hz, format=0x%04x, channels=%u, callback=%u\n",
+                 obtained.freq, obtained.format, obtained.channels,
+                 obtained.samples);
     SDL_PauseAudioDevice(m_audioDevice, 0);
     return true;
 }
 
 void SdlFrontend::StopAudioOutput() {
     if (!m_audioDevice) return;
+    SDL_PauseAudioDevice(m_audioDevice, 1);
+    SDL_ClearQueuedAudio(m_audioDevice);
+    if (m_audioStream) {
+        SDL_FreeAudioStream(m_audioStream);
+        m_audioStream = nullptr;
+    }
     SDL_CloseAudioDevice(m_audioDevice);
     m_audioDevice = 0;
+    m_audioFrameBytes = 0;
+    m_audioQueueLimitBytes = 0;
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
@@ -435,8 +487,50 @@ void SdlFrontend::ClearAudioQueue() {
 }
 
 void SdlFrontend::QueueAudioSamples(const float* samples, size_t sampleCount) {
-    if (!m_audioDevice || !samples || sampleCount == 0) return;
-    const size_t byteCount = sampleCount * sizeof(float);
-    if (byteCount > std::numeric_limits<Uint32>::max()) return;
-    SDL_QueueAudio(m_audioDevice, samples, static_cast<Uint32>(byteCount));
+    if (!m_audioDevice || !m_audioStream || !samples || sampleCount < 2 ||
+        sampleCount % 2 != 0) return;
+    if (sampleCount > static_cast<size_t>(std::numeric_limits<int>::max()) /
+                          sizeof(float)) return;
+
+    const int inputBytes = static_cast<int>(sampleCount * sizeof(float));
+    std::vector<float> sanitized;
+    const float* input = samples;
+    if (!std::all_of(samples, samples + sampleCount,
+                     [](float value) { return std::isfinite(value); })) {
+        sanitized.assign(samples, samples + sampleCount);
+        for (float& value : sanitized) {
+            if (!std::isfinite(value)) value = 0.0f;
+        }
+        input = sanitized.data();
+    }
+
+    if (SDL_AudioStreamPut(m_audioStream, input, inputBytes) != 0) {
+        std::fprintf(stderr, "Audio conversion failed: %s\n", SDL_GetError());
+        return;
+    }
+    const int available = SDL_AudioStreamAvailable(m_audioStream);
+    if (available < 0) {
+        std::fprintf(stderr, "Audio conversion failed: %s\n", SDL_GetError());
+        return;
+    }
+    if (available == 0) return;
+
+    std::vector<Uint8> converted(static_cast<size_t>(available));
+    const int convertedBytes = SDL_AudioStreamGet(
+        m_audioStream, converted.data(), available);
+    if (convertedBytes < 0 ||
+        static_cast<size_t>(convertedBytes) % m_audioFrameBytes != 0) {
+        std::fprintf(stderr, "Audio conversion failed: %s\n", SDL_GetError());
+        return;
+    }
+    if (convertedBytes == 0) return;
+
+    if (m_audioQueueLimitBytes > 0 &&
+        QueuedAudioBytes() > m_audioQueueLimitBytes) {
+        ClearAudioQueue();
+    }
+    if (SDL_QueueAudio(m_audioDevice, converted.data(),
+                       static_cast<Uint32>(convertedBytes)) != 0) {
+        std::fprintf(stderr, "Audio queue failed: %s\n", SDL_GetError());
+    }
 }

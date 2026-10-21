@@ -4,7 +4,7 @@
 
 // Partial platform-neutral INPUT API. Keyboard, mouse, and compatible
 // controller state are supplied through PlatformFrontend, with virtual-key
-// support for headless execution; touch and IME remain incomplete.
+// support for headless execution. Touch APIs remain platform stubs.
 // Retail registers INPUT as a 49-method native type; this port exposes a
 // library table while its native method coverage is being reconstructed.
 void RegisterInputBindings(gmMachine& a_machine, PlatformFrontend& a_frontend);
@@ -21,6 +21,8 @@ void ClearVirtualKeys();
 // not receive a physical cursor position in headless mode, so Input reads this.
 void SetVirtualMousePosition(int a_x, int a_y);
 void SetVirtualMouseButtonDown(int a_buttonCode, bool a_down);
+void HandleImeText(const std::string& a_text);
+bool HandleImeKeyDown(int a_scancode);
 
 // Desktop adapter codes for physical controller and keyboard events.
 void RefreshPlatformControllers();
