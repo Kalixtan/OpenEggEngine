@@ -265,6 +265,11 @@ BODY_CONTROL_FIELDS = {
     "pointInside": "physicsBody.isPointWithin", "pointOutside": "physicsBody.isPointWithin",
     "shapeCount": "physicsBody.getNumShapes", "sleeping": "physicsBody.isSleeping",
 }
+LOCAL_ONLY = {
+    "physicsBody.isCircle": "OpenEgg convenience method; no retail method exists",
+    "physicsBody.isRect": "OpenEgg convenience method; no retail method exists",
+    "physicsShape.getIsSensor": "OpenEgg alias; retail exposes isSensor",
+}
 
 
 def inventory():
@@ -386,6 +391,8 @@ def main():
     problems = []
     rows = []
     inconclusive_rows = []
+    local_only_rows = []
+    local_only_counts = defaultdict(int)
     grouped = defaultdict(list)
     scenes = defaultdict(list)
     for probe, baseline, plan, support in ((PROBE, BASELINE, None, ()),
@@ -435,6 +442,11 @@ def main():
                 inconclusive_rows.append((case, function, retail.get(case),
                                           local.get(case), inconclusive[case]))
                 continue
+            if function in LOCAL_ONLY:
+                local_only_rows.append((case, function, retail.get(case),
+                                        local.get(case), LOCAL_ONLY[function]))
+                local_only_counts[function] += 1
+                continue
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
@@ -447,11 +459,11 @@ def main():
                     raise ValueError(f"unknown associated function: {extra}")
                 grouped[extra].append(passed)
     count = sum(row[4] for row in rows)
-    tested = sum(bool(grouped[name]) for name in names)
+    tested = sum(bool(grouped[name]) or bool(local_only_counts[name]) for name in names)
     lines = ["# Physics test report", "",
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
              f"Matched: **{count}/{len(rows)} comparable readings ({percent(count, len(rows))})**. "
-             f"{len(inconclusive_rows)} declared reading(s) are listed separately. "
+             f"{len(inconclusive_rows)} inconclusive and {len(local_only_rows)} local-only reading(s) are listed separately. "
              "This measures captured cases, not total physics parity.", "",
              f"Functions with readings: **{tested}/{len(names)}**. The inventory comes from "
              "the local API reference and includes OpenEgg-only methods.", "",
@@ -466,8 +478,10 @@ def main():
     for function in names:
         checks = grouped[function]
         matched = sum(checks)
-        status = "untested" if not checks else "PASS" if matched == len(checks) else "FAIL"
-        lines.append(f"| `{function}` | {matched} | {len(checks)} | {status} |")
+        local_count = local_only_counts[function]
+        status = ("LOCAL-ONLY" if local_count else "untested" if not checks else
+                  "PASS" if matched == len(checks) else "FAIL")
+        lines.append(f"| `{function}` | {matched} | {len(checks) + local_count} | {status} |")
     lines += ["", "## Contact callbacks", "",
               "| Hook | Matched | Cases |", "| --- | ---: | ---: |"]
     for function in sorted(set(grouped) - set(names)):
@@ -478,6 +492,13 @@ def main():
                   "| Function | Case | Retail | OpenEgg | Reason |",
                   "| --- | --- | --- | --- | --- |"]
         for case, function, retail_value, local_value, reason in inconclusive_rows:
+            lines.append(f"| `{function}` | {case} | `{retail_value}` | `{local_value}` | {reason} |")
+    if local_only_rows:
+        lines += ["", "## OpenEgg-only functions", "",
+                  "These extensions have no corresponding retail method and are excluded from the parity score.", "",
+                  "| Function | Case | Retail | OpenEgg | Reason |",
+                  "| --- | --- | --- | --- | --- |"]
+        for case, function, retail_value, local_value, reason in local_only_rows:
             lines.append(f"| `{function}` | {case} | `{retail_value}` | `{local_value}` | {reason} |")
     lines += ["", "## Readings", "", "| Function | Case | Retail | OpenEgg | Result |",
               "| --- | --- | --- | --- | --- |"]

@@ -3409,10 +3409,10 @@ int GM_CDECL gmf_pd_setVel(gmThread* a_thread) {
     if (b) b->body->SetLinearVelocity(Box2DVelocity(b2Vec2(x, y)));
     return GM_OK;
 }
+// Calls on the entity PhysicsData receiver below produced no script result in
+// the retail probe. Keep them separate from the value-returning body methods.
 int GM_CDECL gmf_pd_getSpeed(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushFloat(b ? ScriptVelocity(b->body->GetLinearVelocity()).Length() : 0.0f);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setSpeed(gmThread* a_thread) {
@@ -3507,16 +3507,10 @@ int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_isCircle(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt((f && f->GetShape()->GetType() == b2Shape::e_circle) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_isRect(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt((f && f->GetShape()->GetType() == b2Shape::e_polygon) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getWidth(gmThread* a_thread) {
@@ -3656,20 +3650,10 @@ int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_getCollisionCategory(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    const bool changed = f && b->categoryChangedWhileDisabled.count(f) != 0;
-    a_thread->PushInt(f ? (int)(changed ? DesiredFixtureFilter(b, f).categoryBits
-                                        : f->GetFilterData().categoryBits) : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    const bool changed = f && b->maskChangedWhileDisabled.count(f) != 0;
-    a_thread->PushInt(f ? (int)(changed ? DesiredFixtureFilter(b, f).maskBits
-                                        : f->GetFilterData().maskBits) : -1);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setCollisionCategory(gmThread* a_thread) {
@@ -3720,9 +3704,6 @@ int GM_CDECL gmf_pd_setCollisionGroup(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_getCollisionGroup(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).groupIndex : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_isSleeping(gmThread* a_thread) {
@@ -3809,8 +3790,6 @@ int GM_CDECL gmf_pd_getMass(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_getMaxSpeed(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushFloat(b ? b->maxSpeed : 1e9f);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setMaxRotateSpeed(gmThread* a_thread) {
@@ -3875,8 +3854,6 @@ int GM_CDECL gmf_pd_setBrakeAcc(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_getBrakeAcc(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushFloat(b ? b->brakeAcc : 1e9f);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setThrustAcc(gmThread* a_thread) {
@@ -3889,8 +3866,6 @@ int GM_CDECL gmf_pd_setThrustAcc(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_getThrustAcc(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushFloat(b ? b->thrustAcc : 1e9f);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setDoesRotationResponse(gmThread* a_thread) {
@@ -3928,8 +3903,8 @@ int GM_CDECL gmf_pd_isCollidable(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* fixture = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt((b && b->isCollidable && fixture &&
-                       fixture->GetFilterData().maskBits != 0) ? 1 : 0);
+    const b2Filter filter = fixture ? DesiredFixtureFilter(b, fixture) : b2Filter{};
+    a_thread->PushInt((fixture && filter.maskBits != 0) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setRestitution(gmThread* a_thread) {
