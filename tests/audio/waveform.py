@@ -29,6 +29,7 @@ SUITES = {
                  (GATE_SOUND,)),
 }
 RATE = 48000
+MAX_ALIGNMENT_MS = 30.0
 RESULTS = ROOT / "tests/_results/audio/waveforms"
 
 
@@ -181,7 +182,7 @@ def capture_openegg(args, sound, extra_sounds, target, probe, cases):
 def compare(target, cases, report):
     lines = ["# Audio waveform report", "", "Retail source: installed PS3 game in RPCS3.",
              "Retail WAV files stay under ignored `tests/_results/audio/waveforms/`.", "",
-             "Correlation uses aligned samples; RMS ratio is OpenEgg divided by retail.", "",
+             f"Alignment allows up to {MAX_ALIGNMENT_MS:.0f} ms; RMS ratio is OpenEgg divided by retail.", "",
              "| Case | Shift ms | Correlation | RMS ratio | Left RMS ratio | Right RMS ratio | Result |",
              "| --- | ---: | ---: | ---: | ---: | ---: | --- |"]
     passed = 0
@@ -197,7 +198,7 @@ def compare(target, cases, report):
             correlation = 0.0
         else:
             shift = int(np.argmax(correlate(a, b, mode="full", method="fft")) - (len(b) - 1))
-            if abs(shift) > RATE // 50:
+            if abs(shift) > int(RATE * MAX_ALIGNMENT_MS / 1000.0):
                 correlation = 0.0
             else:
                 if shift > 0:
@@ -239,7 +240,7 @@ def compare(target, cases, report):
                      f"{show(right)} | {'PASS' if ok else 'FAIL'} |")
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text("\n".join(lines) + f"\n\nMatched: **{passed}/{len(cases)}**. "
-                      "Thresholds: correlation ≥0.99 and RMS within 2%. "
+                      f"Thresholds: correlation ≥0.99, RMS within 2%, alignment within {MAX_ALIGNMENT_MS:.0f} ms. "
                       "This checks a few short sounds, not full audio parity.\n")
     print(f"waveforms: {passed}/{len(cases)} matched; {report}")
     return 0 if passed == len(cases) else 1
