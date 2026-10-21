@@ -24,8 +24,12 @@ anim.setPlayPosition(60);
 AnimProbe("Animation.getPlayTime.changed",anim.getPlayTime());
 AnimProbe("Animation.getPlayPosition.seek",anim.getPlayPosition());
 AnimProbe("Animation.getCurrentFrame.seek",anim.getCurrentFrame());
+anim.setCurrentFrame(0);
+AnimProbe("Animation.getCurrentFrame.firstFrame",anim.getCurrentFrame());
 anim.setCurrentFrame(1);
 AnimProbe("Animation.getCurrentFrame.set",anim.getCurrentFrame());
+anim.setCurrentFrame(35);
+AnimProbe("Animation.getCurrentFrame.clampedFrame",anim.getCurrentFrame());
 anim.play(1);
 AnimProbe("Animation.isPlaying.play",anim.isPlaying());
 AnimProbe("Animation.isPaused.play",anim.isPaused());
@@ -67,7 +71,28 @@ AnimationModule.unloadAnimation(shared);
 AnimationModule.unloadAnimation(fresh);
 AnimationModule.unloadAnimation(missing);
 
+global animSlow=AnimationModule.loadAnimation(
+    "Platformer/gameAssets/checkpointTriggeredInactive.fsa");
+global animFast=AnimationModule.loadAnimation(
+    "Platformer/gameAssets/checkpointTriggeredInactive.fsa");
+animSlow.setPlayTime(2000);
+animFast.setPlayTime(2000);
+animSlow.setPlayTimeSpeed(0.5);
+animFast.setPlayTimeSpeed(4.0);
+animSlow.play(1);
+animFast.play(1);
+
 global Main=function(p) {
-    return table(Process=p,constructor=function(){},init=function(){return true;},
-                 update=function(dt){});
+    return table(Process=p,frame=0,constructor=function(){},
+        init=function(){return true;},update=function(dt){
+            this.frame+=1;
+            if (this.frame==30) {
+                AnimProbe("Animation.getPlayPosition.slowSpeed",animSlow.getPlayPosition());
+                AnimProbe("Animation.getPlayPosition.fastSpeed",animFast.getPlayPosition());
+                AnimProbe("Animation.setPlayTimeSpeed.noEffect",
+                    MATH_ABS(animSlow.getPlayPosition()-animFast.getPlayPosition())<0.01);
+                AnimationModule.unloadAnimation(animSlow);
+                AnimationModule.unloadAnimation(animFast);
+            }
+        });
 };

@@ -57,6 +57,7 @@ def main():
         "Animation.isPlaying.initial", "Animation.isPaused.initial", "Animation.isDone.initial",
         "Animation.getPlayTime.changed", "Animation.getPlayPosition.seek",
         "Animation.getCurrentFrame.seek", "Animation.getCurrentFrame.set",
+        "Animation.getCurrentFrame.firstFrame", "Animation.getCurrentFrame.clampedFrame",
         "Animation.isPlaying.play", "Animation.isPaused.play",
         "Animation.isPlaying.pause", "Animation.isPaused.pause",
         "Animation.isPlaying.playOnce", "Animation.isDone.end", "Animation.isPlaying.end",
@@ -66,6 +67,8 @@ def main():
         "Animation.getNumImages.sharedResource", "Animation.getNumFrames.sharedSequence",
         "Animation.getNumImages.unloaded", "Animation.getNumImages.sharedStillLoaded",
         "Animation.getNumImages.afterUnloadAll", "Animation.getNumImages.missingResource",
+        "Animation.getPlayPosition.slowSpeed", "Animation.getPlayPosition.fastSpeed",
+        "Animation.setPlayTimeSpeed.noEffect",
     ]
     observed = {name: value for name, value in readings}
     baseline_path = ROOT / "tests/animation/retail-baseline.tsv"
@@ -84,6 +87,8 @@ def main():
                                float(observed.get("Animation.getSourcePixelHeight.initial", "0")) > 0,
         "play time round trip": abs(float(observed.get("Animation.getPlayTime.changed", "nan")) - 120) < 0.01,
         "seek round trip": abs(float(observed.get("Animation.getPlayPosition.seek", "nan")) - 60) < 0.01,
+        "frame selection boundaries": observed.get("Animation.getCurrentFrame.firstFrame") == "0" and
+            observed.get("Animation.getCurrentFrame.clampedFrame") == "34",
         "play/pause states": observed.get("Animation.isPlaying.play") == "1" and
                              observed.get("Animation.isPaused.play") == "0" and
                              observed.get("Animation.isPlaying.pause") == "0" and
@@ -99,6 +104,7 @@ def main():
         "cache clear preserves live handles": observed.get("Animation.getNumImages.sharedStillLoaded") == "35" and
             observed.get("Animation.getNumImages.afterUnloadAll") == "35",
         "missing resource stays empty": observed.get("Animation.getNumImages.missingResource") == "0",
+        "speed field matches retail no-op": observed.get("Animation.setPlayTimeSpeed.noEffect") == "1",
     }
     checks_passed = sum(local_checks.values())
     comparable = [(name, value, retail[name]) for name, value in readings if name in retail]
