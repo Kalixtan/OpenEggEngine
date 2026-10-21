@@ -103,9 +103,14 @@ global Main=function(p) {
             Probe("entityState.attachedAlarmCreated",attachedAlarm!=null);
             local fetchedAlarm=native.getAlarm(91);
             Probe("entityState.attachedAlarmFound",fetchedAlarm!=null);
-            Probe("entityState.attachedAlarmInterval",fetchedAlarm.getInterval());
-            fetchedAlarm.update(25);
-            Probe("entityState.attachedAlarmElapsed",fetchedAlarm.getMSElapsed());
+            if (fetchedAlarm!=null) {
+                Probe("entityState.attachedAlarmInterval",fetchedAlarm.getInterval());
+                fetchedAlarm.update(25);
+                Probe("entityState.attachedAlarmElapsed",fetchedAlarm.getMSElapsed());
+            } else {
+                Probe("entityState.attachedAlarmInterval","fixture-limited");
+                Probe("entityState.attachedAlarmElapsed","fixture-limited");
+            }
             native.deleteAlarm(91);
             Probe("entityState.attachedAlarmDeleted",native.getAlarm(91)==null);
             local alarm=ALARM(100);
@@ -179,21 +184,59 @@ global Main=function(p) {
             lfoProbe.setRate(0);
             lfoProbe.update(100);
             Probe("entityState.lfoZeroRate",lfoProbe.getValue());
+            lfoProbe.setRate(50);
+            lfoProbe.setRate(0);
+            Probe("entityState.lfoZeroRateReadback",lfoProbe.getRate());
+            Probe("entityState.lfoZeroRateBeforeStep",lfoProbe.getValue());
+            lfoProbe.setPhase(0.25);
+            Probe("entityState.lfoZeroRateAtQuarter",lfoProbe.getValue());
+            lfoProbe.update(0.125);
+            Probe("entityState.lfoZeroRateSmallStep",lfoProbe.getValue());
+            lfoProbe.setPhase(0.25);
+            lfoProbe.update(100);
+            Probe("entityState.lfoZeroRateAfterUpdate",lfoProbe.getValue());
+            local zeroRateProbe=TRIANGLELFO();
+            zeroRateProbe.setRange(-2,4);
+            zeroRateProbe.setContour(0.25,0.75);
+            zeroRateProbe.setRate(50);
+            zeroRateProbe.setRate(0);
+            Probe("entityState.lfoZeroRateFreshReadback",zeroRateProbe.getRate());
+            zeroRateProbe.setPhase(0.25);
+            Probe("entityState.lfoZeroRateFreshInitial",zeroRateProbe.getValue());
+            zeroRateProbe.update(0.125);
+            Probe("entityState.lfoZeroRateFreshSmallStep",zeroRateProbe.getValue());
+            zeroRateProbe.setPhase(0.25);
+            zeroRateProbe.update(100);
+            Probe("entityState.lfoZeroRateFreshLargeStep",zeroRateProbe.getValue());
             local ownedLfoID=native.getUniqueLFOID();
             local nextLfoID=native.getUniqueLFOID();
             Probe("entityState.ownedLfoIDsDistinct",ownedLfoID!=nextLfoID);
             local ownedLfo=native.addLFO(ownedLfoID,TRIANGLELFO());
-            ownedLfo.setRange(-2,2);
-            ownedLfo.setRate(100);
-            Probe("entityState.ownedLfoInitial",ownedLfo.getValue());
-            ownedLfo.update(12.5);
-            Probe("entityState.ownedLfoAfterQuarter",ownedLfo.getValue());
-            ownedLfo.update(12.5);
-            Probe("entityState.ownedLfoAfterHalf",ownedLfo.getValue());
+            if (ownedLfo!=null) {
+                ownedLfo.setRange(-2,2);
+                ownedLfo.setRate(100);
+                Probe("entityState.ownedLfoInitial",ownedLfo.getValue());
+                ownedLfo.update(12.5);
+                Probe("entityState.ownedLfoAfterQuarter",ownedLfo.getValue());
+                ownedLfo.update(12.5);
+                Probe("entityState.ownedLfoAfterHalf",ownedLfo.getValue());
+            } else {
+                Probe("entityState.ownedLfoInitial","fixture-limited");
+                Probe("entityState.ownedLfoAfterQuarter","fixture-limited");
+                Probe("entityState.ownedLfoAfterHalf","fixture-limited");
+            }
             native.deleteLFO(ownedLfoID);
-            Probe("entityState.ownedLfoHandleAfterDelete",ownedLfo.getValue());
+            if (ownedLfo!=null) {
+                Probe("entityState.ownedLfoHandleAfterDelete",ownedLfo.getValue());
+            } else {
+                Probe("entityState.ownedLfoHandleAfterDelete","fixture-limited");
+            }
             local replacementLfo=native.addLFO(ownedLfoID,TRIANGLELFO());
-            Probe("entityState.ownedLfoReplacementInitial",replacementLfo.getValue());
+            if (replacementLfo!=null) {
+                Probe("entityState.ownedLfoReplacementInitial",replacementLfo.getValue());
+            } else {
+                Probe("entityState.ownedLfoReplacementInitial","fixture-limited");
+            }
             native.deleteLFO(ownedLfoID);
             local alarmEdge=ALARM(100);
             Probe("entityState.alarmLargeStepReady",alarmEdge.update(250));

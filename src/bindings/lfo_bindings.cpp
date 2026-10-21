@@ -1,5 +1,6 @@
 #include "gmThread.h"
 #include "lfo_bindings.h"
+#include <algorithm>
 #include <cstdlib>
 
 namespace {
@@ -13,6 +14,7 @@ struct TriangleLfoData {
     float contourX = 0.5f;
     float contourY = 0.5f;
     float phase01 = 0.0f;      // 0..1 through the current cycle
+    float direction = 1.0f;
     float value = 0.0f;        // getValue()
 };
 
@@ -41,7 +43,7 @@ int GM_CDECL gmf_TRIANGLELFO(gmThread* a_thread) {
 int GM_CDECL gmf_setRate(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 1000.0f);
-    p->periodMs = v * 0.25f;
+    p->periodMs = std::max(0.25f, v * 0.25f);
     return GM_OK;
 }
 
@@ -65,10 +67,7 @@ int GM_CDECL gmf_setRange(gmThread* a_thread) {
 int GM_CDECL gmf_setPhase(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
-    float ph = v;
-    ph -= (float)(long)ph;
-    if (ph < 0.0f) ph += 1.0f;
-    p->phase01 = ph;
+    p->phase01 = std::max(0.0f, std::min(1.0f, v));
     RecomputeValue(p);
     return GM_OK;
 }
@@ -96,10 +95,16 @@ int GM_CDECL gmf_setContour(gmThread* a_thread) {
 int GM_CDECL gmf_update(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(deltaMs, 0, 0.0f);
-    if (p->periodMs > 0.0f) {
-        p->phase01 += deltaMs / (p->periodMs * 2.0f);
-        p->phase01 -= (float)(long)p->phase01;
-        if (p->phase01 < 0.0f) p->phase01 += 1.0f;
+    if (deltaMs > 0.0f && p->periodMs > 0.0f) {
+        const float stepMs = std::min(deltaMs, p->periodMs * 2.0f);
+        p->phase01 += p->direction * stepMs / (p->periodMs * 2.0f);
+        if (p->phase01 >= 1.0f) {
+            p->phase01 = 2.0f - p->phase01;
+            p->direction = -1.0f;
+        } else if (p->phase01 <= 0.0f) {
+            p->phase01 = -p->phase01;
+            p->direction = 1.0f;
+        }
     }
     RecomputeValue(p);
     return GM_OK;
@@ -114,6 +119,7 @@ int GM_CDECL gmf_getValue(gmThread* a_thread) {
 int GM_CDECL gmf_reset(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
     p->phase01 = 0.0f;
+    p->direction = 1.0f;
     RecomputeValue(p);
     return GM_OK;
 }

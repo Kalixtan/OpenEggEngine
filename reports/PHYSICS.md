@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 23:26 UTC
+Generated: 2026-10-21 23:48 UTC
 
-Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 26 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4908/4908 comparable readings (100.0%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **297/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **292/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -161,22 +161,22 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
-| `ALARM.getAlarmPercentage` | 1 | 3 | AWAITING RETAIL |
-| `ALARM.getInterval` | 1 | 2 | AWAITING RETAIL |
-| `ALARM.getMSElapsed` | 3 | 5 | AWAITING RETAIL |
+| `ALARM.getAlarmPercentage` | 3 | 3 | PASS |
+| `ALARM.getInterval` | 1 | 1 | PASS |
+| `ALARM.getMSElapsed` | 4 | 4 | PASS |
 | `ALARM.getTimeTillAlarm` | 1 | 1 | PASS |
 | `ALARM.hardReset` | 1 | 1 | PASS |
 | `ALARM.isAlarming` | 2 | 2 | PASS |
 | `ALARM.isEnabled` | 2 | 2 | PASS |
-| `ALARM.phaseReset` | 1 | 3 | AWAITING RETAIL |
+| `ALARM.phaseReset` | 3 | 3 | PASS |
 | `ALARM.randomReset` | 2 | 2 | PASS |
 | `ALARM.reset` | 2 | 2 | PASS |
 | `ALARM.setInterval` | 4 | 4 | PASS |
 | `ALARM.setIntervalAndHardReset` | 1 | 1 | PASS |
 | `ALARM.setIsEnabled` | 1 | 1 | PASS |
-| `ALARM.update` | 3 | 5 | AWAITING RETAIL |
-| `Entity.addAlarm` | 0 | 1 | AWAITING RETAIL |
-| `Entity.addLFO` | 0 | 1 | AWAITING RETAIL |
+| `ALARM.update` | 5 | 5 | PASS |
+| `Entity.addAlarm` | 0 | 0 | untested |
+| `Entity.addLFO` | 0 | 0 | untested |
 | `Entity.addTelescope` | 1 | 1 | PASS |
 | `Entity.callMethod` | 1 | 1 | PASS |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
@@ -188,14 +188,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.constructorSetNoPhysicsUpdate` | 0 | 0 | untested |
 | `Entity.constructorSetNoUpdate` | 0 | 0 | untested |
 | `Entity.createParticle` | 1 | 1 | PASS |
-| `Entity.deleteAlarm` | 0 | 1 | AWAITING RETAIL |
+| `Entity.deleteAlarm` | 0 | 0 | untested |
 | `Entity.deleteAllParticles` | 0 | 0 | untested |
-| `Entity.deleteLFO` | 1 | 2 | AWAITING RETAIL |
+| `Entity.deleteLFO` | 1 | 1 | PASS |
 | `Entity.die` | 1 | 1 | PASS |
 | `Entity.disownVoice` | 1 | 1 | PASS |
 | `Entity.drawExplosionIfGot` | 0 | 0 | untested |
 | `Entity.forceAudibilityRecalc` | 1 | 1 | PASS |
-| `Entity.getAlarm` | 0 | 1 | AWAITING RETAIL |
+| `Entity.getAlarm` | 0 | 0 | untested |
 | `Entity.getAllParticles` | 1 | 1 | PASS |
 | `Entity.getAudibilityPerc` | 0 | 0 | untested |
 | `Entity.getCurrentScreenX` | 0 | 0 | untested |
@@ -221,7 +221,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getTypeName` | 1 | 1 | PASS |
 | `Entity.getUID` | 0 | 0 | untested |
 | `Entity.getUniqueAlarmID` | 0 | 0 | untested |
-| `Entity.getUniqueLFOID` | 0 | 1 | AWAITING RETAIL |
+| `Entity.getUniqueLFOID` | 0 | 0 | untested |
 | `Entity.getVectorTo` | 2 | 2 | PASS |
 | `Entity.getVectorToNormalized` | 2 | 2 | PASS |
 | `Entity.getVertexShaderParamIndex` | 0 | 0 | untested |
@@ -369,13 +369,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.trace` | 0 | 0 | untested |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
-| `LFO.getValue` | 1 | 2 | AWAITING RETAIL |
+| `LFO.getValue` | 2 | 2 | PASS |
 | `LFO.setContour` | 2 | 2 | PASS |
-| `LFO.setPhase` | 4 | 6 | AWAITING RETAIL |
+| `LFO.setPhase` | 8 | 8 | PASS |
 | `LFO.setRandomPhase` | 0 | 0 | untested |
 | `LFO.setRange` | 1 | 1 | PASS |
-| `LFO.setRate` | 4 | 5 | AWAITING RETAIL |
-| `LFO.update` | 1 | 5 | AWAITING RETAIL |
+| `LFO.setRate` | 7 | 7 | PASS |
+| `LFO.update` | 7 | 7 | PASS |
 | `Physics.createJoint` | 5 | 5 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
 | `Physics.deleteJoint` | 0 | 0 | untested |
@@ -746,6 +746,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getUID` | entityQ.id.managerUID | `null` | `91001` | The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately. |
 | `Entity.addLFO` | entityState.addLFO | `0` | `1` | The synthetic entity fixture does not expose the retail native LFO owner; game scripts attach LFOs to fully initialized retail entities. |
 | `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `null` | `1` | Synthetic entity fixture exposes the setter but no retail getter state for this property. |
+| `Entity.addAlarm` | entityState.attachedAlarmCreated | `0` | `1` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `Entity.deleteAlarm` | entityState.attachedAlarmDeleted | `1` | `1` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `ALARM.getMSElapsed` | entityState.attachedAlarmElapsed | `fixture-limited` | `25.000000` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `Entity.getAlarm` | entityState.attachedAlarmFound | `0` | `1` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `ALARM.getInterval` | entityState.attachedAlarmInterval | `fixture-limited` | `100.000000` | The synthetic entity fixture has no retail-backed native owner for this API. |
 | `Entity.callMethod` | entityState.callMethod | `null` | `12` | Retail returns null for a declared fixture method, even after refreshFunctionCache; real EntityBase dispatch remains unverified. |
 | `Entity.callMethod` | entityState.callMethodBehavior | `null` | `12` | Retail returns null for a declared fixture method; behavior-table dispatch needs a retail EntityBase-backed probe. |
 | `Entity.callMethod` | entityState.callMethodMultiple | `null` | `34` | Retail returns null for a declared fixture method; argument forwarding needs a retail EntityBase-backed probe. |
@@ -758,6 +763,12 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getEntityCreationPos` | entityState.hasCreationPosGetter | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
 | `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | GameMonkey's table-member existence operator cannot report engine type-library methods. |
 | `Entity.getMainBody` | entityState.mainBody | `fixture-limited` | `fixture-limited` | Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result. |
+| `LFO.update` | entityState.ownedLfoAfterHalf | `fixture-limited` | `0.000000` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `LFO.update` | entityState.ownedLfoAfterQuarter | `fixture-limited` | `-1.000000` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `Entity.deleteLFO` | entityState.ownedLfoHandleAfterDelete | `fixture-limited` | `0.000000` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `Entity.getUniqueLFOID` | entityState.ownedLfoIDsDistinct | `0` | `1` | The synthetic entity fixture does not provide the retail-native LFO ID allocator. |
+| `LFO.getValue` | entityState.ownedLfoInitial | `fixture-limited` | `-2.000000` | The synthetic entity fixture has no retail-backed native owner for this API. |
+| `Entity.addLFO` | entityState.ownedLfoReplacementInitial | `fixture-limited` | `0.000000` | The synthetic entity fixture has no retail-backed native owner for this API. |
 | `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
 | `Entity.getWhichSide` | entityState.whichSideBehind | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
 | `Entity.getWhichSide` | entityState.whichSideNegative | `null` | `0` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
@@ -778,29 +789,6 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 
 | Function | Case | OpenEgg | Note |
 | --- | --- | --- | --- |
-| `ALARM.getMSElapsed` | entityState.alarmLargeStepElapsed | `250.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.getAlarmPercentage` | entityState.alarmLargeStepPercentage | `1.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.update` | entityState.alarmLargeStepReady | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.phaseReset` | entityState.alarmNegativePhase | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.phaseReset` | entityState.alarmPhaseAboveOne | `100.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.getAlarmPercentage` | entityState.alarmZeroIntervalPercentage | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.update` | entityState.alarmZeroIntervalReady | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `Entity.addAlarm` | entityState.attachedAlarmCreated | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `Entity.deleteAlarm` | entityState.attachedAlarmDeleted | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.getMSElapsed` | entityState.attachedAlarmElapsed | `25.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `Entity.getAlarm` | entityState.attachedAlarmFound | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `ALARM.getInterval` | entityState.attachedAlarmInterval | `100.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.update` | entityState.lfoNegativeDelta | `3.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.setPhase` | entityState.lfoNegativePhase | `3.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.setPhase` | entityState.lfoPhaseAboveOne | `2.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.update` | entityState.lfoZeroDelta | `2.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.setRate` | entityState.lfoZeroRate | `3.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.update` | entityState.ownedLfoAfterHalf | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.update` | entityState.ownedLfoAfterQuarter | `-1.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `Entity.deleteLFO` | entityState.ownedLfoHandleAfterDelete | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `Entity.getUniqueLFOID` | entityState.ownedLfoIDsDistinct | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `LFO.getValue` | entityState.ownedLfoInitial | `-2.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
-| `Entity.addLFO` | entityState.ownedLfoReplacementInitial | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
 | `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
@@ -5440,13 +5428,20 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `ALARM.getInterval` | entityState.alarmInterval | `100.000000` | `100.000000` | PASS |
 | `ALARM.setIntervalAndHardReset` | entityState.alarmIntervalReset | `200.000000` | `200.000000` | PASS |
 | `ALARM.setInterval` | entityState.alarmIntervalSet | `300.000000` | `300.000000` | PASS |
+| `ALARM.getMSElapsed` | entityState.alarmLargeStepElapsed | `250.000000` | `250.000000` | PASS |
+| `ALARM.getAlarmPercentage` | entityState.alarmLargeStepPercentage | `1.000000` | `1.000000` | PASS |
+| `ALARM.update` | entityState.alarmLargeStepReady | `1` | `1` | PASS |
+| `ALARM.phaseReset` | entityState.alarmNegativePhase | `0.000000` | `0.000000` | PASS |
 | `ALARM.getAlarmPercentage` | entityState.alarmPercentageReady | `1.000000` | `1.000000` | PASS |
+| `ALARM.phaseReset` | entityState.alarmPhaseAboveOne | `100.000000` | `100.000000` | PASS |
 | `ALARM.randomReset` | entityState.alarmRandomResetRange | `1` | `1` | PASS |
 | `ALARM.isAlarming` | entityState.alarmReady | `1` | `1` | PASS |
 | `ALARM.getTimeTillAlarm` | entityState.alarmTimeInitial | `100.000000` | `100.000000` | PASS |
 | `ALARM.update` | entityState.alarmUpdateDisabled | `0` | `0` | PASS |
 | `ALARM.update` | entityState.alarmUpdateEarly | `0` | `0` | PASS |
 | `ALARM.update` | entityState.alarmUpdateReady | `1` | `1` | PASS |
+| `ALARM.getAlarmPercentage` | entityState.alarmZeroIntervalPercentage | `1.000000` | `1.000000` | PASS |
+| `ALARM.update` | entityState.alarmZeroIntervalReady | `1` | `1` | PASS |
 | `Entity.isBeingEdited` | entityState.beingEdited | `1` | `1` | PASS |
 | `Entity.callMethod` | entityState.callMethodMissing | `1` | `1` | PASS |
 | `Entity.isInvisible` | entityState.clearFlags | `1` | `1` | PASS |
@@ -5465,8 +5460,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Entity.isType` | entityState.isType | `1` | `1` | PASS |
 | `LFO.setContour` | entityState.lfoContourAfter | `0.750000` | `0.750000` | PASS |
 | `LFO.setContour` | entityState.lfoContourBefore | `-0.250000` | `-0.250000` | PASS |
+| `LFO.update` | entityState.lfoNegativeDelta | `2.500000` | `2.500000` | PASS |
+| `LFO.setPhase` | entityState.lfoNegativePhase | `-2.000000` | `-2.000000` | PASS |
 | `Global.TRIANGLELFO` | entityState.lfoObjectNonNull | `1` | `1` | PASS |
 | `LFO.setRange` | entityState.lfoPhase0 | `-1.000000` | `-1.000000` | PASS |
+| `LFO.setPhase` | entityState.lfoPhaseAboveOne | `4.000000` | `4.000000` | PASS |
 | `LFO.setPhase` | entityState.lfoPhaseHalf | `0.000000` | `0.000000` | PASS |
 | `LFO.setPhase` | entityState.lfoPhaseQuarter | `-0.500000` | `-0.500000` | PASS |
 | `LFO.setPhase` | entityState.lfoPhaseThreeQuarter | `0.500000` | `0.500000` | PASS |
@@ -5476,6 +5474,17 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `LFO.setRate` | entityState.lfoRate50 | `12.500000` | `12.500000` | PASS |
 | `LFO.update` | entityState.lfoUpdatedValue | `0.500000` | `0.500000` | PASS |
 | `LFO.getValue` | entityState.lfoValue | `-0.500000` | `-0.500000` | PASS |
+| `LFO.update` | entityState.lfoZeroDelta | `2.500000` | `2.500000` | PASS |
+| `LFO.setRate` | entityState.lfoZeroRate | `3.500000` | `3.500000` | PASS |
+| `LFO.update` | entityState.lfoZeroRateAfterUpdate | `3.500000` | `3.500000` | PASS |
+| `LFO.setPhase` | entityState.lfoZeroRateAtQuarter | `2.500000` | `2.500000` | PASS |
+| `LFO.getValue` | entityState.lfoZeroRateBeforeStep | `3.500000` | `3.500000` | PASS |
+| `LFO.setPhase` | entityState.lfoZeroRateFreshInitial | `2.500000` | `2.500000` | PASS |
+| `LFO.update` | entityState.lfoZeroRateFreshLargeStep | `3.500000` | `3.500000` | PASS |
+| `LFO.setRate` | entityState.lfoZeroRateFreshReadback | `0.250000` | `0.250000` | PASS |
+| `LFO.update` | entityState.lfoZeroRateFreshSmallStep | `3.000000` | `3.000000` | PASS |
+| `LFO.setRate` | entityState.lfoZeroRateReadback | `0.250000` | `0.250000` | PASS |
+| `LFO.update` | entityState.lfoZeroRateSmallStep | `-2.000000` | `-2.000000` | PASS |
 | `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
 | `Entity.getMixerID` | entityState.mixerID | `7` | `7` | PASS |
 | `Entity.is_getAudibilityPerc_neverOnScreen` | entityState.neverOnScreen | `1` | `1` | PASS |

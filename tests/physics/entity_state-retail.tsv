@@ -1,4 +1,4 @@
-# probe-sha256 728709365f2b08bd4580895fefdc3f5dfb7fce03ca2ba765eec860c8b683e36e
+# probe-sha256 cd9f8e5b2f0c679ae509a038cc41813a29d5a269c00dda9670c1c730f40815e0
 # support-sha256 EntityStateProbeEntity.gm 94704c351f60a7019c5a12502fc08518d7709dde3cf1515cb846b41be44642b8
 entityState.addLFO	0
 entityState.alarmElapsedDisabled	50.000000
@@ -14,14 +14,26 @@ entityState.alarmInitiallyReady	0
 entityState.alarmInterval	100.000000
 entityState.alarmIntervalReset	200.000000
 entityState.alarmIntervalSet	300.000000
+entityState.alarmLargeStepElapsed	250.000000
+entityState.alarmLargeStepPercentage	1.000000
+entityState.alarmLargeStepReady	1
+entityState.alarmNegativePhase	0.000000
 entityState.alarmPercentageReady	1.000000
+entityState.alarmPhaseAboveOne	100.000000
 entityState.alarmRandomResetRange	1
 entityState.alarmReady	1
 entityState.alarmTimeInitial	100.000000
 entityState.alarmUpdateDisabled	0
 entityState.alarmUpdateEarly	0
 entityState.alarmUpdateReady	1
+entityState.alarmZeroIntervalPercentage	1.000000
+entityState.alarmZeroIntervalReady	1
 entityState.alwaysProcessed	null
+entityState.attachedAlarmCreated	0
+entityState.attachedAlarmDeleted	1
+entityState.attachedAlarmElapsed	fixture-limited
+entityState.attachedAlarmFound	0
+entityState.attachedAlarmInterval	fixture-limited
 entityState.beingEdited	1
 entityState.callMethod	null
 entityState.callMethodBehavior	null
@@ -51,8 +63,11 @@ entityState.invisible	1
 entityState.isType	1
 entityState.lfoContourAfter	0.750000
 entityState.lfoContourBefore	-0.250000
+entityState.lfoNegativeDelta	2.500000
+entityState.lfoNegativePhase	-2.000000
 entityState.lfoObjectNonNull	1
 entityState.lfoPhase0	-1.000000
+entityState.lfoPhaseAboveOne	4.000000
 entityState.lfoPhaseHalf	0.000000
 entityState.lfoPhaseQuarter	-0.500000
 entityState.lfoPhaseThreeQuarter	0.500000
@@ -62,6 +77,17 @@ entityState.lfoRate400	100.000000
 entityState.lfoRate50	12.500000
 entityState.lfoUpdatedValue	0.500000
 entityState.lfoValue	-0.500000
+entityState.lfoZeroDelta	2.500000
+entityState.lfoZeroRate	3.500000
+entityState.lfoZeroRateAfterUpdate	3.500000
+entityState.lfoZeroRateAtQuarter	2.500000
+entityState.lfoZeroRateBeforeStep	3.500000
+entityState.lfoZeroRateFreshInitial	2.500000
+entityState.lfoZeroRateFreshLargeStep	3.500000
+entityState.lfoZeroRateFreshReadback	0.250000
+entityState.lfoZeroRateFreshSmallStep	3.000000
+entityState.lfoZeroRateReadback	0.250000
+entityState.lfoZeroRateSmallStep	-2.000000
 entityState.limitVolPerc	0.375000
 entityState.mainBody	fixture-limited
 entityState.mixerID	7
@@ -74,6 +100,12 @@ entityState.okToRun	1
 entityState.onScreenInside	1
 entityState.onScreenOutside	1
 entityState.otherDeleted	1
+entityState.ownedLfoAfterHalf	fixture-limited
+entityState.ownedLfoAfterQuarter	fixture-limited
+entityState.ownedLfoHandleAfterDelete	fixture-limited
+entityState.ownedLfoIDsDistinct	0
+entityState.ownedLfoInitial	fixture-limited
+entityState.ownedLfoReplacementInitial	fixture-limited
 entityState.particleCount	null
 entityState.particleIterator	null
 entityState.perfAdditional	4
