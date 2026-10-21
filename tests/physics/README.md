@@ -74,6 +74,11 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --expected tests/physics/entity_gc-plan.json \
   --baseline tests/physics/entity_gc-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_gc_cycles.gm \
+  --support-file tests/physics/EntityGCProbe.gm \
+  --expected tests/physics/entity_gc_cycles-plan.json \
+  --baseline tests/physics/entity_gc_cycles-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/process_order.gm \
   --support-file tests/physics/ProcessParityProbe.gm \
   --expected tests/physics/process_order-plan.json \
@@ -111,6 +116,8 @@ safety after deletion, and ID invalidation. Heap reclamation itself is not
 observable from GameMonkeyScript. Retail faults on the retained-body
 `isSleeping()` call after owner deletion; the later readings run only on
 OpenEgg.
+GC-cycle probe checks body positions through repeated collection, single
+deletion, recreation, and clear-all.
 Process probes compare creation, deferred init, queued termination, pause
 state, callback order, and registry counts with retail.
 

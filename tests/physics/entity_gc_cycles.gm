@@ -1,0 +1,70 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityGCProbe.gm");
+global MakeGCEntity=function(x) {
+    local entity=EntityManager.createEntity("EntityGCProbe");
+    local data=entity.getPhysicsData();
+    local body=data.getBody(data.createBody());
+    body.setPos(vector2D(x,0));
+    return entity;
+};
+global GCEntityBodyX=function(id) {
+    local entity=EntityManager.getEntity(id);
+    local body=entity.getPhysicsData().getBody(0);
+    return body.getPos().x;
+};
+global GCEntityState=table(stage=0,a=-1,b=-1,c=-1,d=-1);
+global ProbeGC=function(name,value) {
+    Probe("entityGCCycles."+name,value);
+};
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},
+        update=function() {
+            local state=GCEntityState;
+            if (state.stage==0) {
+                GameSystem.setIsShouldUpdateEntities(0);
+                local a=MakeGCEntity(2);
+                local b=MakeGCEntity(4);
+                local c=MakeGCEntity(6);
+                state.a=a.getObjectID();
+                state.b=b.getObjectID();
+                state.c=c.getObjectID();
+                EntityManager.flush();
+                GameMonkeyScript.clean(1);
+                state.stage=1;
+            } else if (state.stage==1) {
+                ProbeGC("firstCount",EntityManager.getNumEntities("EntityGCProbe"));
+                ProbeGC("firstAX",GCEntityBodyX(state.a));
+                ProbeGC("firstBX",GCEntityBodyX(state.b));
+                ProbeGC("firstCX",GCEntityBodyX(state.c));
+                EntityManager.getEntity(state.b).tagForDeletion();
+                EntityManager.flush();
+                GameMonkeyScript.clean(1);
+                state.stage=2;
+            } else if (state.stage==2) {
+                ProbeGC("afterDeleteCount",EntityManager.getNumEntities("EntityGCProbe"));
+                ProbeGC("afterDeleteAValid",EntityManager.isEntityIDValid(state.a));
+                ProbeGC("afterDeleteBValid",EntityManager.isEntityIDValid(state.b));
+                ProbeGC("afterDeleteCValid",EntityManager.isEntityIDValid(state.c));
+                local d=MakeGCEntity(8);
+                state.d=d.getObjectID();
+                EntityManager.flush();
+                GameMonkeyScript.clean(1);
+                state.stage=3;
+            } else if (state.stage==3) {
+                ProbeGC("recreateCount",EntityManager.getNumEntities("EntityGCProbe"));
+                ProbeGC("recreateDX",GCEntityBodyX(state.d));
+                ProbeGC("recreateAX",GCEntityBodyX(state.a));
+                EntityManager.deleteAllEntities();
+                EntityManager.flush();
+                GameMonkeyScript.clean(1);
+                state.stage=4;
+            } else if (state.stage==4) {
+                ProbeGC("clearCount",EntityManager.getNumEntities("EntityGCProbe"));
+                ProbeGC("clearAValid",EntityManager.isEntityIDValid(state.a));
+                ProbeGC("clearDValid",EntityManager.isEntityIDValid(state.d));
+                state.stage=5;
+            }
+        });
+};

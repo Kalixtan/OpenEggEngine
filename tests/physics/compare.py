@@ -70,6 +70,9 @@ ENTITY_GC = HERE / "entity_gc.gm"
 ENTITY_GC_PLAN = HERE / "entity_gc-plan.json"
 ENTITY_GC_BASELINE = HERE / "entity_gc-retail.tsv"
 ENTITY_GC_SUPPORT = HERE / "EntityGCProbe.gm"
+ENTITY_GC_CYCLES = HERE / "entity_gc_cycles.gm"
+ENTITY_GC_CYCLES_PLAN = HERE / "entity_gc_cycles-plan.json"
+ENTITY_GC_CYCLES_BASELINE = HERE / "entity_gc_cycles-retail.tsv"
 PROCESS_ORDER = HERE / "process_order.gm"
 PROCESS_ORDER_PLAN = HERE / "process_order-plan.json"
 PROCESS_ORDER_BASELINE = HERE / "process_order-retail.tsv"
@@ -427,6 +430,22 @@ ENTITY_GC_FIELDS = {
     "collectingAfterReleaseGC": "GameMonkeyScript.isCollectingGarbage",
     "entityStillDeleted": "EntityManager.isEntityIDValid",
 }
+ENTITY_GC_CYCLE_FIELDS = {
+    "firstCount": "EntityManager.getNumEntities",
+    "firstAX": "physicsBody.getPos",
+    "firstBX": "physicsBody.getPos",
+    "firstCX": "physicsBody.getPos",
+    "afterDeleteCount": "EntityManager.getNumEntities",
+    "afterDeleteAValid": "EntityManager.isEntityIDValid",
+    "afterDeleteBValid": "EntityManager.isEntityIDValid",
+    "afterDeleteCValid": "EntityManager.isEntityIDValid",
+    "recreateCount": "EntityManager.getNumEntities",
+    "recreateDX": "physicsBody.getPos",
+    "recreateAX": "physicsBody.getPos",
+    "clearCount": "EntityManager.getNumEntities",
+    "clearAValid": "EntityManager.isEntityIDValid",
+    "clearDValid": "EntityManager.isEntityIDValid",
+}
 BODY_CONTROL_FIELDS = {
     "position": "physicsBody.setPos", "velocity": "physicsBody.setVel",
     "speed": "physicsBody.getSpeed", "setSpeed": "physicsBody.setSpeed",
@@ -542,6 +561,11 @@ def owner(name, names):
         function = ENTITY_GC_FIELDS[name[len("entityGC."):]]
         if function not in names:
             raise ValueError(f"unknown entity GC function: {function}")
+        return function
+    if name.startswith("entityGCCycles."):
+        function = ENTITY_GC_CYCLE_FIELDS[name[len("entityGCCycles."):]]
+        if function not in names:
+            raise ValueError(f"unknown entity GC cycle function: {function}")
         return function
     if name.startswith("bodyCtl."):
         function = BODY_CONTROL_FIELDS[name[len("bodyCtl."):]]
@@ -664,6 +688,8 @@ def main():
                                             ENTITY_CALLBACKS_SUPPORT),
                                            (ENTITY_GC, ENTITY_GC_BASELINE,
                                             ENTITY_GC_PLAN, (ENTITY_GC_SUPPORT,)),
+                                           (ENTITY_GC_CYCLES, ENTITY_GC_CYCLES_BASELINE,
+                                            ENTITY_GC_CYCLES_PLAN, (ENTITY_GC_SUPPORT,)),
                                            (PROCESS_ORDER, PROCESS_ORDER_BASELINE,
                                             PROCESS_ORDER_PLAN, (PROCESS_ORDER_SUPPORT,)),
                                            (PROCESS_PAUSE, PROCESS_PAUSE_BASELINE,
@@ -726,7 +752,8 @@ def main():
                                 "entityMgr.", "entityQ.", "query.",
                                 "ray.", "reentry.", "joint.", "raymove.",
                                 "bodyCtl.", "process.", "processPause.",
-                                "entityCallbacks.", "entityGC.")):
+                                "entityCallbacks.", "entityGC.",
+                                "entityGCCycles.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

@@ -1,0 +1,21 @@
+{
+  "prefix": "entityGCCycles",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "entityGCCycles.firstCount",
+    "entityGCCycles.firstAX",
+    "entityGCCycles.firstBX",
+    "entityGCCycles.firstCX",
+    "entityGCCycles.afterDeleteCount",
+    "entityGCCycles.afterDeleteAValid",
+    "entityGCCycles.afterDeleteBValid",
+    "entityGCCycles.afterDeleteCValid",
+    "entityGCCycles.recreateCount",
+    "entityGCCycles.recreateDX",
+    "entityGCCycles.recreateAX",
+    "entityGCCycles.clearCount",
+    "entityGCCycles.clearAValid",
+    "entityGCCycles.clearDValid"
+  ]
+}

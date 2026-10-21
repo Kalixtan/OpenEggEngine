@@ -1,0 +1,16 @@
+# probe-sha256 adcfb3f0e1f2e206a061f8ab38143fc5a8f7b84bf7f3d63b09e8ffa9ca5861ba
+# support-sha256 EntityGCProbe.gm fe3f1ce0f8f2e345fcac79f31812d884f455eaeab391705cc7923877f651824d
+entityGCCycles.afterDeleteAValid	1
+entityGCCycles.afterDeleteBValid	0
+entityGCCycles.afterDeleteCValid	1
+entityGCCycles.afterDeleteCount	2
+entityGCCycles.clearAValid	0
+entityGCCycles.clearCount	0
+entityGCCycles.clearDValid	0
+entityGCCycles.firstAX	2.000000
+entityGCCycles.firstBX	4.000000
+entityGCCycles.firstCX	6.000000
+entityGCCycles.firstCount	3
+entityGCCycles.recreateAX	2.000000
+entityGCCycles.recreateCount	3
+entityGCCycles.recreateDX	8.000000

@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 20:12 UTC
+Generated: 2026-10-21 20:14 UTC
 
-Matched: **4863/4863 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4877/4877 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **291/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -84,6 +84,20 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityGC.deletedBeforeGC | 1 | 1 |
 | entityGC.collectingAfterDeleteGC | 1 | 1 |
 | entityGC.deletedAfterGC | 1 | 1 |
+| entityGCCycles.firstCount | 1 | 1 |
+| entityGCCycles.firstAX | 1 | 1 |
+| entityGCCycles.firstBX | 1 | 1 |
+| entityGCCycles.firstCX | 1 | 1 |
+| entityGCCycles.afterDeleteCount | 1 | 1 |
+| entityGCCycles.afterDeleteAValid | 1 | 1 |
+| entityGCCycles.afterDeleteBValid | 1 | 1 |
+| entityGCCycles.afterDeleteCValid | 1 | 1 |
+| entityGCCycles.recreateCount | 1 | 1 |
+| entityGCCycles.recreateDX | 1 | 1 |
+| entityGCCycles.recreateAX | 1 | 1 |
+| entityGCCycles.clearCount | 1 | 1 |
+| entityGCCycles.clearAValid | 1 | 1 |
+| entityGCCycles.clearDValid | 1 | 1 |
 | process.created | 1 | 1 |
 | process.constructed | 1 | 1 |
 | process.running | 2 | 2 |
@@ -286,13 +300,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.getEntityFromUID` | 2 | 2 | PASS |
 | `EntityManager.getEntityPerfCost` | 3 | 3 | PASS |
 | `EntityManager.getEntityPerfMaxCost` | 1 | 1 | PASS |
-| `EntityManager.getNumEntities` | 13 | 13 | PASS |
+| `EntityManager.getNumEntities` | 17 | 17 | PASS |
 | `EntityManager.getNumManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumNonManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumPlayers` | 1 | 1 | PASS |
 | `EntityManager.getRandomEntity` | 1 | 1 | PASS |
 | `EntityManager.getRandomPlayer` | 1 | 1 | PASS |
-| `EntityManager.isEntityIDValid` | 49 | 50 | AWAITING RETAIL |
+| `EntityManager.isEntityIDValid` | 54 | 55 | AWAITING RETAIL |
 | `EntityManager.setEntityPerfCost` | 2 | 2 | PASS |
 | `EntityManager.setEntityPerfMaxCost` | 1 | 1 | PASS |
 | `GameMonkeyScript.clean` | 1 | 1 | PASS |
@@ -506,7 +520,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getNumShapeVerts` | 1 | 1 | PASS |
 | `physicsBody.getNumShapes` | 3 | 3 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
-| `physicsBody.getPos` | 620 | 620 | PASS |
+| `physicsBody.getPos` | 625 | 625 | PASS |
 | `physicsBody.getPosRef` | 1 | 1 | PASS |
 | `physicsBody.getPosVec` | 1 | 1 | PASS |
 | `physicsBody.getRadius` | 2 | 2 | PASS |
@@ -5479,6 +5493,20 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityManager.flush` | entityGC.deletedBeforeGC | `1` | `1` | PASS |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterDeleteGC | `0` | `0` | PASS |
 | `EntityManager.isEntityIDValid` | entityGC.deletedAfterGC | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | entityGCCycles.firstCount | `3` | `3` | PASS |
+| `physicsBody.getPos` | entityGCCycles.firstAX | `2.000000` | `2.000000` | PASS |
+| `physicsBody.getPos` | entityGCCycles.firstBX | `4.000000` | `4.000000` | PASS |
+| `physicsBody.getPos` | entityGCCycles.firstCX | `6.000000` | `6.000000` | PASS |
+| `EntityManager.getNumEntities` | entityGCCycles.afterDeleteCount | `2` | `2` | PASS |
+| `EntityManager.isEntityIDValid` | entityGCCycles.afterDeleteAValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityGCCycles.afterDeleteBValid | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityGCCycles.afterDeleteCValid | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | entityGCCycles.recreateCount | `3` | `3` | PASS |
+| `physicsBody.getPos` | entityGCCycles.recreateDX | `8.000000` | `8.000000` | PASS |
+| `physicsBody.getPos` | entityGCCycles.recreateAX | `2.000000` | `2.000000` | PASS |
+| `EntityManager.getNumEntities` | entityGCCycles.clearCount | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityGCCycles.clearAValid | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityGCCycles.clearDValid | `0` | `0` | PASS |
 | `GameSystem.runProcess` | process.created | `1` | `1` | PASS |
 | `GameSystem.runProcess` | process.constructed | `1` | `1` | PASS |
 | `GameSystem.isProcessRunning` | process.running | `1` | `1` | PASS |
