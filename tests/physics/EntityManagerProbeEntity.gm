@@ -1,0 +1,40 @@
+global EntityManagerProbeEntity=function(handle) {
+    return table(Entity=handle,matrixState=EntityManagerProbeState,matrixTag="unset",
+        constructor=function() {
+            this.matrixState.created+=1;
+        },
+        configure=function() { return true; },
+        update=function(dt) {
+            local state=this.matrixState;
+            if (this.matrixTag=="updateParent") {
+                state.parentUpdates+=1;
+                if (!state.updateSpawned) {
+                    state.updateSpawned=1;
+                    local child=EntityManager.createEntity("EntityManagerProbeEntity");
+                    child.matrixTag="updateChild";
+                    PrepareManagerProbeBody(child,200);
+                    state.updateChildID=child.getObjectID();
+                    state.childValidDuringCreate=EntityManager.isEntityIDValid(state.updateChildID);
+                    state.childCountDuringCreate=EntityManager.getNumEntities("EntityManagerProbeEntity");
+                    this.tagForDeletion();
+                }
+            } else if (this.matrixTag=="updateChild") {
+                state.childUpdates+=1;
+                if (!state.childTagged) {
+                    state.childTagged=1;
+                    this.tagForDeletion();
+                }
+            }
+        },
+        destructor=function() {
+            local state=this.matrixState;
+            state.destroyed+=1;
+            state.destroyOrder+=this.matrixTag+";";
+            if (this.matrixTag=="a" && !state.spawnedInDestructor) {
+                state.spawnedInDestructor=1;
+                state.c.tagForDeletion();
+                state.destructorSpawn=EntityManager.createEntity("EntityManagerProbeEntity");
+                state.destructorSpawn.matrixTag="destructorSpawn";
+            }
+        });
+};

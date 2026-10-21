@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-20 23:55 UTC
+Generated: 2026-10-21 08:06 UTC
 
-Matched: **4489/4489 declared readings (100%)**. This measures captured cases, not total physics parity.
+Matched: **4553/4561 declared readings (100%)**. This measures captured cases, not total physics parity.
 
-Functions with readings: **74/295**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **77/302**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -42,15 +42,30 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | raymove.miss | 96 | 96 |
 | entityLife.pair | 98 | 98 |
 | entityLife.delete | 4 | 4 |
+| entityMgr.update | 32 | 40 |
+| entityMgr.create | 1 | 1 |
+| entityMgr.getNumEntities | 3 | 3 |
+| entityMgr.isEntityIDValid | 2 | 2 |
+| entityMgr.getAllEntities | 7 | 7 |
+| entityMgr.tagForDeletion | 3 | 3 |
+| entityMgr.flush | 9 | 9 |
+| entityMgr.deleteAll | 7 | 7 |
 
 ## Per function
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
+| `Entity.getObjectID` | 0 | 0 | untested |
 | `Entity.getPhysicsData` | 1 | 1 | PASS |
 | `Entity.isEnabled` | 7 | 7 | PASS |
-| `EntityManager.createEntity` | 1 | 1 | PASS |
-| `EntityManager.isEntityIDValid` | 18 | 18 | PASS |
+| `Entity.isTaggedForDeletion` | 1 | 1 | PASS |
+| `Entity.tagForDeletion` | 0 | 0 | untested |
+| `EntityManager.createEntity` | 2 | 2 | PASS |
+| `EntityManager.deleteAllEntities` | 0 | 0 | untested |
+| `EntityManager.flush` | 0 | 0 | untested |
+| `EntityManager.getAllEntities` | 5 | 5 | PASS |
+| `EntityManager.getNumEntities` | 11 | 12 | FAIL |
+| `EntityManager.isEntityIDValid` | 42 | 45 | FAIL |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Physics.createJoint` | 5 | 5 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
@@ -349,11 +364,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | --- | ---: | ---: |
 | `Contact callback argument` | 50 | 50 |
 | `Contact callback order` | 25 | 25 |
-| `Entity callbacks` | 7 | 7 |
+| `Entity callbacks` | 26 | 30 |
 | `Entity.onEntityCollide` | 64 | 64 |
 | `Entity.onEntityCollidePreSolve` | 64 | 64 |
 | `Entity.onEntitySeparate` | 64 | 64 |
 | `Entity.onEntityTouch` | 64 | 64 |
+| `EntityListRef.get` | 1 | 1 |
+| `EntityListRef.goToNext` | 1 | 1 |
+| `EntityListRef.isValid` | 1 | 1 |
 
 ## Readings
 
@@ -4848,3 +4866,75 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.isEntityIDValid` | entityLife.delete.request.bValid | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityLife.delete.afterFlush.aValid | `0` | `0` | PASS |
 | `EntityManager.isEntityIDValid` | entityLife.delete.afterFlush.bValid | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.update.t0.parentUpdates | `1` | `0` | FAIL |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t0.parentValid | `0` | `1` | FAIL |
+| `Entity callbacks` | entityMgr.update.t0.childCreated | `1` | `0` | FAIL |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t0.childValid | `1` | `0` | FAIL |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t0.childValidDuringCreate | `0` | `0` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.update.t0.childCountDuringCreate | `2` | `0` | FAIL |
+| `Entity callbacks` | entityMgr.update.t0.childUpdates | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.update.t0.childTagged | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.update.t1.parentUpdates | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t1.parentValid | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.update.t1.childCreated | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t1.childValid | `0` | `1` | FAIL |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t1.childValidDuringCreate | `0` | `0` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.update.t1.childCountDuringCreate | `2` | `2` | PASS |
+| `Entity callbacks` | entityMgr.update.t1.childUpdates | `1` | `0` | FAIL |
+| `Entity callbacks` | entityMgr.update.t1.childTagged | `1` | `0` | FAIL |
+| `Entity callbacks` | entityMgr.update.t2.parentUpdates | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t2.parentValid | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.update.t2.childCreated | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t2.childValid | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t2.childValidDuringCreate | `0` | `0` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.update.t2.childCountDuringCreate | `2` | `2` | PASS |
+| `Entity callbacks` | entityMgr.update.t2.childUpdates | `1` | `1` | PASS |
+| `Entity callbacks` | entityMgr.update.t2.childTagged | `1` | `1` | PASS |
+| `Entity callbacks` | entityMgr.update.t3.parentUpdates | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t3.parentValid | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.update.t3.childCreated | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t3.childValid | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t3.childValidDuringCreate | `0` | `0` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.update.t3.childCountDuringCreate | `2` | `2` | PASS |
+| `Entity callbacks` | entityMgr.update.t3.childUpdates | `1` | `1` | PASS |
+| `Entity callbacks` | entityMgr.update.t3.childTagged | `1` | `1` | PASS |
+| `Entity callbacks` | entityMgr.update.t4.parentUpdates | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t4.parentValid | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.update.t4.childCreated | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t4.childValid | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.update.t4.childValidDuringCreate | `0` | `0` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.update.t4.childCountDuringCreate | `2` | `2` | PASS |
+| `Entity callbacks` | entityMgr.update.t4.childUpdates | `1` | `1` | PASS |
+| `Entity callbacks` | entityMgr.update.t4.childTagged | `1` | `1` | PASS |
+| `EntityManager.createEntity` | entityMgr.create.count | `3` | `3` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.getNumEntities.pending | `3` | `3` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.getNumEntities.totalPending | `3` | `3` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.isEntityIDValid.pending | `0` | `0` | PASS |
+| `EntityManager.getAllEntities` | entityMgr.getAllEntities.pendingSize | `0` | `0` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.getNumEntities.committed | `3` | `3` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.isEntityIDValid.committed | `1` | `1` | PASS |
+| `EntityManager.getAllEntities` | entityMgr.getAllEntities.snapshotSize | `0` | `0` | PASS |
+| `EntityManager.getAllEntities` | entityMgr.getAllEntities.refilledSize | `3` | `3` | PASS |
+| `EntityManager.getAllEntities` | entityMgr.getAllEntities.firstValid | `1` | `1` | PASS |
+| `EntityListRef.isValid` | entityMgr.getAllEntities.sentinelValid | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | entityMgr.getAllEntities.wrapValid | `1` | `1` | PASS |
+| `EntityListRef.get` | entityMgr.getAllEntities.wrapFirst | `1` | `1` | PASS |
+| `Entity.isTaggedForDeletion` | entityMgr.tagForDeletion.tagged | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.tagForDeletion.stillValid | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.tagForDeletion.countBeforeFlush | `3` | `3` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.flush.aRemoved | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.flush.cRemovedByObserver | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.flush.bRetained | `1` | `1` | PASS |
+| `Entity callbacks` | entityMgr.flush.destroyCount | `2` | `2` | PASS |
+| `Entity callbacks` | entityMgr.flush.destroyOrder | `a;c;` | `a;c;` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.flush.destructorSpawnPending | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.flush.pendingCount | `2` | `2` | PASS |
+| `EntityManager.getAllEntities` | entityMgr.flush.committedCount | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.flush.destructorSpawnCommitted | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.deleteAll.activeStillValid | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.deleteAll.pendingStillInvalid | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.deleteAll.countBeforeFlush | `3` | `3` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.deleteAll.bRemoved | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityMgr.deleteAll.dRemoved | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | entityMgr.deleteAll.countAfterFlush | `0` | `0` | PASS |
+| `Entity callbacks` | entityMgr.deleteAll.destroyCount | `5` | `5` | PASS |

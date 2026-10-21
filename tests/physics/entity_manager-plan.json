@@ -1,0 +1,50 @@
+{
+  "prefix": "entityMgr",
+  "frames": 5,
+  "scenes": {
+    "update": [
+      "parentUpdates",
+      "parentValid",
+      "childCreated",
+      "childValid",
+      "childValidDuringCreate",
+      "childCountDuringCreate",
+      "childUpdates",
+      "childTagged"
+    ]
+  },
+  "extra": [
+    "entityMgr.create.count",
+    "entityMgr.getNumEntities.pending",
+    "entityMgr.getNumEntities.totalPending",
+    "entityMgr.isEntityIDValid.pending",
+    "entityMgr.getAllEntities.pendingSize",
+    "entityMgr.getNumEntities.committed",
+    "entityMgr.isEntityIDValid.committed",
+    "entityMgr.getAllEntities.snapshotSize",
+    "entityMgr.getAllEntities.refilledSize",
+    "entityMgr.getAllEntities.firstValid",
+    "entityMgr.getAllEntities.sentinelValid",
+    "entityMgr.getAllEntities.wrapValid",
+    "entityMgr.getAllEntities.wrapFirst",
+    "entityMgr.tagForDeletion.tagged",
+    "entityMgr.tagForDeletion.stillValid",
+    "entityMgr.tagForDeletion.countBeforeFlush",
+    "entityMgr.flush.aRemoved",
+    "entityMgr.flush.cRemovedByObserver",
+    "entityMgr.flush.bRetained",
+    "entityMgr.flush.destroyCount",
+    "entityMgr.flush.destroyOrder",
+    "entityMgr.flush.destructorSpawnPending",
+    "entityMgr.flush.pendingCount",
+    "entityMgr.flush.committedCount",
+    "entityMgr.flush.destructorSpawnCommitted",
+    "entityMgr.deleteAll.activeStillValid",
+    "entityMgr.deleteAll.pendingStillInvalid",
+    "entityMgr.deleteAll.countBeforeFlush",
+    "entityMgr.deleteAll.bRemoved",
+    "entityMgr.deleteAll.dRemoved",
+    "entityMgr.deleteAll.countAfterFlush",
+    "entityMgr.deleteAll.destroyCount"
+  ]
+}

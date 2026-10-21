@@ -1,0 +1,114 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityManagerProbeEntity.gm");
+global EntityManagerProbeState=table(created=0,destroyed=0,destroyOrder="",
+    spawnedInDestructor=0,destructorSpawn=null,aID=0,c=null,ran=0,
+    parentID=-1,parentUpdates=0,updateSpawned=0,updateChildID=-1,
+    childValidDuringCreate=0,childCountDuringCreate=0,childUpdates=0,
+    childTagged=0);
+global MakeManagerProbeEntity=function(tag) {
+    local entity=EntityManager.createEntity("EntityManagerProbeEntity");
+    entity.matrixTag=tag;
+    return entity;
+};
+global ProbeManager=function(name,value) {
+    Probe("entityMgr."+name,value);
+};
+global ProbeManagerUpdate=function(tick) {
+    local key="entityMgr.update.t"+tick+".";
+    local state=EntityManagerProbeState;
+    Probe(key+"parentUpdates",state.parentUpdates);
+    Probe(key+"parentValid",EntityManager.isEntityIDValid(state.parentID));
+    Probe(key+"childCreated",state.updateSpawned);
+    Probe(key+"childValid",state.updateChildID>=0 && EntityManager.isEntityIDValid(state.updateChildID));
+    Probe(key+"childValidDuringCreate",state.childValidDuringCreate);
+    Probe(key+"childCountDuringCreate",state.childCountDuringCreate);
+    Probe(key+"childUpdates",state.childUpdates);
+    Probe(key+"childTagged",state.childTagged);
+};
+global PrepareManagerProbeBody=function(entity,x) {
+    local pd=entity.getPhysicsData();
+    local body=pd.getBody(pd.createBody());
+    body.setPos(vector2D(x,0));
+    ShapeDef.reset();
+    ShapeDef.setMass(0);
+    ShapeDef.addCircle(1,0,0);
+    body.appendShapes(ShapeDef);
+    entity.setIsEnabled(1);
+};
+global ShapeDef=PHYSICSSHAPECOLLECTIONDEF();
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            local state=EntityManagerProbeState;
+            if (!state.ran) {
+            state.ran=1;
+            GameSystem.setIsShouldUpdateEntities(0);
+            local a=MakeManagerProbeEntity("a");
+            local b=MakeManagerProbeEntity("b");
+            local c=MakeManagerProbeEntity("c");
+            state.aID=a.getObjectID();
+            state.c=c;
+            ProbeManager("create.count",state.created);
+            ProbeManager("getNumEntities.pending",EntityManager.getNumEntities("EntityManagerProbeEntity"));
+            ProbeManager("getNumEntities.totalPending",EntityManager.getNumEntities());
+            ProbeManager("isEntityIDValid.pending",EntityManager.isEntityIDValid(a.getObjectID()));
+            local iter=EntityManager.getAllEntities("EntityManagerProbeEntity");
+            ProbeManager("getAllEntities.pendingSize",iter.size());
+            EntityManager.flush();
+            ProbeManager("getNumEntities.committed",EntityManager.getNumEntities("EntityManagerProbeEntity"));
+            ProbeManager("isEntityIDValid.committed",EntityManager.isEntityIDValid(a.getObjectID()));
+            ProbeManager("getAllEntities.snapshotSize",iter.size());
+            iter=EntityManager.getAllEntities("EntityManagerProbeEntity",iter);
+            ProbeManager("getAllEntities.refilledSize",iter.size());
+            ProbeManager("getAllEntities.firstValid",EntityManager.isEntityIDValid(iter.get().getObjectID()));
+            iter.goToNext();
+            iter.goToNext();
+            iter.goToNext();
+            ProbeManager("getAllEntities.sentinelValid",iter.isValid());
+            iter.goToNext();
+            ProbeManager("getAllEntities.wrapValid",iter.isValid());
+            ProbeManager("getAllEntities.wrapFirst",iter.get().getObjectID()==a.getObjectID());
+            a.tagForDeletion();
+            a.tagForDeletion();
+            ProbeManager("tagForDeletion.tagged",a.isTaggedForDeletion());
+            ProbeManager("tagForDeletion.stillValid",EntityManager.isEntityIDValid(a.getObjectID()));
+            ProbeManager("tagForDeletion.countBeforeFlush",EntityManager.getNumEntities("EntityManagerProbeEntity"));
+            EntityManager.flush();
+            ProbeManager("flush.aRemoved",!EntityManager.isEntityIDValid(a.getObjectID()));
+            ProbeManager("flush.cRemovedByObserver",!EntityManager.isEntityIDValid(c.getObjectID()));
+            ProbeManager("flush.bRetained",EntityManager.isEntityIDValid(b.getObjectID()));
+            ProbeManager("flush.destroyCount",state.destroyed);
+            ProbeManager("flush.destroyOrder",state.destroyOrder);
+            ProbeManager("flush.destructorSpawnPending",state.destructorSpawn!=null &&
+                !EntityManager.isEntityIDValid(state.destructorSpawn.getObjectID()));
+            ProbeManager("flush.pendingCount",EntityManager.getNumEntities("EntityManagerProbeEntity"));
+            local refill=EntityManager.getAllEntities("EntityManagerProbeEntity");
+            ProbeManager("flush.committedCount",refill.size());
+            EntityManager.flush();
+            ProbeManager("flush.destructorSpawnCommitted",EntityManager.isEntityIDValid(state.destructorSpawn.getObjectID()));
+            local d=MakeManagerProbeEntity("d");
+            EntityManager.deleteAllEntities();
+            ProbeManager("deleteAll.activeStillValid",EntityManager.isEntityIDValid(b.getObjectID()));
+            ProbeManager("deleteAll.pendingStillInvalid",!EntityManager.isEntityIDValid(d.getObjectID()));
+            ProbeManager("deleteAll.countBeforeFlush",EntityManager.getNumEntities("EntityManagerProbeEntity"));
+            EntityManager.flush();
+            ProbeManager("deleteAll.bRemoved",!EntityManager.isEntityIDValid(b.getObjectID()));
+            ProbeManager("deleteAll.dRemoved",!EntityManager.isEntityIDValid(d.getObjectID()));
+            ProbeManager("deleteAll.countAfterFlush",EntityManager.getNumEntities("EntityManagerProbeEntity"));
+            ProbeManager("deleteAll.destroyCount",state.destroyed);
+            GameSystem.setIsShouldUpdateEntities(1);
+            local parent=MakeManagerProbeEntity("updateParent");
+            state.parentID=parent.getObjectID();
+            PrepareManagerProbeBody(parent,100);
+            this.frame=1;
+            } else if (this.frame<6) {
+                ProbeManagerUpdate(this.frame-1);
+                this.frame+=1;
+                if (this.frame==6) {
+                    GameSystem.setIsShouldUpdateEntities(0);
+                }
+            }
+        });
+};

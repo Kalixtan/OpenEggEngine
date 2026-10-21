@@ -51,6 +51,11 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --support-file tests/physics/LifecycleProbeEntity.gm \
   --expected tests/physics/entity_lifecycle-plan.json \
   --baseline tests/physics/entity_lifecycle-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_manager.gm \
+  --support-file tests/physics/EntityManagerProbeEntity.gm \
+  --expected tests/physics/entity_manager-plan.json \
+  --baseline tests/physics/entity_manager-retail.tsv
 python3 tests/physics/compare.py
 ```
 
@@ -65,7 +70,9 @@ reentry checks a restored mask through small movement and full separation.
 Joint scenes sample five joint types over time; moving rays check hit order
 after bodies move and overlap. The report keeps mismatches visible.
 Entity lifecycle checks enable/disable, contact callbacks, re-enable, and
-delete/flush while bodies overlap.
+delete/flush while bodies overlap. Entity manager probes cover pending versus
+committed entities, iterator snapshots, repeated tags, observer-queued deletion
+and creation, and clear-all behavior.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired

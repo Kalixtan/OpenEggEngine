@@ -43,6 +43,9 @@ RAY_MOTION_PLAN = HERE / "ray_motion-plan.json"
 ENTITY_LIFECYCLE = HERE / "entity_lifecycle.gm"
 ENTITY_LIFECYCLE_BASELINE = HERE / "entity_lifecycle-retail.tsv"
 ENTITY_LIFECYCLE_PLAN = HERE / "entity_lifecycle-plan.json"
+ENTITY_MANAGER = HERE / "entity_manager.gm"
+ENTITY_MANAGER_BASELINE = HERE / "entity_manager-retail.tsv"
+ENTITY_MANAGER_PLAN = HERE / "entity_manager-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
@@ -51,7 +54,10 @@ PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "jointType.", "jointIter.", "Physics.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "Global.PHYSICSSHAPECOLLECTIONDEF", "Entity.isEnabled",
-           "EntityManager.isEntityIDValid"}
+           "EntityManager.isEntityIDValid", "EntityManager.getNumEntities",
+           "EntityManager.getAllEntities", "EntityManager.flush",
+           "EntityManager.deleteAllEntities", "Entity.tagForDeletion",
+           "Entity.isTaggedForDeletion", "Entity.getObjectID"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
@@ -142,6 +148,40 @@ ENTITY_LIFECYCLE_FIELDS = {
     "aT": "Entity.onEntityTouch", "bT": "Entity.onEntityTouch",
     "aS": "Entity.onEntitySeparate", "bS": "Entity.onEntitySeparate",
 }
+ENTITY_MANAGER_FIELDS = {
+    "create.count": "EntityManager.createEntity",
+    "getNumEntities.pending": "EntityManager.getNumEntities",
+    "getNumEntities.totalPending": "EntityManager.getNumEntities",
+    "getNumEntities.committed": "EntityManager.getNumEntities",
+    "isEntityIDValid.pending": "EntityManager.isEntityIDValid",
+    "isEntityIDValid.committed": "EntityManager.isEntityIDValid",
+    "getAllEntities.pendingSize": "EntityManager.getAllEntities",
+    "getAllEntities.snapshotSize": "EntityManager.getAllEntities",
+    "getAllEntities.refilledSize": "EntityManager.getAllEntities",
+    "getAllEntities.firstValid": "EntityManager.getAllEntities",
+    "getAllEntities.sentinelValid": "EntityListRef.isValid",
+    "getAllEntities.wrapValid": "EntityListRef.goToNext",
+    "getAllEntities.wrapFirst": "EntityListRef.get",
+    "tagForDeletion.tagged": "Entity.isTaggedForDeletion",
+    "tagForDeletion.stillValid": "EntityManager.isEntityIDValid",
+    "tagForDeletion.countBeforeFlush": "EntityManager.getNumEntities",
+    "flush.aRemoved": "EntityManager.isEntityIDValid",
+    "flush.cRemovedByObserver": "EntityManager.isEntityIDValid",
+    "flush.bRetained": "EntityManager.isEntityIDValid",
+    "flush.destroyCount": "Entity callbacks",
+    "flush.destroyOrder": "Entity callbacks",
+    "flush.destructorSpawnPending": "EntityManager.isEntityIDValid",
+    "flush.pendingCount": "EntityManager.getNumEntities",
+    "flush.committedCount": "EntityManager.getAllEntities",
+    "flush.destructorSpawnCommitted": "EntityManager.isEntityIDValid",
+    "deleteAll.activeStillValid": "EntityManager.isEntityIDValid",
+    "deleteAll.pendingStillInvalid": "EntityManager.isEntityIDValid",
+    "deleteAll.countBeforeFlush": "EntityManager.getNumEntities",
+    "deleteAll.bRemoved": "EntityManager.isEntityIDValid",
+    "deleteAll.dRemoved": "EntityManager.isEntityIDValid",
+    "deleteAll.countAfterFlush": "EntityManager.getNumEntities",
+    "deleteAll.destroyCount": "Entity callbacks",
+}
 
 
 def inventory():
@@ -151,6 +191,25 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("entityMgr."):
+        field = name[len("entityMgr."):]
+        if field.startswith("update.t"):
+            function = {
+                "parentUpdates": "Entity callbacks",
+                "parentValid": "EntityManager.isEntityIDValid",
+                "childCreated": "Entity callbacks",
+                "childValid": "EntityManager.isEntityIDValid",
+                "childValidDuringCreate": "EntityManager.isEntityIDValid",
+                "childCountDuringCreate": "EntityManager.getNumEntities",
+                "childUpdates": "Entity callbacks",
+                "childTagged": "Entity callbacks",
+            }[field.rsplit(".", 1)[1]]
+        else:
+            function = ENTITY_MANAGER_FIELDS[field]
+        if function not in names and function != "Entity callbacks" and \
+                not function.startswith("EntityListRef."):
+            raise ValueError(f"unknown entity manager function: {function}")
+        return function
     if name.startswith("entityLife."):
         function = ENTITY_LIFECYCLE_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names and function != "Entity callbacks" and \
@@ -241,7 +300,10 @@ def main():
                                            (RAY_MOTION, RAY_MOTION_BASELINE, RAY_MOTION_PLAN, ()),
                                            (ENTITY_LIFECYCLE, ENTITY_LIFECYCLE_BASELINE,
                                             ENTITY_LIFECYCLE_PLAN,
-                                            (ENTITY_LIFECYCLE_SUPPORT,))):
+                                            (ENTITY_LIFECYCLE_SUPPORT,)),
+                                           (ENTITY_MANAGER, ENTITY_MANAGER_BASELINE,
+                                            ENTITY_MANAGER_PLAN,
+                                            (HERE / "EntityManagerProbeEntity.gm",))):
         check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
         if len(declared) != len(set(declared)):
@@ -266,7 +328,8 @@ def main():
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
-            if case.startswith(("scene.", "contact.", "removal.", "entityLife.", "query.",
+            if case.startswith(("scene.", "contact.", "removal.", "entityLife.",
+                                "entityMgr.", "query.",
                                 "ray.", "reentry.", "joint.", "raymove.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):

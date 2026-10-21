@@ -771,15 +771,16 @@ int GM_CDECL gmf_entity_tagForDeletion(gmThread* a_thread) {
     gmVariable owner = self->Get(&m, "__behaviorOwner");
     gmTableObject* behavior = owner.m_type == GM_TABLE
         ? (gmTableObject*)m.GetObject(owner.m_value.m_ref) : self;
-    const gmVariable entity = behavior ? owner : gmVariable(self);
+    const gmVariable entity = owner.m_type == GM_TABLE ? owner : gmVariable(self);
     const int entityRef = entity.m_type == GM_TABLE ? entity.m_value.m_ref : -1;
 
-    if (entityRef >= 0 && NativeEntityTeardownRefs().count(entityRef) != 0)
+    if (entity.m_type == GM_TABLE &&
+        NativeEntityTeardownRefs().count(entityRef) != 0)
         return GM_OK;
 
     if (behavior) behavior->Set(&m, "__taggedForDeletion", gmVariable((gmint)1));
     self->Set(&m, "__taggedForDeletion", gmVariable((gmint)1));
-    if (entityRef >= 0) {
+    if (entity.m_type == GM_TABLE) {
         auto& pending = Entities().pendingDeletion;
         const bool queued = std::any_of(pending.begin(), pending.end(),
             [entityRef](const gmVariable& value) {
