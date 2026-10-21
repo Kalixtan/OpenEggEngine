@@ -613,9 +613,7 @@ int main(int argc, char** argv) {
                 if (GetEngineContext().gameSystem.shouldUpdateEntities)
                     UpdateEntitiesWithNativeUpdateHook(simDtMs);
             });
-            // Retail calls AudioManager's fixed-step update after its process
-            // manager update. Voices created or resumed by a process therefore
-            // receive this tick before the next process sample.
+            // Retail AudioManager has a fixed-step pass after ProcessManager.
             AdvanceAudioVoices(simDtMs);
             CallGlobalHookIfPresent(vm.Machine(), "GAME_Update",
                                      static_cast<int>(scriptDtMs), true);

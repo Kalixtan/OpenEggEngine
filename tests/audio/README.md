@@ -44,7 +44,8 @@ python3 tests/audio/waveform.py --game-data /path/to/game_data \
 python3 tests/audio/waveform.py --game-data /path/to/game_data
 ```
 
-`waveform_controls.gm` checks speed, fade, loop, pause/resume, and voice pan. It uses a
+`waveform_controls.gm` checks immediate and deferred speed changes, fade, loop,
+pause/resume, and voice pan. It uses a
 separate capture and report:
 
 ```sh

@@ -8,6 +8,7 @@ global Main=function(p) {
         panLeftVoice=0,
         panRightVoice=0,
         gateVoice=0,
+        deferredSpeedVoice=0,
         constructor=function(){},
         init=function() {
             Audio.stopAllVoices();
@@ -23,6 +24,12 @@ global Main=function(p) {
             if (this.frame==80) {
                 local voice=Audio.playSound(path);
                 Audio.setVoiceSpeed(voice,2);
+            }
+            if (this.frame==110) {
+                this.deferredSpeedVoice=Audio.playSound(path);
+            }
+            if (this.frame==111) {
+                Audio.setVoiceSpeed(this.deferredSpeedVoice,2);
             }
             if (this.frame==140) {
                 this.fadeVoice=Audio.playSound(path);
