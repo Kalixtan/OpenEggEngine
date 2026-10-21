@@ -7,6 +7,12 @@ Probe("Audio.loadSoundSlicker.sample",Audio.loadSoundSlicker(path));
 
 local voice=Audio.playSound(path);
 Probe("Audio.playSound.controlPositive",voice>0);
+Audio.setVoiceVolume(voice,0.25);
+Probe("Audio.setVoiceVolume.quarter",Audio.getVoiceVolume(voice));
+Audio.setVoiceVolume(voice,0);
+Probe("Audio.setVoiceVolume.zero",Audio.getVoiceVolume(voice));
+Audio.setVoiceVolume(voice,1);
+Probe("Audio.setVoiceVolume.full",Audio.getVoiceVolume(voice));
 Audio.setVoiceSpeed(voice,1.5);
 Probe("Audio.setVoiceSpeed.immediate",Audio.getVoiceSpeed(voice));
 Audio.setVoiceSpeed(voice,0.75,100.0);

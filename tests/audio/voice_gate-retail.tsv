@@ -1,0 +1,8 @@
+# probe-sha256 13a8baa3cd002b941def5657ae93b3ef698c958f1f3a0fffcf912eb7d39dcee6
+Audio.setVoiceGateTime.active	1
+Audio.setVoiceGateTime.afterEightTicks	1
+Audio.setVoiceGateTime.afterFourTicks	1
+Audio.setVoiceGateTime.afterHundredTicks	1
+Audio.setVoiceGateTime.afterOneTick	1
+Audio.setVoiceGateTime.afterSixtyTicks	1
+Audio.setVoiceGateTime.afterTwentyTicks	1

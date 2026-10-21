@@ -1,10 +1,10 @@
 # Audio test report
 
-Generated: 2026-10-21 16:10 UTC
+Generated: 2026-10-21 21:04 UTC
 
-Matched: **116/116 (100%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
+Matched: **128/132 (97%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 
-Asset probes: tested with user supplied sound. Functions with readings: **55/68**.
+Asset probes: tested with user supplied sound. Functions with readings: **61/68**.
 
 ## Retail setup warnings
 
@@ -55,12 +55,12 @@ Asset probes: tested with user supplied sound. Functions with readings: **55/68*
 | `Audio.playSoundSlicker` | 0 | 0 | 2 | 0 | SKIP |
 | `Audio.playStream` | 2 | 2 | 2 | 0 | PASS |
 | `Audio.saveScriptToFile` | 0 | 0 | 0 | 0 | untested |
-| `Audio.setFrequencyMultiplier` | 0 | 0 | 0 | 0 | untested |
-| `Audio.setMasterVolume` | 0 | 0 | 0 | 0 | untested |
-| `Audio.setMusicVolume` | 0 | 0 | 0 | 0 | untested |
+| `Audio.setFrequencyMultiplier` | 1 | 1 | 0 | 0 | PASS |
+| `Audio.setMasterVolume` | 3 | 3 | 0 | 0 | PASS |
+| `Audio.setMusicVolume` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.setRetriggerTime` | 1 | 1 | 0 | 0 | PASS |
-| `Audio.setSFXVolume` | 0 | 0 | 0 | 0 | untested |
-| `Audio.setVoiceGateTime` | 0 | 0 | 0 | 0 | untested |
+| `Audio.setSFXVolume` | 1 | 1 | 0 | 0 | PASS |
+| `Audio.setVoiceGateTime` | 3 | 7 | 0 | 0 | FAIL |
 | `Audio.setVoiceLoop` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.setVoiceLoopCount` | 2 | 2 | 0 | 12 | PASS |
 | `Audio.setVoiceNote` | 1 | 1 | 0 | 0 | PASS |
@@ -69,7 +69,7 @@ Asset probes: tested with user supplied sound. Functions with readings: **55/68*
 | `Audio.setVoicePitchBend` | 3 | 3 | 0 | 0 | PASS |
 | `Audio.setVoicePosition` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.setVoiceSpeed` | 2 | 2 | 0 | 0 | PASS |
-| `Audio.setVoiceVolume` | 0 | 0 | 0 | 0 | untested |
+| `Audio.setVoiceVolume` | 3 | 3 | 0 | 0 | PASS |
 | `Audio.spawnSoundSlicker` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.startPlayingScript` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.startRecording` | 1 | 1 | 0 | 0 | PASS |
@@ -101,9 +101,15 @@ Asset probes: tested with user supplied sound. Functions with readings: **55/68*
 | `Audio.getMasterVolume` | Audio.getMasterVolume.half | `0.500000` | `0.500000` | PASS |
 | `Audio.getMusicVolume` | Audio.getMusicVolume.scaled | `0.125000` | `0.125000` | PASS |
 | `Audio.getSFXVolume` | Audio.getSFXVolume.scaled | `0.375000` | `0.375000` | PASS |
+| `Audio.setMasterVolume` | Audio.setMasterVolume.readback | `0.500000` | `0.500000` | PASS |
+| `Audio.setMusicVolume` | Audio.setMusicVolume.readback | `0.125000` | `0.125000` | PASS |
+| `Audio.setSFXVolume` | Audio.setSFXVolume.readback | `0.375000` | `0.375000` | PASS |
 | `Audio.getMasterVolume` | Audio.getMasterVolume.high | `1.000000` | `1.000000` | PASS |
+| `Audio.setMasterVolume` | Audio.setMasterVolume.high | `1.000000` | `1.000000` | PASS |
 | `Audio.getMasterVolume` | Audio.getMasterVolume.low | `0.000000` | `0.000000` | PASS |
+| `Audio.setMasterVolume` | Audio.setMasterVolume.low | `0.000000` | `0.000000` | PASS |
 | `Audio.getFrequencyMultiplier` | Audio.getFrequencyMultiplier.changed | `0.750000` | `0.750000` | PASS |
+| `Audio.setFrequencyMultiplier` | Audio.setFrequencyMultiplier.readback | `0.750000` | `0.750000` | PASS |
 | `Audio.loadSound` | Audio.loadSound.missing | `0` | `0` | PASS |
 | `Audio.getSoundLength` | Audio.getSoundLength.missing | `0` | `0` | PASS |
 | `Audio.playSound` | Audio.playSound.missing | `0` | `0` | PASS |
@@ -159,6 +165,9 @@ Asset probes: tested with user supplied sound. Functions with readings: **55/68*
 | `Audio.getAllVoices` | Audio.getAllVoices.hasVoice | `1` | `1` | PASS |
 | `Audio.loadSoundSlicker` | Audio.loadSoundSlicker.sample | `1` | `1` | PASS |
 | `Audio.playSound` | Audio.playSound.controlPositive | `1` | `1` | PASS |
+| `Audio.setVoiceVolume` | Audio.setVoiceVolume.quarter | `0.250000` | `0.250000` | PASS |
+| `Audio.setVoiceVolume` | Audio.setVoiceVolume.zero | `0.000000` | `0.000000` | PASS |
+| `Audio.setVoiceVolume` | Audio.setVoiceVolume.full | `1.000000` | `1.000000` | PASS |
 | `Audio.setVoiceSpeed` | Audio.setVoiceSpeed.immediate | `1.500000` | `1.500000` | PASS |
 | `Audio.setVoiceSpeed` | Audio.setVoiceSpeed.rampStart | `1.500000` | `1.500000` | PASS |
 | `Audio.setVoiceNote` | Audio.setVoiceNote.base | `1.000000` | `1.000000` | PASS |
@@ -232,3 +241,10 @@ Asset probes: tested with user supplied sound. Functions with readings: **55/68*
 | `Audio.stopAllVoices` | Audio.stopAllVoices.beforeFadeEnd | `1` | `1` | PASS |
 | `Audio.stopAllVoices` | Audio.stopAllVoices.afterFadeEnd | `0` | `0` | PASS |
 | `Audio.stopAllVoices` | Audio.stopAllVoices.noVoicesLeft | `1` | `1` | PASS |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.active | `1` | `1` | PASS |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterOneTick | `1` | `1` | PASS |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterFourTicks | `1` | `1` | PASS |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterEightTicks | `1` | `0` | FAIL |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterTwentyTicks | `1` | `0` | FAIL |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterSixtyTicks | `1` | `0` | FAIL |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterHundredTicks | `1` | `0` | FAIL |

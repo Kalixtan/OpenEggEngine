@@ -1,0 +1,34 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+global Main=function(p) {
+    return table(Process=p,frame=0,voice=0,constructor=function(){},
+        init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                this.voice=Audio.playSound("Platformer/levels/gamescom_master_8.wav");
+                Audio.setVoiceGateTime(this.voice,1);
+                Probe("Audio.setVoiceGateTime.active",Audio.isVoiceValid(this.voice));
+            }
+            if (this.frame==1) {
+                Probe("Audio.setVoiceGateTime.afterOneTick",Audio.isVoiceValid(this.voice));
+            }
+            if (this.frame==4) {
+                Probe("Audio.setVoiceGateTime.afterFourTicks",Audio.isVoiceValid(this.voice));
+            }
+            if (this.frame==8) {
+                Probe("Audio.setVoiceGateTime.afterEightTicks",Audio.isVoiceValid(this.voice));
+            }
+            if (this.frame==20) {
+                Probe("Audio.setVoiceGateTime.afterTwentyTicks",Audio.isVoiceValid(this.voice));
+            }
+            if (this.frame==60) {
+                Probe("Audio.setVoiceGateTime.afterSixtyTicks",Audio.isVoiceValid(this.voice));
+            }
+            if (this.frame==100) {
+                Probe("Audio.setVoiceGateTime.afterHundredTicks",Audio.isVoiceValid(this.voice));
+            }
+            this.frame+=1;
+        });
+};

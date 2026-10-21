@@ -1,4 +1,4 @@
-# probe-sha256 9b554496663f3df3bea27a98b66f4cbce41d873bef5662cba09911785880d201
+# probe-sha256 003383d0ff5c4b2fc7a655b51f921e1870c8be4117a194dc307f648135152a7b
 Audio.checkDiracPoolIntegrity.default	1
 Audio.getAllVoices.empty	0
 Audio.getDefaultBaseNote.default	48
@@ -32,3 +32,9 @@ Audio.isVoiceValid.zero	0
 Audio.loadSound.missing	0
 Audio.playSound.missing	0
 Audio.playStream.missing	0
+Audio.setFrequencyMultiplier.readback	0.750000
+Audio.setMasterVolume.high	1.000000
+Audio.setMasterVolume.low	0.000000
+Audio.setMasterVolume.readback	0.500000
+Audio.setMusicVolume.readback	0.125000
+Audio.setSFXVolume.readback	0.375000

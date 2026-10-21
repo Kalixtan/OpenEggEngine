@@ -19,16 +19,22 @@ Audio.setSFXVolume(0.75);
 Probe("Audio.getMasterVolume.half",Audio.getMasterVolume());
 Probe("Audio.getMusicVolume.scaled",Audio.getMusicVolume());
 Probe("Audio.getSFXVolume.scaled",Audio.getSFXVolume());
+Probe("Audio.setMasterVolume.readback",Audio.getMasterVolume());
+Probe("Audio.setMusicVolume.readback",Audio.getMusicVolume());
+Probe("Audio.setSFXVolume.readback",Audio.getSFXVolume());
 Audio.setMasterVolume(2);
 Probe("Audio.getMasterVolume.high",Audio.getMasterVolume());
+Probe("Audio.setMasterVolume.high",Audio.getMasterVolume());
 Audio.setMasterVolume(-1);
 Probe("Audio.getMasterVolume.low",Audio.getMasterVolume());
+Probe("Audio.setMasterVolume.low",Audio.getMasterVolume());
 Audio.setMasterVolume(1);
 Audio.setMusicVolume(1);
 Audio.setSFXVolume(1);
 
 Audio.setFrequencyMultiplier(0.75);
 Probe("Audio.getFrequencyMultiplier.changed",Audio.getFrequencyMultiplier());
+Probe("Audio.setFrequencyMultiplier.readback",Audio.getFrequencyMultiplier());
 Audio.setFrequencyMultiplier(1);
 
 local missing="OpenEggProbe/no-such-sound.wav";

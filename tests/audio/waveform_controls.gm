@@ -5,6 +5,8 @@ global Main=function(p) {
         frame=0,
         loopVoice=0,
         pausedVoice=0,
+        panLeftVoice=0,
+        panRightVoice=0,
         constructor=function(){},
         init=function(){return true;},
         update=function() {
@@ -32,6 +34,14 @@ global Main=function(p) {
             }
             if (this.frame==265) { Audio.setVoicePause(this.pausedVoice,false); }
             if (this.frame==320) {
+                this.panLeftVoice=Audio.playSound(path);
+                Audio.setVoicePan(this.panLeftVoice,-1);
+            }
+            if (this.frame==380) {
+                this.panRightVoice=Audio.playSound(path);
+                Audio.setVoicePan(this.panRightVoice,1);
+            }
+            if (this.frame==440) {
                 GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
             }
             this.frame+=1;

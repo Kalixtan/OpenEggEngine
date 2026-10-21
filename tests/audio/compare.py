@@ -120,7 +120,8 @@ def main():
     names = inventory()
     baselines = [HERE / f"{stem}-retail.tsv" for stem in
                  ("state", "manager", "effects", "script_playback",
-                  "voice", "voice_controls", "slicker", "voice_lifetime")]
+                  "voice", "voice_controls", "slicker", "voice_lifetime",
+                  "voice_gate")]
     warnings = retail_setup_warnings(baselines)
     log_dir = ROOT / "tests/_results/audio"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -147,7 +148,8 @@ def main():
             stream_target = root / STREAM_SOUND
             stream_target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(stream_source, stream_target)
-            for stem in ("voice", "voice_controls", "slicker", "voice_lifetime"):
+            for stem in ("voice", "voice_controls", "slicker", "voice_lifetime",
+                         "voice_gate"):
                 shutil.copyfile(HERE / f"{stem}.gm", root / f"{stem}.gm")
                 section_rows, section_problems = compare_section(
                     args.engine.resolve(), HERE / f"{stem}.gm",

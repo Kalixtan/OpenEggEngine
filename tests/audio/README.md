@@ -5,13 +5,14 @@ script-visible state without game files. Voice probes copy sound samples from
 your extracted game data into a temporary folder. These probes check script
 responses; `waveform.gm` checks emitted audio.
 `voice_lifetime.gm` checks voice completion, fades, pause/resume, loops, unload,
-and stop-all across process updates. `OEPV__` marks playback-clock samples that
+and stop-all across process updates. `voice_gate.gm` isolates gate expiry and
+voice validity. `OEPV__` marks playback-clock samples that
 are printed for review but excluded from deterministic score comparisons.
 
 Capture retail readings with your installed PS3 game:
 
 ```sh
-for probe in state manager effects script_playback voice voice_controls slicker voice_lifetime; do
+for probe in state manager effects script_playback voice voice_controls slicker voice_lifetime voice_gate; do
   python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
     --eboot /path/to/EBOOT.BIN --probe "tests/audio/$probe.gm" \
     --baseline "tests/audio/$probe-retail.tsv"
@@ -43,7 +44,7 @@ python3 tests/audio/waveform.py --game-data /path/to/game_data \
 python3 tests/audio/waveform.py --game-data /path/to/game_data
 ```
 
-`waveform_controls.gm` checks speed, fade, loop, and pause/resume. It uses a
+`waveform_controls.gm` checks speed, fade, loop, pause/resume, and voice pan. It uses a
 separate capture and report:
 
 ```sh

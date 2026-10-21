@@ -1,4 +1,4 @@
-# probe-sha256 257fd1f3bf93fe47671964f0f52014f9152884b6c672ff21a44584e3c59f13f6
+# probe-sha256 5969a27e35e3915b4d59df7441cc7e4285d1a5d8b00890d4e08ff578cd7ae89e
 Audio.loadSoundSlicker.sample	1
 Audio.playSound.controlPositive	1
 Audio.playStream.preloaded	1
@@ -14,5 +14,8 @@ Audio.setVoicePitchBend.immediate	1.000000
 Audio.setVoicePosition.changed	25
 Audio.setVoiceSpeed.immediate	1.500000
 Audio.setVoiceSpeed.rampStart	1.500000
+Audio.setVoiceVolume.full	1.000000
+Audio.setVoiceVolume.quarter	0.250000
+Audio.setVoiceVolume.zero	0.000000
 Audio.stopVoice.pending	1
 Audio.unloadSound.length	87

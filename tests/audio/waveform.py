@@ -23,7 +23,8 @@ SOUND = Path("Platformer/sounds/fx/button-high.wav")
 SUITES = {
     "basic": ("waveform.gm", ("normal", "half_volume", "pan_left", "pan_right")),
     "controls": ("waveform_controls.gm", ("speed_half", "speed_double",
-                                  "fade_40", "loop_one", "pause_resume")),
+                                  "fade_40", "loop_one", "pause_resume",
+                                  "pan_left", "pan_right")),
 }
 RATE = 48000
 RESULTS = ROOT / "tests/_results/audio/waveforms"
