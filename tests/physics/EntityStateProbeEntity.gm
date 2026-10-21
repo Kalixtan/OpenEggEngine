@@ -4,5 +4,7 @@ global EntityStateProbeEntity=function(handle) {
         configure=function() { return true; },
         setGot=function(flag) { this.got=flag; },
         isGot=function() { return this.got; },
-        isGetting=function() { return false; });
+        isGetting=function() { return false; },
+        parityMethod=function(value) { return value+5; },
+        parityPair=function(first,second) { return first*10+second; });
 };

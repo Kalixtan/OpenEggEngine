@@ -26,6 +26,9 @@
     "entityState.alwaysProcessed",
     "entityState.beingEdited",
     "entityState.callMethod",
+    "entityState.callMethodBehavior",
+    "entityState.callMethodMultiple",
+    "entityState.callMethodMissing",
     "entityState.clearFlags",
     "entityState.compatibilityCallsComplete",
     "entityState.createParticle",
@@ -94,6 +97,8 @@
     "entityState.vectorToX",
     "entityState.vectorToY",
     "entityState.whichSide",
+    "entityState.whichSideNegative",
+    "entityState.whichSideBehind",
     "entityState.wrongType"
   ],
   "inconclusive": {
@@ -106,9 +111,13 @@
     "entityState.creationPosX": "Synthetic entity fixture has no retail backing entity state for the setter/getter round trip.",
     "entityState.creationPosY": "Synthetic entity fixture has no retail backing entity state for the setter/getter round trip.",
     "entityState.alwaysProcessed": "Synthetic entity fixture exposes the setter but no retail getter state for this property.",
-    "entityState.callMethod": "Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence.",
-    "entityState.hasCallMethod": "Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence.",
-    "entityState.hasWhichSide": "Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence.",
-    "entityState.whichSide": "Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence."
+    "entityState.callMethod": "Retail returns null for a declared fixture method, even after refreshFunctionCache; real EntityBase dispatch remains unverified.",
+    "entityState.callMethodBehavior": "Retail returns null for a declared fixture method; behavior-table dispatch needs a retail EntityBase-backed probe.",
+    "entityState.callMethodMultiple": "Retail returns null for a declared fixture method; argument forwarding needs a retail EntityBase-backed probe.",
+    "entityState.hasCallMethod": "GameMonkey's table-member existence operator cannot report engine type-library methods.",
+    "entityState.hasWhichSide": "GameMonkey's table-member existence operator cannot report engine type-library methods.",
+    "entityState.whichSide": "Retail returns null for this synthetic entity pair; native call setup remains unresolved.",
+    "entityState.whichSideNegative": "Retail returns null for this synthetic entity pair; native call setup remains unresolved.",
+    "entityState.whichSideBehind": "Retail returns null for this synthetic entity pair; native call setup remains unresolved."
   }
 }

@@ -1,5 +1,5 @@
-# probe-sha256 43f0ccef89937b04b5d12d8273f983f35a29ff0a90cf501daad849a08b124c2a
-# support-sha256 EntityStateProbeEntity.gm 6053836e3665758db2642bcc9588e072ae938d5bd44d85611c0e1975195d3dfe
+# probe-sha256 728709365f2b08bd4580895fefdc3f5dfb7fce03ca2ba765eec860c8b683e36e
+# support-sha256 EntityStateProbeEntity.gm 94704c351f60a7019c5a12502fc08518d7709dde3cf1515cb846b41be44642b8
 entityState.addLFO	0
 entityState.alarmElapsedDisabled	50.000000
 entityState.alarmElapsedEarly	40.000000
@@ -24,6 +24,9 @@ entityState.alarmUpdateReady	1
 entityState.alwaysProcessed	null
 entityState.beingEdited	1
 entityState.callMethod	null
+entityState.callMethodBehavior	null
+entityState.callMethodMissing	1
+entityState.callMethodMultiple	null
 entityState.clearFlags	1
 entityState.compatibilityCallsComplete	1
 entityState.createParticle	1
@@ -92,4 +95,6 @@ entityState.vectorNormY	0.800000
 entityState.vectorToX	3.000000
 entityState.vectorToY	4.000000
 entityState.whichSide	null
+entityState.whichSideBehind	null
+entityState.whichSideNegative	null
 entityState.wrongType	1

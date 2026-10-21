@@ -42,7 +42,8 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 ## Animation and entities
 
 - [ ] Recheck `Entity.callMethod` and `Entity.getWhichSide` against retail.
-      Current capture is inconclusive: headless RPCS3 produced no TTY output.
+      Synthetic fixture calls return null in retail; test with retail EntityBase
+      objects before treating that as function behavior.
 - [x] Add headless probes for FSA loading, playback state, seeking, custom
       sequences, shared resources, and unload. All 39 readings match retail;
       missing-resource handling remains an intentional safety difference.

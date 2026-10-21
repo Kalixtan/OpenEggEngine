@@ -87,8 +87,12 @@ global Main=function(p) {
             Probe("entityState.vectorNormY",vectorNorm.y);
             Probe("entityState.radiansToFace",entity.getRadiansToFace(other));
             Probe("entityState.whichSide",native.getWhichSide(native,nativeOther));
+            otherBody.setPos(vector2D(3,-4));
+            Probe("entityState.whichSideNegative",native.getWhichSide(native,nativeOther));
+            otherBody.setPos(vector2D(-3,0));
+            Probe("entityState.whichSideBehind",native.getWhichSide(native,nativeOther));
+            otherBody.setPos(vector2D(3,4));
             Probe("entityState.mainBody","fixture-limited");
-            entity.parityMethod=function(value) { return value+5; };
             Probe("entityState.createParticle",entity.createParticle("unused")==null);
             entity.deleteAllParticles();
             Probe("entityState.particleCount",entity.getNumParticles());
@@ -169,7 +173,11 @@ global Main=function(p) {
             entity.setGot(0);
             Probe("entityState.gotCleared",!entity.isGot());
             Probe("entityState.getting",entity.isGetting());
+            native.refreshFunctionCache();
             Probe("entityState.callMethod",native.callMethod("parityMethod",7));
+            Probe("entityState.callMethodBehavior",entity.callMethod("parityMethod",7));
+            Probe("entityState.callMethodMultiple",entity.callMethod("parityPair",3,4));
+            Probe("entityState.callMethodMissing",entity.callMethod("missingParityMethod")==null);
             entity.initializeScreenExtents(2,4,2,4);
             Probe("entityState.screenMinX",entity.getMinCX());
             Probe("entityState.screenMaxX",entity.getMaxCX());

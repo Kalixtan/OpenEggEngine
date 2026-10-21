@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 20:17 UTC
+Generated: 2026-10-21 20:24 UTC
 
-Matched: **4886/4886 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **291/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **292/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -178,7 +178,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.addAlarm` | 0 | 0 | untested |
 | `Entity.addLFO` | 0 | 0 | untested |
 | `Entity.addTelescope` | 1 | 1 | PASS |
-| `Entity.callMethod` | 0 | 0 | untested |
+| `Entity.callMethod` | 1 | 1 | PASS |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
 | `Entity.configure` | 0 | 0 | untested |
 | `Entity.constructorSetIsManual` | 0 | 0 | untested |
@@ -746,17 +746,21 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getUID` | entityQ.id.managerUID | `null` | `91001` | The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately. |
 | `Entity.addLFO` | entityState.addLFO | `0` | `1` | The synthetic entity fixture does not expose the retail native LFO owner; game scripts attach LFOs to fully initialized retail entities. |
 | `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `null` | `1` | Synthetic entity fixture exposes the setter but no retail getter state for this property. |
-| `Entity.callMethod` | entityState.callMethod | `null` | `12` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
+| `Entity.callMethod` | entityState.callMethod | `null` | `12` | Retail returns null for a declared fixture method, even after refreshFunctionCache; real EntityBase dispatch remains unverified. |
+| `Entity.callMethod` | entityState.callMethodBehavior | `null` | `12` | Retail returns null for a declared fixture method; behavior-table dispatch needs a retail EntityBase-backed probe. |
+| `Entity.callMethod` | entityState.callMethodMultiple | `null` | `34` | Retail returns null for a declared fixture method; argument forwarding needs a retail EntityBase-backed probe. |
 | `Entity.getEntityCreationPos` | entityState.creationPosX | `null` | `12.500000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
 | `Entity.getEntityCreationPos` | entityState.creationPosY | `null` | `-4.250000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
 | `Entity.addAlarm` | entityState.hasAddAlarm | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
 | `Entity.addLFO` | entityState.hasAddLFO | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
 | `Entity.isAlwaysProcessed` | entityState.hasAlwaysProcessedGetter | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
-| `Entity.callMethod` | entityState.hasCallMethod | `0` | `1` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
+| `Entity.callMethod` | entityState.hasCallMethod | `0` | `1` | GameMonkey's table-member existence operator cannot report engine type-library methods. |
 | `Entity.getEntityCreationPos` | entityState.hasCreationPosGetter | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
-| `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
+| `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | GameMonkey's table-member existence operator cannot report engine type-library methods. |
 | `Entity.getMainBody` | entityState.mainBody | `fixture-limited` | `fixture-limited` | Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result. |
-| `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
+| `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
+| `Entity.getWhichSide` | entityState.whichSideNegative | `null` | `0` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
+| `Entity.getWhichSide` | entityState.whichSideBehind | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
 
 ## OpenEgg-only functions
 
@@ -5421,6 +5425,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `ALARM.update` | entityState.alarmUpdateEarly | `0` | `0` | PASS |
 | `ALARM.update` | entityState.alarmUpdateReady | `1` | `1` | PASS |
 | `Entity.isBeingEdited` | entityState.beingEdited | `1` | `1` | PASS |
+| `Entity.callMethod` | entityState.callMethodMissing | `1` | `1` | PASS |
 | `Entity.isInvisible` | entityState.clearFlags | `1` | `1` | PASS |
 | `Entity.update` | entityState.compatibilityCallsComplete | `1` | `1` | PASS |
 | `Entity.createParticle` | entityState.createParticle | `1` | `1` | PASS |
