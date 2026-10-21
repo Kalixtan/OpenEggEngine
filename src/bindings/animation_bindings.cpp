@@ -941,13 +941,14 @@ int GM_CDECL gmf_animationModuleLoad(gmThread* a_thread) {
     }
     if (resolved.empty())
         std::fprintf(stderr, "AnimationModule.loadAnimation: '%s' not found\n", path);
-    PushNewAnimation(a_thread, resolved, true, centeredLayout ? 1 : 0);
+    // Standalone module loads are not attached to the entity animation clock.
+    PushNewAnimation(a_thread, resolved, false, centeredLayout ? 1 : 0);
     return GM_OK;
 }
 
 int GM_CDECL gmf_animationModuleUnload(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    UnloadAnimation(*a_thread->GetMachine(), a_thread->Param(0));
+    // The retail wrapper leaves both the live object and shared cache intact.
     return GM_OK;
 }
 

@@ -1,0 +1,12 @@
+global AnimProbe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local missing=AnimationModule.loadAnimation("Platformer/gameAssets/openegg_probe_missing.fsa");
+AnimProbe("Animation.getNumImages.missingResource",missing.getNumImages());
+AnimationModule.unloadAnimation(missing);
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},
+                 update=function(dt){});
+};

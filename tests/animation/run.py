@@ -48,6 +48,13 @@ def main():
             [str(engine), str(data_root), entry_script, "Main"], cwd=ROOT,
             env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, errors="replace", timeout=15, check=False)
+        missing_script = "MissingAnimationProbe.gm"
+        shutil.copyfile(ROOT / "tests/animation/missing_resource.gm",
+                        data_root / missing_script)
+        missing_result = subprocess.run(
+            [str(engine), str(data_root), missing_script, "Main"], cwd=ROOT,
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, errors="replace", timeout=15, check=False)
 
     readings = READING.findall(result.stdout)
     expected = [
@@ -66,11 +73,16 @@ def main():
         "Animation.getCurrentFrame.sequenceFirst", "Animation.getCurrentFrame.sequenceSecond",
         "Animation.getNumImages.sharedResource", "Animation.getNumFrames.sharedSequence",
         "Animation.getNumImages.unloaded", "Animation.getNumImages.sharedStillLoaded",
-        "Animation.getNumImages.afterUnloadAll", "Animation.getNumImages.missingResource",
+        "Animation.getNumFrames.individualReload", "Animation.getNumImages.afterUnloadAll",
+        "Animation.getNumFrames.afterUnloadAll",
         "Animation.getPlayPosition.slowSpeed", "Animation.getPlayPosition.fastSpeed",
-        "Animation.setPlayTimeSpeed.noEffect",
+        "Animation.setPlayTimeSpeed.noEffect", "Animation.getPlayPosition.moduleLoadDetached",
     ]
     observed = {name: value for name, value in readings}
+    missing_reading = re.search(
+        r"OEP__Animation\.getNumImages\.missingResource__(.*?)\.gm",
+        missing_result.stdout)
+    missing_images = missing_reading.group(1) if missing_reading else None
     baseline_path = ROOT / "tests/animation/retail-baseline.tsv"
     retail = {}
     if baseline_path.is_file():
@@ -95,16 +107,21 @@ def main():
                              observed.get("Animation.isPaused.pause") == "1",
         "reverse state": observed.get("Animation.isReversed.true") == "1" and
                          observed.get("Animation.isReversed.false") == "0",
-        "unload keeps object callable": observed.get("Animation.getNumImages.unloaded") == "0",
+        "unload leaves shared cache intact": observed.get("Animation.getNumImages.unloaded") == "35" and
+            observed.get("Animation.getNumImages.sharedStillLoaded") == "35" and
+            observed.get("Animation.getNumFrames.individualReload") == "2",
         "custom sequence frame selection": observed.get("Animation.getNumFrames.customSequence") == "2" and
             observed.get("Animation.getCurrentFrame.sequenceFirst") == "0" and
             observed.get("Animation.getCurrentFrame.sequenceSecond") == "34",
         "shared resource sequence state": observed.get("Animation.getNumImages.sharedResource") == "35" and
             observed.get("Animation.getNumFrames.sharedSequence") == "2",
         "cache clear preserves live handles": observed.get("Animation.getNumImages.sharedStillLoaded") == "35" and
-            observed.get("Animation.getNumImages.afterUnloadAll") == "35",
-        "missing resource stays empty": observed.get("Animation.getNumImages.missingResource") == "0",
-        "speed field matches retail no-op": observed.get("Animation.setPlayTimeSpeed.noEffect") == "1",
+            observed.get("Animation.getNumImages.afterUnloadAll") == "35" and
+            observed.get("Animation.getNumFrames.afterUnloadAll") == "35",
+        "missing resource stays empty": missing_images == "0" and missing_result.returncode == 0,
+        "module load remains detached; speed has no effect":
+            observed.get("Animation.setPlayTimeSpeed.noEffect") == "1" and
+            observed.get("Animation.getPlayPosition.moduleLoadDetached") == "1",
     }
     checks_passed = sum(local_checks.values())
     comparable = [(name, value, retail[name]) for name, value in readings if name in retail]
@@ -138,6 +155,9 @@ def main():
             except ValueError:
                 match = "yes" if value == reference else "no"
         report.append(f"| `{name}` | `{value}` | `{reference}` | {match} |")
+    report.append("| `Animation.getNumImages.missingResource` | "
+                   f"`{missing_images or 'missing'}` | `retail fault at 0x48` | "
+                   "retail crash confirmed |")
     if mismatches:
         report.extend(["", "Retail mismatches: " + ", ".join(f"`{name}`" for name in mismatches)])
     if missing:
@@ -146,10 +166,15 @@ def main():
         report.extend(["", f"Engine exit code: `{result.returncode}`"])
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text("\n".join(report) + "\n")
+    retail_summary = (f"; retail {len(comparable) - len(mismatches)}/{len(comparable)} matched"
+                      if comparable else "; retail readings pending")
     print(f"Animation probe: {checks_passed}/{len(local_checks)} local checks passed; "
-          f"{len(readings)}/{len(expected)} readings. Report: {args.report}")
-    if result.returncode or missing or checks_passed != len(local_checks):
+          f"{len(readings)}/{len(expected)} readings{retail_summary}. Report: {args.report}")
+    if (result.returncode or missing_result.returncode or missing or mismatches or
+            checks_passed != len(local_checks)):
         print(result.stdout)
+        if missing_result.returncode or not missing_images:
+            print(missing_result.stdout)
         return 1
     return 0
 

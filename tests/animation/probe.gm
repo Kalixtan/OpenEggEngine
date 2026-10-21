@@ -61,15 +61,17 @@ AnimProbe("Animation.getCurrentFrame.sequenceSecond",anim.getCurrentFrame());
 AnimationModule.unloadAnimation(anim);
 AnimProbe("Animation.getNumImages.unloaded",anim.getNumImages());
 AnimProbe("Animation.getNumImages.sharedStillLoaded",shared.getNumImages());
+local individualReload=AnimationModule.loadAnimation(
+    "Platformer/gameAssets/checkpointTriggeredInactive.fsa");
+AnimProbe("Animation.getNumFrames.individualReload",individualReload.getNumFrames());
 AnimationModule.unloadAll();
 local fresh=AnimationModule.loadAnimation(
     "Platformer/gameAssets/checkpointTriggeredInactive.fsa");
 AnimProbe("Animation.getNumImages.afterUnloadAll",fresh.getNumImages());
-local missing=AnimationModule.loadAnimation("Platformer/gameAssets/openegg_probe_missing.fsa");
-AnimProbe("Animation.getNumImages.missingResource",missing.getNumImages());
+AnimProbe("Animation.getNumFrames.afterUnloadAll",fresh.getNumFrames());
 AnimationModule.unloadAnimation(shared);
+AnimationModule.unloadAnimation(individualReload);
 AnimationModule.unloadAnimation(fresh);
-AnimationModule.unloadAnimation(missing);
 
 global animSlow=AnimationModule.loadAnimation(
     "Platformer/gameAssets/checkpointTriggeredInactive.fsa");
@@ -91,6 +93,8 @@ global Main=function(p) {
                 AnimProbe("Animation.getPlayPosition.fastSpeed",animFast.getPlayPosition());
                 AnimProbe("Animation.setPlayTimeSpeed.noEffect",
                     MATH_ABS(animSlow.getPlayPosition()-animFast.getPlayPosition())<0.01);
+                AnimProbe("Animation.getPlayPosition.moduleLoadDetached",
+                    MATH_ABS(animSlow.getPlayPosition())<0.01);
                 AnimationModule.unloadAnimation(animSlow);
                 AnimationModule.unloadAnimation(animFast);
             }
