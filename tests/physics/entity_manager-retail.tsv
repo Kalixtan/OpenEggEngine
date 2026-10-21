@@ -1,4 +1,4 @@
-# probe-sha256 8808bc61ac63d1b55d2a52e185a2b9a5f7ee3470342a788c77ca9942961aca4e
+# probe-sha256 f2047f97aeaaf8c6a41751b79691a0f696f1b4880f2610fa461457b20e3dede3
 # support-sha256 EntityManagerProbeEntity.gm dc355571761cef732976880d167b96dcfb78d544ae54814adfbeff99452fa5a0
 entityMgr.create.count	3
 entityMgr.deleteAll.activeStillValid	1
@@ -24,6 +24,8 @@ entityMgr.getAllEntities.sentinelValid	0
 entityMgr.getAllEntities.snapshotSize	0
 entityMgr.getAllEntities.wrapFirst	1
 entityMgr.getAllEntities.wrapValid	1
+entityMgr.getEntity.committedSame	1
+entityMgr.getEntity.pendingSame	1
 entityMgr.getNumEntities.committed	3
 entityMgr.getNumEntities.pending	3
 entityMgr.getNumEntities.totalPending	3

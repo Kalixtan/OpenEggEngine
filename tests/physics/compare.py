@@ -252,6 +252,8 @@ ENTITY_MANAGER_FIELDS = {
     "getNumEntities.committed": "EntityManager.getNumEntities",
     "isEntityIDValid.pending": "EntityManager.isEntityIDValid",
     "isEntityIDValid.committed": "EntityManager.isEntityIDValid",
+    "getEntity.pendingSame": "EntityManager.getEntity",
+    "getEntity.committedSame": "EntityManager.getEntity",
     "getAllEntities.pendingSize": "EntityManager.getAllEntities",
     "getAllEntities.snapshotSize": "EntityManager.getAllEntities",
     "getAllEntities.refilledSize": "EntityManager.getAllEntities",

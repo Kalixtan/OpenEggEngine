@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 18:59 UTC
+Generated: 2026-10-21 19:04 UTC
 
-Matched: **4842/4842 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4844/4844 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **289/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -46,6 +46,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityMgr.create | 1 | 1 |
 | entityMgr.getNumEntities | 3 | 3 |
 | entityMgr.isEntityIDValid | 2 | 2 |
+| entityMgr.getEntity | 2 | 2 |
 | entityMgr.getAllEntities | 7 | 7 |
 | entityMgr.tagForDeletion | 3 | 3 |
 | entityMgr.flush | 9 | 9 |
@@ -269,7 +270,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.getDummyEntity` | 1 | 1 | PASS |
 | `EntityManager.getEntitiesNear` | 7 | 7 | PASS |
 | `EntityManager.getEntitiesRoughlyWithin` | 2 | 2 | PASS |
-| `EntityManager.getEntity` | 2 | 2 | PASS |
+| `EntityManager.getEntity` | 4 | 4 | PASS |
 | `EntityManager.getEntityFromUID` | 2 | 2 | PASS |
 | `EntityManager.getEntityPerfCost` | 3 | 3 | PASS |
 | `EntityManager.getEntityPerfMaxCost` | 1 | 1 | PASS |
@@ -5266,9 +5267,11 @@ These extensions have no corresponding retail method and are excluded from the p
 | `EntityManager.getNumEntities` | entityMgr.getNumEntities.pending | `3` | `3` | PASS |
 | `EntityManager.getNumEntities` | entityMgr.getNumEntities.totalPending | `3` | `3` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.isEntityIDValid.pending | `0` | `0` | PASS |
+| `EntityManager.getEntity` | entityMgr.getEntity.pendingSame | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityMgr.getAllEntities.pendingSize | `0` | `0` | PASS |
 | `EntityManager.getNumEntities` | entityMgr.getNumEntities.committed | `3` | `3` | PASS |
 | `EntityManager.isEntityIDValid` | entityMgr.isEntityIDValid.committed | `1` | `1` | PASS |
+| `EntityManager.getEntity` | entityMgr.getEntity.committedSame | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityMgr.getAllEntities.snapshotSize | `0` | `0` | PASS |
 | `EntityManager.getAllEntities` | entityMgr.getAllEntities.refilledSize | `3` | `3` | PASS |
 | `EntityManager.getAllEntities` | entityMgr.getAllEntities.firstValid | `1` | `1` | PASS |

@@ -54,11 +54,15 @@ global Main=function(p) {
             ProbeManager("getNumEntities.pending",EntityManager.getNumEntities("EntityManagerProbeEntity"));
             ProbeManager("getNumEntities.totalPending",EntityManager.getNumEntities());
             ProbeManager("isEntityIDValid.pending",EntityManager.isEntityIDValid(a.getObjectID()));
+            ProbeManager("getEntity.pendingSame",
+                EntityManager.getEntity(a.getObjectID()).getObjectID()==a.getObjectID());
             local iter=EntityManager.getAllEntities("EntityManagerProbeEntity");
             ProbeManager("getAllEntities.pendingSize",iter.size());
             EntityManager.flush();
             ProbeManager("getNumEntities.committed",EntityManager.getNumEntities("EntityManagerProbeEntity"));
             ProbeManager("isEntityIDValid.committed",EntityManager.isEntityIDValid(a.getObjectID()));
+            ProbeManager("getEntity.committedSame",
+                EntityManager.getEntity(a.getObjectID()).getObjectID()==a.getObjectID());
             ProbeManager("getAllEntities.snapshotSize",iter.size());
             iter=EntityManager.getAllEntities("EntityManagerProbeEntity",iter);
             ProbeManager("getAllEntities.refilledSize",iter.size());
