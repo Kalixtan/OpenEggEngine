@@ -1397,8 +1397,8 @@ int GM_CDECL gmf_entity_setEntityCreationPos(gmThread* a_thread) {
     float x = 0.0f, y = 0.0f;
     if (!GetVector2D(*a_thread->GetMachine(), a_thread->Param(0), x, y))
         return GM_EXCEPTION;
-    self->Set(a_thread->GetMachine(), "__entityCreationPos",
-              MakeVector2D(*a_thread->GetMachine(), x, y));
+    SetEntityNativeField(*a_thread->GetMachine(), self, "__entityCreationPos",
+                         MakeVector2D(*a_thread->GetMachine(), x, y));
     return GM_OK;
 }
 int GM_CDECL gmf_entity_getEntityCreationPos(gmThread* a_thread) {
@@ -1406,7 +1406,7 @@ int GM_CDECL gmf_entity_getEntityCreationPos(gmThread* a_thread) {
     if (!self) return GM_EXCEPTION;
     gmMachine& machine = *a_thread->GetMachine();
     float x = 0.0f, y = 0.0f;
-    gmVariable pos = self->Get(&machine, "__entityCreationPos");
+    gmVariable pos = GetEntityNativeField(machine, self, "__entityCreationPos");
     if (pos.m_type != GM_NULL && !GetVector2D(machine, pos, x, y))
         return GM_EXCEPTION;
     // Retail allocates a fresh Vector2D for each getter call.

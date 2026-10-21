@@ -6,6 +6,7 @@
 #include "vector2d_bindings.h"
 #include <cstdlib>
 #include <cmath>
+#include <string>
 #include <vector>
 
 
@@ -70,7 +71,7 @@ int GM_CDECL gmf_getUniqueLFOID(gmThread* a_thread) {
 
 
 struct AlarmState {
-    gmVariable owner;      // the table addAlarm was called on (Entity or Process handle)
+    gmVariable owner;
     int alarmId = 0;
     float intervalMs = 0.0f;
     float elapsedMs = 0.0f;
@@ -79,10 +80,20 @@ struct AlarmState {
 };
 std::vector<AlarmState> g_alarms;
 
+gmVariable CanonicalOwner(gmMachine& a_machine, const gmVariable& a_owner) {
+    if (a_owner.m_type != GM_TABLE) return a_owner;
+    gmTableObject* table = (gmTableObject*)a_machine.GetObject(a_owner.m_value.m_ref);
+    if (!table) return a_owner;
+    gmVariable behavior = table->Get(&a_machine, "__behaviorOwner");
+    return behavior.m_type == GM_TABLE ? behavior : a_owner;
+}
+
 AlarmState* FindAlarm(gmMachine& a_machine, const gmVariable& a_owner, int a_id) {
+    gmVariable canonical = CanonicalOwner(a_machine, a_owner);
     for (auto& a : g_alarms) {
-        if (a.alarmId == a_id && a.owner.m_type == GM_TABLE && a_owner.m_type == GM_TABLE &&
-            a.owner.m_value.m_ref == a_owner.m_value.m_ref) {
+        gmVariable existingOwner = CanonicalOwner(a_machine, a.owner);
+        if (a.alarmId == a_id && a.owner.m_type == GM_TABLE && canonical.m_type == GM_TABLE &&
+            existingOwner.m_value.m_ref == canonical.m_value.m_ref) {
             return &a;
         }
     }
@@ -192,7 +203,7 @@ int GM_CDECL gmf_addAlarm(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(intervalMs, 1, 0.0f);
     bool startReady = (a_thread->GetNumParams() >= 3) ? (a_thread->ParamInt(2, 0) != 0) : false;
     gmMachine& m = *a_thread->GetMachine();
-    gmVariable owner = gmVariable(self);
+    gmVariable owner = CanonicalOwner(*a_thread->GetMachine(), gmVariable(self));
     AlarmState* existing = FindAlarm(m, owner, id);
     if (existing) {
         existing->intervalMs = intervalMs;
@@ -213,10 +224,10 @@ int GM_CDECL gmf_deleteAlarm(gmThread* a_thread) {
     gmTableObject* self = a_thread->ThisTable();
     if (!self) return GM_OK;
     GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(id, 0, 0);
-    gmVariable owner = gmVariable(self);
+    gmVariable owner = CanonicalOwner(*a_thread->GetMachine(), gmVariable(self));
     for (size_t i = 0; i < g_alarms.size(); ++i) {
         if (g_alarms[i].alarmId == id && g_alarms[i].owner.m_type == GM_TABLE &&
-            g_alarms[i].owner.m_value.m_ref == owner.m_value.m_ref) {
+            CanonicalOwner(*a_thread->GetMachine(), g_alarms[i].owner).m_value.m_ref == owner.m_value.m_ref) {
             g_alarms.erase(g_alarms.begin() + (long)i);
             break;
         }
@@ -229,7 +240,7 @@ int GM_CDECL gmf_getAlarm(gmThread* a_thread) {
     if (!self) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(id, 0, 0);
     gmMachine& m = *a_thread->GetMachine();
-    gmVariable owner = gmVariable(self);
+    gmVariable owner = CanonicalOwner(m, gmVariable(self));
     if (!FindAlarm(m, owner, id)) { a_thread->PushNull(); return GM_OK; }
     a_thread->Push(MakeAlarmHandle(m, owner, id));
     return GM_OK;
@@ -323,12 +334,30 @@ int GM_CDECL gmf_PULSELFO(gmThread* a_thread) { a_thread->Push(MakeLFO(*a_thread
 // "TRIANGLELFO" constructor now (see RegisterScriptCompatBindings's own
 // comment on why this file no longer competes with it).
 
+std::string LfoSlot(int a_id) { return "__lfo_" + std::to_string(a_id); }
+
 int GM_CDECL gmf_addLFO(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(id, 0, 0);
+    gmMachine& machine = *a_thread->GetMachine();
+    gmVariable owner = CanonicalOwner(machine, gmVariable(self));
+    gmTableObject* table = (gmTableObject*)machine.GetObject(owner.m_value.m_ref);
+    if (table) table->Set(&machine, LfoSlot(id).c_str(), a_thread->Param(1));
     a_thread->Push(a_thread->Param(1));
     return GM_OK;
 }
-int GM_CDECL gmf_deleteLFO(gmThread* a_thread) { return GM_OK; }
+int GM_CDECL gmf_deleteLFO(gmThread* a_thread) {
+    gmTableObject* self = a_thread->ThisTable();
+    if (!self) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1); GM_INT_PARAM(id, 0, 0);
+    gmMachine& machine = *a_thread->GetMachine();
+    gmVariable owner = CanonicalOwner(machine, gmVariable(self));
+    gmTableObject* table = (gmTableObject*)machine.GetObject(owner.m_value.m_ref);
+    if (table) table->Set(&machine, LfoSlot(id).c_str(), gmVariable::s_null);
+    return GM_OK;
+}
 
 constexpr float kGameBoardMinX = -2399.0f;
 constexpr float kGameBoardMinY = -1339.0f;
