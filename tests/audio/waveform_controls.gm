@@ -43,7 +43,8 @@ global Main=function(p) {
                 Audio.setVoicePan(this.panRightVoice,1);
             }
             if (this.frame==440) {
-                this.gateVoice=Audio.playSound(path);
+                this.gateVoice=Audio.playSound(
+                    "Platformer/sounds/singlenote/tone.wav");
                 Audio.setVoiceGateTime(this.gateVoice,1);
             }
             if (this.frame==500) {

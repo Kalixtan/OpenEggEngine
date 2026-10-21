@@ -467,7 +467,6 @@ float InterpolatedSample(const void* a_source, ResampleReader a_read,
                         double a_sourceFrame, double a_sourceStep,
                         bool a_loop = false) {
     if (!a_source || !a_read || a_frameCount == 0) return 0.0f;
-    (void)a_sourceStep;
     const double integral = std::floor(a_sourceFrame);
     const int64_t base = static_cast<int64_t>(integral);
     const double fraction = std::clamp(a_sourceFrame - integral, 0.0, 1.0);
@@ -481,9 +480,28 @@ float InterpolatedSample(const void* a_source, ResampleReader a_read,
         return static_cast<size_t>(std::clamp<int64_t>(
             index, 0, static_cast<int64_t>(a_frameCount - 1)));
     };
-    const float first = a_read(a_source, resolveIndex(base), a_channel);
-    const float second = a_read(a_source, resolveIndex(base + 1), a_channel);
-    return static_cast<float>(first + (second - first) * fraction);
+    if (std::fabs(a_sourceStep - 1.0) < 1.0e-6 && fraction == 0.0)
+        return a_read(a_source, resolveIndex(base), a_channel);
+
+    constexpr int radius = 2;
+    const double cutoff = std::min(1.0, 1.0 / std::max(1.0, a_sourceStep));
+    double weighted = 0.0;
+    double weightSum = 0.0;
+    for (int tap = -radius + 1; tap <= radius; ++tap) {
+        const double offset = fraction - tap;
+        if (std::fabs(offset) >= radius) continue;
+        const double scaled = offset * cutoff;
+        const double sinc = std::fabs(scaled) < 1.0e-12
+            ? 1.0 : std::sin(3.14159265358979323846 * scaled) /
+                   (3.14159265358979323846 * scaled);
+        const double window = 0.42 + 0.5 * std::cos(
+            3.14159265358979323846 * offset / radius) +
+            0.08 * std::cos(2.0 * 3.14159265358979323846 * offset / radius);
+        const double weight = cutoff * sinc * window;
+        weighted += a_read(a_source, resolveIndex(base + tap), a_channel) * weight;
+        weightSum += weight;
+    }
+    return weightSum != 0.0 ? static_cast<float>(weighted / weightSum) : 0.0f;
 }
 
 // Retail Slicker stores tempo and pitch as independent controls and feeds the
@@ -921,6 +939,10 @@ void QueueMixedVoices(float a_deltaMs) {
         // hard-pan output is about 2/3 of the decoded PCM amplitude.
         const float gain = std::max(0.0f, voice.volume * voiceGainScale) *
                            (2.0f / 3.0f);
+        // Retail captures show a small level change as playback rate moves
+        // away from unity. Compensate for it in the software mixer.
+        const float rateGain = voice.speed > 0.0f
+            ? static_cast<float>(std::pow(voice.speed, -0.047)) : 1.0f;
         const float panAngle = (pan + 1.0f) * 0.7853981633974483f;
         const float leftPan = std::cos(panAngle);
         const float rightPan = std::sin(panAngle);
@@ -958,8 +980,8 @@ void QueueMixedVoices(float a_deltaMs) {
                 playbackSample->stereo.data(), ReadStereoFloat,
                 soundFrames, 1, sourceFrame, sourceStep,
                 voice.looping || voice.loopCount > 0);
-            mix[(size_t)frame * 2] += leftSample * gain * fade * leftPan;
-            mix[(size_t)frame * 2 + 1] += rightSample * gain * fade * rightPan;
+            mix[(size_t)frame * 2] += leftSample * gain * rateGain * fade * leftPan;
+            mix[(size_t)frame * 2 + 1] += rightSample * gain * rateGain * fade * rightPan;
         }
     }
     for (float& sample : mix) sample = std::clamp(sample, -1.0f, 1.0f);

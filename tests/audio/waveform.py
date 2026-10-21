@@ -20,11 +20,13 @@ import soundfile as sf
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 SOUND = Path("Platformer/sounds/fx/button-high.wav")
+GATE_SOUND = Path("Platformer/sounds/singlenote/tone.wav")
 SUITES = {
-    "basic": ("waveform.gm", ("normal", "half_volume", "pan_left", "pan_right")),
+    "basic": ("waveform.gm", ("normal", "half_volume", "pan_left", "pan_right"), ()),
     "controls": ("waveform_controls.gm", ("speed_half", "speed_double",
                                   "fade_40", "loop_one", "pause_resume",
-                                  "pan_left", "pan_right", "gate_one_ms")),
+                                  "pan_left", "pan_right", "gate_one_ms"),
+                 (GATE_SOUND,)),
 }
 RATE = 48000
 RESULTS = ROOT / "tests/_results/audio/waveforms"
@@ -63,13 +65,16 @@ def save_cases(raw, target, cases, fixed_spacing=False):
     return starts / RATE
 
 
-def capture_retail(args, sound, target, probe, cases):
+def capture_retail(args, sound, extra_sounds, target, probe, cases):
     main = args.main.resolve()
     eboot = args.eboot.resolve()
     if not main.is_file() or not eboot.is_file():
         raise RuntimeError("--main and --eboot must point to the installed PS3 game")
     if not (main.parent / SOUND).is_file():
         raise RuntimeError(f"retail sample missing beside Main.gm: {SOUND}")
+    for relative in extra_sounds:
+        if not (main.parent / relative).is_file():
+            raise RuntimeError(f"retail sample missing beside Main.gm: {relative}")
     original = main.read_bytes()
     if b"global Main" not in probe.read_bytes():
         raise RuntimeError("waveform probe has no Main entry point")
@@ -136,18 +141,24 @@ def capture_retail(args, sound, target, probe, cases):
                         args.suite == "controls")
     (target / "retail.json").write_text(json.dumps({
         "probe_sha256": sha(probe), "sound_sha256": sha(sound),
+        "extra_sound_sha256": {str(relative): sha(args.game_data / relative)
+                                for relative in extra_sounds},
         "eboot_sha256": sha(eboot), "rate": RATE,
         "cases": list(cases), "onsets_s": starts.tolist(),
     }, indent=2) + "\n")
 
 
-def capture_openegg(args, sound, target, probe, cases):
+def capture_openegg(args, sound, extra_sounds, target, probe, cases):
     target.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="openegg-wave-data-") as temporary:
         root = Path(temporary)
         sample = root / SOUND
         sample.parent.mkdir(parents=True)
         shutil.copyfile(sound, sample)
+        for relative in extra_sounds:
+            extra = root / relative
+            extra.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(args.game_data.resolve() / relative, extra)
         shutil.copyfile(probe, root / probe.name)
         harness = root / "waveform.harness"
         harness.write_text(f"wait {60 * len(cases) + 40}\nquit\n")
@@ -199,6 +210,17 @@ def compare(target, cases, report):
                     b = b[-shift:]
                     retail = retail[:shift]
                     local = local[-shift:]
+                retail_active = np.flatnonzero(maximum_filter1d(
+                    np.max(np.abs(retail), axis=1), size=240) > 0.008)
+                local_active = np.flatnonzero(maximum_filter1d(
+                    np.max(np.abs(local), axis=1), size=240) > 0.008)
+                if len(retail_active) and len(local_active):
+                    start = max(retail_active[0], local_active[0])
+                    end = min(retail_active[-1], local_active[-1]) + 1
+                    retail = retail[start:end]
+                    local = local[start:end]
+                    a = retail.mean(axis=1)
+                    b = local.mean(axis=1)
                 correlation = float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
         rms = lambda x: float(np.sqrt(np.mean(x * x)))
         def ratio(reference, actual):
@@ -234,7 +256,7 @@ def main():
     parser.add_argument("--rpcs3", type=Path, default=Path("/usr/bin/rpcs3"))
     parser.add_argument("--timeout", type=int, default=45)
     args = parser.parse_args()
-    probe_name, cases = SUITES[args.suite]
+    probe_name, cases, extra_sounds = SUITES[args.suite]
     probe = HERE / probe_name
     target = RESULTS if args.suite == "basic" else RESULTS / args.suite
     report = ROOT / "reports" / ("AUDIO_WAVEFORM.md" if args.suite == "basic"
@@ -242,18 +264,24 @@ def main():
     sound = args.game_data.resolve() / SOUND
     if not sound.is_file():
         parser.error(f"sound missing: {sound}")
+    for relative in extra_sounds:
+        if not (args.game_data.resolve() / relative).is_file():
+            parser.error(f"sound missing: {args.game_data.resolve() / relative}")
     if args.capture_retail:
         if not args.main or not args.eboot:
             parser.error("--capture-retail requires --main and --eboot")
-        capture_retail(args, sound, target, probe, cases)
+        capture_retail(args, sound, extra_sounds, target, probe, cases)
     metadata = target / "retail.json"
     if not metadata.is_file():
         parser.error("no saved retail capture; run with --capture-retail")
     saved = json.loads(metadata.read_text())
     if (saved["probe_sha256"] != sha(probe) or
-            saved["sound_sha256"] != sha(sound) or saved["cases"] != list(cases)):
+            saved["sound_sha256"] != sha(sound) or
+            saved.get("extra_sound_sha256", {}) != {
+                str(relative): sha(args.game_data.resolve() / relative)
+                for relative in extra_sounds} or saved["cases"] != list(cases)):
         parser.error("retail capture uses a different probe or sample; recapture it")
-    capture_openegg(args, sound, target, probe, cases)
+    capture_openegg(args, sound, extra_sounds, target, probe, cases)
     return compare(target, cases, report)
 
 
