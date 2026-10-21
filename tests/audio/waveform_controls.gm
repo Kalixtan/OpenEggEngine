@@ -7,6 +7,7 @@ global Main=function(p) {
         pausedVoice=0,
         panLeftVoice=0,
         panRightVoice=0,
+        gateVoice=0,
         constructor=function(){},
         init=function(){return true;},
         update=function() {
@@ -42,6 +43,10 @@ global Main=function(p) {
                 Audio.setVoicePan(this.panRightVoice,1);
             }
             if (this.frame==440) {
+                this.gateVoice=Audio.playSound(path);
+                Audio.setVoiceGateTime(this.gateVoice,1);
+            }
+            if (this.frame==500) {
                 GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
             }
             this.frame+=1;
