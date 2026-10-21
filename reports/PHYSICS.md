@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 20:24 UTC
+Generated: 2026-10-21 23:19 UTC
 
-Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 15 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **292/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -161,20 +161,20 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
-| `ALARM.getAlarmPercentage` | 1 | 1 | PASS |
+| `ALARM.getAlarmPercentage` | 1 | 3 | AWAITING RETAIL |
 | `ALARM.getInterval` | 1 | 1 | PASS |
-| `ALARM.getMSElapsed` | 3 | 3 | PASS |
+| `ALARM.getMSElapsed` | 3 | 4 | AWAITING RETAIL |
 | `ALARM.getTimeTillAlarm` | 1 | 1 | PASS |
 | `ALARM.hardReset` | 1 | 1 | PASS |
 | `ALARM.isAlarming` | 2 | 2 | PASS |
 | `ALARM.isEnabled` | 2 | 2 | PASS |
-| `ALARM.phaseReset` | 1 | 1 | PASS |
+| `ALARM.phaseReset` | 1 | 3 | AWAITING RETAIL |
 | `ALARM.randomReset` | 2 | 2 | PASS |
 | `ALARM.reset` | 2 | 2 | PASS |
 | `ALARM.setInterval` | 4 | 4 | PASS |
 | `ALARM.setIntervalAndHardReset` | 1 | 1 | PASS |
 | `ALARM.setIsEnabled` | 1 | 1 | PASS |
-| `ALARM.update` | 3 | 3 | PASS |
+| `ALARM.update` | 3 | 5 | AWAITING RETAIL |
 | `Entity.addAlarm` | 0 | 0 | untested |
 | `Entity.addLFO` | 0 | 0 | untested |
 | `Entity.addTelescope` | 1 | 1 | PASS |
@@ -371,11 +371,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
 | `LFO.getValue` | 1 | 1 | PASS |
 | `LFO.setContour` | 2 | 2 | PASS |
-| `LFO.setPhase` | 4 | 4 | PASS |
+| `LFO.setPhase` | 4 | 6 | AWAITING RETAIL |
 | `LFO.setRandomPhase` | 0 | 0 | untested |
 | `LFO.setRange` | 1 | 1 | PASS |
-| `LFO.setRate` | 4 | 4 | PASS |
-| `LFO.update` | 1 | 1 | PASS |
+| `LFO.setRate` | 4 | 5 | AWAITING RETAIL |
+| `LFO.update` | 1 | 3 | AWAITING RETAIL |
 | `Physics.createJoint` | 5 | 5 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
 | `Physics.deleteJoint` | 0 | 0 | untested |
@@ -759,8 +759,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | GameMonkey's table-member existence operator cannot report engine type-library methods. |
 | `Entity.getMainBody` | entityState.mainBody | `fixture-limited` | `fixture-limited` | Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result. |
 | `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
-| `Entity.getWhichSide` | entityState.whichSideNegative | `null` | `0` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
 | `Entity.getWhichSide` | entityState.whichSideBehind | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
+| `Entity.getWhichSide` | entityState.whichSideNegative | `null` | `0` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
 
 ## OpenEgg-only functions
 
@@ -778,6 +778,18 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 
 | Function | Case | OpenEgg | Note |
 | --- | --- | --- | --- |
+| `ALARM.getMSElapsed` | entityState.alarmLargeStepElapsed | `250.000000` | No retail reading captured. |
+| `ALARM.getAlarmPercentage` | entityState.alarmLargeStepPercentage | `1.000000` | No retail reading captured. |
+| `ALARM.update` | entityState.alarmLargeStepReady | `1` | No retail reading captured. |
+| `ALARM.phaseReset` | entityState.alarmNegativePhase | `0.000000` | No retail reading captured. |
+| `ALARM.phaseReset` | entityState.alarmPhaseAboveOne | `100.000000` | No retail reading captured. |
+| `ALARM.getAlarmPercentage` | entityState.alarmZeroIntervalPercentage | `0.000000` | No retail reading captured. |
+| `ALARM.update` | entityState.alarmZeroIntervalReady | `1` | No retail reading captured. |
+| `LFO.update` | entityState.lfoNegativeDelta | `3.500000` | No retail reading captured. |
+| `LFO.setPhase` | entityState.lfoNegativePhase | `3.500000` | No retail reading captured. |
+| `LFO.setPhase` | entityState.lfoPhaseAboveOne | `2.500000` | No retail reading captured. |
+| `LFO.update` | entityState.lfoZeroDelta | `2.500000` | No retail reading captured. |
+| `LFO.setRate` | entityState.lfoZeroRate | `3.500000` | No retail reading captured. |
 | `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
@@ -5440,20 +5452,20 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Entity.isGot` | entityState.gotSet | `1` | `1` | PASS |
 | `Entity.isInvisible` | entityState.invisible | `1` | `1` | PASS |
 | `Entity.isType` | entityState.isType | `1` | `1` | PASS |
-| `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
-| `LFO.setRate` | entityState.lfoRate | `50.000000` | `50.000000` | PASS |
+| `LFO.setContour` | entityState.lfoContourAfter | `0.750000` | `0.750000` | PASS |
+| `LFO.setContour` | entityState.lfoContourBefore | `-0.250000` | `-0.250000` | PASS |
 | `Global.TRIANGLELFO` | entityState.lfoObjectNonNull | `1` | `1` | PASS |
-| `LFO.setRate` | entityState.lfoRate50 | `12.500000` | `12.500000` | PASS |
+| `LFO.setRange` | entityState.lfoPhase0 | `-1.000000` | `-1.000000` | PASS |
+| `LFO.setPhase` | entityState.lfoPhaseHalf | `0.000000` | `0.000000` | PASS |
+| `LFO.setPhase` | entityState.lfoPhaseQuarter | `-0.500000` | `-0.500000` | PASS |
+| `LFO.setPhase` | entityState.lfoPhaseThreeQuarter | `0.500000` | `0.500000` | PASS |
+| `LFO.setRate` | entityState.lfoRate | `50.000000` | `50.000000` | PASS |
 | `LFO.setRate` | entityState.lfoRate100 | `25.000000` | `25.000000` | PASS |
 | `LFO.setRate` | entityState.lfoRate400 | `100.000000` | `100.000000` | PASS |
-| `LFO.setRange` | entityState.lfoPhase0 | `-1.000000` | `-1.000000` | PASS |
-| `LFO.setPhase` | entityState.lfoPhaseQuarter | `-0.500000` | `-0.500000` | PASS |
-| `LFO.setPhase` | entityState.lfoPhaseHalf | `0.000000` | `0.000000` | PASS |
-| `LFO.setPhase` | entityState.lfoPhaseThreeQuarter | `0.500000` | `0.500000` | PASS |
-| `LFO.setContour` | entityState.lfoContourBefore | `-0.250000` | `-0.250000` | PASS |
-| `LFO.setContour` | entityState.lfoContourAfter | `0.750000` | `0.750000` | PASS |
+| `LFO.setRate` | entityState.lfoRate50 | `12.500000` | `12.500000` | PASS |
 | `LFO.update` | entityState.lfoUpdatedValue | `0.500000` | `0.500000` | PASS |
 | `LFO.getValue` | entityState.lfoValue | `-0.500000` | `-0.500000` | PASS |
+| `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
 | `Entity.getMixerID` | entityState.mixerID | `7` | `7` | PASS |
 | `Entity.is_getAudibilityPerc_neverOnScreen` | entityState.neverOnScreen | `1` | `1` | PASS |
 | `Entity.isOkToRun` | entityState.notOkToRun | `1` | `1` | PASS |
