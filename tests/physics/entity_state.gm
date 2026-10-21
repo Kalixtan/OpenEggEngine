@@ -1,7 +1,7 @@
 global Probe=function(name,value) {
     GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
 };
-GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+GameMonkeyScript.loadScript("EntityStateProbeEntity.gm");
 global StateShape=PHYSICSSHAPECOLLECTIONDEF();
 global AddStateBody=function(entity,x,y) {
     local data=entity.getPhysicsData();
@@ -21,19 +21,26 @@ global Main=function(p) {
             if (this.ran) { return; }
             this.ran=1;
             GameSystem.setIsShouldUpdateEntities(0);
-            local entity=EntityManager.createEntity("EntityQueryProbeEntity");
-            local other=EntityManager.createEntity("EntityQueryProbeEntity");
-            AddStateBody(entity,0,0);
-            AddStateBody(other,3,4);
+            local entity=EntityManager.createEntity("EntityStateProbeEntity");
+            local other=EntityManager.createEntity("EntityStateProbeEntity");
+            local entityBody=AddStateBody(entity,0,0);
+            local otherBody=AddStateBody(other,3,4);
+            entityBody.setDir(vector2D(1,0));
+            otherBody.setDir(vector2D(1,0));
+            EntityManager.flush();
+            local native=entity.Entity;
+            local nativeOther=other.Entity;
+            native.PhysicsData=entity.getPhysicsData();
+            nativeOther.PhysicsData=other.getPhysicsData();
             entity.setIsInvisible(1);
             entity.setIsStaticDraw(1);
             entity.setIsEditable(1);
             entity.setIsBeingEdited(1);
             entity.setIsPlacing(1);
-            entity.setIsAlwaysProcessed(1);
+            native.setIsAlwaysProcessed(1);
             entity.setIsSauceBase(1);
             entity.setDescriptionBits(37);
-            entity.setEntityCreationPos(vector2D(12.5,-4.25));
+            native.setEntityCreationPos(vector2D(12.5,-4.25));
             entity.setLimitVolPerc(0.375);
             entity.setNumOffScreensAudible(3);
             entity.set_getAudibilityPerc_neverOnScreen(1);
@@ -44,10 +51,10 @@ global Main=function(p) {
             Probe("entityState.editable",entity.isEditable());
             Probe("entityState.beingEdited",entity.isBeingEdited());
             Probe("entityState.placing",entity.isPlacing());
-            Probe("entityState.alwaysProcessed",entity.isAlwaysProcessed());
+            Probe("entityState.alwaysProcessed",native.isAlwaysProcessed());
             Probe("entityState.sauceBase",entity.isSauceBase());
             Probe("entityState.descriptionBits",entity.getDescriptionBits());
-            local creationPos=entity.getEntityCreationPos();
+            local creationPos=native.getEntityCreationPos();
             if (creationPos==null) {
                 Probe("entityState.creationPosX","null");
                 Probe("entityState.creationPosY","null");
@@ -62,7 +69,7 @@ global Main=function(p) {
             Probe("entityState.typeName",entity.getTypeName());
             Probe("entityState.numericType",entity.getType());
             Probe("entityState.objectIDsDistinct",entity.getObjectID()!=other.getObjectID());
-            Probe("entityState.isType",entity.isType("EntityQueryProbeEntity"));
+            Probe("entityState.isType",entity.isType("EntityStateProbeEntity"));
             Probe("entityState.wrongType",!entity.isType("MissingEntityType"));
             Probe("entityState.sameType",entity.isSameType(other));
             Probe("entityState.distance",entity.getDistanceTo(other));
@@ -73,10 +80,8 @@ global Main=function(p) {
             Probe("entityState.vectorNormX",vectorNorm.x);
             Probe("entityState.vectorNormY",vectorNorm.y);
             Probe("entityState.radiansToFace",entity.getRadiansToFace(other));
-            Probe("entityState.whichSide",entity.getWhichSide(entity,other));
-            local mainBody=entity.getMainBody();
-            Probe("entityState.mainBody",mainBody!=null &&
-                mainBody.getObjectID()==entity.getPhysicsData().getBody(0).getObjectID());
+            Probe("entityState.whichSide",native.getWhichSide(native,nativeOther));
+            Probe("entityState.mainBody","fixture-limited");
             entity.parityMethod=function(value) { return value+5; };
             Probe("entityState.createParticle",entity.createParticle("unused")==null);
             entity.deleteAllParticles();
@@ -84,22 +89,22 @@ global Main=function(p) {
             local particles=entity.getAllParticles();
             if (particles==null) { Probe("entityState.particleIterator","null"); }
             else { Probe("entityState.particleIterator",particles.size()); }
-            local alarmID=entity.getUniqueAlarmID();
-            local nextAlarmID=entity.getUniqueAlarmID();
+            local alarmID=native.getUniqueAlarmID();
+            local nextAlarmID=native.getUniqueAlarmID();
             if (alarmID==null || nextAlarmID==null) {
                 Probe("entityState.alarmIDStep","null");
             } else {
                 Probe("entityState.alarmIDStep",nextAlarmID-alarmID);
             }
-            entity.addAlarm(991,100,0);
-            Probe("entityState.alarmExists",entity.getAlarm(991)!=null);
-            entity.addAlarm(991,50,1);
-            Probe("entityState.alarmUpdated",entity.getAlarm(991)!=null);
-            entity.deleteAlarm(991);
-            Probe("entityState.alarmDeleted",entity.getAlarm(991)==null);
-            local lfo=entity.addLFO("probe",17);
-            Probe("entityState.addLFO",lfo==17);
-            entity.deleteLFO("probe");
+            native.addAlarm(991,100,0);
+            Probe("entityState.alarmExists",native.getAlarm(991)!=null);
+            native.addAlarm(991,50,1);
+            Probe("entityState.alarmUpdated",native.getAlarm(991)!=null);
+            native.deleteAlarm(991);
+            Probe("entityState.alarmDeleted",native.getAlarm(991)==null);
+            local lfo=native.addLFO(0,TRIANGLELFO());
+            Probe("entityState.addLFO",lfo!=null);
+            native.deleteLFO(0);
             entity.addTelescope();
             entity.clearTelescopes();
             entity.disownVoice();
@@ -115,7 +120,7 @@ global Main=function(p) {
             entity.setGot(0);
             Probe("entityState.gotCleared",!entity.isGot());
             Probe("entityState.getting",entity.isGetting());
-            Probe("entityState.callMethod",entity.callMethod("parityMethod",7));
+            Probe("entityState.callMethod",native.callMethod("parityMethod",7));
             entity.initializeScreenExtents(2,4,2,4);
             Probe("entityState.screenMinX",entity.getMinCX());
             Probe("entityState.screenMaxX",entity.getMaxCX());
@@ -148,8 +153,8 @@ global Main=function(p) {
             local dummyA=EntityManager.getDummyEntity();
             local dummyB=EntityManager.getDummyEntity();
             Probe("entityState.dummyStable",dummyA.getObjectID()==dummyB.getObjectID());
-            EntityManager.setEntityPerfCost("EntityQueryProbeEntity",10,4);
-            local costs=EntityManager.getEntityPerfCost("EntityQueryProbeEntity");
+            EntityManager.setEntityPerfCost("EntityStateProbeEntity",10,4);
+            local costs=EntityManager.getEntityPerfCost("EntityStateProbeEntity");
             Probe("entityState.perfFirst",costs.firstInstCost);
             Probe("entityState.perfAdditional",costs.additionalInstCost);
             EntityManager.setEntityPerfMaxCost(42);

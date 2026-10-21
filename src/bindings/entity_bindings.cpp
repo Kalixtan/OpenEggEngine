@@ -124,7 +124,8 @@ std::unordered_map<std::string, int>& TypeIdRegistry() {
     return registry;
 }
 int& NextTypeId() {
-    static int next = 0;
+    // Retail reserves zero for an unregistered entity type.
+    static int next = 1;
     return next;
 }
 
@@ -158,7 +159,7 @@ int GM_CDECL gmf_ENTITY_GetTypeName(gmThread* a_thread) {
     }
     if (!found && !TypeIdRegistry().empty()) {
         for (const auto& entry : TypeIdRegistry()) {
-            if (entry.second == 0) {
+            if (entry.second == 1) {
                 name = entry.first;
                 break;
             }
@@ -1173,8 +1174,8 @@ int GM_CDECL gmf_entity_getRadiansToFace(gmThread* a_thread) {
         !GetPhysicsDataFacingDirection(machine, selfPhysics, facingX, facingY))
         return GM_EXCEPTION;
 
-    const float targetAngle = RetailAtan2(otherY - selfY, otherX - selfX);
-    const float facingAngle = RetailAtan2(facingY, facingX);
+    const float targetAngle = std::atan2(otherY - selfY, otherX - selfX);
+    const float facingAngle = std::atan2(facingY, facingX);
     float difference = std::fabs(targetAngle - facingAngle);
     constexpr float kPi = 3.141592741f;
     constexpr float kTwoPi = 6.283185482f;
@@ -2370,15 +2371,14 @@ void PushEntityListIterator(gmThread* a_thread, std::vector<gmVariable> a_entiti
 void AppendCommittedEntityToIterators(gmMachine& a_machine, const gmVariable& a_entity);
 void RemoveEntityFromIterators(const gmVariable& a_entity);
 int GM_CDECL gmf_entity_getAllParticles(gmThread* a_thread) {
-    // No local ParticleManager lists exist yet; return the same empty iterator
-    // shape used by EntityManager queries until its native list writers land.
-    PushEntityListIterator(a_thread, {});
+    // The retail getter returns null until the ParticleManager list exists.
+    a_thread->PushNull();
     return GM_OK;
 }
 int GM_CDECL gmf_entity_getNumParticles(gmThread* a_thread) {
-    // Retail reads the first ParticleManager list's count. The local manager
-    // currently has no particle-list writers, so its represented count is 0.
-    a_thread->PushInt(0);
+    // No local ParticleManager list exists yet, matching retail's null result
+    // for an uninitialized particle manager.
+    a_thread->PushNull();
     return GM_OK;
 }
 
@@ -2559,7 +2559,9 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     if (a_table->Get(&a_machine, "setIsAlwaysMusicTriggered").m_type != GM_FUNCTION)
         a_table->Set(&a_machine, "setIsAlwaysMusicTriggered",
             gmVariable(a_machine.AllocFunctionObject(gmf_entity_delegate_setIsAlwaysMusicTriggered)));
-    a_table->Set(&a_machine, "getMainBody", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getMainBody)));
+    if (a_table->Get(&a_machine, "getMainBody").m_type != GM_FUNCTION)
+        a_table->Set(&a_machine, "getMainBody",
+            gmVariable(a_machine.AllocFunctionObject(gmf_entity_getMainBody)));
     a_table->Set(&a_machine, "getEntityCreationPos", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getEntityCreationPos)));
     a_table->Set(&a_machine, "setEntityCreationPos", gmVariable(a_machine.AllocFunctionObject(gmf_entity_setEntityCreationPos)));
     a_table->Set(&a_machine, "getDistanceTo", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getDistanceTo)));
@@ -2610,7 +2612,9 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     if (a_table->Get(&a_machine, "isGot").m_type != GM_FUNCTION)
         a_table->Set(&a_machine, "isGot",
             gmVariable(a_machine.AllocFunctionObject(gmf_entity_isGot)));
-    a_table->Set(&a_machine, "isGetting", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isGetting)));
+    if (a_table->Get(&a_machine, "isGetting").m_type != GM_FUNCTION)
+        a_table->Set(&a_machine, "isGetting",
+            gmVariable(a_machine.AllocFunctionObject(gmf_entity_isGetting)));
     a_table->Set(&a_machine, "getCurrentScreenY", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getCurrentScreenY)));
     a_table->Set(&a_machine, "getCurrentScreenX", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getCurrentScreenX)));
     a_table->Set(&a_machine, "isPlayer", gmVariable(a_machine.AllocFunctionObject(gmf_entity_isPlayer)));

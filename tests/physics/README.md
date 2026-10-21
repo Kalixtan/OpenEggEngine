@@ -58,7 +58,7 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --baseline tests/physics/entity_manager-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_state.gm \
-  --support-file tests/physics/EntityQueryProbeEntity.gm \
+  --support-file tests/physics/EntityStateProbeEntity.gm \
   --expected tests/physics/entity_state-plan.json \
   --baseline tests/physics/entity_state-retail.tsv
 python3 tests/physics/compare.py

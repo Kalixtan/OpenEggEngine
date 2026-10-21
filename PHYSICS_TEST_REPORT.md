@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 14:05 UTC
+Generated: 2026-10-21 14:39 UTC
 
-Matched: **4759/4774 comparable readings (99.7%)**. 1 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4765/4773 comparable readings (99.8%)**. 2 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **269/434**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **268/434**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -105,7 +105,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.drawExplosionIfGot` | 0 | 0 | untested |
 | `Entity.forceAudibilityRecalc` | 1 | 1 | PASS |
 | `Entity.getAlarm` | 2 | 6 | FAIL |
-| `Entity.getAllParticles` | 0 | 1 | FAIL |
+| `Entity.getAllParticles` | 1 | 1 | PASS |
 | `Entity.getAudibilityPerc` | 0 | 0 | untested |
 | `Entity.getCurrentScreenX` | 0 | 0 | untested |
 | `Entity.getCurrentScreenY` | 0 | 0 | untested |
@@ -113,7 +113,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getDistanceTo` | 1 | 1 | PASS |
 | `Entity.getEntityCreationPos` | 0 | 2 | FAIL |
 | `Entity.getLimitVolPerc` | 1 | 1 | PASS |
-| `Entity.getMainBody` | 0 | 1 | FAIL |
+| `Entity.getMainBody` | 0 | 0 | untested |
 | `Entity.getMaxCX` | 1 | 1 | PASS |
 | `Entity.getMaxCY` | 1 | 1 | PASS |
 | `Entity.getMinCX` | 1 | 1 | PASS |
@@ -121,12 +121,12 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getMixerID` | 1 | 1 | PASS |
 | `Entity.getMixerParams` | 0 | 0 | untested |
 | `Entity.getNumOffScreensAudible` | 1 | 1 | PASS |
-| `Entity.getNumParticles` | 0 | 1 | FAIL |
+| `Entity.getNumParticles` | 1 | 1 | PASS |
 | `Entity.getObjectID` | 2 | 2 | PASS |
 | `Entity.getPhysicsData` | 1 | 1 | PASS |
-| `Entity.getRadiansToFace` | 0 | 1 | FAIL |
+| `Entity.getRadiansToFace` | 1 | 1 | PASS |
 | `Entity.getStyle` | 0 | 0 | untested |
-| `Entity.getType` | 0 | 1 | FAIL |
+| `Entity.getType` | 1 | 1 | PASS |
 | `Entity.getTypeName` | 1 | 1 | PASS |
 | `Entity.getUID` | 0 | 0 | untested |
 | `Entity.getUniqueAlarmID` | 2 | 2 | PASS |
@@ -143,8 +143,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.isBoundedToGameBoard` | 0 | 0 | untested |
 | `Entity.isEditable` | 1 | 1 | PASS |
 | `Entity.isEnabled` | 7 | 7 | PASS |
-| `Entity.isGetting` | 0 | 1 | FAIL |
-| `Entity.isGot` | 2 | 3 | FAIL |
+| `Entity.isGetting` | 1 | 1 | PASS |
+| `Entity.isGot` | 3 | 3 | PASS |
 | `Entity.isGround` | 0 | 0 | untested |
 | `Entity.isInGameBoard` | 0 | 0 | untested |
 | `Entity.isInView` | 0 | 0 | untested |
@@ -176,7 +176,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.setDescriptionBits` | 1 | 1 | PASS |
 | `Entity.setEditSensorBox` | 0 | 0 | untested |
 | `Entity.setEntityCreationPos` | 0 | 2 | FAIL |
-| `Entity.setGot` | 1 | 2 | FAIL |
+| `Entity.setGot` | 2 | 2 | PASS |
 | `Entity.setIsAlwaysMusicTriggered` | 0 | 0 | untested |
 | `Entity.setIsAlwaysProcessed` | 1 | 2 | FAIL |
 | `Entity.setIsAutoRemove` | 0 | 0 | untested |
@@ -539,6 +539,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | Function | Case | Retail | OpenEgg | Reason |
 | --- | --- | --- | --- | --- |
 | `Entity.getUID` | entityQ.id.managerUID | `null` | `91001` | The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately. |
+| `Entity.getMainBody` | entityState.mainBody | `fixture-limited` | `fixture-limited` | Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result. |
 
 ## OpenEgg-only functions
 
@@ -5160,7 +5161,7 @@ These extensions have no corresponding retail method and are excluded from the p
 | `EntityManager.getAllEntities` | entityQ.iterator.resetFirst | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedSnapshotSizeStable | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedEntryNull | `1` | `1` | PASS |
-| `Entity.addLFO` | entityState.addLFO | `null` | `1` | FAIL |
+| `Entity.addLFO` | entityState.addLFO | `0` | `1` | FAIL |
 | `Entity.getAlarm` | entityState.alarmDeleted | `1` | `1` | PASS |
 | `Entity.getAlarm` | entityState.alarmExists | `0` | `1` | FAIL |
 | `Entity.getUniqueAlarmID` | entityState.alarmIDStep | `null` | `null` | PASS |
@@ -5178,32 +5179,31 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.getDistanceTo` | entityState.distance | `5.000000` | `5.000000` | PASS |
 | `EntityManager.getDummyEntity` | entityState.dummyStable | `1` | `1` | PASS |
 | `Entity.isEditable` | entityState.editable | `1` | `1` | PASS |
-| `Entity.isGetting` | entityState.getting | `null` | `0` | FAIL |
+| `Entity.isGetting` | entityState.getting | `0` | `0` | PASS |
 | `Entity.isGot` | entityState.gotCleared | `1` | `1` | PASS |
 | `Entity.isGot` | entityState.gotDefault | `1` | `1` | PASS |
-| `Entity.isGot` | entityState.gotSet | `null` | `1` | FAIL |
+| `Entity.isGot` | entityState.gotSet | `1` | `1` | PASS |
 | `Entity.isInvisible` | entityState.invisible | `1` | `1` | PASS |
 | `Entity.isType` | entityState.isType | `1` | `1` | PASS |
 | `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
-| `Entity.getMainBody` | entityState.mainBody | `0` | `1` | FAIL |
 | `Entity.getMixerID` | entityState.mixerID | `7` | `7` | PASS |
 | `Entity.is_getAudibilityPerc_neverOnScreen` | entityState.neverOnScreen | `1` | `1` | PASS |
 | `Entity.isOkToRun` | entityState.notOkToRun | `1` | `1` | PASS |
-| `Entity.getType` | entityState.numericType | `1` | `0` | FAIL |
+| `Entity.getType` | entityState.numericType | `1` | `1` | PASS |
 | `Entity.getObjectID` | entityState.objectIDsDistinct | `1` | `1` | PASS |
 | `Entity.getNumOffScreensAudible` | entityState.offScreensAudible | `3` | `3` | PASS |
 | `Entity.isOkToRun` | entityState.okToRun | `1` | `1` | PASS |
 | `Entity.isOnScreen` | entityState.onScreenInside | `1` | `1` | PASS |
 | `Entity.isOnScreen` | entityState.onScreenOutside | `1` | `1` | PASS |
 | `EntityManager.isEntityIDValid` | entityState.otherDeleted | `1` | `1` | PASS |
-| `Entity.getNumParticles` | entityState.particleCount | `null` | `0` | FAIL |
-| `Entity.getAllParticles` | entityState.particleIterator | `null` | `0` | FAIL |
+| `Entity.getNumParticles` | entityState.particleCount | `null` | `null` | PASS |
+| `Entity.getAllParticles` | entityState.particleIterator | `null` | `null` | PASS |
 | `EntityManager.getEntityPerfCost` | entityState.perfAdditional | `4` | `4` | PASS |
 | `EntityManager.getEntityPerfCost` | entityState.perfFirst | `10` | `10` | PASS |
 | `EntityManager.getEntityPerfMaxCost` | entityState.perfMax | `42` | `42` | PASS |
 | `EntityManager.getEntityPerfCost` | entityState.perfMissing | `0` | `0` | PASS |
 | `Entity.isPlacing` | entityState.placing | `1` | `1` | PASS |
-| `Entity.getRadiansToFace` | entityState.radiansToFace | `0.927295` | `0.925393` | FAIL |
+| `Entity.getRadiansToFace` | entityState.radiansToFace | `0.927295` | `0.927295` | PASS |
 | `Entity.isSameType` | entityState.sameType | `1` | `1` | PASS |
 | `Entity.isSauceBase` | entityState.sauceBase | `1` | `1` | PASS |
 | `Entity.getMaxCX` | entityState.screenMaxX | `4` | `4` | PASS |
@@ -5211,7 +5211,7 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.getMinCX` | entityState.screenMinX | `2` | `2` | PASS |
 | `Entity.getMinCY` | entityState.screenMinY | `2` | `2` | PASS |
 | `Entity.isStaticDraw` | entityState.staticDraw | `1` | `1` | PASS |
-| `Entity.getTypeName` | entityState.typeName | `EntityQueryProbeEntity` | `EntityQueryProbeEntity` | PASS |
+| `Entity.getTypeName` | entityState.typeName | `EntityStateProbeEntity` | `EntityStateProbeEntity` | PASS |
 | `Entity.getVectorToNormalized` | entityState.vectorNormX | `0.600000` | `0.600000` | PASS |
 | `Entity.getVectorToNormalized` | entityState.vectorNormY | `0.800000` | `0.800000` | PASS |
 | `Entity.getVectorTo` | entityState.vectorToX | `3.000000` | `3.000000` | PASS |

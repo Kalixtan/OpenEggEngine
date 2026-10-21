@@ -1,0 +1,8 @@
+global EntityStateProbeEntity=function(handle) {
+    return table(Entity=handle,matrixTag="",got=0,
+        constructor=function() {},
+        configure=function() { return true; },
+        setGot=function(flag) { this.got=flag; },
+        isGot=function() { return this.got; },
+        isGetting=function() { return false; });
+};

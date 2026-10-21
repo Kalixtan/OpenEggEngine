@@ -60,6 +60,7 @@ ENTITY_QUERIES_SUPPORT = HERE / "EntityQueryProbeEntity.gm"
 ENTITY_STATE = HERE / "entity_state.gm"
 ENTITY_STATE_PLAN = HERE / "entity_state-plan.json"
 ENTITY_STATE_BASELINE = HERE / "entity_state-retail.tsv"
+ENTITY_STATE_SUPPORT = HERE / "EntityStateProbeEntity.gm"
 BODY_CONTROLS = HERE / "body_controls.gm"
 BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
@@ -515,7 +516,7 @@ def main():
                                             (ENTITY_QUERIES_SUPPORT,)),
                                            (ENTITY_STATE, ENTITY_STATE_BASELINE,
                                             ENTITY_STATE_PLAN,
-                                            (ENTITY_QUERIES_SUPPORT,)),
+                                            (ENTITY_STATE_SUPPORT,)),
                                            (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
                                             BODY_CONTROLS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,))):

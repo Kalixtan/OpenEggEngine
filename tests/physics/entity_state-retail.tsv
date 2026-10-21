@@ -1,6 +1,6 @@
-# probe-sha256 00b915048a72187cee947f33a4ceda38e80b25ab025e962cf2bf7743280cd9cc
-# support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
-entityState.addLFO	null
+# probe-sha256 7047cf9d8a05811ce30ea9b55332a8aecbc0a6110abb80ca173a66e0ea7d3bf4
+# support-sha256 EntityStateProbeEntity.gm 6053836e3665758db2642bcc9588e072ae938d5bd44d85611c0e1975195d3dfe
+entityState.addLFO	0
 entityState.alarmDeleted	1
 entityState.alarmExists	0
 entityState.alarmIDStep	null
@@ -18,14 +18,14 @@ entityState.descriptionBits	37
 entityState.distance	5.000000
 entityState.dummyStable	1
 entityState.editable	1
-entityState.getting	null
+entityState.getting	0
 entityState.gotCleared	1
 entityState.gotDefault	1
-entityState.gotSet	null
+entityState.gotSet	1
 entityState.invisible	1
 entityState.isType	1
 entityState.limitVolPerc	0.375000
-entityState.mainBody	0
+entityState.mainBody	fixture-limited
 entityState.mixerID	7
 entityState.neverOnScreen	1
 entityState.notOkToRun	1
@@ -51,7 +51,7 @@ entityState.screenMaxY	4
 entityState.screenMinX	2
 entityState.screenMinY	2
 entityState.staticDraw	1
-entityState.typeName	EntityQueryProbeEntity
+entityState.typeName	EntityStateProbeEntity
 entityState.vectorNormX	0.600000
 entityState.vectorNormY	0.800000
 entityState.vectorToX	3.000000
