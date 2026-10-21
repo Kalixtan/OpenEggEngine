@@ -117,6 +117,7 @@ struct VoiceState {
     double positionMs = 0.0;
     double gateDurationMs = 0.0;
     double gateElapsedMs = 0.0;
+    bool gateSetAfterLastAudioUpdate = false;
     double fadeRemainingMs = 0.0;
     double fadeDurationMs = 0.0;
     float fadeGain = 1.0f;
@@ -1498,7 +1499,12 @@ int GM_CDECL gmf_setVoiceGateTime(gmThread* a_thread) {
         ? static_cast<double>(gateArg.GetFloat())
         : static_cast<double>(gateArg.m_value.m_int);
     const float gateMs = static_cast<float>(gateValue);
-    if (VoiceState* v = FindVoice(voice)) v->gateDurationMs = gateMs;
+    if (VoiceState* v = FindVoice(voice)) {
+        v->gateDurationMs = gateMs;
+        // Retail's manager alarm pass runs before script updates. Calls made
+        // by the current script tick therefore first advance on next pass.
+        v->gateSetAfterLastAudioUpdate = true;
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_setVoiceNote(gmThread* a_thread) {
@@ -2605,13 +2611,17 @@ void AdvanceAudioVoices(float a_deltaMs) {
         }
         bool gateTriggered = false;
         if (!voice.stopping && voice.gateDurationMs > 0.0) {
-            voice.gateElapsedMs += a_deltaMs;
-            if (voice.gateElapsedMs >= voice.gateDurationMs) {
-                StartVoiceFade(voice, 60.0);
-                voice.gateElapsedMs = 0.0;
-                // Retail skips the remainder of this voice update after the
-                // gate expires; the new fade starts at 1.0 on the next tick.
-                gateTriggered = true;
+            if (voice.gateSetAfterLastAudioUpdate) {
+                voice.gateSetAfterLastAudioUpdate = false;
+            } else {
+                voice.gateElapsedMs += a_deltaMs;
+                if (voice.gateElapsedMs >= voice.gateDurationMs) {
+                    StartVoiceFade(voice, 60.0);
+                    voice.gateElapsedMs = 0.0;
+                    // Retail skips the remainder of this voice update after
+                    // the gate expires; fade starts on next manager pass.
+                    gateTriggered = true;
+                }
             }
         }
         if (gateTriggered) {

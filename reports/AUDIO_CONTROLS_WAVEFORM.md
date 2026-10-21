@@ -14,6 +14,6 @@ Correlation uses aligned samples; RMS ratio is OpenEgg divided by retail.
 | pause_resume | 2.4 | 0.993 | 0.990 | 0.990 | 0.990 | PASS |
 | pan_left | 3.1 | 0.993 | 0.990 | 0.990 | silent | PASS |
 | pan_right | 0.4 | 0.993 | 0.990 | silent | 0.990 | PASS |
-| gate_one_ms | 8.9 | 0.673 | 1.147 | 1.147 | 1.147 | FAIL |
+| gate_one_ms | 8.4 | 0.939 | 1.013 | 1.013 | 1.013 | FAIL |
 
 Matched: **4/8**. Thresholds: correlation ≥0.99 and RMS within 2%. This checks a few short sounds, not full audio parity.
