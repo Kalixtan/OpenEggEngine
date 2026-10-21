@@ -1,0 +1,26 @@
+# probe-sha256 f4e7f239a5ad3a04a1338d0fec9897677eb16be1c9742b324f9b03cf012ca89c
+# support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
+bodyCtl.angularVelocity	0.500000
+bodyCtl.bullet	1.000000
+bodyCtl.category	4
+bodyCtl.collidable	0
+bodyCtl.direction	1
+bodyCtl.friction	0.250000
+bodyCtl.group	-2
+bodyCtl.mask	7
+bodyCtl.mass	3.000000
+bodyCtl.maxRotateSpeed	2.000000
+bodyCtl.maxSpeed	12.000000
+bodyCtl.pointInside	1
+bodyCtl.pointOutside	0
+bodyCtl.position	1
+bodyCtl.restitution	0.750000
+bodyCtl.sensor	1
+bodyCtl.setSpeed	10.000000
+bodyCtl.shapeCircle	null
+bodyCtl.shapeCount	1
+bodyCtl.shapeCountAfterRect	1
+bodyCtl.shapeRect	null
+bodyCtl.sleeping	0.000000
+bodyCtl.speed	5.000000
+bodyCtl.velocity	1

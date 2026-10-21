@@ -1,0 +1,140 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+global QueryShape=PHYSICSSHAPECOLLECTIONDEF();
+global QueryMake=function(x,tag,sensor) {
+    local e=EntityManager.createEntity("EntityQueryProbeEntity");
+    e.matrixTag=tag;
+    local pd=e.getPhysicsData();
+    local b=pd.getBody(pd.createBody());
+    b.setPos(vector2D(x,0));
+    QueryShape.reset();
+    QueryShape.setMass(1);
+    QueryShape.setIsSensor(sensor);
+    QueryShape.addCircle(1,0,0);
+    b.appendShapes(QueryShape);
+    e.setIsEnabled(1);
+    return table(e=e,pd=pd,b=b);
+};
+global CountEntities=function(iter) {
+    local count=0;
+    for (iter=iter;iter.isValid();iter.goToNext()) {
+        count+=1;
+    }
+    return count;
+};
+global HasEntity=function(iter,id) {
+    local found=0;
+    for (iter=iter;iter.isValid();iter.goToNext()) {
+        local entity=iter.get();
+        local objectID=entity.getObjectID();
+        if (objectID==id) { found=1; }
+    }
+    return found;
+};
+global ProbeQuery=function(name,value) {
+    Probe("entityQ."+name,value);
+};
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            GameSystem.setIsShouldUpdateEntities(0);
+            this.a=QueryMake(0,"ordinaryA",0);
+            this.b=QueryMake(3,"ordinaryB",1);
+            this.far=QueryMake(10,"far",0);
+            this.manual=EntityManager.createEntity("EntityQueryProbeEntity");
+            this.manual.matrixTag="manual";
+            this.manual.constructorSetManual();
+            this.player=EntityManager.createEntityAsPlayer("EntityQueryProbeEntity");
+            this.player.matrixTag="player";
+            this.a.e.setUIDData(91001);
+            this.b.e.setUIDData(91002);
+            EntityManager.flush();
+
+            ProbeQuery("id.sameObject",this.a.e.getObjectID()==EntityManager.getEntity(this.a.e.getObjectID()).getObjectID());
+            ProbeQuery("id.uidLookup",EntityManager.getEntityFromUID(91001).getObjectID()==this.a.e.getObjectID());
+            ProbeQuery("id.uidChanged",this.a.e.getUID()==91001);
+            ProbeQuery("id.objectStable",this.a.e.getObjectID()!=91001);
+            ProbeQuery("id.uidMissing",EntityManager.getEntityFromUID(91999)==null);
+            ProbeQuery("id.missingIsDummy",EntityManager.getEntity(91999).getObjectID()==-1);
+
+            ProbeQuery("count.all",EntityManager.getNumEntities("EntityQueryProbeEntity"));
+            ProbeQuery("count.manual",EntityManager.getNumManualEntities());
+            ProbeQuery("count.nonManual",EntityManager.getNumNonManualEntities());
+            ProbeQuery("count.players",EntityManager.getNumPlayers());
+            ProbeQuery("filter.all",CountEntities(EntityManager.getAllEntities("EntityQueryProbeEntity")));
+            ProbeQuery("filter.manual",CountEntities(EntityManager.getAllManualEntities()));
+            ProbeQuery("filter.nonManual",CountEntities(EntityManager.getAllNonManualEntities()));
+            ProbeQuery("filter.players",CountEntities(EntityManager.getAllPlayerEntities()));
+            ProbeQuery("filter.playersRandom",CountEntities(EntityManager.getAllPlayerEntitiesRandomly()));
+            ProbeQuery("filter.randomType",EntityManager.getRandomEntity("EntityQueryProbeEntity").getTypeName()=="EntityQueryProbeEntity");
+            ProbeQuery("filter.randomPlayer",EntityManager.getRandomPlayer().isPlayer());
+
+            local near=EntityManager.getEntitiesNear(0,0,2,1);
+            ProbeQuery("near.size",near.size());
+            ProbeQuery("near.a",HasEntity(EntityManager.getEntitiesNear(0,0,2,1),this.a.e.getObjectID()));
+            ProbeQuery("near.b",HasEntity(EntityManager.getEntitiesNear(0,0,2,1),this.b.e.getObjectID()));
+            ProbeQuery("near.farExcluded",!HasEntity(EntityManager.getEntitiesNear(0,0,2,1),this.far.e.getObjectID()));
+            ProbeQuery("near.negativeEmpty",EntityManager.getEntitiesNear(0,0,-1,1).size());
+            local reused=EntityManager.getEntitiesNear(10,0,1,1,near);
+            ProbeQuery("near.reuseSize",reused.size());
+            ProbeQuery("near.reuseFar",HasEntity(reused,this.far.e.getObjectID()));
+            ProbeQuery("box.inclusive",HasEntity(EntityManager.getEntitiesRoughlyWithin(-1,-1,1,1),this.a.e.getObjectID()));
+            ProbeQuery("box.bOutside",!HasEntity(EntityManager.getEntitiesRoughlyWithin(-1,-1,1,1),this.b.e.getObjectID()));
+
+            local sidA=this.a.b.getShapeObjectID(0);
+            local sidB=this.b.b.getShapeObjectID(0);
+            ProbeQuery("shape.bodyLookup",Physics.getBodyFromShapeID(sidA).getObjectID()==this.a.b.getObjectID());
+            ProbeQuery("shape.entityLookup",Physics.getEntityFromShapeID(sidA).getObjectID()==this.a.e.getObjectID());
+            ProbeQuery("shape.sensorSolid",Physics.isShapeSensor(sidA));
+            ProbeQuery("shape.sensorSensor",Physics.isShapeSensor(sidB));
+            local shape=Physics.getShapeByID(sidA);
+            ProbeQuery("shape.lookup",?shape);
+            ProbeQuery("shape.bodyMembership",this.a.pd.getShapeByID(sidA).getType()=="circle");
+
+            local nearShapes=Physics.getShapesNear(0,0,2,2);
+            local exactShapes=Physics.getShapesWithin(0,0,0.5,0.5);
+            local boxShapes=Physics.getShapesRoughlyWithin(-2,-2,2,2);
+            ProbeQuery("shape.nearCount",nearShapes.size());
+            ProbeQuery("shape.exactCount",exactShapes.size());
+            ProbeQuery("shape.boxHasA",HasShape(Physics.getShapesRoughlyWithin(-1.5,-1.5,1.5,1.5),sidA));
+            ProbeQuery("shape.boxExcludesB",!HasShape(Physics.getShapesRoughlyWithin(-1.5,-1.5,1.5,1.5),sidB));
+            ProbeQuery("shape.negativeEmpty",Physics.getShapesNear(0,0,-1,1).size());
+
+            local ray=Physics.raycastShapes(vector2D(-4,0),vector2D(4,0),0,1);
+            ProbeQuery("shape.rayCount",CountEntities(ray));
+            ProbeQuery("shape.rayHasA",HasEntity(ray,this.a.e.getObjectID()));
+            Physics.setNumFramesToIgnoreCollisions(3);
+            ProbeQuery("collisionIgnore.setGet",Physics.getNumFramesToIgnoreCollisions());
+            Physics.setNumFramesToIgnoreCollisions(0);
+            ProbeQuery("collisionIgnore.reset",Physics.getNumFramesToIgnoreCollisions());
+
+            local snap=EntityManager.getAllEntities("EntityQueryProbeEntity");
+            this.snapFirst=snap.get().getObjectID();
+            this.extra=EntityManager.createEntity("EntityQueryProbeEntity");
+            this.extra.matrixTag="addedAfterSnapshot";
+            EntityManager.flush();
+            ProbeQuery("iterator.snapshotStable",snap.size()==5);
+            ProbeQuery("iterator.newEntityExcluded",!HasEntity(snap,this.extra.getObjectID()));
+            snap.reset();
+            ProbeQuery("iterator.resetFirst",snap.get().getObjectID()==this.snapFirst);
+            this.a.e.tagForDeletion();
+            EntityManager.flush();
+            ProbeQuery("iterator.deletedSnapshotSizeStable",snap.size()==5);
+            ProbeQuery("iterator.deletedEntryNull",snap.get()==null);
+            EntityManager.deleteAllEntities();
+            EntityManager.flush();
+            GameSystem.setIsShouldUpdateEntities(1);
+        });
+};
+global HasShape=function(iter,id) {
+    local found=0;
+    for (iter=iter;iter.isValid();iter.goToNext()) {
+        local shapeID=iter.get();
+        if (shapeID==id) { found=1; }
+    }
+    return found;
+};

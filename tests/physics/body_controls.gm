@@ -1,0 +1,71 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+global BodyShape=PHYSICSSHAPECOLLECTIONDEF();
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            GameSystem.setIsShouldUpdateEntities(0);
+            local entity=EntityManager.createEntity("EntityQueryProbeEntity");
+            local pd=entity.getPhysicsData();
+            local body=pd.getBody(pd.createBody());
+            body.setPos(vector2D(4,5));
+            BodyShape.reset();
+            BodyShape.setMass(2);
+            BodyShape.addCircle(1,0,0);
+            body.appendShapes(BodyShape);
+            entity.setIsEnabled(1);
+            EntityManager.flush();
+
+            body.setPos(4,5);
+            local pos=body.getPos();
+            Probe("bodyCtl.position",pos.x==4 && pos.y==5);
+            body.setVel(vector2D(3,4));
+            local vel=body.getVel();
+            Probe("bodyCtl.velocity",vel.x==3 && vel.y==4);
+            Probe("bodyCtl.speed",body.getSpeed());
+            body.setSpeed(10);
+            Probe("bodyCtl.setSpeed",body.getSpeed());
+            local direction=body.getDir();
+            Probe("bodyCtl.direction",direction.x==1 && direction.y==0);
+            body.setMass(3);
+            Probe("bodyCtl.mass",body.getMass());
+            body.setMaxSpeed(12);
+            Probe("bodyCtl.maxSpeed",body.getMaxSpeed());
+            body.setMaxRotateSpeed(2);
+            Probe("bodyCtl.maxRotateSpeed",body.getMaxRotateSpeed());
+            body.setFriction(0.25);
+            Probe("bodyCtl.friction",body.getFriction());
+            body.setRestitution(0.75);
+            Probe("bodyCtl.restitution",body.getRestitution());
+            body.setIsSensor(1);
+            Probe("bodyCtl.sensor",body.isSensor());
+            body.setIsCollidable(0);
+            Probe("bodyCtl.collidable",body.isCollidable());
+            body.setIsBullet(1);
+            Probe("bodyCtl.bullet",body.isBullet());
+            body.setCollisionCategory(4);
+            Probe("bodyCtl.category",body.getCollisionCategory());
+            body.setCategoriesToCollideWith(7);
+            Probe("bodyCtl.mask",body.getCategoriesToCollideWith());
+            body.setCollisionGroup(-2);
+            Probe("bodyCtl.group",body.getCollisionGroup());
+            body.setAngularVel(0.5);
+            Probe("bodyCtl.angularVelocity",body.getAngularVel());
+            Probe("bodyCtl.shapeCount",body.getNumShapes());
+            Probe("bodyCtl.shapeCircle",body.isCircle());
+            Probe("bodyCtl.pointInside",body.isPointWithin(vector2D(4,5)));
+            Probe("bodyCtl.pointOutside",body.isPointWithin(vector2D(8,8)));
+            body.setAsRect(6,2);
+            Probe("bodyCtl.shapeCountAfterRect",body.getNumShapes());
+            Probe("bodyCtl.shapeRect",body.isRect());
+            body.putToSleep();
+            Probe("bodyCtl.sleeping",body.isSleeping());
+            EntityManager.deleteAllEntities();
+            EntityManager.flush();
+            GameSystem.setIsShouldUpdateEntities(1);
+        });
+};

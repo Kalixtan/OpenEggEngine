@@ -1,0 +1,14 @@
+{
+  "prefix": "bodyCtl",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "bodyCtl.position", "bodyCtl.velocity", "bodyCtl.speed", "bodyCtl.setSpeed",
+    "bodyCtl.direction", "bodyCtl.mass", "bodyCtl.maxSpeed", "bodyCtl.maxRotateSpeed",
+    "bodyCtl.friction", "bodyCtl.restitution", "bodyCtl.sensor", "bodyCtl.collidable",
+    "bodyCtl.bullet", "bodyCtl.category", "bodyCtl.mask", "bodyCtl.group",
+    "bodyCtl.angularVelocity", "bodyCtl.shapeCount", "bodyCtl.shapeCircle",
+    "bodyCtl.pointInside", "bodyCtl.pointOutside", "bodyCtl.shapeCountAfterRect",
+    "bodyCtl.shapeRect", "bodyCtl.sleeping"
+  ]
+}

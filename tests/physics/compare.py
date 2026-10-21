@@ -11,9 +11,15 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from compare_probe import check_baseline_source, read_readings
 from probe_expectations import expected_readings
-from run import ROOT, percent, run_script
+from run import ROOT, run_script
 
 HERE = Path(__file__).resolve().parent
+
+
+def percent(passed, total):
+    return f"{passed * 100 / total:.1f}%" if total else "—"
+
+
 PROBE = HERE / "probe.gm"
 BASELINE = HERE / "retail-baseline.tsv"
 SCENES = HERE / "scenes.gm"
@@ -46,6 +52,13 @@ ENTITY_LIFECYCLE_PLAN = HERE / "entity_lifecycle-plan.json"
 ENTITY_MANAGER = HERE / "entity_manager.gm"
 ENTITY_MANAGER_BASELINE = HERE / "entity_manager-retail.tsv"
 ENTITY_MANAGER_PLAN = HERE / "entity_manager-plan.json"
+ENTITY_QUERIES = HERE / "entity_queries.gm"
+ENTITY_QUERIES_BASELINE = HERE / "entity_queries-retail.tsv"
+ENTITY_QUERIES_PLAN = HERE / "entity_queries-plan.json"
+ENTITY_QUERIES_SUPPORT = HERE / "EntityQueryProbeEntity.gm"
+BODY_CONTROLS = HERE / "body_controls.gm"
+BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
+BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
@@ -57,7 +70,14 @@ SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "EntityManager.isEntityIDValid", "EntityManager.getNumEntities",
            "EntityManager.getAllEntities", "EntityManager.flush",
            "EntityManager.deleteAllEntities", "Entity.tagForDeletion",
-           "Entity.isTaggedForDeletion", "Entity.getObjectID"}
+           "Entity.isTaggedForDeletion", "Entity.getObjectID", "Entity.getUID",
+           "EntityManager.getEntity", "EntityManager.getEntityFromUID",
+           "EntityManager.getNumManualEntities", "EntityManager.getNumNonManualEntities",
+           "EntityManager.getNumPlayers", "EntityManager.getAllManualEntities",
+           "EntityManager.getAllNonManualEntities", "EntityManager.getAllPlayerEntities",
+           "EntityManager.getAllPlayerEntitiesRandomly", "EntityManager.getRandomEntity",
+           "EntityManager.getRandomPlayer", "EntityManager.getEntitiesNear",
+           "EntityManager.getEntitiesRoughlyWithin"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
@@ -182,6 +202,71 @@ ENTITY_MANAGER_FIELDS = {
     "deleteAll.countAfterFlush": "EntityManager.getNumEntities",
     "deleteAll.destroyCount": "Entity callbacks",
 }
+ENTITY_QUERY_FIELDS = {
+    "id.sameObject": "EntityManager.getEntity",
+    "id.uidLookup": "EntityManager.getEntityFromUID",
+    "id.uidChanged": "Entity.getUID",
+    "id.objectStable": "Entity.getObjectID",
+    "id.uidMissing": "EntityManager.getEntityFromUID",
+    "id.missingIsDummy": "EntityManager.getEntity",
+    "count.all": "EntityManager.getNumEntities",
+    "count.manual": "EntityManager.getNumManualEntities",
+    "count.nonManual": "EntityManager.getNumNonManualEntities",
+    "count.players": "EntityManager.getNumPlayers",
+    "filter.all": "EntityManager.getAllEntities",
+    "filter.manual": "EntityManager.getAllManualEntities",
+    "filter.nonManual": "EntityManager.getAllNonManualEntities",
+    "filter.players": "EntityManager.getAllPlayerEntities",
+    "filter.playersRandom": "EntityManager.getAllPlayerEntitiesRandomly",
+    "filter.randomType": "EntityManager.getRandomEntity",
+    "filter.randomPlayer": "EntityManager.getRandomPlayer",
+    "near.size": "EntityManager.getEntitiesNear",
+    "near.a": "EntityManager.getEntitiesNear",
+    "near.b": "EntityManager.getEntitiesNear",
+    "near.farExcluded": "EntityManager.getEntitiesNear",
+    "near.negativeEmpty": "EntityManager.getEntitiesNear",
+    "near.reuseSize": "EntityManager.getEntitiesNear",
+    "near.reuseFar": "EntityManager.getEntitiesNear",
+    "box.inclusive": "EntityManager.getEntitiesRoughlyWithin",
+    "box.bOutside": "EntityManager.getEntitiesRoughlyWithin",
+    "shape.bodyLookup": "Physics.getBodyFromShapeID",
+    "shape.entityLookup": "Physics.getEntityFromShapeID",
+    "shape.sensorSolid": "Physics.isShapeSensor",
+    "shape.sensorSensor": "Physics.isShapeSensor",
+    "shape.lookup": "Physics.getShapeByID",
+    "shape.bodyMembership": "physicsData.getShapeByID",
+    "shape.nearCount": "Physics.getShapesNear",
+    "shape.exactCount": "Physics.getShapesWithin",
+    "shape.boxHasA": "Physics.getShapesRoughlyWithin",
+    "shape.boxExcludesB": "Physics.getShapesRoughlyWithin",
+    "shape.negativeEmpty": "Physics.getShapesNear",
+    "shape.rayCount": "Physics.raycastShapes",
+    "shape.rayHasA": "Physics.raycastShapes",
+    "collisionIgnore.setGet": "Physics.setNumFramesToIgnoreCollisions",
+    "collisionIgnore.reset": "Physics.setNumFramesToIgnoreCollisions",
+    "iterator.snapshotStable": "EntityManager.getAllEntities",
+    "iterator.newEntityExcluded": "EntityManager.getAllEntities",
+    "iterator.resetFirst": "EntityManager.getAllEntities",
+    "iterator.deletedSnapshotSizeStable": "EntityManager.getAllEntities",
+    "iterator.deletedEntryNull": "EntityManager.getAllEntities",
+}
+BODY_CONTROL_FIELDS = {
+    "position": "physicsBody.setPos", "velocity": "physicsBody.setVel",
+    "speed": "physicsBody.getSpeed", "setSpeed": "physicsBody.setSpeed",
+    "direction": "physicsBody.getDir",
+    "mass": "physicsBody.setMass", "maxSpeed": "physicsBody.setMaxSpeed",
+    "maxRotateSpeed": "physicsBody.setMaxRotateSpeed",
+    "friction": "physicsBody.setFriction", "restitution": "physicsBody.setRestitution",
+    "sensor": "physicsBody.setIsSensor", "collidable": "physicsBody.setIsCollidable",
+    "bullet": "physicsBody.setIsBullet", "category": "physicsBody.setCollisionCategory",
+    "mask": "physicsBody.setCategoriesToCollideWith",
+    "group": "physicsBody.setCollisionGroup", "angularVelocity": "physicsBody.setAngularVel",
+    "width": "physicsBody.setAsRect", "height": "physicsBody.setAsRect",
+    "pointInside": "physicsBody.isPointWithin", "pointOutside": "physicsBody.isPointWithin",
+    "shapeCount": "physicsBody.getNumShapes", "shapeCircle": "physicsBody.isCircle",
+    "shapeCountAfterRect": "physicsBody.getNumShapes",
+    "shapeRect": "physicsBody.isRect", "sleeping": "physicsBody.isSleeping",
+}
 
 
 def inventory():
@@ -209,6 +294,16 @@ def owner(name, names):
         if function not in names and function != "Entity callbacks" and \
                 not function.startswith("EntityListRef."):
             raise ValueError(f"unknown entity manager function: {function}")
+        return function
+    if name.startswith("entityQ."):
+        function = ENTITY_QUERY_FIELDS[name[len("entityQ."):]]
+        if function not in names:
+            raise ValueError(f"unknown entity query function: {function}")
+        return function
+    if name.startswith("bodyCtl."):
+        function = BODY_CONTROL_FIELDS[name[len("bodyCtl."):]]
+        if function not in names:
+            raise ValueError(f"unknown body-control function: {function}")
         return function
     if name.startswith("entityLife."):
         function = ENTITY_LIFECYCLE_FIELDS[name.rsplit(".", 1)[1]]
@@ -303,7 +398,13 @@ def main():
                                             (ENTITY_LIFECYCLE_SUPPORT,)),
                                            (ENTITY_MANAGER, ENTITY_MANAGER_BASELINE,
                                             ENTITY_MANAGER_PLAN,
-                                            (HERE / "EntityManagerProbeEntity.gm",))):
+                                            (HERE / "EntityManagerProbeEntity.gm",)),
+                                           (ENTITY_QUERIES, ENTITY_QUERIES_BASELINE,
+                                            ENTITY_QUERIES_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,)),
+                                           (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
+                                            BODY_CONTROLS_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,))):
         check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
         if len(declared) != len(set(declared)):
@@ -329,8 +430,8 @@ def main():
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
             if case.startswith(("scene.", "contact.", "removal.", "entityLife.",
-                                "entityMgr.", "query.",
-                                "ray.", "reentry.", "joint.", "raymove.")):
+                                "entityMgr.", "entityQ.", "query.",
+                                "ray.", "reentry.", "joint.", "raymove.", "bodyCtl.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

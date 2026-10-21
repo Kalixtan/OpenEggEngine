@@ -1,0 +1,5 @@
+global EntityQueryProbeEntity=function(handle) {
+    return table(Entity=handle,matrixTag="",
+        constructor=function() {},
+        configure=function() { return true; });
+};

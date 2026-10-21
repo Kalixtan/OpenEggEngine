@@ -3080,6 +3080,8 @@ bool EntityOverlapsBox(gmMachine& a_machine, gmTableObject* a_entity, float a_qM
         if (cd.m_type != GM_TABLE) return false; // no position signal at all
         gmTableObject* cdt = (gmTableObject*)a_machine.GetObject(cd.m_value.m_ref);
         gmVariable xv = cdt->Get(&a_machine, "posX"), yv = cdt->Get(&a_machine, "posY");
+        if ((xv.m_type != GM_FLOAT && xv.m_type != GM_INT) ||
+            (yv.m_type != GM_FLOAT && yv.m_type != GM_INT)) return false;
         auto tofloat = [](const gmVariable& v) -> float {
             if (v.m_type == GM_FLOAT) return v.m_value.m_float;
             if (v.m_type == GM_INT) return (float)v.m_value.m_int;
