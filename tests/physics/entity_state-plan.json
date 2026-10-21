@@ -33,6 +33,19 @@
     "entityState.invisible",
     "entityState.isType",
     "entityState.limitVolPerc",
+    "entityState.lfoRate",
+    "entityState.lfoObjectNonNull",
+    "entityState.lfoRate50",
+    "entityState.lfoRate100",
+    "entityState.lfoRate400",
+    "entityState.lfoPhase0",
+    "entityState.lfoPhaseQuarter",
+    "entityState.lfoPhaseHalf",
+    "entityState.lfoPhaseThreeQuarter",
+    "entityState.lfoContourBefore",
+    "entityState.lfoContourAfter",
+    "entityState.lfoUpdatedValue",
+    "entityState.lfoValue",
     "entityState.mainBody",
     "entityState.mixerID",
     "entityState.neverOnScreen",
@@ -68,6 +81,17 @@
     "entityState.wrongType"
   ],
   "inconclusive": {
-    "entityState.mainBody": "Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result."
+    "entityState.mainBody": "Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result.",
+    "entityState.hasAddAlarm": "GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object.",
+    "entityState.hasAddLFO": "GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object.",
+    "entityState.hasCreationPosGetter": "GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object.",
+    "entityState.hasAlwaysProcessedGetter": "GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object.",
+    "entityState.alarmExists": "Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle.",
+    "entityState.alarmUpdated": "Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle.",
+    "entityState.alarmDeleted": "Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle.",
+    "entityState.addLFO": "The synthetic entity fixture does not expose the retail native LFO owner; game scripts attach LFOs to fully initialized retail entities.",
+    "entityState.creationPosX": "Synthetic entity fixture has no retail backing entity state for the setter/getter round trip.",
+    "entityState.creationPosY": "Synthetic entity fixture has no retail backing entity state for the setter/getter round trip.",
+    "entityState.alwaysProcessed": "Synthetic entity fixture exposes the setter but no retail getter state for this property."
   }
 }

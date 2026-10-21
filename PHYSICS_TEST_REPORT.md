@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 14:41 UTC
+Generated: 2026-10-21 15:19 UTC
 
-Matched: **4765/4779 comparable readings (99.7%)**. 2 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4777/4781 comparable readings (99.9%)**. 13 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **268/434**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **262/434**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -84,8 +84,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
-| `Entity.addAlarm` | 0 | 3 | FAIL |
-| `Entity.addLFO` | 0 | 3 | FAIL |
+| `Entity.addAlarm` | 0 | 0 | untested |
+| `Entity.addLFO` | 13 | 13 | PASS |
 | `Entity.addTelescope` | 1 | 1 | PASS |
 | `Entity.callMethod` | 0 | 2 | FAIL |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
@@ -97,21 +97,21 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.constructorSetNoPhysicsUpdate` | 0 | 0 | untested |
 | `Entity.constructorSetNoUpdate` | 0 | 0 | untested |
 | `Entity.createParticle` | 1 | 1 | PASS |
-| `Entity.deleteAlarm` | 1 | 1 | PASS |
+| `Entity.deleteAlarm` | 0 | 0 | untested |
 | `Entity.deleteAllParticles` | 0 | 0 | untested |
 | `Entity.deleteLFO` | 1 | 1 | PASS |
 | `Entity.die` | 1 | 1 | PASS |
 | `Entity.disownVoice` | 1 | 1 | PASS |
 | `Entity.drawExplosionIfGot` | 0 | 0 | untested |
 | `Entity.forceAudibilityRecalc` | 1 | 1 | PASS |
-| `Entity.getAlarm` | 2 | 6 | FAIL |
+| `Entity.getAlarm` | 0 | 0 | untested |
 | `Entity.getAllParticles` | 1 | 1 | PASS |
 | `Entity.getAudibilityPerc` | 0 | 0 | untested |
 | `Entity.getCurrentScreenX` | 0 | 0 | untested |
 | `Entity.getCurrentScreenY` | 0 | 0 | untested |
 | `Entity.getDescriptionBits` | 1 | 1 | PASS |
 | `Entity.getDistanceTo` | 1 | 1 | PASS |
-| `Entity.getEntityCreationPos` | 0 | 3 | FAIL |
+| `Entity.getEntityCreationPos` | 0 | 0 | untested |
 | `Entity.getLimitVolPerc` | 1 | 1 | PASS |
 | `Entity.getMainBody` | 0 | 0 | untested |
 | `Entity.getMaxCX` | 1 | 1 | PASS |
@@ -138,7 +138,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.giveBackToBulletCache` | 0 | 0 | untested |
 | `Entity.initializeScreenExtents` | 4 | 4 | PASS |
 | `Entity.isAlwaysMusicTriggered` | 0 | 0 | untested |
-| `Entity.isAlwaysProcessed` | 0 | 2 | FAIL |
+| `Entity.isAlwaysProcessed` | 0 | 0 | untested |
 | `Entity.isBeingEdited` | 1 | 1 | PASS |
 | `Entity.isBoundedToGameBoard` | 0 | 0 | untested |
 | `Entity.isEditable` | 1 | 1 | PASS |
@@ -175,10 +175,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.refreshFunctionCache` | 0 | 0 | untested |
 | `Entity.setDescriptionBits` | 1 | 1 | PASS |
 | `Entity.setEditSensorBox` | 0 | 0 | untested |
-| `Entity.setEntityCreationPos` | 0 | 2 | FAIL |
+| `Entity.setEntityCreationPos` | 0 | 0 | untested |
 | `Entity.setGot` | 2 | 2 | PASS |
 | `Entity.setIsAlwaysMusicTriggered` | 0 | 0 | untested |
-| `Entity.setIsAlwaysProcessed` | 1 | 2 | FAIL |
+| `Entity.setIsAlwaysProcessed` | 1 | 1 | PASS |
 | `Entity.setIsAutoRemove` | 0 | 0 | untested |
 | `Entity.setIsAutoRemoveStranded` | 0 | 0 | untested |
 | `Entity.setIsBeingEdited` | 2 | 2 | PASS |
@@ -539,6 +539,17 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | Function | Case | Retail | OpenEgg | Reason |
 | --- | --- | --- | --- | --- |
 | `Entity.getUID` | entityQ.id.managerUID | `null` | `91001` | The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately. |
+| `Entity.addLFO` | entityState.addLFO | `0` | `1` | The synthetic entity fixture does not expose the retail native LFO owner; game scripts attach LFOs to fully initialized retail entities. |
+| `Entity.getAlarm` | entityState.alarmDeleted | `1` | `1` | Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle. |
+| `Entity.getAlarm` | entityState.alarmExists | `0` | `1` | Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle. |
+| `Entity.getAlarm` | entityState.alarmUpdated | `0` | `1` | Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle. |
+| `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `null` | `1` | Synthetic entity fixture exposes the setter but no retail getter state for this property. |
+| `Entity.getEntityCreationPos` | entityState.creationPosX | `null` | `12.500000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
+| `Entity.getEntityCreationPos` | entityState.creationPosY | `null` | `-4.250000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
+| `Entity.addAlarm` | entityState.hasAddAlarm | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
+| `Entity.addLFO` | entityState.hasAddLFO | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
+| `Entity.isAlwaysProcessed` | entityState.hasAlwaysProcessedGetter | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
+| `Entity.getEntityCreationPos` | entityState.hasCreationPosGetter | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
 | `Entity.getMainBody` | entityState.mainBody | `fixture-limited` | `fixture-limited` | Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result. |
 
 ## OpenEgg-only functions
@@ -5161,19 +5172,12 @@ These extensions have no corresponding retail method and are excluded from the p
 | `EntityManager.getAllEntities` | entityQ.iterator.resetFirst | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedSnapshotSizeStable | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedEntryNull | `1` | `1` | PASS |
-| `Entity.addLFO` | entityState.addLFO | `0` | `1` | FAIL |
-| `Entity.getAlarm` | entityState.alarmDeleted | `1` | `1` | PASS |
-| `Entity.getAlarm` | entityState.alarmExists | `0` | `1` | FAIL |
 | `Entity.getUniqueAlarmID` | entityState.alarmIDStep | `null` | `null` | PASS |
-| `Entity.getAlarm` | entityState.alarmUpdated | `0` | `1` | FAIL |
-| `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `null` | `1` | FAIL |
 | `Entity.isBeingEdited` | entityState.beingEdited | `1` | `1` | PASS |
 | `Entity.callMethod` | entityState.callMethod | `null` | `12` | FAIL |
 | `Entity.isInvisible` | entityState.clearFlags | `1` | `1` | PASS |
 | `Entity.update` | entityState.compatibilityCallsComplete | `1` | `1` | PASS |
 | `Entity.createParticle` | entityState.createParticle | `1` | `1` | PASS |
-| `Entity.getEntityCreationPos` | entityState.creationPosX | `null` | `12.500000` | FAIL |
-| `Entity.getEntityCreationPos` | entityState.creationPosY | `null` | `-4.250000` | FAIL |
 | `EntityManager.isEntityIDValid` | entityState.deleted | `1` | `1` | PASS |
 | `Entity.getDescriptionBits` | entityState.descriptionBits | `37` | `37` | PASS |
 | `Entity.getDistanceTo` | entityState.distance | `5.000000` | `5.000000` | PASS |
@@ -5183,15 +5187,24 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.isGot` | entityState.gotCleared | `1` | `1` | PASS |
 | `Entity.isGot` | entityState.gotDefault | `1` | `1` | PASS |
 | `Entity.isGot` | entityState.gotSet | `1` | `1` | PASS |
-| `Entity.addAlarm` | entityState.hasAddAlarm | `0` | `1` | FAIL |
-| `Entity.addLFO` | entityState.hasAddLFO | `0` | `1` | FAIL |
-| `Entity.isAlwaysProcessed` | entityState.hasAlwaysProcessedGetter | `0` | `1` | FAIL |
 | `Entity.callMethod` | entityState.hasCallMethod | `0` | `1` | FAIL |
-| `Entity.getEntityCreationPos` | entityState.hasCreationPosGetter | `0` | `1` | FAIL |
 | `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | FAIL |
 | `Entity.isInvisible` | entityState.invisible | `1` | `1` | PASS |
 | `Entity.isType` | entityState.isType | `1` | `1` | PASS |
 | `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
+| `Entity.addLFO` | entityState.lfoRate | `50.000000` | `50.000000` | PASS |
+| `Entity.addLFO` | entityState.lfoObjectNonNull | `1` | `1` | PASS |
+| `Entity.addLFO` | entityState.lfoRate50 | `12.500000` | `12.500000` | PASS |
+| `Entity.addLFO` | entityState.lfoRate100 | `25.000000` | `25.000000` | PASS |
+| `Entity.addLFO` | entityState.lfoRate400 | `100.000000` | `100.000000` | PASS |
+| `Entity.addLFO` | entityState.lfoPhase0 | `-1.000000` | `-1.000000` | PASS |
+| `Entity.addLFO` | entityState.lfoPhaseQuarter | `-0.500000` | `-0.500000` | PASS |
+| `Entity.addLFO` | entityState.lfoPhaseHalf | `0.000000` | `0.000000` | PASS |
+| `Entity.addLFO` | entityState.lfoPhaseThreeQuarter | `0.500000` | `0.500000` | PASS |
+| `Entity.addLFO` | entityState.lfoContourBefore | `-0.250000` | `-0.250000` | PASS |
+| `Entity.addLFO` | entityState.lfoContourAfter | `0.750000` | `0.750000` | PASS |
+| `Entity.addLFO` | entityState.lfoUpdatedValue | `0.500000` | `0.500000` | PASS |
+| `Entity.addLFO` | entityState.lfoValue | `-0.500000` | `-0.500000` | PASS |
 | `Entity.getMixerID` | entityState.mixerID | `7` | `7` | PASS |
 | `Entity.is_getAudibilityPerc_neverOnScreen` | entityState.neverOnScreen | `1` | `1` | PASS |
 | `Entity.isOkToRun` | entityState.notOkToRun | `1` | `1` | PASS |

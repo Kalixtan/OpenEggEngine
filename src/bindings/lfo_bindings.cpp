@@ -7,10 +7,11 @@ namespace {
 gmType g_triangleLfoType = -1;
 
 struct TriangleLfoData {
-    float periodMs = 1000.0f;  // setRate()/getRate()
+    float periodMs = 250.0f;
     float rangeMin = 0.0f;     // setRange()
     float rangeMax = 1.0f;
-    float contour = 0.5f;      // setContour() -- fraction of period spent rising
+    float contourX = 0.5f;
+    float contourY = 0.5f;
     float phase01 = 0.0f;      // 0..1 through the current cycle
     float value = 0.0f;        // getValue()
 };
@@ -20,16 +21,14 @@ TriangleLfoData* ThisTriangleLfo(gmThread* a_thread) {
 }
 
 void RecomputeValue(TriangleLfoData* p) {
-    float rise = p->contour;
-    if (rise <= 0.0f) rise = 0.0001f;
-    if (rise >= 1.0f) rise = 0.9999f;
-    float t;
-    if (p->phase01 < rise) {
-        t = p->phase01 / rise;
+    float shaped;
+    if (p->phase01 < p->contourX) {
+        shaped = (p->phase01 / p->contourX) * p->contourY;
     } else {
-        t = 1.0f - (p->phase01 - rise) / (1.0f - rise);
+        shaped = ((p->phase01 - p->contourX) / (1.0f - p->contourX)) *
+            (1.0f - p->contourY) + p->contourY;
     }
-    p->value = p->rangeMin + (p->rangeMax - p->rangeMin) * t;
+    p->value = p->rangeMin + (p->rangeMax - p->rangeMin) * shaped;
 }
 
 int GM_CDECL gmf_TRIANGLELFO(gmThread* a_thread) {
@@ -42,7 +41,7 @@ int GM_CDECL gmf_TRIANGLELFO(gmThread* a_thread) {
 int GM_CDECL gmf_setRate(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 1000.0f);
-    p->periodMs = v;
+    p->periodMs = v * 0.25f;
     return GM_OK;
 }
 
@@ -83,8 +82,12 @@ int GM_CDECL gmf_setRandomPhase(gmThread* a_thread) {
 
 int GM_CDECL gmf_setContour(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.5f);
-    p->contour = v;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_FLOAT_OR_INT_PARAM(x, 0, 0.5f);
+    GM_FLOAT_OR_INT_PARAM(y, 1, 0.5f);
+    if (x <= 0.0f || x >= 1.0f) return GM_EXCEPTION;
+    p->contourX = x;
+    p->contourY = y;
     RecomputeValue(p);
     return GM_OK;
 }
@@ -94,7 +97,7 @@ int GM_CDECL gmf_update(gmThread* a_thread) {
     TriangleLfoData* p = ThisTriangleLfo(a_thread); if (!p) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(deltaMs, 0, 0.0f);
     if (p->periodMs > 0.0f) {
-        p->phase01 += deltaMs / p->periodMs;
+        p->phase01 += deltaMs / (p->periodMs * 2.0f);
         p->phase01 -= (float)(long)p->phase01;
         if (p->phase01 < 0.0f) p->phase01 += 1.0f;
     }
