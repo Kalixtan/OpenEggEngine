@@ -56,10 +56,11 @@ global Main=function(p) {
 
             ProbeQuery("id.sameObject",this.a.e.getObjectID()==EntityManager.getEntity(this.a.e.getObjectID()).getObjectID());
             ProbeQuery("id.uidLookup",EntityManager.getEntityFromUID(91001).getObjectID()==this.a.e.getObjectID());
-            ProbeQuery("id.uidChanged",this.a.e.getUID()==91001);
+            ProbeQuery("id.managerUID",EntityManager.getEntity(this.a.e.getObjectID()).getUID());
             ProbeQuery("id.objectStable",this.a.e.getObjectID()!=91001);
             ProbeQuery("id.uidMissing",EntityManager.getEntityFromUID(91999)==null);
-            ProbeQuery("id.missingIsDummy",EntityManager.getEntity(91999).getObjectID()==-1);
+            local missing=EntityManager.getEntity(91999);
+            ProbeQuery("id.missingObjectID",missing.getObjectID());
 
             ProbeQuery("count.all",EntityManager.getNumEntities("EntityQueryProbeEntity"));
             ProbeQuery("count.manual",EntityManager.getNumManualEntities());

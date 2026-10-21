@@ -34,6 +34,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <filesystem>
 
 namespace {
@@ -798,6 +799,8 @@ int GM_CDECL gmf_entity_isTaggedForDeletion(gmThread* a_thread) {
     return GM_OK;
 }
 
+void RemoveEntityFromIterators(const gmVariable& a_entity);
+
 void FlushEntityDeletions(gmMachine& a_machine, bool a_deleteAll) {
     auto& registry = Entities();
     auto notifyEntityDeleted = [&](const gmVariable& entity) {
@@ -870,6 +873,7 @@ void FlushEntityDeletions(gmMachine& a_machine, bool a_deleteAll) {
         for (const auto& entry : active) removeScriptUID(entry.second);
         for (const auto& entry : active) {
             notifyEntityDeleted(entry.second);
+            RemoveEntityFromIterators(entry.second);
             runDestructor(entry.second);
         }
 
@@ -922,6 +926,7 @@ void FlushEntityDeletions(gmMachine& a_machine, bool a_deleteAll) {
         gmVariable handle = table->Get(&a_machine, "Entity");
         if (uid.m_type == GM_INT && uid.m_value.m_int != -1)
             RemoveScriptUIDRegistration(a_machine, uid.m_value.m_int, entity, handle);
+        RemoveEntityFromIterators(entity);
         registry.entitiesByObjectID.erase(objectId);
         live.erase(found);
         ++registry.visibilityRevision;
@@ -2359,7 +2364,11 @@ int GM_CDECL gmf_entity_deleteAllParticles(gmThread*) {
     return GM_OK;
 }
 
-void PushEntityListIterator(gmThread* a_thread, std::vector<gmVariable> a_entities);
+using EntityIteratorFilter = std::function<bool(gmMachine&, const gmVariable&)>;
+void PushEntityListIterator(gmThread* a_thread, std::vector<gmVariable> a_entities,
+                            EntityIteratorFilter a_filter = {});
+void AppendCommittedEntityToIterators(gmMachine& a_machine, const gmVariable& a_entity);
+void RemoveEntityFromIterators(const gmVariable& a_entity);
 int GM_CDECL gmf_entity_getAllParticles(gmThread* a_thread) {
     // No local ParticleManager lists exist yet; return the same empty iterator
     // shape used by EntityManager queries until its native list writers land.
@@ -2898,7 +2907,7 @@ gmVariable GetOrCreateDummyEntity(gmMachine& a_machine) {
         return registry.dummyEntity;
     }
     gmTableObject* table = a_machine.AllocTableObject();
-    InjectEntityHandleMethods(a_machine, table, -1, "DummyEntity", 0);
+    InjectEntityHandleMethods(a_machine, table, 1, "DummyEntity", 0);
     table->Set(&a_machine, "__dummyEntity", gmVariable((gmint)1));
     registry.dummyEntity = gmVariable(table);
     RootGmVariable(a_machine, registry.dummyEntity);
@@ -3014,8 +3023,11 @@ int GM_CDECL gmf_EM_isEntityIDValid(gmThread* a_thread) {
 struct EntityListIterData {
     std::vector<gmVariable> entities;
     size_t index = 0;
+    EntityIteratorFilter filter;
+    bool tracksEntities = false;
 };
 gmType g_entityListIterType = -1;
+std::set<EntityListIterData*> g_liveEntityIterators;
 int GM_CDECL gmf_entityListIter_isValid(gmThread* a_thread) {
     EntityListIterData* it = (EntityListIterData*)a_thread->ThisUserCheckType(g_entityListIterType);
     a_thread->PushInt((it && it->index < it->entities.size()) ? 1 : 0);
@@ -3047,7 +3059,14 @@ int GM_CDECL gmf_entityListIter_reset(gmThread* a_thread) {
 int GM_CDECL gmf_entityListIter_size(gmThread* a_thread) {
     // Retail returns the backing list's stored element count (zero if absent).
     EntityListIterData* it = (EntityListIterData*)a_thread->ThisUserCheckType(g_entityListIterType);
-    a_thread->PushInt(it ? (gmint)it->entities.size() : 0);
+    if (!it) { a_thread->PushInt(0); return GM_OK; }
+    if (!it->tracksEntities) {
+        a_thread->PushInt((gmint)it->entities.size());
+        return GM_OK;
+    }
+    const size_t count = std::count_if(it->entities.begin(), it->entities.end(),
+        [](const gmVariable& entity) { return entity.m_type != GM_NULL; });
+    a_thread->PushInt((gmint)count);
     return GM_OK;
 }
 gmFunctionEntry s_entityListIterLib[] = {
@@ -3058,12 +3077,45 @@ gmFunctionEntry s_entityListIterLib[] = {
     {"size", gmf_entityListIter_size, nullptr},
 };
 void GM_CDECL EntityListIterGCDestruct(gmMachine*, gmUserObject* a_object) {
-    delete (EntityListIterData*)a_object->m_user;
+    auto* it = (EntityListIterData*)a_object->m_user;
+    g_liveEntityIterators.erase(it);
+    delete it;
 }
-void PushEntityListIterator(gmThread* a_thread, std::vector<gmVariable> a_entities) {
+void PushEntityListIterator(gmThread* a_thread, std::vector<gmVariable> a_entities,
+                            EntityIteratorFilter a_filter) {
     EntityListIterData* it = new EntityListIterData();
     it->entities = std::move(a_entities);
+    it->filter = std::move(a_filter);
+    it->tracksEntities = static_cast<bool>(it->filter) && !it->entities.empty();
+    if (it->tracksEntities) g_liveEntityIterators.insert(it);
     a_thread->PushNewUser(it, g_entityListIterType);
+}
+
+void AppendCommittedEntityToIterators(gmMachine& a_machine, const gmVariable& a_entity) {
+    for (EntityListIterData* it : g_liveEntityIterators) {
+        if (it->filter && it->filter(a_machine, a_entity)) it->entities.push_back(a_entity);
+    }
+}
+
+void RemoveEntityFromIterators(const gmVariable& a_entity) {
+    if (a_entity.m_type != GM_TABLE) return;
+    for (EntityListIterData* it : g_liveEntityIterators) {
+        for (gmVariable& current : it->entities) {
+            if (current.m_type == GM_TABLE && current.m_value.m_ref == a_entity.m_value.m_ref)
+                current = gmVariable::s_null;
+        }
+    }
+}
+void RefillEntityListIterator(EntityListIterData* a_iterator,
+                              std::vector<gmVariable> a_entities,
+                              EntityIteratorFilter a_filter) {
+    if (a_iterator->tracksEntities) g_liveEntityIterators.erase(a_iterator);
+    a_iterator->entities = std::move(a_entities);
+    a_iterator->index = 0;
+    a_iterator->filter = std::move(a_filter);
+    a_iterator->tracksEntities = static_cast<bool>(a_iterator->filter) &&
+                                 !a_iterator->entities.empty();
+    if (a_iterator->tracksEntities) g_liveEntityIterators.insert(a_iterator);
 }
 
 // Real per-entity AABB-vs-query-box overlap test backing getEntitiesNear/
@@ -3138,6 +3190,21 @@ int GM_CDECL gmf_EM_getAllEntities(gmThread* a_thread) {
         if (s && typeName == s) matches.push_back(e.second);
     }
 
+    EntityIteratorFilter iteratorFilter = [filterById, filterByName, typeId, typeName]
+        (gmMachine& machine, const gmVariable& entity) {
+            if (!filterById && !filterByName) return true;
+            if (entity.m_type != GM_TABLE) return false;
+            auto* table = (gmTableObject*)machine.GetObject(entity.m_value.m_ref);
+            if (!table) return false;
+            const char* field = filterById ? "__typeId" : "__typeName";
+            gmVariable value = table->Get(&machine, field);
+            if (filterById) return value.m_type == GM_INT && value.m_value.m_int == typeId;
+            if (value.m_type != GM_STRING) return false;
+            char buffer[256];
+            const char* name = value.AsString(&machine, buffer, sizeof(buffer));
+            return name && typeName == name;
+        };
+
     if (numParams == 2) {
         gmVariable container = a_thread->Param(1);
         gmUserObject* object = container.m_type == g_entityListIterType
@@ -3145,12 +3212,11 @@ int GM_CDECL gmf_EM_getAllEntities(gmThread* a_thread) {
         if (!object || object->m_userType != g_entityListIterType || !object->m_user)
             return GM_EXCEPTION;
         EntityListIterData* iterator = (EntityListIterData*)object->m_user;
-        iterator->entities = std::move(matches);
-        iterator->index = 0;
+        RefillEntityListIterator(iterator, std::move(matches), std::move(iteratorFilter));
         a_thread->Push(container);
         return GM_OK;
     }
-    PushEntityListIterator(a_thread, std::move(matches));
+    PushEntityListIterator(a_thread, std::move(matches), std::move(iteratorFilter));
     return GM_OK;
 }
 // Retail maintains distinct manual/non-manual entity lists. The manual
@@ -3174,11 +3240,22 @@ int GM_CDECL gmf_EM_getAllNonManualEntities(gmThread* a_thread) {
         if (!object || object->m_userType != g_entityListIterType || !object->m_user)
             return GM_EXCEPTION;
         EntityListIterData* iterator = (EntityListIterData*)object->m_user;
-        iterator->entities = std::move(all);
-        iterator->index = 0;
+        EntityIteratorFilter filter = [](gmMachine& machine, const gmVariable& entity) {
+            if (entity.m_type != GM_TABLE) return false;
+            auto* table = (gmTableObject*)machine.GetObject(entity.m_value.m_ref);
+            gmVariable manual = table ? table->Get(&machine, "__isManual") : gmVariable::s_null;
+            return manual.m_type != GM_INT || manual.m_value.m_int == 0;
+        };
+        RefillEntityListIterator(iterator, std::move(all), std::move(filter));
         a_thread->Push(container);
     } else {
-        PushEntityListIterator(a_thread, std::move(all));
+        EntityIteratorFilter filter = [](gmMachine& machine, const gmVariable& entity) {
+            if (entity.m_type != GM_TABLE) return false;
+            auto* table = (gmTableObject*)machine.GetObject(entity.m_value.m_ref);
+            gmVariable manual = table ? table->Get(&machine, "__isManual") : gmVariable::s_null;
+            return manual.m_type != GM_INT || manual.m_value.m_int == 0;
+        };
+        PushEntityListIterator(a_thread, std::move(all), std::move(filter));
     }
     return GM_OK;
 }
@@ -3193,7 +3270,13 @@ int GM_CDECL gmf_EM_getAllManualEntities(gmThread* a_thread) {
         if (manual.m_type == GM_INT && manual.m_value.m_int != 0)
             manualEntities.push_back(e.second);
     }
-    PushEntityListIterator(a_thread, std::move(manualEntities));
+    EntityIteratorFilter filter = [](gmMachine& m, const gmVariable& entity) {
+        if (entity.m_type != GM_TABLE) return false;
+        auto* table = (gmTableObject*)m.GetObject(entity.m_value.m_ref);
+        gmVariable manual = table ? table->Get(&m, "__isManual") : gmVariable::s_null;
+        return manual.m_type == GM_INT && manual.m_value.m_int != 0;
+    };
+    PushEntityListIterator(a_thread, std::move(manualEntities), std::move(filter));
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getAllPlayerEntities(gmThread* a_thread) {
@@ -3204,7 +3287,13 @@ int GM_CDECL gmf_EM_getAllPlayerEntities(gmThread* a_thread) {
         gmVariable isPlayer = t->Get(&m, "__isPlayer");
         if (isPlayer.m_type == GM_INT && isPlayer.m_value.m_int != 0) matches.push_back(e.second);
     }
-    PushEntityListIterator(a_thread, std::move(matches));
+    EntityIteratorFilter filter = [](gmMachine& machine, const gmVariable& entity) {
+        if (entity.m_type != GM_TABLE) return false;
+        auto* table = (gmTableObject*)machine.GetObject(entity.m_value.m_ref);
+        gmVariable player = table ? table->Get(&machine, "__isPlayer") : gmVariable::s_null;
+        return player.m_type == GM_INT && player.m_value.m_int != 0;
+    };
+    PushEntityListIterator(a_thread, std::move(matches), std::move(filter));
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getAllPlayerEntitiesRandomly(gmThread* a_thread) {
@@ -3218,7 +3307,13 @@ int GM_CDECL gmf_EM_getAllPlayerEntitiesRandomly(gmThread* a_thread) {
         if (player.m_type == GM_INT && player.m_value.m_int != 0)
             players.push_back(e.second);
     }
-    PushEntityListIterator(a_thread, std::move(players));
+    EntityIteratorFilter filter = [](gmMachine& machine, const gmVariable& entity) {
+        if (entity.m_type != GM_TABLE) return false;
+        auto* table = (gmTableObject*)machine.GetObject(entity.m_value.m_ref);
+        gmVariable player = table ? table->Get(&machine, "__isPlayer") : gmVariable::s_null;
+        return player.m_type == GM_INT && player.m_value.m_int != 0;
+    };
+    PushEntityListIterator(a_thread, std::move(players), std::move(filter));
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getEntitiesRoughlyWithin(gmThread* a_thread) {
@@ -3235,7 +3330,13 @@ int GM_CDECL gmf_EM_getEntitiesRoughlyWithin(gmThread* a_thread) {
         gmTableObject* t = (gmTableObject*)m.GetObject(e.second.m_value.m_ref);
         if (t && EntityOverlapsBox(m, t, minX, minY, maxX, maxY)) matches.push_back(e.second);
     }
-    PushEntityListIterator(a_thread, std::move(matches));
+    EntityIteratorFilter filter = [minX, minY, maxX, maxY]
+        (gmMachine& machine, const gmVariable& entity) {
+            if (entity.m_type != GM_TABLE) return false;
+            auto* table = (gmTableObject*)machine.GetObject(entity.m_value.m_ref);
+            return table && EntityOverlapsBox(machine, table, minX, minY, maxX, maxY);
+        };
+    PushEntityListIterator(a_thread, std::move(matches), std::move(filter));
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getEntitiesNear(gmThread* a_thread) {
@@ -3257,6 +3358,11 @@ int GM_CDECL gmf_EM_getEntitiesNear(gmThread* a_thread) {
                 matches.push_back(e.second);
         }
     }
+    EntityIteratorFilter filter = [x, y, rx, ry](gmMachine& machine, const gmVariable& entity) {
+        if (rx < 0.0f || ry < 0.0f || entity.m_type != GM_TABLE) return false;
+        auto* table = (gmTableObject*)machine.GetObject(entity.m_value.m_ref);
+        return table && EntityOverlapsBox(machine, table, x - rx, y - ry, x + rx, y + ry);
+    };
     if (a_thread->GetNumParams() >= 5) {
         gmVariable container = a_thread->Param(4);
         gmUserObject* object = container.m_type == g_entityListIterType
@@ -3264,12 +3370,11 @@ int GM_CDECL gmf_EM_getEntitiesNear(gmThread* a_thread) {
         if (!object || object->m_userType != g_entityListIterType || !object->m_user)
             return GM_EXCEPTION;
         EntityListIterData* iterator = (EntityListIterData*)object->m_user;
-        iterator->entities = std::move(matches);
-        iterator->index = 0;
+        RefillEntityListIterator(iterator, std::move(matches), std::move(filter));
         a_thread->Push(container);
         return GM_OK;
     }
-    PushEntityListIterator(a_thread, std::move(matches));
+    PushEntityListIterator(a_thread, std::move(matches), std::move(filter));
     return GM_OK;
 }
 int GM_CDECL gmf_EM_getNumEntities(gmThread* a_thread) {
@@ -4113,6 +4218,8 @@ void CommitPendingEntityCreations() {
         registry.entitiesByObjectID[entry.first] = entry.second;
     registry.entities.insert(registry.entities.end(),
         registry.pendingCreation.begin(), registry.pendingCreation.end());
+    for (const auto& entry : registry.pendingCreation)
+        AppendCommittedEntityToIterators(*GetEngineContext().machine, entry.second);
     registry.pendingCreation.clear();
 }
 

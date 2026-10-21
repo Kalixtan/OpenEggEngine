@@ -17,6 +17,7 @@
 #include <box2d/box2d.h>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <cmath>
 #include <limits>
 #include <type_traits>
@@ -100,6 +101,8 @@ struct PhysicsBodyData {
     // Keep each fixture's authored filter while masking it out, then restore
     // it when the body is claimed/enabled again.
     std::unordered_map<b2Fixture*, b2Filter> savedCollidableFilters;
+    std::unordered_set<b2Fixture*> categoryChangedWhileDisabled;
+    std::unordered_set<b2Fixture*> maskChangedWhileDisabled;
     // The gmVariable (PhysicsBody user object) that wraps THIS struct --
     // set right after allocation in MakePhysicsBody. Needed so native code
     // that only has a b2Body* (e.g. a raycast hit, or Physics.
@@ -169,6 +172,8 @@ void ApplyDesiredFixtureFilter(PhysicsBodyData* body, b2Fixture* fixture,
 void SetBodyCollidable(PhysicsBodyData* body, bool collidable) {
     if (body->isCollidable == collidable) return;
     if (!collidable) {
+        body->categoryChangedWhileDisabled.clear();
+        body->maskChangedWhileDisabled.clear();
         for (b2Fixture* fixture = body->body->GetFixtureList(); fixture;
              fixture = fixture->GetNext()) {
             const b2Filter desired = DesiredFixtureFilter(body, fixture);
@@ -189,6 +194,8 @@ void SetBodyCollidable(PhysicsBodyData* body, bool collidable) {
             body->savedCollidableFilters.erase(it);
             fixture->SetFilterData(desired);
         }
+        body->categoryChangedWhileDisabled.clear();
+        body->maskChangedWhileDisabled.clear();
     }
 }
 
@@ -1050,6 +1057,7 @@ int GM_CDECL gmf_pb_setCollisionCategory(gmThread* a_thread) {
         b2Filter filter = DesiredFixtureFilter(b, f);
         filter.categoryBits = (uint16)category;
         ApplyDesiredFixtureFilter(b, f, filter);
+        if (!b->isCollidable) b->categoryChangedWhileDisabled.insert(f);
     }
     return GM_OK;
 }
@@ -1061,19 +1069,24 @@ int GM_CDECL gmf_pb_setCategoriesToCollideWith(gmThread* a_thread) {
         b2Filter filter = DesiredFixtureFilter(b, f);
         filter.maskBits = (uint16)mask;
         ApplyDesiredFixtureFilter(b, f, filter);
+        if (!b->isCollidable) b->maskChangedWhileDisabled.insert(f);
     }
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getCollisionCategory(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)f->GetFilterData().categoryBits : 0);
+    const bool changed = f && b->categoryChangedWhileDisabled.count(f) != 0;
+    a_thread->PushInt(f ? (int)(changed ? DesiredFixtureFilter(b, f).categoryBits
+                                        : f->GetFilterData().categoryBits) : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)f->GetFilterData().maskBits : -1);
+    const bool changed = f && b->maskChangedWhileDisabled.count(f) != 0;
+    a_thread->PushInt(f ? (int)(changed ? DesiredFixtureFilter(b, f).maskBits
+                                        : f->GetFilterData().maskBits) : -1);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
@@ -1102,8 +1115,8 @@ int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
     // entity's draw or behaviour state for the rest of the current frame.
     // Retail treats that detached body as inactive; crucially, never follow
     // its former Box2D pointer after removal.
-    if (!b->body) { a_thread->PushInt(1); return GM_OK; }
-    a_thread->PushInt(b->body->IsAwake() ? 0 : 1);
+    if (!b->body) { a_thread->PushFloat(1.0f); return GM_OK; }
+    a_thread->PushFloat(b->body->IsAwake() ? 0.0f : 1.0f);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_putToSleep(gmThread* a_thread) {
@@ -3647,14 +3660,18 @@ int GM_CDECL gmf_pd_getCollisionCategory(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)f->GetFilterData().categoryBits : 0);
+    const bool changed = f && b->categoryChangedWhileDisabled.count(f) != 0;
+    a_thread->PushInt(f ? (int)(changed ? DesiredFixtureFilter(b, f).categoryBits
+                                        : f->GetFilterData().categoryBits) : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     PhysicsBodyData* b = MainBody(a_thread, d);
     b2Fixture* f = b ? b->body->GetFixtureList() : nullptr;
-    a_thread->PushInt(f ? (int)f->GetFilterData().maskBits : -1);
+    const bool changed = f && b->maskChangedWhileDisabled.count(f) != 0;
+    a_thread->PushInt(f ? (int)(changed ? DesiredFixtureFilter(b, f).maskBits
+                                        : f->GetFilterData().maskBits) : -1);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setCollisionCategory(gmThread* a_thread) {
@@ -3667,6 +3684,7 @@ int GM_CDECL gmf_pd_setCollisionCategory(gmThread* a_thread) {
             b2Filter filter = DesiredFixtureFilter(b, f);
             filter.categoryBits = (uint16)category;
             ApplyDesiredFixtureFilter(b, f, filter);
+            if (!b->isCollidable) b->categoryChangedWhileDisabled.insert(f);
         }
     }
     return GM_OK;
@@ -3681,6 +3699,7 @@ int GM_CDECL gmf_pd_setCategoriesToCollideWith(gmThread* a_thread) {
             b2Filter filter = DesiredFixtureFilter(b, f);
             filter.maskBits = (uint16)mask;
             ApplyDesiredFixtureFilter(b, f, filter);
+            if (!b->isCollidable) b->maskChangedWhileDisabled.insert(f);
         }
     }
     return GM_OK;

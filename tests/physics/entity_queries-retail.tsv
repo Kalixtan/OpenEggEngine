@@ -1,4 +1,4 @@
-# probe-sha256 a9fb08056b61fc6a8ca6f76db07fd7da3b4bc80f435b9c6be86650c67b81784e
+# probe-sha256 ebf051de69d382b2c8fa5076b8b15211a6e3fce8b19efebe199bf709f26d8c52
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
 entityQ.box.bOutside	1
 entityQ.box.inclusive	1
@@ -15,10 +15,10 @@ entityQ.filter.players	1
 entityQ.filter.playersRandom	1
 entityQ.filter.randomPlayer	1
 entityQ.filter.randomType	1
-entityQ.id.missingIsDummy	0
+entityQ.id.managerUID	null
+entityQ.id.missingObjectID	1
 entityQ.id.objectStable	1
 entityQ.id.sameObject	1
-entityQ.id.uidChanged	null
 entityQ.id.uidLookup	1
 entityQ.id.uidMissing	1
 entityQ.iterator.deletedEntryNull	1

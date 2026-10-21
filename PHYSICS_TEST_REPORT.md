@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 09:00 UTC
+Generated: 2026-10-21 12:01 UTC
 
-Matched: **4621/4631 declared readings (99.8%)**. This measures captured cases, not total physics parity.
+Matched: **4627/4627 comparable readings (100.0%)**. 1 declared reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **121/316**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **118/316**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -50,14 +50,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityMgr.tagForDeletion | 3 | 3 |
 | entityMgr.flush | 9 | 9 |
 | entityMgr.deleteAll | 7 | 7 |
-| entityQ.id | 4 | 6 |
+| entityQ.id | 5 | 5 |
 | entityQ.count | 4 | 4 |
 | entityQ.filter | 7 | 7 |
 | entityQ.near | 7 | 7 |
 | entityQ.box | 2 | 2 |
 | entityQ.shape | 13 | 13 |
 | entityQ.collisionIgnore | 2 | 2 |
-| entityQ.iterator | 2 | 5 |
+| entityQ.iterator | 5 | 5 |
 | bodyCtl.position | 1 | 1 |
 | bodyCtl.velocity | 1 | 1 |
 | bodyCtl.speed | 1 | 1 |
@@ -71,17 +71,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.sensor | 1 | 1 |
 | bodyCtl.collidable | 1 | 1 |
 | bodyCtl.bullet | 1 | 1 |
-| bodyCtl.category | 0 | 1 |
-| bodyCtl.mask | 0 | 1 |
+| bodyCtl.category | 1 | 1 |
+| bodyCtl.mask | 1 | 1 |
 | bodyCtl.group | 1 | 1 |
 | bodyCtl.angularVelocity | 1 | 1 |
 | bodyCtl.shapeCount | 1 | 1 |
-| bodyCtl.shapeCircle | 0 | 1 |
 | bodyCtl.pointInside | 1 | 1 |
 | bodyCtl.pointOutside | 1 | 1 |
-| bodyCtl.shapeCountAfterRect | 1 | 1 |
-| bodyCtl.shapeRect | 0 | 1 |
-| bodyCtl.sleeping | 0 | 1 |
+| bodyCtl.sleeping | 1 | 1 |
 
 ## Per function
 
@@ -89,21 +86,21 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | --- | ---: | ---: | --- |
 | `Entity.getObjectID` | 1 | 1 | PASS |
 | `Entity.getPhysicsData` | 1 | 1 | PASS |
-| `Entity.getUID` | 0 | 1 | FAIL |
+| `Entity.getUID` | 0 | 0 | untested |
 | `Entity.isEnabled` | 7 | 7 | PASS |
 | `Entity.isTaggedForDeletion` | 1 | 1 | PASS |
 | `Entity.tagForDeletion` | 0 | 0 | untested |
 | `EntityManager.createEntity` | 2 | 2 | PASS |
 | `EntityManager.deleteAllEntities` | 0 | 0 | untested |
 | `EntityManager.flush` | 0 | 0 | untested |
-| `EntityManager.getAllEntities` | 8 | 11 | FAIL |
+| `EntityManager.getAllEntities` | 11 | 11 | PASS |
 | `EntityManager.getAllManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllNonManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllPlayerEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllPlayerEntitiesRandomly` | 1 | 1 | PASS |
 | `EntityManager.getEntitiesNear` | 7 | 7 | PASS |
 | `EntityManager.getEntitiesRoughlyWithin` | 2 | 2 | PASS |
-| `EntityManager.getEntity` | 1 | 2 | FAIL |
+| `EntityManager.getEntity` | 2 | 2 | PASS |
 | `EntityManager.getEntityFromUID` | 2 | 2 | PASS |
 | `EntityManager.getNumEntities` | 13 | 13 | PASS |
 | `EntityManager.getNumManualEntities` | 1 | 1 | PASS |
@@ -208,7 +205,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getMaxSpeed` | 0 | 0 | untested |
 | `physicsBody.getMinPos` | 0 | 0 | untested |
 | `physicsBody.getNumShapeVerts` | 0 | 0 | untested |
-| `physicsBody.getNumShapes` | 4 | 4 | PASS |
+| `physicsBody.getNumShapes` | 3 | 3 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
 | `physicsBody.getPos` | 619 | 619 | PASS |
 | `physicsBody.getPosRef` | 0 | 0 | untested |
@@ -238,15 +235,15 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getWorldDir` | 0 | 0 | untested |
 | `physicsBody.getWorldPos` | 0 | 0 | untested |
 | `physicsBody.isBullet` | 60 | 60 | PASS |
-| `physicsBody.isCircle` | 0 | 1 | FAIL |
+| `physicsBody.isCircle` | 0 | 0 | untested |
 | `physicsBody.isCollidable` | 56 | 56 | PASS |
 | `physicsBody.isContainsShape` | 0 | 0 | untested |
 | `physicsBody.isPointWithin` | 4 | 4 | PASS |
 | `physicsBody.isPointWithinShape` | 0 | 0 | untested |
-| `physicsBody.isRect` | 0 | 1 | FAIL |
+| `physicsBody.isRect` | 0 | 0 | untested |
 | `physicsBody.isSensor` | 7 | 7 | PASS |
 | `physicsBody.isShapeSensor` | 0 | 0 | untested |
-| `physicsBody.isSleeping` | 0 | 1 | FAIL |
+| `physicsBody.isSleeping` | 1 | 1 | PASS |
 | `physicsBody.putToSleep` | 0 | 0 | untested |
 | `physicsBody.raycast` | 12 | 12 | PASS |
 | `physicsBody.raycastShapesOne` | 9 | 9 | PASS |
@@ -262,8 +259,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setAsCircle` | 0 | 0 | untested |
 | `physicsBody.setAsRect` | 0 | 0 | untested |
 | `physicsBody.setBrakeAcc` | 0 | 0 | untested |
-| `physicsBody.setCategoriesToCollideWith` | 0 | 1 | FAIL |
-| `physicsBody.setCollisionCategory` | 0 | 1 | FAIL |
+| `physicsBody.setCategoriesToCollideWith` | 1 | 1 | PASS |
+| `physicsBody.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsBody.setCollisionGroup` | 1 | 1 | PASS |
 | `physicsBody.setDir` | 0 | 0 | untested |
 | `physicsBody.setDoesRotationResponse` | 0 | 0 | untested |
@@ -418,6 +415,12 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityListRef.get` | 1 | 1 |
 | `EntityListRef.goToNext` | 1 | 1 |
 | `EntityListRef.isValid` | 1 | 1 |
+
+## Inconclusive probes
+
+| Function | Case | Retail | OpenEgg | Reason |
+| --- | --- | --- | --- | --- |
+| `Entity.getUID` | entityQ.id.managerUID | `null` | `91001` | The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately. |
 
 ## Readings
 
@@ -4986,10 +4989,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity callbacks` | entityMgr.deleteAll.destroyCount | `5` | `5` | PASS |
 | `EntityManager.getEntity` | entityQ.id.sameObject | `1` | `1` | PASS |
 | `EntityManager.getEntityFromUID` | entityQ.id.uidLookup | `1` | `1` | PASS |
-| `Entity.getUID` | entityQ.id.uidChanged | `null` | `1` | FAIL |
 | `Entity.getObjectID` | entityQ.id.objectStable | `1` | `1` | PASS |
 | `EntityManager.getEntityFromUID` | entityQ.id.uidMissing | `1` | `1` | PASS |
-| `EntityManager.getEntity` | entityQ.id.missingIsDummy | `0` | `1` | FAIL |
+| `EntityManager.getEntity` | entityQ.id.missingObjectID | `1` | `1` | PASS |
 | `EntityManager.getNumEntities` | entityQ.count.all | `5` | `5` | PASS |
 | `EntityManager.getNumManualEntities` | entityQ.count.manual | `1` | `1` | PASS |
 | `EntityManager.getNumNonManualEntities` | entityQ.count.nonManual | `4` | `4` | PASS |
@@ -5025,11 +5027,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.raycastShapes` | entityQ.shape.rayHasA | `0` | `0` | PASS |
 | `Physics.setNumFramesToIgnoreCollisions` | entityQ.collisionIgnore.setGet | `3` | `3` | PASS |
 | `Physics.setNumFramesToIgnoreCollisions` | entityQ.collisionIgnore.reset | `0` | `0` | PASS |
-| `EntityManager.getAllEntities` | entityQ.iterator.snapshotStable | `0` | `1` | FAIL |
-| `EntityManager.getAllEntities` | entityQ.iterator.newEntityExcluded | `0` | `1` | FAIL |
+| `EntityManager.getAllEntities` | entityQ.iterator.snapshotStable | `0` | `0` | PASS |
+| `EntityManager.getAllEntities` | entityQ.iterator.newEntityExcluded | `0` | `0` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.resetFirst | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedSnapshotSizeStable | `1` | `1` | PASS |
-| `EntityManager.getAllEntities` | entityQ.iterator.deletedEntryNull | `1` | `0` | FAIL |
+| `EntityManager.getAllEntities` | entityQ.iterator.deletedEntryNull | `1` | `1` | PASS |
 | `physicsBody.setPos` | bodyCtl.position | `1` | `1` | PASS |
 | `physicsBody.setVel` | bodyCtl.velocity | `1` | `1` | PASS |
 | `physicsBody.getSpeed` | bodyCtl.speed | `5.000000` | `5.000000` | PASS |
@@ -5043,14 +5045,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setIsSensor` | bodyCtl.sensor | `1` | `1` | PASS |
 | `physicsBody.setIsCollidable` | bodyCtl.collidable | `0` | `0` | PASS |
 | `physicsBody.setIsBullet` | bodyCtl.bullet | `1.000000` | `1.000000` | PASS |
-| `physicsBody.setCollisionCategory` | bodyCtl.category | `4` | `0` | FAIL |
-| `physicsBody.setCategoriesToCollideWith` | bodyCtl.mask | `7` | `0` | FAIL |
+| `physicsBody.setCollisionCategory` | bodyCtl.category | `4` | `4` | PASS |
+| `physicsBody.setCategoriesToCollideWith` | bodyCtl.mask | `7` | `7` | PASS |
 | `physicsBody.setCollisionGroup` | bodyCtl.group | `-2` | `-2` | PASS |
 | `physicsBody.setAngularVel` | bodyCtl.angularVelocity | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getNumShapes` | bodyCtl.shapeCount | `1` | `1` | PASS |
-| `physicsBody.isCircle` | bodyCtl.shapeCircle | `null` | `1` | FAIL |
 | `physicsBody.isPointWithin` | bodyCtl.pointInside | `1` | `1` | PASS |
 | `physicsBody.isPointWithin` | bodyCtl.pointOutside | `0` | `0` | PASS |
-| `physicsBody.getNumShapes` | bodyCtl.shapeCountAfterRect | `1` | `1` | PASS |
-| `physicsBody.isRect` | bodyCtl.shapeRect | `null` | `1` | FAIL |
-| `physicsBody.isSleeping` | bodyCtl.sleeping | `0.000000` | `1` | FAIL |
+| `physicsBody.isSleeping` | bodyCtl.sleeping | `1.000000` | `1.000000` | PASS |

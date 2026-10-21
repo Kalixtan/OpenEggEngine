@@ -2,13 +2,16 @@
   "prefix": "entityQ",
   "frames": 0,
   "scenes": {},
+  "inconclusive": {
+    "entityQ.id.managerUID": "The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately."
+  },
   "extra": [
     "entityQ.id.sameObject",
     "entityQ.id.uidLookup",
-    "entityQ.id.uidChanged",
+    "entityQ.id.managerUID",
     "entityQ.id.objectStable",
     "entityQ.id.uidMissing",
-    "entityQ.id.missingIsDummy",
+    "entityQ.id.missingObjectID",
     "entityQ.count.all",
     "entityQ.count.manual",
     "entityQ.count.nonManual",

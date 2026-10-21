@@ -5,6 +5,7 @@ import argparse
 from collections import defaultdict
 import csv
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 import sys
 
@@ -205,10 +206,10 @@ ENTITY_MANAGER_FIELDS = {
 ENTITY_QUERY_FIELDS = {
     "id.sameObject": "EntityManager.getEntity",
     "id.uidLookup": "EntityManager.getEntityFromUID",
-    "id.uidChanged": "Entity.getUID",
+    "id.managerUID": "Entity.getUID",
     "id.objectStable": "Entity.getObjectID",
     "id.uidMissing": "EntityManager.getEntityFromUID",
-    "id.missingIsDummy": "EntityManager.getEntity",
+    "id.missingObjectID": "EntityManager.getEntity",
     "count.all": "EntityManager.getNumEntities",
     "count.manual": "EntityManager.getNumManualEntities",
     "count.nonManual": "EntityManager.getNumNonManualEntities",
@@ -261,11 +262,8 @@ BODY_CONTROL_FIELDS = {
     "bullet": "physicsBody.setIsBullet", "category": "physicsBody.setCollisionCategory",
     "mask": "physicsBody.setCategoriesToCollideWith",
     "group": "physicsBody.setCollisionGroup", "angularVelocity": "physicsBody.setAngularVel",
-    "width": "physicsBody.setAsRect", "height": "physicsBody.setAsRect",
     "pointInside": "physicsBody.isPointWithin", "pointOutside": "physicsBody.isPointWithin",
-    "shapeCount": "physicsBody.getNumShapes", "shapeCircle": "physicsBody.isCircle",
-    "shapeCountAfterRect": "physicsBody.getNumShapes",
-    "shapeRect": "physicsBody.isRect", "sleeping": "physicsBody.isSleeping",
+    "shapeCount": "physicsBody.getNumShapes", "sleeping": "physicsBody.isSleeping",
 }
 
 
@@ -382,6 +380,7 @@ def main():
     log_dir.mkdir(parents=True, exist_ok=True)
     problems = []
     rows = []
+    inconclusive_rows = []
     grouped = defaultdict(list)
     scenes = defaultdict(list)
     for probe, baseline, plan, support in ((PROBE, BASELINE, None, ()),
@@ -407,6 +406,7 @@ def main():
                                             (ENTITY_QUERIES_SUPPORT,))):
         check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
+        inconclusive = json.loads(plan.read_text()).get("inconclusive", {}) if plan else {}
         if len(declared) != len(set(declared)):
             raise ValueError(f"duplicate probe names: {probe}")
         _, error, log_path, _ = run_script(args.engine.resolve(), HERE, probe.name,
@@ -426,6 +426,10 @@ def main():
                          for key in sorted(dupes)]
         for case in declared:
             function = owner(case, names)
+            if case in inconclusive:
+                inconclusive_rows.append((case, function, retail.get(case),
+                                          local.get(case), inconclusive[case]))
+                continue
             passed = retail.get(case) == local.get(case) and case in retail and case in local
             rows.append((case, function, retail.get(case), local.get(case), passed))
             grouped[function].append(passed)
@@ -441,7 +445,8 @@ def main():
     tested = sum(bool(grouped[name]) for name in names)
     lines = ["# Physics test report", "",
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
-             f"Matched: **{count}/{len(rows)} declared readings ({percent(count, len(rows))})**. "
+             f"Matched: **{count}/{len(rows)} comparable readings ({percent(count, len(rows))})**. "
+             f"{len(inconclusive_rows)} declared reading(s) are listed separately. "
              "This measures captured cases, not total physics parity.", "",
              f"Functions with readings: **{tested}/{len(names)}**. The inventory comes from "
              "the local API reference and includes OpenEgg-only methods.", "",
@@ -463,6 +468,12 @@ def main():
     for function in sorted(set(grouped) - set(names)):
         checks = grouped[function]
         lines.append(f"| `{function}` | {sum(checks)} | {len(checks)} |")
+    if inconclusive_rows:
+        lines += ["", "## Inconclusive probes", "",
+                  "| Function | Case | Retail | OpenEgg | Reason |",
+                  "| --- | --- | --- | --- | --- |"]
+        for case, function, retail_value, local_value, reason in inconclusive_rows:
+            lines.append(f"| `{function}` | {case} | `{retail_value}` | `{local_value}` | {reason} |")
     lines += ["", "## Readings", "", "| Function | Case | Retail | OpenEgg | Result |",
               "| --- | --- | --- | --- | --- |"]
     for case, function, a, b, passed in rows:

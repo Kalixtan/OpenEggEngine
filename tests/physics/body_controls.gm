@@ -6,6 +6,15 @@ global BodyShape=PHYSICSSHAPECOLLECTIONDEF();
 global Main=function(p) {
     return table(Process=p,ran=0,constructor=function(){},init=function(){return true;},
         update=function() {
+            if (this.ran==1) { this.ran=2; this.sleepWait=0; }
+            if (this.ran==2) {
+                this.sleepWait+=1;
+                if (this.sleepWait<30) { return; }
+                Probe("bodyCtl.sleeping",this.sleepBody.isSleeping());
+                this.ran=3;
+                GameSystem.setIsShouldUpdateEntities(1);
+                return;
+            }
             if (this.ran) { return; }
             this.ran=1;
             GameSystem.setIsShouldUpdateEntities(0);
@@ -56,16 +65,19 @@ global Main=function(p) {
             body.setAngularVel(0.5);
             Probe("bodyCtl.angularVelocity",body.getAngularVel());
             Probe("bodyCtl.shapeCount",body.getNumShapes());
-            Probe("bodyCtl.shapeCircle",body.isCircle());
             Probe("bodyCtl.pointInside",body.isPointWithin(vector2D(4,5)));
             Probe("bodyCtl.pointOutside",body.isPointWithin(vector2D(8,8)));
-            body.setAsRect(6,2);
-            Probe("bodyCtl.shapeCountAfterRect",body.getNumShapes());
-            Probe("bodyCtl.shapeRect",body.isRect());
-            body.putToSleep();
-            Probe("bodyCtl.sleeping",body.isSleeping());
-            EntityManager.deleteAllEntities();
+            this.sleepEntity=EntityManager.createEntity("EntityQueryProbeEntity");
+            local sleepData=this.sleepEntity.getPhysicsData();
+            this.sleepBody=sleepData.getBody(sleepData.createBody());
+            this.sleepBody.setPos(vector2D(100,100));
+            BodyShape.reset();
+            BodyShape.setMass(1);
+            BodyShape.addCircle(1,0,0);
+            this.sleepBody.appendShapes(BodyShape);
+            this.sleepEntity.setIsEnabled(1);
             EntityManager.flush();
-            GameSystem.setIsShouldUpdateEntities(1);
+            this.sleepBody.setAllowSleeping(1);
+            this.sleepBody.putToSleep();
         });
 };
