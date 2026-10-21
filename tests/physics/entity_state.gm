@@ -95,19 +95,34 @@ global Main=function(p) {
             local particles=entity.getAllParticles();
             if (particles==null) { Probe("entityState.particleIterator","null"); }
             else { Probe("entityState.particleIterator",particles.size()); }
-            local alarmID=native.getUniqueAlarmID();
-            local nextAlarmID=native.getUniqueAlarmID();
-            if (alarmID==null || nextAlarmID==null) {
-                Probe("entityState.alarmIDStep","null");
-            } else {
-                Probe("entityState.alarmIDStep",nextAlarmID-alarmID);
-            }
-            native.addAlarm(991,100,0);
-            Probe("entityState.alarmExists",native.getAlarm(991)!=null);
-            native.addAlarm(991,50,1);
-            Probe("entityState.alarmUpdated",native.getAlarm(991)!=null);
-            entity.deleteAlarm(991);
-            Probe("entityState.alarmDeleted",native.getAlarm(991)==null);
+            local alarm=ALARM(100);
+            Probe("entityState.alarmInterval",alarm.getInterval());
+            Probe("entityState.alarmElapsedInitial",alarm.getMSElapsed());
+            Probe("entityState.alarmInitiallyReady",alarm.isAlarming());
+            Probe("entityState.alarmTimeInitial",alarm.getTimeTillAlarm());
+            Probe("entityState.alarmUpdateEarly",alarm.update(40));
+            Probe("entityState.alarmElapsedEarly",alarm.getMSElapsed());
+            Probe("entityState.alarmUpdateReady",alarm.update(60));
+            Probe("entityState.alarmReady",alarm.isAlarming());
+            Probe("entityState.alarmPercentageReady",alarm.getAlarmPercentage());
+            Probe("entityState.alarmEnabledReady",alarm.isEnabled());
+            alarm.hardReset();
+            Probe("entityState.alarmElapsedReset",alarm.getMSElapsed());
+            alarm.setInterval(300);
+            Probe("entityState.alarmIntervalSet",alarm.getInterval());
+            Probe("entityState.alarmElapsedSetInterval",alarm.getMSElapsed());
+            alarm.reset();
+            Probe("entityState.alarmElapsedResetAlias",alarm.getMSElapsed());
+            alarm.randomReset();
+            Probe("entityState.alarmRandomResetRange",alarm.getAlarmPercentage()>=0 && alarm.getAlarmPercentage()<=1);
+            alarm.setIntervalAndHardReset(200);
+            Probe("entityState.alarmIntervalReset",alarm.getInterval());
+            alarm.phaseReset(0.25);
+            Probe("entityState.alarmElapsedPhase",alarm.getMSElapsed());
+            alarm.setIsEnabled(0);
+            Probe("entityState.alarmEnabledDisabled",alarm.isEnabled());
+            Probe("entityState.alarmUpdateDisabled",alarm.update(50));
+            Probe("entityState.alarmElapsedDisabled",alarm.getMSElapsed());
             local lfo=native.addLFO(0,TRIANGLELFO());
             Probe("entityState.addLFO",lfo!=null);
             local lfoProbe=TRIANGLELFO();

@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 15:19 UTC
+Generated: 2026-10-21 15:26 UTC
 
-Matched: **4777/4781 comparable readings (99.9%)**. 13 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4796/4800 comparable readings (99.9%)**. 10 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **262/434**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **275/448**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -84,6 +84,20 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
+| `ALARM.getAlarmPercentage` | 1 | 1 | PASS |
+| `ALARM.getInterval` | 1 | 1 | PASS |
+| `ALARM.getMSElapsed` | 3 | 3 | PASS |
+| `ALARM.getTimeTillAlarm` | 1 | 1 | PASS |
+| `ALARM.hardReset` | 1 | 1 | PASS |
+| `ALARM.isAlarming` | 2 | 2 | PASS |
+| `ALARM.isEnabled` | 2 | 2 | PASS |
+| `ALARM.phaseReset` | 1 | 1 | PASS |
+| `ALARM.randomReset` | 2 | 2 | PASS |
+| `ALARM.reset` | 2 | 2 | PASS |
+| `ALARM.setInterval` | 4 | 4 | PASS |
+| `ALARM.setIntervalAndHardReset` | 1 | 1 | PASS |
+| `ALARM.setIsEnabled` | 1 | 1 | PASS |
+| `ALARM.update` | 3 | 3 | PASS |
 | `Entity.addAlarm` | 0 | 0 | untested |
 | `Entity.addLFO` | 13 | 13 | PASS |
 | `Entity.addTelescope` | 1 | 1 | PASS |
@@ -129,7 +143,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getType` | 1 | 1 | PASS |
 | `Entity.getTypeName` | 1 | 1 | PASS |
 | `Entity.getUID` | 0 | 0 | untested |
-| `Entity.getUniqueAlarmID` | 2 | 2 | PASS |
+| `Entity.getUniqueAlarmID` | 0 | 0 | untested |
 | `Entity.getUniqueLFOID` | 0 | 0 | untested |
 | `Entity.getVectorTo` | 2 | 2 | PASS |
 | `Entity.getVectorToNormalized` | 2 | 2 | PASS |
@@ -540,9 +554,6 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | --- | --- | --- | --- | --- |
 | `Entity.getUID` | entityQ.id.managerUID | `null` | `91001` | The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately. |
 | `Entity.addLFO` | entityState.addLFO | `0` | `1` | The synthetic entity fixture does not expose the retail native LFO owner; game scripts attach LFOs to fully initialized retail entities. |
-| `Entity.getAlarm` | entityState.alarmDeleted | `1` | `1` | Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle. |
-| `Entity.getAlarm` | entityState.alarmExists | `0` | `1` | Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle. |
-| `Entity.getAlarm` | entityState.alarmUpdated | `0` | `1` | Entity alarms are not a retail API; retail alarms are Process-owned, and this fixture has no live Process handle. |
 | `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `null` | `1` | Synthetic entity fixture exposes the setter but no retail getter state for this property. |
 | `Entity.getEntityCreationPos` | entityState.creationPosX | `null` | `12.500000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
 | `Entity.getEntityCreationPos` | entityState.creationPosY | `null` | `-4.250000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
@@ -5172,7 +5183,26 @@ These extensions have no corresponding retail method and are excluded from the p
 | `EntityManager.getAllEntities` | entityQ.iterator.resetFirst | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedSnapshotSizeStable | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedEntryNull | `1` | `1` | PASS |
-| `Entity.getUniqueAlarmID` | entityState.alarmIDStep | `null` | `null` | PASS |
+| `ALARM.getMSElapsed` | entityState.alarmElapsedDisabled | `50.000000` | `50.000000` | PASS |
+| `ALARM.getMSElapsed` | entityState.alarmElapsedEarly | `40.000000` | `40.000000` | PASS |
+| `ALARM.getMSElapsed` | entityState.alarmElapsedInitial | `0.000000` | `0.000000` | PASS |
+| `ALARM.phaseReset` | entityState.alarmElapsedPhase | `50.000000` | `50.000000` | PASS |
+| `ALARM.hardReset` | entityState.alarmElapsedReset | `0.000000` | `0.000000` | PASS |
+| `ALARM.reset` | entityState.alarmElapsedResetAlias | `0.000000` | `0.000000` | PASS |
+| `ALARM.setInterval` | entityState.alarmElapsedSetInterval | `0.000000` | `0.000000` | PASS |
+| `ALARM.isEnabled` | entityState.alarmEnabledDisabled | `0` | `0` | PASS |
+| `ALARM.isEnabled` | entityState.alarmEnabledReady | `1` | `1` | PASS |
+| `ALARM.isAlarming` | entityState.alarmInitiallyReady | `0` | `0` | PASS |
+| `ALARM.getInterval` | entityState.alarmInterval | `100.000000` | `100.000000` | PASS |
+| `ALARM.setIntervalAndHardReset` | entityState.alarmIntervalReset | `200.000000` | `200.000000` | PASS |
+| `ALARM.setInterval` | entityState.alarmIntervalSet | `300.000000` | `300.000000` | PASS |
+| `ALARM.getAlarmPercentage` | entityState.alarmPercentageReady | `1.000000` | `1.000000` | PASS |
+| `ALARM.randomReset` | entityState.alarmRandomResetRange | `1` | `1` | PASS |
+| `ALARM.isAlarming` | entityState.alarmReady | `1` | `1` | PASS |
+| `ALARM.getTimeTillAlarm` | entityState.alarmTimeInitial | `100.000000` | `100.000000` | PASS |
+| `ALARM.update` | entityState.alarmUpdateDisabled | `0` | `0` | PASS |
+| `ALARM.update` | entityState.alarmUpdateEarly | `0` | `0` | PASS |
+| `ALARM.update` | entityState.alarmUpdateReady | `1` | `1` | PASS |
 | `Entity.isBeingEdited` | entityState.beingEdited | `1` | `1` | PASS |
 | `Entity.callMethod` | entityState.callMethod | `null` | `12` | FAIL |
 | `Entity.isInvisible` | entityState.clearFlags | `1` | `1` | PASS |

@@ -1,10 +1,26 @@
-# probe-sha256 1128dd25a5409683d61efb0d8afc8d6b838bf70df5b52e2dbaeaf3233dc0e8bd
+# probe-sha256 43f0ccef89937b04b5d12d8273f983f35a29ff0a90cf501daad849a08b124c2a
 # support-sha256 EntityStateProbeEntity.gm 6053836e3665758db2642bcc9588e072ae938d5bd44d85611c0e1975195d3dfe
 entityState.addLFO	0
-entityState.alarmDeleted	1
-entityState.alarmExists	0
-entityState.alarmIDStep	null
-entityState.alarmUpdated	0
+entityState.alarmElapsedDisabled	50.000000
+entityState.alarmElapsedEarly	40.000000
+entityState.alarmElapsedInitial	0.000000
+entityState.alarmElapsedPhase	50.000000
+entityState.alarmElapsedReset	0.000000
+entityState.alarmElapsedResetAlias	0.000000
+entityState.alarmElapsedSetInterval	0.000000
+entityState.alarmEnabledDisabled	0
+entityState.alarmEnabledReady	1
+entityState.alarmInitiallyReady	0
+entityState.alarmInterval	100.000000
+entityState.alarmIntervalReset	200.000000
+entityState.alarmIntervalSet	300.000000
+entityState.alarmPercentageReady	1.000000
+entityState.alarmRandomResetRange	1
+entityState.alarmReady	1
+entityState.alarmTimeInitial	100.000000
+entityState.alarmUpdateDisabled	0
+entityState.alarmUpdateEarly	0
+entityState.alarmUpdateReady	1
 entityState.alwaysProcessed	null
 entityState.beingEdited	1
 entityState.callMethod	null

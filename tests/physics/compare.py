@@ -70,7 +70,7 @@ REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "shapeCollisionInfo.", "intIter.",
             "jointType.", "jointIter.", "Physics.", "Entity.",
-            "EntityManager.", "EntityListRef.")
+            "EntityManager.", "EntityListRef.", "ALARM.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "Global.PHYSICSSHAPECOLLECTIONDEF", "Entity.isEnabled",
            "EntityManager.isEntityIDValid", "EntityManager.getNumEntities",
@@ -83,7 +83,7 @@ SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "EntityManager.getAllNonManualEntities", "EntityManager.getAllPlayerEntities",
            "EntityManager.getAllPlayerEntitiesRandomly", "EntityManager.getRandomEntity",
            "EntityManager.getRandomPlayer", "EntityManager.getEntitiesNear",
-           "EntityManager.getEntitiesRoughlyWithin"}
+           "EntityManager.getEntitiesRoughlyWithin", "ALARM.setIntervalAndHardReset"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
@@ -111,10 +111,11 @@ ASSOCIATED = {
     "entityState.perfFirst": ("EntityManager.setEntityPerfCost",),
     "entityState.perfAdditional": ("EntityManager.setEntityPerfCost",),
     "entityState.perfMax": ("EntityManager.setEntityPerfMaxCost",),
-    "entityState.alarmIDStep": ("Entity.getUniqueAlarmID",),
-    "entityState.alarmExists": ("Entity.addAlarm", "Entity.getAlarm"),
-    "entityState.alarmUpdated": ("Entity.addAlarm", "Entity.getAlarm"),
-    "entityState.alarmDeleted": ("Entity.deleteAlarm", "Entity.getAlarm"),
+    "entityState.alarmIntervalSet": ("ALARM.setInterval",),
+    "entityState.alarmElapsedSetInterval": ("ALARM.setInterval",),
+    "entityState.alarmElapsedResetAlias": ("ALARM.reset",),
+    "entityState.alarmRandomResetRange": ("ALARM.randomReset",),
+    "entityState.alarmEnabledDisabled": ("ALARM.setIsEnabled",),
     "entityState.addLFO": ("Entity.addLFO",),
     "entityState.compatibilityCallsComplete": (
         "Entity.deleteLFO", "Entity.addTelescope", "Entity.clearTelescopes",
@@ -339,8 +340,16 @@ ENTITY_STATE_FIELDS = {
     "getting": "Entity.isGetting", "callMethod": "Entity.callMethod",
     "createParticle": "Entity.createParticle", "particleCount": "Entity.getNumParticles",
     "particleIterator": "Entity.getAllParticles", "notOkToRun": "Entity.isOkToRun",
-    "alarmIDStep": "Entity.getUniqueAlarmID", "alarmExists": "Entity.getAlarm",
-    "alarmUpdated": "Entity.getAlarm", "alarmDeleted": "Entity.getAlarm",
+    "alarmInterval": "ALARM.getInterval", "alarmElapsedInitial": "ALARM.getMSElapsed",
+    "alarmEnabledReady": "ALARM.isEnabled", "alarmEnabledDisabled": "ALARM.isEnabled",
+    "alarmInitiallyReady": "ALARM.isAlarming", "alarmTimeInitial": "ALARM.getTimeTillAlarm",
+    "alarmUpdateEarly": "ALARM.update", "alarmElapsedEarly": "ALARM.getMSElapsed",
+    "alarmIntervalSet": "ALARM.setInterval", "alarmElapsedSetInterval": "ALARM.setInterval",
+    "alarmUpdateReady": "ALARM.update", "alarmReady": "ALARM.isAlarming",
+    "alarmPercentageReady": "ALARM.getAlarmPercentage", "alarmElapsedReset": "ALARM.hardReset",
+    "alarmElapsedResetAlias": "ALARM.reset", "alarmRandomResetRange": "ALARM.randomReset",
+    "alarmIntervalReset": "ALARM.setIntervalAndHardReset", "alarmElapsedPhase": "ALARM.phaseReset",
+    "alarmUpdateDisabled": "ALARM.update", "alarmElapsedDisabled": "ALARM.getMSElapsed",
     "addLFO": "Entity.addLFO", "lfoObjectNonNull": "Entity.addLFO",
     "lfoRate": "Entity.addLFO",
     "lfoRate50": "Entity.addLFO", "lfoRate100": "Entity.addLFO",
@@ -380,8 +389,10 @@ LOCAL_ONLY = {
 
 def inventory():
     with (ROOT / "docs/api/function_notes.tsv").open() as source:
-        return sorted(row["name"] for row in csv.DictReader(source, delimiter="\t")
-                      if row["name"].startswith(PREFIXES) or row["name"] in SPECIAL)
+        names = {row["name"] for row in csv.DictReader(source, delimiter="\t")
+                 if row["name"].startswith(PREFIXES) or row["name"] in SPECIAL}
+    names.add("ALARM.setIntervalAndHardReset")
+    return sorted(names)
 
 
 def owner(name, names):

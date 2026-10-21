@@ -105,11 +105,14 @@ gmType g_alarmHandleType = -1;
 struct AlarmHandleData {
     gmVariable owner;
     int alarmId;
+    bool standalone = false;
+    AlarmState standaloneState;
 };
 
 AlarmState* ThisAlarm(gmThread* a_thread) {
     AlarmHandleData* h = (AlarmHandleData*)a_thread->ThisUserCheckType(g_alarmHandleType);
     if (!h) return nullptr;
+    if (h->standalone) return &h->standaloneState;
     return FindAlarm(*a_thread->GetMachine(), h->owner, h->alarmId);
 }
 
@@ -123,10 +126,16 @@ int GM_CDECL gmf_alarm_setInterval(gmThread* a_thread) {
 int GM_CDECL gmf_alarm_hardReset(gmThread* a_thread) {
     AlarmState* a = ThisAlarm(a_thread); if (!a) return GM_OK;
     a->elapsedMs = 0.0f;
-    a->enabled = true;
     return GM_OK;
 }
 int GM_CDECL gmf_alarm_reset(gmThread* a_thread) { return gmf_alarm_hardReset(a_thread); }
+int GM_CDECL gmf_alarm_setIntervalAndHardReset(gmThread* a_thread) {
+    AlarmState* a = ThisAlarm(a_thread); if (!a) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(ms, 0, 0.0f);
+    a->intervalMs = ms;
+    a->elapsedMs = 0.0f;
+    return GM_OK;
+}
 int GM_CDECL gmf_alarm_getInterval(gmThread* a_thread) {
     AlarmState* a = ThisAlarm(a_thread);
     a_thread->PushFloat(a ? a->intervalMs : 0.0f);
@@ -164,28 +173,67 @@ int GM_CDECL gmf_alarm_setIsEnabled(gmThread* a_thread) {
     a->enabled = (v != 0);
     return GM_OK;
 }
-int GM_CDECL gmf_alarm_noop(gmThread* a_thread) { return GM_OK; } // update()/randomReset()/phaseReset() -- ticked centrally, see TickAlarms
+int GM_CDECL gmf_alarm_phaseReset(gmThread* a_thread) {
+    AlarmState* a = ThisAlarm(a_thread); if (!a) return GM_OK;
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(phase, 0, 0.0f);
+    a->elapsedMs = a->intervalMs * std::max(0.0f, std::min(1.0f, phase));
+    return GM_OK;
+}
+int GM_CDECL gmf_alarm_randomReset(gmThread* a_thread) {
+    AlarmState* a = ThisAlarm(a_thread); if (!a) return GM_OK;
+    a->elapsedMs = a->intervalMs * Random01();
+    return GM_OK;
+}
+int GM_CDECL gmf_alarm_update(gmThread* a_thread) {
+    AlarmState* a = ThisAlarm(a_thread);
+    GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(ms, 0, 0.0f);
+    if (a && a->enabled) a->elapsedMs += ms;
+    a_thread->PushInt((a && a->enabled && a->elapsedMs >= a->intervalMs) ? 1 : 0);
+    return GM_OK;
+}
+
+void GM_CDECL AlarmHandleGC(gmMachine*, gmUserObject* a_object) {
+    delete (AlarmHandleData*)a_object->m_user;
+}
+
+void EnsureAlarmHandleType(gmMachine& a_machine) {
+    if (g_alarmHandleType >= 0) return;
+    g_alarmHandleType = a_machine.CreateUserType("ALARM");
+    static gmFunctionEntry lib[] = {
+        {"setInterval", gmf_alarm_setInterval, nullptr},
+        {"setIntervalAndHardReset", gmf_alarm_setIntervalAndHardReset, nullptr},
+        {"hardReset", gmf_alarm_hardReset, nullptr},
+        {"reset", gmf_alarm_reset, nullptr},
+        {"phaseReset", gmf_alarm_phaseReset, nullptr},
+        {"randomReset", gmf_alarm_randomReset, nullptr},
+        {"update", gmf_alarm_update, nullptr},
+        {"getInterval", gmf_alarm_getInterval, nullptr},
+        {"isAlarming", gmf_alarm_isAlarming, nullptr},
+        {"getTimeTillAlarm", gmf_alarm_getTimeTillAlarm, nullptr},
+        {"getAlarmPercentage", gmf_alarm_getAlarmPercentage, nullptr},
+        {"getMSElapsed", gmf_alarm_getMSElapsed, nullptr},
+        {"isEnabled", gmf_alarm_isEnabled, nullptr},
+        {"setIsEnabled", gmf_alarm_setIsEnabled, nullptr},
+    };
+    a_machine.RegisterTypeLibrary(g_alarmHandleType, lib, sizeof(lib) / sizeof(lib[0]));
+    a_machine.RegisterUserCallbacks(g_alarmHandleType, nullptr, AlarmHandleGC, nullptr);
+}
+
+int GM_CDECL gmf_ALARM(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(0);
+    AlarmHandleData* handle = new AlarmHandleData();
+    handle->standalone = true;
+    if (a_thread->GetNumParams() >= 1) {
+        GM_FLOAT_OR_INT_PARAM(ms, 0, 0.0f);
+        handle->standaloneState.intervalMs = ms;
+    }
+    EnsureAlarmHandleType(*a_thread->GetMachine());
+    a_thread->PushNewUser(handle, g_alarmHandleType);
+    return GM_OK;
+}
 
 gmVariable MakeAlarmHandle(gmMachine& a_machine, const gmVariable& a_owner, int a_id) {
-    if (g_alarmHandleType < 0) {
-        g_alarmHandleType = a_machine.CreateUserType("ALARM");
-        static gmFunctionEntry lib[] = {
-            {"setInterval", gmf_alarm_setInterval, nullptr},
-            {"hardReset", gmf_alarm_hardReset, nullptr},
-            {"reset", gmf_alarm_reset, nullptr},
-            {"phaseReset", gmf_alarm_noop, nullptr},
-            {"randomReset", gmf_alarm_noop, nullptr},
-            {"update", gmf_alarm_noop, nullptr},
-            {"getInterval", gmf_alarm_getInterval, nullptr},
-            {"isAlarming", gmf_alarm_isAlarming, nullptr},
-            {"getTimeTillAlarm", gmf_alarm_getTimeTillAlarm, nullptr},
-            {"getAlarmPercentage", gmf_alarm_getAlarmPercentage, nullptr},
-            {"getMSElapsed", gmf_alarm_getMSElapsed, nullptr},
-            {"isEnabled", gmf_alarm_isEnabled, nullptr},
-            {"setIsEnabled", gmf_alarm_setIsEnabled, nullptr},
-        };
-        a_machine.RegisterTypeLibrary(g_alarmHandleType, lib, sizeof(lib) / sizeof(lib[0]));
-    }
+    EnsureAlarmHandleType(a_machine);
     AlarmHandleData* h = new AlarmHandleData{a_owner, a_id};
     gmVariable v; v.SetUser(a_machine.AllocUserObject(h, g_alarmHandleType));
     return v;
@@ -288,6 +336,7 @@ LFOData* ThisLFO(gmThread* a_thread) { return (LFOData*)a_thread->ThisUserCheckT
 int GM_CDECL gmf_lfo_setPhase(gmThread* a_thread) { LFOData* l = ThisLFO(a_thread); if (!l) return GM_OK; GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f); l->phase = v; return GM_OK; }
 int GM_CDECL gmf_lfo_setRate(gmThread* a_thread) { LFOData* l = ThisLFO(a_thread); if (!l) return GM_OK; GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(v, 0, 1.0f); l->rate = v; return GM_OK; }
 int GM_CDECL gmf_lfo_setRange(gmThread* a_thread) { LFOData* l = ThisLFO(a_thread); if (!l) return GM_OK; GM_CHECK_NUM_PARAMS(2); GM_FLOAT_OR_INT_PARAM(lo, 0, 0.0f); GM_FLOAT_OR_INT_PARAM(hi, 1, 1.0f); l->lo = lo; l->hi = hi; return GM_OK; }
+int GM_CDECL gmf_lfo_setContour(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_lfo_getValue(gmThread* a_thread) {
     LFOData* l = ThisLFO(a_thread);
     if (!l) { a_thread->PushFloat(0.0f); return GM_OK; }
@@ -317,7 +366,7 @@ gmVariable MakeLFO(gmMachine& a_machine, int a_waveform) {
             {"setRandomPhase", gmf_lfo_setPhase, nullptr},
             {"setRate", gmf_lfo_setRate, nullptr},
             {"setRange", gmf_lfo_setRange, nullptr},
-            {"setContour", gmf_alarm_noop, nullptr},
+            {"setContour", gmf_lfo_setContour, nullptr},
             {"getValue", gmf_lfo_getValue, nullptr},
             {"update", gmf_lfo_update, nullptr},
         };
@@ -494,6 +543,9 @@ void RegisterScriptCompatBindings(gmMachine& a_machine) {
         gmVariable(a_machine.AllocFunctionObject(gmf_REALPOINT)));
 
     // Alarm ID management
+    EnsureAlarmHandleType(a_machine);
+    a_machine.GetGlobals()->Set(&a_machine, "ALARM",
+        gmVariable(a_machine.AllocFunctionObject(gmf_ALARM)));
     a_machine.GetGlobals()->Set(&a_machine, "getUniqueAlarmID",
         gmVariable(a_machine.AllocFunctionObject(gmf_getUniqueAlarmID)));
     a_machine.GetGlobals()->Set(&a_machine, "addAlarm",
