@@ -7,6 +7,7 @@ import csv
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -21,6 +22,8 @@ SOUND = Path("Platformer/sounds/fx/button-high.wav")
 STREAM_SOUND = Path("Platformer/levels/gamescom_master_8.wav")
 REPORT = ROOT / "AUDIO_TEST_REPORT.md"
 RETAIL_WARNING_PREFIX = "# retail-warning "
+VOLATILE_READING = re.compile(
+    r'ProbeVolatile\("([A-Za-z0-9_.]+)"')
 
 
 def retail_setup_warnings(baselines):
@@ -84,6 +87,7 @@ def compare_section(engine, probe, baseline, root, log_dir, names):
     retail, retail_dupes = read_readings(baseline)
     local, local_dupes = read_readings(log_path)
     setup_skips = retail_setup_skips(baseline)
+    volatile = set(VOLATILE_READING.findall(probe.read_text()))
     problems = [f"{probe.name}: {error}"] if error else []
     for label, values, duplicates in (("retail", retail, retail_dupes),
                                       ("OpenEgg", local, local_dupes)):
@@ -100,7 +104,7 @@ def compare_section(engine, probe, baseline, root, log_dir, names):
             raise ValueError(f"no API inventory entry for {name}")
         rows.append((function, name, retail.get(name), local.get(name),
                      name in retail and name in local and retail[name] == local[name],
-                     name in setup_skips))
+                     name in setup_skips, name in volatile))
     return rows, problems
 
 
@@ -154,16 +158,18 @@ def main():
 
     grouped = defaultdict(list)
     for row in rows:
-        function, _, _, _, passed, skip = row
-        grouped[function].append((passed, skip))
+        function, _, _, _, passed_reading, setup_skip, clock = row
+        grouped[function].append((passed_reading, setup_skip, clock))
     skipped = sum(row[5] for row in rows)
-    compared = len(rows) - skipped
-    passed = sum(row[4] for row in rows if not row[5])
+    clock_dependent = sum(row[6] for row in rows)
+    compared = len(rows) - skipped - clock_dependent
+    passed = sum(row[4] for row in rows if not row[5] and not row[6])
     tested = sum(bool(grouped[name]) for name in names)
     lines = ["# Audio test report", "",
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
              f"Matched: **{passed}/{compared} ({percent(passed, compared)})** comparable script readings; "
-             f"{skipped} skipped after retail setup failures. "
+             f"{skipped} skipped after retail setup failures; "
+             f"{clock_dependent} clock-dependent readings excluded. "
              "Effect-chain calls without a getter only check completion. "
              "This does not test emitted audio or DSP parity.", "",
              f"Asset probes: {asset_status}. Functions with readings: **{tested}/{len(names)}**.", "",
@@ -174,27 +180,31 @@ def main():
     lines += [
              "",
              "## Per function", "",
-             "| Function | Matched | Compared | Skipped | Status |",
-             "| --- | ---: | ---: | ---: | --- |"]
+             "| Function | Matched | Compared | Setup skip | Clock | Status |",
+             "| --- | ---: | ---: | ---: | ---: | --- |"]
     for function in names:
         results = grouped[function]
-        count = sum(passed for passed, skip in results if not skip)
-        cases = sum(not skip for _, skip in results)
-        ignored = sum(skip for _, skip in results)
-        status = ("untested" if not results else "SKIP" if not cases else
-                  "PASS" if count == cases else "FAIL")
-        lines.append(f"| `{function}` | {count} | {cases} | {ignored} | {status} |")
+        count = sum(passed_reading for passed_reading, skip, clock in results
+                    if not skip and not clock)
+        cases = sum(not skip and not clock for _, skip, clock in results)
+        setup_ignored = sum(skip for _, skip, _ in results)
+        clock_ignored = sum(clock for _, _, clock in results)
+        status = ("untested" if not results else "CLOCK" if not cases and clock_ignored else
+                  "SKIP" if not cases else "PASS" if count == cases else "FAIL")
+        lines.append(f"| `{function}` | {count} | {cases} | {setup_ignored} | "
+                     f"{clock_ignored} | {status} |")
     lines += ["", "## Readings", "", "| Function | Case | Retail | OpenEgg | Result |",
               "| --- | --- | --- | --- | --- |"]
-    for function, name, retail, local, match, skip in rows:
-        result = "SKIP" if skip else "PASS" if match else "FAIL"
+    for function, name, retail, local, match, skip, clock in rows:
+        result = "SETUP SKIP" if skip else "CLOCK" if clock else "PASS" if match else "FAIL"
         lines.append(f"| `{function}` | {name} | `{retail}` | `{local}` | "
                      f"{result} |")
     if problems:
         lines += ["", "## Capture problems", ""] + [f"- {problem}" for problem in problems]
     args.report.write_text("\n".join(lines) + "\n")
     print(f"audio: {passed}/{compared} comparable readings matched; "
-          f"{skipped} skipped, {len(problems)} capture problems")
+          f"{skipped} setup skips, {clock_dependent} clock-dependent, "
+          f"{len(problems)} capture problems")
     for warning in warnings:
         print(f"WARNING: {warning}")
     print(f"Report: {args.report}")

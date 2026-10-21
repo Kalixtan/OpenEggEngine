@@ -5,7 +5,8 @@ script-visible state without game files. Voice probes copy sound samples from
 your extracted game data into a temporary folder. These probes check script
 responses; `waveform.gm` checks emitted audio.
 `voice_lifetime.gm` checks voice completion, fades, pause/resume, loops, unload,
-and stop-all across process updates. Its current report includes timing mismatches.
+and stop-all across process updates. `OEPV__` marks playback-clock samples that
+are printed for review but excluded from deterministic score comparisons.
 
 Capture retail readings with your installed PS3 game:
 

@@ -566,7 +566,6 @@ int main(int argc, char** argv) {
         recordPhase(0); // frontend input and event dispatch
         while (simulationAccumulatorMs >= kRetailSimulationStepMs) {
             const float simDtMs = kRetailSimulationStepMs;
-            AdvanceAudioVoices(simDtMs);
             // The vendored GameMonkey scheduler takes integer milliseconds;
             // distribute the retail 50 ms / 3 tick cadence as 17,17,16 so
             // its cumulative clock does not run 2% fast from rounding every
@@ -610,6 +609,10 @@ int main(int argc, char** argv) {
                 if (GetEngineContext().gameSystem.shouldUpdateEntities)
                     UpdateEntitiesWithNativeUpdateHook(simDtMs);
             });
+            // Retail calls AudioManager's fixed-step update after its process
+            // manager update. Voices created or resumed by a process therefore
+            // receive this tick before the next process sample.
+            AdvanceAudioVoices(simDtMs);
             CallGlobalHookIfPresent(vm.Machine(), "GAME_Update",
                                      static_cast<int>(scriptDtMs), true);
             if (updateEntities) PostUpdateEntitiesWithNativeHook(simDtMs);

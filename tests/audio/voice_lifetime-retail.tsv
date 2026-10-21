@@ -1,4 +1,4 @@
-# probe-sha256 38447e70047ac81f4884c8c73b4712a57105550e7608430463b70d38409bc798
+# probe-sha256 dada4905acbd6fac87a67000e71bc74af0cea91639cd7473374348b2194583f1
 Audio.fadeOutVoice.active	1
 Audio.fadeOutVoice.after1	1
 Audio.fadeOutVoice.complete	0
@@ -7,12 +7,33 @@ Audio.getVoicePosition.pausedInitial	0
 Audio.getVoicePosition.resumed	15
 Audio.onVoiceEndFreeEffectChain.pending	1
 Audio.onVoiceEndFreeEffectChain.voiceEnded	1
+Audio.playSound.natural.position1	0
+Audio.playSound.natural.position2	0
+Audio.playSound.natural.position3	0
+Audio.playSound.natural.position4	0
+Audio.playSound.natural.position5	0
+Audio.playSound.natural.position6	0
+Audio.playSound.natural.valid1	0
+Audio.playSound.natural.valid2	0
+Audio.playSound.natural.valid3	0
+Audio.playSound.natural.valid5	0
 Audio.playSound.naturalBeforeEnd	0
 Audio.playSound.naturalEnd	0
 Audio.playSound.naturalStart	1
 Audio.setVoiceLoopCount.active	1
 Audio.setVoiceLoopCount.complete	0
+Audio.setVoiceLoopCount.position1	0
+Audio.setVoiceLoopCount.position2	0
+Audio.setVoiceLoopCount.position3	0
+Audio.setVoiceLoopCount.position4	0
+Audio.setVoiceLoopCount.position5	0
+Audio.setVoiceLoopCount.position6	0
 Audio.setVoiceLoopCount.secondPass	0
+Audio.setVoiceLoopCount.valid1	0
+Audio.setVoiceLoopCount.valid2	0
+Audio.setVoiceLoopCount.valid3	0
+Audio.setVoiceLoopCount.valid4	0
+Audio.setVoiceLoopCount.valid5	0
 Audio.setVoicePause.active	1
 Audio.setVoicePause.resumed	0
 Audio.stopAllVoices.afterFadeEnd	0

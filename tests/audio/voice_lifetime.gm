@@ -1,6 +1,9 @@
 global Probe=function(name,value) {
     GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
 };
+global ProbeVolatile=function(name,value) {
+    GameMonkeyScript.loadScript("OEPV__"+name+"__"+value+".gm");
+};
 
 global shortPath="Platformer/sounds/fx/button-high.wav";
 global longPath="Platformer/levels/gamescom_master_8.wav";
@@ -47,19 +50,44 @@ global Main=function(p) {
                 Probe("Audio.stopVoice.timedAfter1",Audio.isVoiceValid(this.timedVoice));
                 Probe("Audio.stopVoice.fadeAfter1",Audio.isVoiceValid(this.defaultStopVoice));
                 Probe("Audio.getVoicePosition.pausedInitial",Audio.getVoicePosition(this.pausedVoice));
+                ProbeVolatile("Audio.playSound.natural.position1",Audio.getVoicePosition(this.naturalVoice));
+                ProbeVolatile("Audio.playSound.natural.valid1",Audio.isVoiceValid(this.naturalVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.position1",Audio.getVoicePosition(this.loopVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.valid1",Audio.isVoiceValid(this.loopVoice));
+            }
+            if (this.frame==2) {
+                ProbeVolatile("Audio.playSound.natural.position2",Audio.getVoicePosition(this.naturalVoice));
+                ProbeVolatile("Audio.playSound.natural.valid2",Audio.isVoiceValid(this.naturalVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.position2",Audio.getVoicePosition(this.loopVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.valid2",Audio.isVoiceValid(this.loopVoice));
             }
             if (this.frame==3) {
                 Probe("Audio.getVoicePosition.pausedHeld",Audio.getVoicePosition(this.pausedVoice));
                 Audio.setVoicePause(this.pausedVoice,false);
                 Probe("Audio.setVoicePause.resumed",Audio.isVoicePaused(this.pausedVoice));
+                ProbeVolatile("Audio.playSound.natural.position3",Audio.getVoicePosition(this.naturalVoice));
+                ProbeVolatile("Audio.playSound.natural.valid3",Audio.isVoiceValid(this.naturalVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.position3",Audio.getVoicePosition(this.loopVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.valid3",Audio.isVoiceValid(this.loopVoice));
             }
             if (this.frame==4) {
-                Probe("Audio.getVoicePosition.resumed",Audio.getVoicePosition(this.pausedVoice));
-                Probe("Audio.playSound.naturalBeforeEnd",Audio.isVoiceValid(this.naturalVoice));
+                ProbeVolatile("Audio.getVoicePosition.resumed",Audio.getVoicePosition(this.pausedVoice));
+                ProbeVolatile("Audio.playSound.naturalBeforeEnd",Audio.isVoiceValid(this.naturalVoice));
+                ProbeVolatile("Audio.playSound.natural.position4",Audio.getVoicePosition(this.naturalVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.position4",Audio.getVoicePosition(this.loopVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.valid4",Audio.isVoiceValid(this.loopVoice));
+            }
+            if (this.frame==5) {
+                ProbeVolatile("Audio.playSound.natural.position5",Audio.getVoicePosition(this.naturalVoice));
+                ProbeVolatile("Audio.playSound.natural.valid5",Audio.isVoiceValid(this.naturalVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.position5",Audio.getVoicePosition(this.loopVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.valid5",Audio.isVoiceValid(this.loopVoice));
             }
             if (this.frame==6) {
                 Probe("Audio.playSound.naturalEnd",Audio.isVoiceValid(this.naturalVoice));
-                Probe("Audio.setVoiceLoopCount.secondPass",Audio.isVoiceValid(this.loopVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.secondPass",Audio.isVoiceValid(this.loopVoice));
+                ProbeVolatile("Audio.playSound.natural.position6",Audio.getVoicePosition(this.naturalVoice));
+                ProbeVolatile("Audio.setVoiceLoopCount.position6",Audio.getVoicePosition(this.loopVoice));
             }
             if (this.frame==7) {
                 Probe("Audio.fadeOutVoice.complete",Audio.isVoiceValid(this.fadeVoice));
