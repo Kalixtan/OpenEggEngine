@@ -64,6 +64,9 @@ ENTITY_STATE_SUPPORT = HERE / "EntityStateProbeEntity.gm"
 PROCESS_ORDER = HERE / "process_order.gm"
 PROCESS_ORDER_PLAN = HERE / "process_order-plan.json"
 PROCESS_ORDER_BASELINE = HERE / "process_order-retail.tsv"
+PROCESS_PAUSE = HERE / "process_pause.gm"
+PROCESS_PAUSE_PLAN = HERE / "process_pause-plan.json"
+PROCESS_PAUSE_BASELINE = HERE / "process_pause-retail.tsv"
 BODY_CONTROLS = HERE / "body_controls.gm"
 BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
@@ -401,6 +404,29 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("processPause."):
+        field = name[len("processPause."):]
+        function = {
+            "created": "GameSystem.runProcess",
+            "initA": "GameSystem.runProcess",
+            "initB": "GameSystem.runProcess",
+            "updatesBefore": "GameSystem.runProcess",
+            "postsBefore": "GameSystem.runProcess",
+            "updatesBeforePause": "GameSystem.runProcess",
+            "postsBeforePause": "GameSystem.runProcess",
+            "pauseObserved": "GameSystem.isPaused",
+            "bHeld": "GameSystem.isPaused",
+            "resumed": "GameSystem.isPaused",
+            "updatesAfterResume": "GameSystem.setAsPauseProcess",
+            "postsAfterResume": "GameSystem.setAsPauseProcess",
+            "callbackOrder": "GameSystem.setAsPauseProcess",
+            "destroyed": "Process.terminate",
+            "running": "GameSystem.isProcessRunning",
+            "count": "GameSystem.getProcessCount",
+        }.get(field)
+        if function not in names:
+            raise ValueError(f"unknown process pause field: {field}")
+        return function
     if name.startswith("process."):
         field = name[len("process."):]
         function = {
@@ -566,6 +592,8 @@ def main():
                                             (ENTITY_STATE_SUPPORT,)),
                                            (PROCESS_ORDER, PROCESS_ORDER_BASELINE,
                                             PROCESS_ORDER_PLAN, ()),
+                                           (PROCESS_PAUSE, PROCESS_PAUSE_BASELINE,
+                                            PROCESS_PAUSE_PLAN, ()),
                                            (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
                                             BODY_CONTROLS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,))):
@@ -621,7 +649,7 @@ def main():
             if case.startswith(("scene.", "contact.", "removal.", "entityLife.",
                                 "entityMgr.", "entityQ.", "query.",
                                 "ray.", "reentry.", "joint.", "raymove.",
-                                "bodyCtl.", "process.")):
+                                "bodyCtl.", "process.", "processPause.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

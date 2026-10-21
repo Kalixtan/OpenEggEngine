@@ -1,0 +1,40 @@
+{
+  "prefix": "processPause",
+  "frames": 0,
+  "extra": [
+    "processPause.created",
+    "processPause.initA",
+    "processPause.initB",
+    "processPause.updatesBefore",
+    "processPause.postsBefore",
+    "processPause.updatesBeforePause",
+    "processPause.postsBeforePause",
+    "processPause.pauseObserved",
+    "processPause.bHeld",
+    "processPause.resumed",
+    "processPause.updatesAfterResume",
+    "processPause.postsAfterResume",
+    "processPause.callbackOrder",
+    "processPause.destroyed",
+    "processPause.running",
+    "processPause.count"
+  ],
+  "awaitingRetail": [
+    "processPause.created",
+    "processPause.initA",
+    "processPause.initB",
+    "processPause.updatesBefore",
+    "processPause.postsBefore",
+    "processPause.updatesBeforePause",
+    "processPause.postsBeforePause",
+    "processPause.pauseObserved",
+    "processPause.bHeld",
+    "processPause.resumed",
+    "processPause.updatesAfterResume",
+    "processPause.postsAfterResume",
+    "processPause.callbackOrder",
+    "processPause.destroyed",
+    "processPause.running",
+    "processPause.count"
+  ]
+}

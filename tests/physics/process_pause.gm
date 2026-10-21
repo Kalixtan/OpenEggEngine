@@ -1,0 +1,66 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global PauseProbeState=table(aInit=0,bInit=0,aUpdates=0,bUpdates=0,
+    aPosts=0,bPosts=0,aDestroyed=0,bDestroyed=0,paused=0,bUpdatesHeld=0,order="");
+global ProcessPauseA=function(p) {
+    return table(Process=p,
+        init=function() { PauseProbeState.aInit+=1; return true; },
+        update=function(dt) {
+            PauseProbeState.aUpdates+=1;
+            PauseProbeState.order+="A";
+            if (PauseProbeState.aUpdates==2) {
+                GameSystem.setAsPauseProcess(1,this.Process);
+            } else if (PauseProbeState.aUpdates==3) {
+                PauseProbeState.paused=GameSystem.isPaused();
+                PauseProbeState.bUpdatesHeld=PauseProbeState.bUpdates;
+                GameSystem.setAsPauseProcess(0,this.Process);
+            }
+        },
+        postUpdate=function(dt) { PauseProbeState.aPosts+=1; },
+        destructor=function() { PauseProbeState.aDestroyed+=1; });
+};
+global ProcessPauseB=function(p) {
+    return table(Process=p,
+        init=function() { PauseProbeState.bInit+=1; return true; },
+        update=function(dt) {
+            PauseProbeState.bUpdates+=1;
+            PauseProbeState.order+="B";
+        },
+        postUpdate=function(dt) { PauseProbeState.bPosts+=1; },
+        destructor=function() { PauseProbeState.bDestroyed+=1; });
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,a=null,b=null,constructor=function(){},
+        init=function(){return true;},
+        update=function(dt) {
+            if (this.frame==0) {
+                this.a=GameSystem.runProcess("ProcessPauseA");
+                this.b=GameSystem.runProcess("ProcessPauseB");
+                Probe("processPause.created",this.a!=null && this.b!=null);
+            } else if (this.frame==2) {
+                Probe("processPause.initA",PauseProbeState.aInit);
+                Probe("processPause.initB",PauseProbeState.bInit);
+                Probe("processPause.updatesBefore",PauseProbeState.aUpdates+PauseProbeState.bUpdates);
+                Probe("processPause.postsBefore",PauseProbeState.aPosts+PauseProbeState.bPosts);
+            } else if (this.frame==3) {
+                Probe("processPause.updatesBeforePause",PauseProbeState.aUpdates+PauseProbeState.bUpdates);
+                Probe("processPause.postsBeforePause",PauseProbeState.aPosts+PauseProbeState.bPosts);
+            } else if (this.frame==5) {
+                Probe("processPause.pauseObserved",PauseProbeState.paused);
+                Probe("processPause.bHeld",PauseProbeState.bUpdatesHeld);
+                Probe("processPause.resumed",!GameSystem.isPaused());
+                Probe("processPause.updatesAfterResume",PauseProbeState.aUpdates+PauseProbeState.bUpdates);
+                Probe("processPause.postsAfterResume",PauseProbeState.aPosts+PauseProbeState.bPosts);
+                Probe("processPause.callbackOrder",PauseProbeState.order);
+                this.a.terminate();
+                this.b.terminate();
+            } else if (this.frame==6) {
+                Probe("processPause.destroyed",PauseProbeState.aDestroyed+PauseProbeState.bDestroyed);
+                Probe("processPause.running",GameSystem.isProcessRunning("ProcessPauseA") ||
+                    GameSystem.isProcessRunning("ProcessPauseB"));
+                Probe("processPause.count",GameSystem.getProcessCount());
+            }
+            this.frame+=1;
+        });
+};

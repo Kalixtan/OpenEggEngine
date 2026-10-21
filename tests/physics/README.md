@@ -65,6 +65,10 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/process_order.gm \
   --expected tests/physics/process_order-plan.json \
   --baseline tests/physics/process_order-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/process_pause.gm \
+  --expected tests/physics/process_pause-plan.json \
+  --baseline tests/physics/process_pause-retail.tsv
 python3 tests/physics/compare.py
 ```
 

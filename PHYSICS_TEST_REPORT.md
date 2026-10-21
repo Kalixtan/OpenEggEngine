@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 16:04 UTC
+Generated: 2026-10-21 16:11 UTC
 
-Matched: **4796/4796 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 12 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4796/4796 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 28 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **284/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **286/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -257,7 +257,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.getMSSincePlayStart` | 0 | 0 | untested |
 | `GameSystem.getProcess` | 0 | 1 | AWAITING RETAIL |
 | `GameSystem.getProcessByIndex` | 0 | 0 | untested |
-| `GameSystem.getProcessCount` | 0 | 2 | AWAITING RETAIL |
+| `GameSystem.getProcessCount` | 0 | 3 | AWAITING RETAIL |
 | `GameSystem.getRandomAngle` | 0 | 0 | untested |
 | `GameSystem.getRandomBoolean` | 0 | 0 | untested |
 | `GameSystem.getRandomDir` | 0 | 0 | untested |
@@ -271,16 +271,16 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.isAutoLoadLevel` | 0 | 0 | untested |
 | `GameSystem.isBeingNice` | 0 | 0 | untested |
 | `GameSystem.isLoading` | 0 | 0 | untested |
-| `GameSystem.isPaused` | 0 | 0 | untested |
-| `GameSystem.isProcessRunning` | 0 | 2 | AWAITING RETAIL |
+| `GameSystem.isPaused` | 0 | 3 | AWAITING RETAIL |
+| `GameSystem.isProcessRunning` | 0 | 3 | AWAITING RETAIL |
 | `GameSystem.isShouldUpdateEntities` | 0 | 0 | untested |
 | `GameSystem.openConsole` | 0 | 0 | untested |
 | `GameSystem.quit` | 0 | 0 | untested |
 | `GameSystem.resetPlayTimer` | 0 | 0 | untested |
 | `GameSystem.resetSimulationTimer` | 0 | 0 | untested |
-| `GameSystem.runProcess` | 0 | 6 | AWAITING RETAIL |
+| `GameSystem.runProcess` | 0 | 13 | AWAITING RETAIL |
 | `GameSystem.setALevelLoaded` | 0 | 0 | untested |
-| `GameSystem.setAsPauseProcess` | 0 | 0 | untested |
+| `GameSystem.setAsPauseProcess` | 0 | 3 | AWAITING RETAIL |
 | `GameSystem.setIsBeingNice` | 0 | 0 | untested |
 | `GameSystem.setIsInputEnabled` | 0 | 0 | untested |
 | `GameSystem.setIsLoading` | 0 | 0 | untested |
@@ -369,7 +369,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Process.setupDrawLists` | 0 | 0 | untested |
 | `Process.setupPostDrawList` | 0 | 0 | untested |
 | `Process.setupPreDrawList` | 0 | 0 | untested |
-| `Process.terminate` | 0 | 1 | AWAITING RETAIL |
+| `Process.terminate` | 0 | 2 | AWAITING RETAIL |
 | `Process.unregisterEntity` | 0 | 0 | untested |
 | `collisionInfo.getCollidingShapeIDList` | 0 | 0 | untested |
 | `collisionInfo.getContactNormalOfMyCollidingShape` | 112 | 112 | PASS |
@@ -706,6 +706,22 @@ These cases ran on OpenEgg but have no retail readings yet; they are excluded fr
 | `Process.terminate` | process.destroyed | `1` |
 | `GameSystem.isProcessRunning` | process.running.after | `0` |
 | `GameSystem.getProcessCount` | process.count.after | `1` |
+| `GameSystem.runProcess` | processPause.created | `1` |
+| `GameSystem.runProcess` | processPause.initA | `1` |
+| `GameSystem.runProcess` | processPause.initB | `1` |
+| `GameSystem.runProcess` | processPause.updatesBefore | `0` |
+| `GameSystem.runProcess` | processPause.postsBefore | `2` |
+| `GameSystem.runProcess` | processPause.updatesBeforePause | `2` |
+| `GameSystem.runProcess` | processPause.postsBeforePause | `4` |
+| `GameSystem.isPaused` | processPause.pauseObserved | `1` |
+| `GameSystem.isPaused` | processPause.bHeld | `2` |
+| `GameSystem.isPaused` | processPause.resumed | `1` |
+| `GameSystem.setAsPauseProcess` | processPause.updatesAfterResume | `7` |
+| `GameSystem.setAsPauseProcess` | processPause.postsAfterResume | `9` |
+| `GameSystem.setAsPauseProcess` | processPause.callbackOrder | `ABABAAB` |
+| `Process.terminate` | processPause.destroyed | `2` |
+| `GameSystem.isProcessRunning` | processPause.running | `0` |
+| `GameSystem.getProcessCount` | processPause.count | `1` |
 
 ## Readings
 
