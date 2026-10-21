@@ -119,8 +119,8 @@ the enabled flag, including repeated and missing behavior callbacks.
 Entity GC probe checks entity/body retention through collection, detached-body
 safety after deletion, and ID invalidation. Heap reclamation itself is not
 observable from GameMonkeyScript. Retail faults on the retained-body
-`isSleeping()` call after owner deletion; the later readings run only on
-OpenEgg.
+`isSleeping()` call after owner deletion; OpenEgg logs a warning at that call
+and continues safely. Later readings run only on OpenEgg.
 GC-cycle probe checks body positions through repeated collection, single
 deletion, recreation, and clear-all.
 GC-iterator probe checks iterator-held entities through collection, removal,

@@ -733,9 +733,18 @@ def main():
         inconclusive = plan_data.get("inconclusive", {})
         if len(declared) != len(set(declared)):
             raise ValueError(f"duplicate probe names: {probe}")
-        _, error, log_path, _ = run_script(args.engine.resolve(), HERE, probe.name,
-                                           HERE / "smoke.harness", 20, log_dir,
-                                           strict="survey")
+        _, error, log_path, output = run_script(args.engine.resolve(), HERE, probe.name,
+                                                HERE / "smoke.harness", 20, log_dir,
+                                                strict="survey")
+        if probe == ENTITY_GC:
+            warning = ("WARNING: PhysicsBody.isSleeping() after owner entity deletion "
+                       "faults retail")
+            if output.count(warning) != 1:
+                problems.append("entity_gc.gm: expected one warning for the confirmed "
+                                "retail crash case")
+        elif probe == BODY_CONTROLS and "WARNING: PhysicsBody.isSleeping()" in output:
+            problems.append("body_controls.gm: unexpected retail-crash warning for a "
+                            "live PhysicsBody")
         if set(declared) <= awaiting_retail:
             retail, retail_dupes = {}, set()
         else:

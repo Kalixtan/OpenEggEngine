@@ -94,6 +94,8 @@ bool ReadVec2Args(gmThread* a_thread, gmMachine& a_machine, float& a_x, float& a
 
 struct PhysicsBodyData {
     b2Body* body = nullptr;
+    bool ownerEntityDeleted = false;
+    bool retailCrashWarningReported = false;
     bool isSensor = false;
     bool isCollidable = true;
     bool geometryDirty = false;
@@ -1115,7 +1117,17 @@ int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
     // entity's draw or behaviour state for the rest of the current frame.
     // Retail treats that detached body as inactive; crucially, never follow
     // its former Box2D pointer after removal.
-    if (!b->body) { a_thread->PushFloat(1.0f); return GM_OK; }
+    if (!b->body) {
+        if (b->ownerEntityDeleted && !b->retailCrashWarningReported) {
+            std::fprintf(stderr,
+                "WARNING: PhysicsBody.isSleeping() after owner entity deletion "
+                "faults retail (observed RPCS3 PPU fault at 0x0008fafc); "
+                "OpenEgg returns sleeping safely.\n");
+            b->retailCrashWarningReported = true;
+        }
+        a_thread->PushFloat(1.0f);
+        return GM_OK;
+    }
     a_thread->PushFloat(b->body->IsAwake() ? 0.0f : 1.0f);
     return GM_OK;
 }
@@ -4236,7 +4248,10 @@ void DestroyPhysicsDataForEntity(gmMachine& a_machine, const gmVariable& a_entit
     // call itself when the world is locked.
     for (gmVariable& bodyVar : data->bodies) {
         PhysicsBodyData* body = GetBodyData(a_machine, bodyVar);
-        if (body && body->body) MarkEntityPhysicsBodyForTeardown(body->body);
+        if (body) {
+            body->ownerEntityDeleted = true;
+            if (body->body) MarkEntityPhysicsBodyForTeardown(body->body);
+        }
         InvalidatePhysicsBody(body);
         UnrootGmVariable(a_machine, bodyVar);
     }
