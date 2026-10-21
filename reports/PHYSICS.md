@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 16:11 UTC
+Generated: 2026-10-21 18:21 UTC
 
-Matched: **4796/4796 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 28 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4829/4829 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **286/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -58,6 +58,34 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | entityQ.shape | 13 | 13 |
 | entityQ.collisionIgnore | 2 | 2 |
 | entityQ.iterator | 5 | 5 |
+| process.created | 1 | 1 |
+| process.constructed | 1 | 1 |
+| process.running | 2 | 2 |
+| process.same | 1 | 1 |
+| process.count | 2 | 2 |
+| process.initialized | 1 | 1 |
+| process.updates | 2 | 2 |
+| process.posts | 1 | 1 |
+| process.terminate | 3 | 3 |
+| process.destroyed | 1 | 1 |
+| processPause.created | 1 | 1 |
+| processPause.initA | 1 | 1 |
+| processPause.initB | 1 | 1 |
+| processPause.updatesBefore | 1 | 1 |
+| processPause.postsBefore | 1 | 1 |
+| processPause.updatesBeforePause | 1 | 1 |
+| processPause.postsBeforePause | 1 | 1 |
+| processPause.pauseObserved | 1 | 1 |
+| processPause.bHeld | 1 | 1 |
+| processPause.pauseRequestState | 1 | 1 |
+| processPause.unpauseObserved | 1 | 1 |
+| processPause.resumed | 1 | 1 |
+| processPause.updatesAfterResume | 1 | 1 |
+| processPause.postsAfterResume | 1 | 1 |
+| processPause.callbackOrder | 1 | 1 |
+| processPause.destroyed | 1 | 1 |
+| processPause.running | 1 | 1 |
+| processPause.count | 1 | 1 |
 | bodyCtl.position | 1 | 1 |
 | bodyCtl.velocity | 1 | 1 |
 | bodyCtl.speed | 1 | 1 |
@@ -255,9 +283,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.getEntityUpdateProcess` | 0 | 0 | untested |
 | `GameSystem.getMSAlive` | 0 | 0 | untested |
 | `GameSystem.getMSSincePlayStart` | 0 | 0 | untested |
-| `GameSystem.getProcess` | 0 | 1 | AWAITING RETAIL |
+| `GameSystem.getProcess` | 1 | 1 | PASS |
 | `GameSystem.getProcessByIndex` | 0 | 0 | untested |
-| `GameSystem.getProcessCount` | 0 | 3 | AWAITING RETAIL |
+| `GameSystem.getProcessCount` | 3 | 3 | PASS |
 | `GameSystem.getRandomAngle` | 0 | 0 | untested |
 | `GameSystem.getRandomBoolean` | 0 | 0 | untested |
 | `GameSystem.getRandomDir` | 0 | 0 | untested |
@@ -271,16 +299,16 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.isAutoLoadLevel` | 0 | 0 | untested |
 | `GameSystem.isBeingNice` | 0 | 0 | untested |
 | `GameSystem.isLoading` | 0 | 0 | untested |
-| `GameSystem.isPaused` | 0 | 3 | AWAITING RETAIL |
-| `GameSystem.isProcessRunning` | 0 | 3 | AWAITING RETAIL |
+| `GameSystem.isPaused` | 5 | 5 | PASS |
+| `GameSystem.isProcessRunning` | 3 | 3 | PASS |
 | `GameSystem.isShouldUpdateEntities` | 0 | 0 | untested |
 | `GameSystem.openConsole` | 0 | 0 | untested |
 | `GameSystem.quit` | 0 | 0 | untested |
 | `GameSystem.resetPlayTimer` | 0 | 0 | untested |
 | `GameSystem.resetSimulationTimer` | 0 | 0 | untested |
-| `GameSystem.runProcess` | 0 | 13 | AWAITING RETAIL |
+| `GameSystem.runProcess` | 13 | 13 | PASS |
 | `GameSystem.setALevelLoaded` | 0 | 0 | untested |
-| `GameSystem.setAsPauseProcess` | 0 | 3 | AWAITING RETAIL |
+| `GameSystem.setAsPauseProcess` | 3 | 3 | PASS |
 | `GameSystem.setIsBeingNice` | 0 | 0 | untested |
 | `GameSystem.setIsInputEnabled` | 0 | 0 | untested |
 | `GameSystem.setIsLoading` | 0 | 0 | untested |
@@ -369,7 +397,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Process.setupDrawLists` | 0 | 0 | untested |
 | `Process.setupPostDrawList` | 0 | 0 | untested |
 | `Process.setupPreDrawList` | 0 | 0 | untested |
-| `Process.terminate` | 0 | 2 | AWAITING RETAIL |
+| `Process.terminate` | 5 | 5 | PASS |
 | `Process.unregisterEntity` | 0 | 0 | untested |
 | `collisionInfo.getCollidingShapeIDList` | 0 | 0 | untested |
 | `collisionInfo.getContactNormalOfMyCollidingShape` | 112 | 112 | PASS |
@@ -687,41 +715,6 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsBody.isCircle` | bodyApi.physicsBody.isCircle | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | bodyApi.physicsBody.isRect | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
-
-## Awaiting retail capture
-
-These cases ran on OpenEgg but have no retail readings yet; they are excluded from parity scores.
-
-| Function | Case | OpenEgg |
-| --- | --- | --- |
-| `GameSystem.runProcess` | process.created | `1` |
-| `GameSystem.runProcess` | process.constructed | `1` |
-| `GameSystem.isProcessRunning` | process.running | `1` |
-| `GameSystem.getProcess` | process.same | `1` |
-| `GameSystem.getProcessCount` | process.count.created | `1` |
-| `GameSystem.runProcess` | process.initialized | `1` |
-| `GameSystem.runProcess` | process.updates.before | `0` |
-| `GameSystem.runProcess` | process.posts.before | `1` |
-| `GameSystem.runProcess` | process.updates.after | `1` |
-| `Process.terminate` | process.destroyed | `1` |
-| `GameSystem.isProcessRunning` | process.running.after | `0` |
-| `GameSystem.getProcessCount` | process.count.after | `1` |
-| `GameSystem.runProcess` | processPause.created | `1` |
-| `GameSystem.runProcess` | processPause.initA | `1` |
-| `GameSystem.runProcess` | processPause.initB | `1` |
-| `GameSystem.runProcess` | processPause.updatesBefore | `0` |
-| `GameSystem.runProcess` | processPause.postsBefore | `2` |
-| `GameSystem.runProcess` | processPause.updatesBeforePause | `2` |
-| `GameSystem.runProcess` | processPause.postsBeforePause | `4` |
-| `GameSystem.isPaused` | processPause.pauseObserved | `1` |
-| `GameSystem.isPaused` | processPause.bHeld | `2` |
-| `GameSystem.isPaused` | processPause.resumed | `1` |
-| `GameSystem.setAsPauseProcess` | processPause.updatesAfterResume | `7` |
-| `GameSystem.setAsPauseProcess` | processPause.postsAfterResume | `9` |
-| `GameSystem.setAsPauseProcess` | processPause.callbackOrder | `ABABAAB` |
-| `Process.terminate` | processPause.destroyed | `2` |
-| `GameSystem.isProcessRunning` | processPause.running | `0` |
-| `GameSystem.getProcessCount` | processPause.count | `1` |
 
 ## Readings
 
@@ -5413,6 +5406,39 @@ These cases ran on OpenEgg but have no retail readings yet; they are excluded fr
 | `Entity.getVectorTo` | entityState.vectorToX | `3.000000` | `3.000000` | PASS |
 | `Entity.getVectorTo` | entityState.vectorToY | `4.000000` | `4.000000` | PASS |
 | `Entity.isType` | entityState.wrongType | `1` | `1` | PASS |
+| `GameSystem.runProcess` | process.created | `1` | `1` | PASS |
+| `GameSystem.runProcess` | process.constructed | `1` | `1` | PASS |
+| `GameSystem.isProcessRunning` | process.running | `1` | `1` | PASS |
+| `GameSystem.getProcess` | process.same | `1` | `1` | PASS |
+| `GameSystem.getProcessCount` | process.count.created | `1` | `1` | PASS |
+| `GameSystem.runProcess` | process.initialized | `1` | `1` | PASS |
+| `GameSystem.runProcess` | process.updates.before | `0` | `0` | PASS |
+| `GameSystem.runProcess` | process.posts.before | `1` | `1` | PASS |
+| `GameSystem.runProcess` | process.updates.after | `1` | `1` | PASS |
+| `Process.terminate` | process.terminate.queued.running | `1` | `1` | PASS |
+| `Process.terminate` | process.terminate.queued.destroyed | `0` | `0` | PASS |
+| `Process.terminate` | process.terminate.queued.count | `2` | `2` | PASS |
+| `Process.terminate` | process.destroyed | `1` | `1` | PASS |
+| `GameSystem.isProcessRunning` | process.running.after | `0` | `0` | PASS |
+| `GameSystem.getProcessCount` | process.count.after | `1` | `1` | PASS |
+| `GameSystem.runProcess` | processPause.created | `1` | `1` | PASS |
+| `GameSystem.runProcess` | processPause.initA | `1` | `1` | PASS |
+| `GameSystem.runProcess` | processPause.initB | `1` | `1` | PASS |
+| `GameSystem.runProcess` | processPause.updatesBefore | `0` | `0` | PASS |
+| `GameSystem.runProcess` | processPause.postsBefore | `2` | `2` | PASS |
+| `GameSystem.runProcess` | processPause.updatesBeforePause | `2` | `2` | PASS |
+| `GameSystem.runProcess` | processPause.postsBeforePause | `4` | `4` | PASS |
+| `GameSystem.isPaused` | processPause.pauseObserved | `1` | `1` | PASS |
+| `GameSystem.isPaused` | processPause.bHeld | `2` | `2` | PASS |
+| `GameSystem.isPaused` | processPause.pauseRequestState | `0` | `0` | PASS |
+| `GameSystem.isPaused` | processPause.unpauseObserved | `1` | `1` | PASS |
+| `GameSystem.isPaused` | processPause.resumed | `1` | `1` | PASS |
+| `GameSystem.setAsPauseProcess` | processPause.updatesAfterResume | `8` | `8` | PASS |
+| `GameSystem.setAsPauseProcess` | processPause.postsAfterResume | `10` | `10` | PASS |
+| `GameSystem.setAsPauseProcess` | processPause.callbackOrder | `M0M1M2A1B1M3A2B2A3B3M4A4B4M5` | `M0M1M2A1B1M3A2B2A3B3M4A4B4M5` | PASS |
+| `Process.terminate` | processPause.destroyed | `2` | `2` | PASS |
+| `GameSystem.isProcessRunning` | processPause.running | `0` | `0` | PASS |
+| `GameSystem.getProcessCount` | processPause.count | `1` | `1` | PASS |
 | `physicsBody.setPos` | bodyCtl.position | `1` | `1` | PASS |
 | `physicsBody.setVel` | bodyCtl.velocity | `1` | `1` | PASS |
 | `physicsBody.getSpeed` | bodyCtl.speed | `5.000000` | `5.000000` | PASS |

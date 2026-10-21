@@ -67,6 +67,8 @@ PROCESS_ORDER_BASELINE = HERE / "process_order-retail.tsv"
 PROCESS_PAUSE = HERE / "process_pause.gm"
 PROCESS_PAUSE_PLAN = HERE / "process_pause-plan.json"
 PROCESS_PAUSE_BASELINE = HERE / "process_pause-retail.tsv"
+PROCESS_ORDER_SUPPORT = HERE / "ProcessParityProbe.gm"
+PROCESS_PAUSE_SUPPORT = (HERE / "ProcessPauseA.gm", HERE / "ProcessPauseB.gm")
 BODY_CONTROLS = HERE / "body_controls.gm"
 BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
@@ -416,6 +418,8 @@ def owner(name, names):
             "postsBeforePause": "GameSystem.runProcess",
             "pauseObserved": "GameSystem.isPaused",
             "bHeld": "GameSystem.isPaused",
+            "pauseRequestState": "GameSystem.isPaused",
+            "unpauseObserved": "GameSystem.isPaused",
             "resumed": "GameSystem.isPaused",
             "updatesAfterResume": "GameSystem.setAsPauseProcess",
             "postsAfterResume": "GameSystem.setAsPauseProcess",
@@ -439,6 +443,9 @@ def owner(name, names):
             "updates.before": "GameSystem.runProcess",
             "posts.before": "GameSystem.runProcess",
             "updates.after": "GameSystem.runProcess",
+            "terminate.queued.running": "Process.terminate",
+            "terminate.queued.destroyed": "Process.terminate",
+            "terminate.queued.count": "Process.terminate",
             "destroyed": "Process.terminate",
             "running.after": "GameSystem.isProcessRunning",
             "count.after": "GameSystem.getProcessCount",
@@ -591,9 +598,9 @@ def main():
                                             ENTITY_STATE_PLAN,
                                             (ENTITY_STATE_SUPPORT,)),
                                            (PROCESS_ORDER, PROCESS_ORDER_BASELINE,
-                                            PROCESS_ORDER_PLAN, ()),
+                                            PROCESS_ORDER_PLAN, (PROCESS_ORDER_SUPPORT,)),
                                            (PROCESS_PAUSE, PROCESS_PAUSE_BASELINE,
-                                            PROCESS_PAUSE_PLAN, ()),
+                                            PROCESS_PAUSE_PLAN, PROCESS_PAUSE_SUPPORT),
                                            (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
                                             BODY_CONTROLS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,))):

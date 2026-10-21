@@ -1,0 +1,19 @@
+global ProcessPauseA=function(p) {
+    return table(Process=p,
+        init=function() { PauseProbeState.aInit+=1; return true; },
+        update=function(dt) {
+            PauseProbeState.aUpdates+=1;
+            PauseProbeState.order+="A"+PauseProbeState.aUpdates;
+            if (PauseProbeState.aUpdates==2) {
+                GameSystem.setAsPauseProcess(1,this.Process);
+                PauseProbeState.pauseRequestState=GameSystem.isPaused();
+            } else if (PauseProbeState.aUpdates==3) {
+                PauseProbeState.paused=GameSystem.isPaused();
+                PauseProbeState.bUpdatesHeld=PauseProbeState.bUpdates;
+                GameSystem.setAsPauseProcess(0,this.Process);
+                PauseProbeState.unpauseObserved=GameSystem.isPaused();
+            }
+        },
+        postUpdate=function(dt) { PauseProbeState.aPosts+=1; },
+        destructor=function() { PauseProbeState.aDestroyed+=1; });
+};

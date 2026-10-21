@@ -172,8 +172,10 @@ private:
     // waits until the next one.
     std::uint64_t m_dispatchGeneration = 0;
     bool m_paused = false;
+    bool m_pauseDispatchPaused = false;
     bool m_resettingProcessList = false;
     int m_pauseExemptProcessId = -1;
+    int m_pauseDispatchExemptProcessId = -1;
     struct QueuedOperation {
         enum class Type {
             Terminate,

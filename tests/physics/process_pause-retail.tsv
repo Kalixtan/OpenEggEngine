@@ -1,0 +1,21 @@
+# probe-sha256 f01e713def376b224158d50f98d4ce61976cf36ee7040c8994409ea5fec3fb84
+# support-sha256 ProcessPauseA.gm 789b5d45da5586067d77be0769d664e8ed8c6383f7b36ce6c2ea6563c509acb5
+# support-sha256 ProcessPauseB.gm 1c26644ac396b2fedc24f47637ab0b1b047c881aba5afa37e949707cf19ed595
+processPause.bHeld	2
+processPause.callbackOrder	M0M1M2A1B1M3A2B2A3B3M4A4B4M5
+processPause.count	1
+processPause.created	1
+processPause.destroyed	2
+processPause.initA	1
+processPause.initB	1
+processPause.pauseObserved	1
+processPause.pauseRequestState	0
+processPause.postsAfterResume	10
+processPause.postsBefore	2
+processPause.postsBeforePause	4
+processPause.resumed	1
+processPause.running	0
+processPause.unpauseObserved	1
+processPause.updatesAfterResume	8
+processPause.updatesBefore	0
+processPause.updatesBeforePause	2

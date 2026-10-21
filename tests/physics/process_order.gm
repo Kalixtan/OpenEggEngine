@@ -2,14 +2,6 @@ global Probe=function(name,value) {
     GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
 };
 global ProcessProbeState=table(constructed=0,initialized=0,updates=0,posts=0,destroyed=0);
-global ProcessParityProbe=function(p) {
-    return table(Process=p,
-        constructor=function() { ProcessProbeState.constructed+=1; },
-        init=function() { ProcessProbeState.initialized+=1; return true; },
-        update=function(dt) { ProcessProbeState.updates+=1; },
-        postUpdate=function(dt) { ProcessProbeState.posts+=1; },
-        destructor=function() { ProcessProbeState.destroyed+=1; });
-};
 global Main=function(p) {
     return table(Process=p,frame=0,probe=null,constructor=function(){},
         init=function(){return true;},
@@ -28,6 +20,10 @@ global Main=function(p) {
             } else if (this.frame==3) {
                 Probe("process.updates.after",ProcessProbeState.updates);
                 this.probe.terminate();
+                Probe("process.terminate.queued.running",
+                      GameSystem.isProcessRunning("ProcessParityProbe"));
+                Probe("process.terminate.queued.destroyed",ProcessProbeState.destroyed);
+                Probe("process.terminate.queued.count",GameSystem.getProcessCount());
             } else if (this.frame==4) {
                 Probe("process.destroyed",ProcessProbeState.destroyed);
                 Probe("process.running.after",GameSystem.isProcessRunning("ProcessParityProbe"));

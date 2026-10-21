@@ -1,0 +1,17 @@
+# probe-sha256 272fa2c52efaa711ec32039b60d2d818eb8b4226fc3ef6fa984e90818ffc2f39
+# support-sha256 ProcessParityProbe.gm 506c2f7c49fe9437ec5c2920cfad811c632277935c8225e9fcbdb2df5cc510f5
+process.constructed	1
+process.count.after	1
+process.count.created	1
+process.created	1
+process.destroyed	1
+process.initialized	1
+process.posts.before	1
+process.running	1
+process.running.after	0
+process.same	1
+process.terminate.queued.count	2
+process.terminate.queued.destroyed	0
+process.terminate.queued.running	1
+process.updates.after	1
+process.updates.before	0

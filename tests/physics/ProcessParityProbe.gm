@@ -1,0 +1,8 @@
+global ProcessParityProbe=function(p) {
+    return table(Process=p,
+        constructor=function() { ProcessProbeState.constructed+=1; },
+        init=function() { ProcessProbeState.initialized+=1; return true; },
+        update=function(dt) { ProcessProbeState.updates+=1; },
+        postUpdate=function(dt) { ProcessProbeState.posts+=1; },
+        destructor=function() { ProcessProbeState.destroyed+=1; });
+};

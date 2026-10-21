@@ -11,20 +11,9 @@
     "process.updates.before",
     "process.posts.before",
     "process.updates.after",
-    "process.destroyed",
-    "process.running.after",
-    "process.count.after"
-  ],
-  "awaitingRetail": [
-    "process.created",
-    "process.constructed",
-    "process.running",
-    "process.same",
-    "process.count.created",
-    "process.initialized",
-    "process.updates.before",
-    "process.posts.before",
-    "process.updates.after",
+    "process.terminate.queued.running",
+    "process.terminate.queued.destroyed",
+    "process.terminate.queued.count",
     "process.destroyed",
     "process.running.after",
     "process.count.after"

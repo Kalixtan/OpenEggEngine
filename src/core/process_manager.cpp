@@ -247,6 +247,13 @@ void ProcessManager::QueueTerminate(int a_id) {
 }
 
 void ProcessManager::QueuePauseState(bool a_active, int a_exemptProcessId) {
+    // Pause activation takes effect at the next operation drain. Clearing an
+    // applied pause resumes later callbacks in the current dispatch, but the
+    // public isPaused state stays set until that operation drains.
+    if (!a_active) {
+        m_pauseDispatchPaused = false;
+        m_pauseDispatchExemptProcessId = -1;
+    }
     m_queuedOperations.push_back({QueuedOperation::Type::Pause, a_exemptProcessId, a_active});
 }
 
@@ -377,6 +384,8 @@ void ProcessManager::ResetProcessList() {
 
     m_pauseExemptProcessId = -1;
     m_paused = false;
+    m_pauseDispatchExemptProcessId = -1;
+    m_pauseDispatchPaused = false;
     for (const Process& proc : retired) {
         UnrootGmVariable(m_machine, proc.table);
         UnrootGmVariable(m_machine, proc.preDrawList);
@@ -571,7 +580,7 @@ void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_u
     for (size_t i = 0; i < m_processes.size(); ++i) {
         Process& proc = m_processes[i];
         if (proc.activationGeneration > m_dispatchGeneration) continue;
-        if (m_paused && proc.id != m_pauseExemptProcessId) continue; // see QueuePauseState
+        if (m_pauseDispatchPaused && proc.id != m_pauseDispatchExemptProcessId) continue;
         if (!proc.constructed) continue;
         const int processId = proc.id; // callbacks may reallocate m_processes
         if (proc.needsInit) {
@@ -614,7 +623,7 @@ void ProcessManager::UpdateAll(float a_deltaMs, const std::function<void()>& a_u
             entitiesDispatched = true;
         }
     }
-    if (!entitiesDispatched && !m_paused) a_updateEntities();
+    if (!entitiesDispatched && !m_pauseDispatchPaused) a_updateEntities();
 }
 
 void ProcessManager::PostUpdateAll(float a_deltaMs) {
@@ -622,7 +631,7 @@ void ProcessManager::PostUpdateAll(float a_deltaMs) {
         Process& proc = m_processes[i];
         if (proc.activationGeneration > m_dispatchGeneration) continue;
         if (!proc.constructed) continue;
-        if (m_paused && proc.id != m_pauseExemptProcessId) continue;
+        if (m_pauseDispatchPaused && proc.id != m_pauseDispatchExemptProcessId) continue;
         gmTableObject* table = (gmTableObject*)m_machine.GetObject(proc.table.m_value.m_ref);
         gmVariable tableVar = proc.table;
         gmCall call;
@@ -784,6 +793,8 @@ void ProcessManager::PostDrawAll() {
 void ProcessManager::ApplyPauseState(bool a_active, int a_exemptProcessId) {
     m_paused = a_active;
     m_pauseExemptProcessId = a_active ? a_exemptProcessId : -1;
+    m_pauseDispatchPaused = a_active;
+    m_pauseDispatchExemptProcessId = a_active ? a_exemptProcessId : -1;
 }
 
 bool ProcessManager::AnyWantQuit() const {

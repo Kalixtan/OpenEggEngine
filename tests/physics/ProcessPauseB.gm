@@ -1,0 +1,10 @@
+global ProcessPauseB=function(p) {
+    return table(Process=p,
+        init=function() { PauseProbeState.bInit+=1; return true; },
+        update=function(dt) {
+            PauseProbeState.bUpdates+=1;
+            PauseProbeState.order+="B"+PauseProbeState.bUpdates;
+        },
+        postUpdate=function(dt) { PauseProbeState.bPosts+=1; },
+        destructor=function() { PauseProbeState.bDestroyed+=1; });
+};
