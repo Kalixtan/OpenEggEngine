@@ -2,7 +2,7 @@
 
 Generated: 2026-10-21 17:27 UTC
 Suite: sequencer
-Engine: `/home/leia/Documents/GitHub/OpenEggEngine/build/OpenEgg`
+Engine: `OpenEgg`
 Result: **49/49 checks passed (100%); 0 known gaps**
 
 Scores count passing test cases. They do not measure total engine completeness. One integration case may count for several functions.

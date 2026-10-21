@@ -86,7 +86,7 @@ def make_report(suite, engine, entries, problems, inventory):
         "# Test report", "",
         f"Generated: {now}  ",
         f"Suite: {suite}  ",
-        f"Engine: `{engine}`  ",
+        f"Engine: `{engine.name}`  ",
         f"Result: **{passed}/{len(entries)} checks passed ({percent(passed, len(entries))}); {gaps} known gaps**",
         "",
         "Scores count passing test cases. They do not measure total engine completeness."
