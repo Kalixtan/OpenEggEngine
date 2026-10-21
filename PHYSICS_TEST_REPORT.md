@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 12:33 UTC
+Generated: 2026-10-21 12:41 UTC
 
 Matched: **4716/4716 comparable readings (100.0%)**. 1 inconclusive and 3 local-only reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **197/316**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **200/316**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -89,10 +89,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getUID` | 0 | 0 | untested |
 | `Entity.isEnabled` | 7 | 7 | PASS |
 | `Entity.isTaggedForDeletion` | 1 | 1 | PASS |
-| `Entity.tagForDeletion` | 0 | 0 | untested |
+| `Entity.tagForDeletion` | 1 | 1 | PASS |
 | `EntityManager.createEntity` | 2 | 2 | PASS |
-| `EntityManager.deleteAllEntities` | 0 | 0 | untested |
-| `EntityManager.flush` | 0 | 0 | untested |
+| `EntityManager.deleteAllEntities` | 5 | 5 | PASS |
+| `EntityManager.flush` | 12 | 12 | PASS |
 | `EntityManager.getAllEntities` | 11 | 11 | PASS |
 | `EntityManager.getAllManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllNonManualEntities` | 1 | 1 | PASS |
