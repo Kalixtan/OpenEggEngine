@@ -99,6 +99,15 @@ global Main=function(p) {
             local particles=entity.getAllParticles();
             if (particles==null) { Probe("entityState.particleIterator","null"); }
             else { Probe("entityState.particleIterator",particles.size()); }
+            local attachedAlarm=native.addAlarm(91,100,0);
+            Probe("entityState.attachedAlarmCreated",attachedAlarm!=null);
+            local fetchedAlarm=native.getAlarm(91);
+            Probe("entityState.attachedAlarmFound",fetchedAlarm!=null);
+            Probe("entityState.attachedAlarmInterval",fetchedAlarm.getInterval());
+            fetchedAlarm.update(25);
+            Probe("entityState.attachedAlarmElapsed",fetchedAlarm.getMSElapsed());
+            native.deleteAlarm(91);
+            Probe("entityState.attachedAlarmDeleted",native.getAlarm(91)==null);
             local alarm=ALARM(100);
             Probe("entityState.alarmInterval",alarm.getInterval());
             Probe("entityState.alarmElapsedInitial",alarm.getMSElapsed());

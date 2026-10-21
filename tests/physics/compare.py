@@ -402,6 +402,11 @@ ENTITY_STATE_FIELDS = {
     "alarmZeroIntervalPercentage": "ALARM.getAlarmPercentage",
     "alarmNegativePhase": "ALARM.phaseReset",
     "alarmPhaseAboveOne": "ALARM.phaseReset",
+    "attachedAlarmCreated": "Entity.addAlarm",
+    "attachedAlarmFound": "Entity.getAlarm",
+    "attachedAlarmInterval": "ALARM.getInterval",
+    "attachedAlarmElapsed": "ALARM.getMSElapsed",
+    "attachedAlarmDeleted": "Entity.deleteAlarm",
     "addLFO": "Entity.addLFO", "lfoObjectNonNull": "Global.TRIANGLELFO",
     "lfoRate": "LFO.setRate", "lfoRate50": "LFO.setRate",
     "lfoRate100": "LFO.setRate", "lfoRate400": "LFO.setRate",
@@ -776,7 +781,9 @@ def main():
         for case in declared:
             function = owner(case, names)
             if case in awaiting_retail:
-                reason = retail_crash.get(case, "No retail reading captured.")
+                reason = retail_crash.get(
+                    case, plan_data.get("awaitingRetailReason", {}).get(
+                        case, "No retail reading captured."))
                 awaiting_retail_rows.append((case, function, local.get(case), reason))
                 awaiting_retail_counts[function] += 1
                 for extra in ASSOCIATED.get(case, ()):

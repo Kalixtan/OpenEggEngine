@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 23:19 UTC
+Generated: 2026-10-21 23:21 UTC
 
-Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 15 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4887/4887 comparable readings (100.0%)**. 18 inconclusive, 3 local-only, and 20 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **292/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **295/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -162,8 +162,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
 | `ALARM.getAlarmPercentage` | 1 | 3 | AWAITING RETAIL |
-| `ALARM.getInterval` | 1 | 1 | PASS |
-| `ALARM.getMSElapsed` | 3 | 4 | AWAITING RETAIL |
+| `ALARM.getInterval` | 1 | 2 | AWAITING RETAIL |
+| `ALARM.getMSElapsed` | 3 | 5 | AWAITING RETAIL |
 | `ALARM.getTimeTillAlarm` | 1 | 1 | PASS |
 | `ALARM.hardReset` | 1 | 1 | PASS |
 | `ALARM.isAlarming` | 2 | 2 | PASS |
@@ -175,7 +175,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `ALARM.setIntervalAndHardReset` | 1 | 1 | PASS |
 | `ALARM.setIsEnabled` | 1 | 1 | PASS |
 | `ALARM.update` | 3 | 5 | AWAITING RETAIL |
-| `Entity.addAlarm` | 0 | 0 | untested |
+| `Entity.addAlarm` | 0 | 1 | AWAITING RETAIL |
 | `Entity.addLFO` | 0 | 0 | untested |
 | `Entity.addTelescope` | 1 | 1 | PASS |
 | `Entity.callMethod` | 1 | 1 | PASS |
@@ -188,14 +188,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.constructorSetNoPhysicsUpdate` | 0 | 0 | untested |
 | `Entity.constructorSetNoUpdate` | 0 | 0 | untested |
 | `Entity.createParticle` | 1 | 1 | PASS |
-| `Entity.deleteAlarm` | 0 | 0 | untested |
+| `Entity.deleteAlarm` | 0 | 1 | AWAITING RETAIL |
 | `Entity.deleteAllParticles` | 0 | 0 | untested |
 | `Entity.deleteLFO` | 1 | 1 | PASS |
 | `Entity.die` | 1 | 1 | PASS |
 | `Entity.disownVoice` | 1 | 1 | PASS |
 | `Entity.drawExplosionIfGot` | 0 | 0 | untested |
 | `Entity.forceAudibilityRecalc` | 1 | 1 | PASS |
-| `Entity.getAlarm` | 0 | 0 | untested |
+| `Entity.getAlarm` | 0 | 1 | AWAITING RETAIL |
 | `Entity.getAllParticles` | 1 | 1 | PASS |
 | `Entity.getAudibilityPerc` | 0 | 0 | untested |
 | `Entity.getCurrentScreenX` | 0 | 0 | untested |
@@ -778,18 +778,23 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 
 | Function | Case | OpenEgg | Note |
 | --- | --- | --- | --- |
-| `ALARM.getMSElapsed` | entityState.alarmLargeStepElapsed | `250.000000` | No retail reading captured. |
-| `ALARM.getAlarmPercentage` | entityState.alarmLargeStepPercentage | `1.000000` | No retail reading captured. |
-| `ALARM.update` | entityState.alarmLargeStepReady | `1` | No retail reading captured. |
-| `ALARM.phaseReset` | entityState.alarmNegativePhase | `0.000000` | No retail reading captured. |
-| `ALARM.phaseReset` | entityState.alarmPhaseAboveOne | `100.000000` | No retail reading captured. |
-| `ALARM.getAlarmPercentage` | entityState.alarmZeroIntervalPercentage | `0.000000` | No retail reading captured. |
-| `ALARM.update` | entityState.alarmZeroIntervalReady | `1` | No retail reading captured. |
-| `LFO.update` | entityState.lfoNegativeDelta | `3.500000` | No retail reading captured. |
-| `LFO.setPhase` | entityState.lfoNegativePhase | `3.500000` | No retail reading captured. |
-| `LFO.setPhase` | entityState.lfoPhaseAboveOne | `2.500000` | No retail reading captured. |
-| `LFO.update` | entityState.lfoZeroDelta | `2.500000` | No retail reading captured. |
-| `LFO.setRate` | entityState.lfoZeroRate | `3.500000` | No retail reading captured. |
+| `ALARM.getMSElapsed` | entityState.alarmLargeStepElapsed | `250.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.getAlarmPercentage` | entityState.alarmLargeStepPercentage | `1.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.update` | entityState.alarmLargeStepReady | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.phaseReset` | entityState.alarmNegativePhase | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.phaseReset` | entityState.alarmPhaseAboveOne | `100.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.getAlarmPercentage` | entityState.alarmZeroIntervalPercentage | `0.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.update` | entityState.alarmZeroIntervalReady | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `Entity.addAlarm` | entityState.attachedAlarmCreated | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `Entity.deleteAlarm` | entityState.attachedAlarmDeleted | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.getMSElapsed` | entityState.attachedAlarmElapsed | `25.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `Entity.getAlarm` | entityState.attachedAlarmFound | `1` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `ALARM.getInterval` | entityState.attachedAlarmInterval | `100.000000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.update` | entityState.lfoNegativeDelta | `3.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.setPhase` | entityState.lfoNegativePhase | `3.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.setPhase` | entityState.lfoPhaseAboveOne | `2.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.update` | entityState.lfoZeroDelta | `2.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
+| `LFO.setRate` | entityState.lfoZeroRate | `3.500000` | RPCS3 did not mount the retail PSARC, so no retail reading was captured. |
 | `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
