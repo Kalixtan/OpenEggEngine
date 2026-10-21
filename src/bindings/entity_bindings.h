@@ -21,6 +21,9 @@ bool PushOrRefillEntityListIterator(gmThread* a_thread,
 // creations and process deferred removals after script callbacks have ended.
 void FlushEntityManagerFrameBoundary();
 
+// Make entities queued by process callbacks visible to the entity update pass.
+void CommitPendingEntityCreations();
+
 // Entity.deleteAllEntities request issued by the retail
 // ParanoidCleanUpProcess constructor when cleanup-enabled process-list
 // transitions are created. The request is consumed at the manager's normal

@@ -890,14 +890,7 @@ void FlushEntityDeletions(gmMachine& a_machine, bool a_deleteAll) {
         return;
     }
 
-    if (!registry.pendingCreation.empty()) {
-        ++registry.visibilityRevision;
-        for (const auto& entry : registry.pendingCreation)
-            registry.entitiesByObjectID[entry.first] = entry.second;
-    }
-    registry.entities.insert(registry.entities.end(),
-        registry.pendingCreation.begin(), registry.pendingCreation.end());
-    registry.pendingCreation.clear();
+    CommitPendingEntityCreations();
     // The retail flush walks its deletion array and observes entries appended
     // by destructors during that same drain. Keep the index over the live
     // queue rather than swapping it out up front.
@@ -4110,6 +4103,17 @@ void FlushEntityManagerFrameBoundary() {
     FlushEntityDeletions(*machine, Entities().deleteAllPending);
 }
 
+void CommitPendingEntityCreations() {
+    auto& registry = Entities();
+    if (registry.pendingCreation.empty()) return;
+    ++registry.visibilityRevision;
+    for (const auto& entry : registry.pendingCreation)
+        registry.entitiesByObjectID[entry.first] = entry.second;
+    registry.entities.insert(registry.entities.end(),
+        registry.pendingCreation.begin(), registry.pendingCreation.end());
+    registry.pendingCreation.clear();
+}
+
 void RequestEntityManagerDeleteAll() {
     Entities().deleteAllPending = true;
 }
@@ -4636,6 +4640,7 @@ void ConfigureUnconfiguredEntities() {
 void UpdateEntitiesWithNativeUpdateHook(float a_msElapsed) {
     gmMachine* m = GetEngineContext().machine;
     if (!m) return;
+    CommitPendingEntityCreations();
     ConfigureUnconfiguredEntities();
     // Snapshot first: an entity's own update() commonly creates/destroys
     // other entities (spawning, death, projectiles, ...), which would
