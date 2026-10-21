@@ -56,6 +56,11 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --support-file tests/physics/EntityManagerProbeEntity.gm \
   --expected tests/physics/entity_manager-plan.json \
   --baseline tests/physics/entity_manager-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_state.gm \
+  --support-file tests/physics/EntityQueryProbeEntity.gm \
+  --expected tests/physics/entity_state-plan.json \
+  --baseline tests/physics/entity_state-retail.tsv
 python3 tests/physics/compare.py
 ```
 
@@ -72,7 +77,9 @@ after bodies move and overlap. The report keeps mismatches visible.
 Entity lifecycle checks enable/disable, contact callbacks, re-enable, and
 delete/flush while bodies overlap. Entity manager probes cover pending versus
 committed entities, iterator snapshots, repeated tags, observer-queued deletion
-and creation, and clear-all behavior.
+and creation, and clear-all behavior. The entity state probe exercises exposed
+state, identity, geometry, alarms, particles, compatibility stubs, and perf
+cost calls. Its cases without retail captures remain outside the parity score.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired

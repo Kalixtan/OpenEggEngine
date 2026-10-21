@@ -57,6 +57,9 @@ ENTITY_QUERIES = HERE / "entity_queries.gm"
 ENTITY_QUERIES_BASELINE = HERE / "entity_queries-retail.tsv"
 ENTITY_QUERIES_PLAN = HERE / "entity_queries-plan.json"
 ENTITY_QUERIES_SUPPORT = HERE / "EntityQueryProbeEntity.gm"
+ENTITY_STATE = HERE / "entity_state.gm"
+ENTITY_STATE_PLAN = HERE / "entity_state-plan.json"
+ENTITY_STATE_BASELINE = HERE / "entity_state-retail.tsv"
 BODY_CONTROLS = HERE / "body_controls.gm"
 BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
@@ -65,7 +68,8 @@ ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "shapeCollisionInfo.", "intIter.",
-            "jointType.", "jointIter.", "Physics.")
+            "jointType.", "jointIter.", "Physics.", "Entity.",
+            "EntityManager.", "EntityListRef.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "Global.PHYSICSSHAPECOLLECTIONDEF", "Entity.isEnabled",
            "EntityManager.isEntityIDValid", "EntityManager.getNumEntities",
@@ -82,6 +86,44 @@ SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
+    "entityState.invisible": ("Entity.setIsInvisible",),
+    "entityState.staticDraw": ("Entity.setIsStaticDraw",),
+    "entityState.editable": ("Entity.setIsEditable",),
+    "entityState.beingEdited": ("Entity.setIsBeingEdited",),
+    "entityState.placing": ("Entity.setIsPlacing",),
+    "entityState.alwaysProcessed": ("Entity.setIsAlwaysProcessed",),
+    "entityState.sauceBase": ("Entity.setIsSauceBase",),
+    "entityState.descriptionBits": ("Entity.setDescriptionBits",),
+    "entityState.creationPosX": ("Entity.setEntityCreationPos",),
+    "entityState.creationPosY": ("Entity.setEntityCreationPos",),
+    "entityState.limitVolPerc": ("Entity.setLimitVolPerc",),
+    "entityState.offScreensAudible": ("Entity.setNumOffScreensAudible",),
+    "entityState.neverOnScreen": ("Entity.set_getAudibilityPerc_neverOnScreen",),
+    "entityState.mixerID": ("Entity.setMixerID",),
+    "entityState.deleted": ("Entity.tagForDeletion", "EntityManager.flush"),
+    "entityState.gotSet": ("Entity.setGot",),
+    "entityState.gotCleared": ("Entity.setGot",),
+    "entityState.screenMinX": ("Entity.initializeScreenExtents",),
+    "entityState.screenMaxX": ("Entity.initializeScreenExtents",),
+    "entityState.screenMinY": ("Entity.initializeScreenExtents",),
+    "entityState.screenMaxY": ("Entity.initializeScreenExtents",),
+    "entityState.perfFirst": ("EntityManager.setEntityPerfCost",),
+    "entityState.perfAdditional": ("EntityManager.setEntityPerfCost",),
+    "entityState.perfMax": ("EntityManager.setEntityPerfMaxCost",),
+    "entityState.alarmIDStep": ("Entity.getUniqueAlarmID",),
+    "entityState.alarmExists": ("Entity.addAlarm", "Entity.getAlarm"),
+    "entityState.alarmUpdated": ("Entity.addAlarm", "Entity.getAlarm"),
+    "entityState.alarmDeleted": ("Entity.deleteAlarm", "Entity.getAlarm"),
+    "entityState.addLFO": ("Entity.addLFO",),
+    "entityState.compatibilityCallsComplete": (
+        "Entity.deleteLFO", "Entity.addTelescope", "Entity.clearTelescopes",
+        "Entity.disownVoice", "Entity.forceAudibilityRecalc", "Entity.redrawSauceBase",
+        "Entity.update", "Entity.updateExplosionIfGot", "Entity.die"),
+    "entityState.clearFlags": ("Entity.setIsInvisible", "Entity.setIsStaticDraw",
+                               "Entity.setIsEditable", "Entity.setIsBeingEdited",
+                               "Entity.setIsPlacing", "Entity.setIsAlwaysProcessed",
+                               "Entity.setIsSauceBase",
+                               "Entity.set_getAudibilityPerc_neverOnScreen"),
     "entityMgr.tagForDeletion.tagged": ("Entity.tagForDeletion",),
     "entityMgr.deleteAll.activeStillValid": ("EntityManager.deleteAllEntities",),
     "entityMgr.deleteAll.pendingStillInvalid": ("EntityManager.deleteAllEntities",),
@@ -267,6 +309,41 @@ ENTITY_QUERY_FIELDS = {
     "iterator.deletedSnapshotSizeStable": "EntityManager.getAllEntities",
     "iterator.deletedEntryNull": "EntityManager.getAllEntities",
 }
+ENTITY_STATE_FIELDS = {
+    "invisible": "Entity.isInvisible", "staticDraw": "Entity.isStaticDraw",
+    "editable": "Entity.isEditable", "beingEdited": "Entity.isBeingEdited",
+    "placing": "Entity.isPlacing", "alwaysProcessed": "Entity.isAlwaysProcessed",
+    "sauceBase": "Entity.isSauceBase", "descriptionBits": "Entity.getDescriptionBits",
+    "clearFlags": "Entity.isInvisible",
+    "creationPosX": "Entity.getEntityCreationPos", "creationPosY": "Entity.getEntityCreationPos",
+    "limitVolPerc": "Entity.getLimitVolPerc",
+    "offScreensAudible": "Entity.getNumOffScreensAudible",
+    "neverOnScreen": "Entity.is_getAudibilityPerc_neverOnScreen",
+    "mixerID": "Entity.getMixerID", "typeName": "Entity.getTypeName",
+    "numericType": "Entity.getType",
+    "objectIDsDistinct": "Entity.getObjectID", "isType": "Entity.isType",
+    "wrongType": "Entity.isType", "sameType": "Entity.isSameType",
+    "distance": "Entity.getDistanceTo", "vectorToX": "Entity.getVectorTo",
+    "vectorToY": "Entity.getVectorTo", "vectorNormX": "Entity.getVectorToNormalized",
+    "vectorNormY": "Entity.getVectorToNormalized", "radiansToFace": "Entity.getRadiansToFace",
+    "whichSide": "Entity.getWhichSide", "mainBody": "Entity.getMainBody",
+    "screenMinX": "Entity.getMinCX", "screenMaxX": "Entity.getMaxCX",
+    "screenMinY": "Entity.getMinCY", "screenMaxY": "Entity.getMaxCY",
+    "onScreenInside": "Entity.isOnScreen", "onScreenOutside": "Entity.isOnScreen",
+    "gotDefault": "Entity.isGot", "gotSet": "Entity.isGot", "gotCleared": "Entity.isGot",
+    "getting": "Entity.isGetting", "callMethod": "Entity.callMethod",
+    "createParticle": "Entity.createParticle", "particleCount": "Entity.getNumParticles",
+    "particleIterator": "Entity.getAllParticles", "notOkToRun": "Entity.isOkToRun",
+    "alarmIDStep": "Entity.getUniqueAlarmID", "alarmExists": "Entity.getAlarm",
+    "alarmUpdated": "Entity.getAlarm", "alarmDeleted": "Entity.getAlarm",
+    "addLFO": "Entity.addLFO", "compatibilityCallsComplete": "Entity.update",
+    "okToRun": "Entity.isOkToRun", "deleted": "EntityManager.isEntityIDValid",
+    "otherDeleted": "EntityManager.isEntityIDValid", "dummyStable": "EntityManager.getDummyEntity",
+    "perfFirst": "EntityManager.getEntityPerfCost",
+    "perfAdditional": "EntityManager.getEntityPerfCost",
+    "perfMax": "EntityManager.getEntityPerfMaxCost",
+    "perfMissing": "EntityManager.getEntityPerfCost",
+}
 BODY_CONTROL_FIELDS = {
     "position": "physicsBody.setPos", "velocity": "physicsBody.setVel",
     "speed": "physicsBody.getSpeed", "setSpeed": "physicsBody.setSpeed",
@@ -318,6 +395,11 @@ def owner(name, names):
         function = ENTITY_QUERY_FIELDS[name[len("entityQ."):]]
         if function not in names:
             raise ValueError(f"unknown entity query function: {function}")
+        return function
+    if name.startswith("entityState."):
+        function = ENTITY_STATE_FIELDS[name[len("entityState."):]]
+        if function not in names:
+            raise ValueError(f"unknown entity state function: {function}")
         return function
     if name.startswith("bodyCtl."):
         function = BODY_CONTROL_FIELDS[name[len("bodyCtl."):]]
@@ -408,7 +490,9 @@ def main():
     rows = []
     inconclusive_rows = []
     local_only_rows = []
+    awaiting_retail_rows = []
     local_only_counts = defaultdict(int)
+    awaiting_retail_counts = defaultdict(int)
     grouped = defaultdict(list)
     scenes = defaultdict(list)
     for probe, baseline, plan, support in ((PROBE, BASELINE, None, ()),
@@ -429,12 +513,18 @@ def main():
                                            (ENTITY_QUERIES, ENTITY_QUERIES_BASELINE,
                                             ENTITY_QUERIES_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,)),
+                                           (ENTITY_STATE, ENTITY_STATE_BASELINE,
+                                            ENTITY_STATE_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,)),
                                            (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
                                             BODY_CONTROLS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,))):
-        check_baseline_source(baseline, probe, support)
         declared = expected_readings(probe, plan)
-        inconclusive = json.loads(plan.read_text()).get("inconclusive", {}) if plan else {}
+        plan_data = json.loads(plan.read_text()) if plan else {}
+        awaiting_retail = set(plan_data.get("awaitingRetail", []))
+        if not awaiting_retail:
+            check_baseline_source(baseline, probe, support)
+        inconclusive = plan_data.get("inconclusive", {})
         if len(declared) != len(set(declared)):
             raise ValueError(f"duplicate probe names: {probe}")
         _, error, log_path, _ = run_script(args.engine.resolve(), HERE, probe.name,
@@ -446,14 +536,23 @@ def main():
             problems.append(f"{probe.name}: {error}")
         for label, values, dupes in (("retail", retail, retail_dupes),
                                      ("OpenEgg", local, local_dupes)):
+            required = set(declared) - awaiting_retail if label == "retail" else declared
             problems += [f"{probe.name} {label}: missing {key}"
-                         for key in declared if key not in values]
+                         for key in required if key not in values]
             problems += [f"{probe.name} {label}: unexpected {key}"
                          for key in values if key not in declared]
             problems += [f"{probe.name} {label}: duplicate {key}"
                          for key in sorted(dupes)]
         for case in declared:
             function = owner(case, names)
+            if case in awaiting_retail:
+                awaiting_retail_rows.append((case, function, local.get(case)))
+                awaiting_retail_counts[function] += 1
+                for extra in ASSOCIATED.get(case, ()):
+                    if extra not in names:
+                        raise ValueError(f"unknown associated function: {extra}")
+                    awaiting_retail_counts[extra] += 1
+                continue
             if case in inconclusive:
                 inconclusive_rows.append((case, function, retail.get(case),
                                           local.get(case), inconclusive[case]))
@@ -475,11 +574,13 @@ def main():
                     raise ValueError(f"unknown associated function: {extra}")
                 grouped[extra].append(passed)
     count = sum(row[4] for row in rows)
-    tested = sum(bool(grouped[name]) or bool(local_only_counts[name]) for name in names)
+    tested = sum(bool(grouped[name]) or bool(local_only_counts[name]) or
+                 bool(awaiting_retail_counts[name]) for name in names)
     lines = ["# Physics test report", "",
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
              f"Matched: **{count}/{len(rows)} comparable readings ({percent(count, len(rows))})**. "
-             f"{len(inconclusive_rows)} inconclusive and {len(local_only_rows)} local-only reading(s) are listed separately. "
+             f"{len(inconclusive_rows)} inconclusive, {len(local_only_rows)} local-only, and "
+             f"{len(awaiting_retail_rows)} awaiting-retail reading(s) are listed separately. "
              "This measures captured cases, not total physics parity.", "",
              f"Functions with readings: **{tested}/{len(names)}**. The inventory comes from "
              "the local API reference and includes OpenEgg-only methods.", "",
@@ -495,9 +596,11 @@ def main():
         checks = grouped[function]
         matched = sum(checks)
         local_count = local_only_counts[function]
-        status = ("LOCAL-ONLY" if local_count else "untested" if not checks else
+        pending_count = awaiting_retail_counts[function]
+        status = ("LOCAL-ONLY" if local_count else "AWAITING RETAIL" if pending_count else
+                  "untested" if not checks else
                   "PASS" if matched == len(checks) else "FAIL")
-        lines.append(f"| `{function}` | {matched} | {len(checks) + local_count} | {status} |")
+        lines.append(f"| `{function}` | {matched} | {len(checks) + local_count + pending_count} | {status} |")
     lines += ["", "## Contact callbacks", "",
               "| Hook | Matched | Cases |", "| --- | ---: | ---: |"]
     for function in sorted(set(grouped) - set(names)):
@@ -516,6 +619,12 @@ def main():
                   "| --- | --- | --- | --- | --- |"]
         for case, function, retail_value, local_value, reason in local_only_rows:
             lines.append(f"| `{function}` | {case} | `{retail_value}` | `{local_value}` | {reason} |")
+    if awaiting_retail_rows:
+        lines += ["", "## Awaiting retail capture", "",
+                  "These cases ran on OpenEgg but have no retail readings yet; they are excluded from parity scores.", "",
+                  "| Function | Case | OpenEgg |", "| --- | --- | --- |"]
+        for case, function, local_value in awaiting_retail_rows:
+            lines.append(f"| `{function}` | {case} | `{local_value}` |")
     lines += ["", "## Readings", "", "| Function | Case | Retail | OpenEgg | Result |",
               "| --- | --- | --- | --- | --- |"]
     for case, function, a, b, passed in rows:
