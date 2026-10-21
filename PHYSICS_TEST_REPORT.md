@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-21 13:06 UTC
+Generated: 2026-10-21 14:05 UTC
 
-Matched: **4716/4716 comparable readings (100.0%)**. 1 inconclusive, 3 local-only, and 58 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4759/4774 comparable readings (99.7%)**. 1 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **269/434**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -84,11 +84,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
-| `Entity.addAlarm` | 0 | 2 | AWAITING RETAIL |
-| `Entity.addLFO` | 0 | 2 | AWAITING RETAIL |
-| `Entity.addTelescope` | 0 | 1 | AWAITING RETAIL |
-| `Entity.callMethod` | 0 | 1 | AWAITING RETAIL |
-| `Entity.clearTelescopes` | 0 | 1 | AWAITING RETAIL |
+| `Entity.addAlarm` | 0 | 2 | FAIL |
+| `Entity.addLFO` | 0 | 2 | FAIL |
+| `Entity.addTelescope` | 1 | 1 | PASS |
+| `Entity.callMethod` | 0 | 1 | FAIL |
+| `Entity.clearTelescopes` | 1 | 1 | PASS |
 | `Entity.configure` | 0 | 0 | untested |
 | `Entity.constructorSetIsManual` | 0 | 0 | untested |
 | `Entity.constructorSetManual` | 0 | 0 | untested |
@@ -96,73 +96,73 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.constructorSetNoPhysicsCollide` | 0 | 0 | untested |
 | `Entity.constructorSetNoPhysicsUpdate` | 0 | 0 | untested |
 | `Entity.constructorSetNoUpdate` | 0 | 0 | untested |
-| `Entity.createParticle` | 0 | 1 | AWAITING RETAIL |
-| `Entity.deleteAlarm` | 0 | 1 | AWAITING RETAIL |
+| `Entity.createParticle` | 1 | 1 | PASS |
+| `Entity.deleteAlarm` | 1 | 1 | PASS |
 | `Entity.deleteAllParticles` | 0 | 0 | untested |
-| `Entity.deleteLFO` | 0 | 1 | AWAITING RETAIL |
-| `Entity.die` | 0 | 1 | AWAITING RETAIL |
-| `Entity.disownVoice` | 0 | 1 | AWAITING RETAIL |
+| `Entity.deleteLFO` | 1 | 1 | PASS |
+| `Entity.die` | 1 | 1 | PASS |
+| `Entity.disownVoice` | 1 | 1 | PASS |
 | `Entity.drawExplosionIfGot` | 0 | 0 | untested |
-| `Entity.forceAudibilityRecalc` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getAlarm` | 0 | 6 | AWAITING RETAIL |
-| `Entity.getAllParticles` | 0 | 1 | AWAITING RETAIL |
+| `Entity.forceAudibilityRecalc` | 1 | 1 | PASS |
+| `Entity.getAlarm` | 2 | 6 | FAIL |
+| `Entity.getAllParticles` | 0 | 1 | FAIL |
 | `Entity.getAudibilityPerc` | 0 | 0 | untested |
 | `Entity.getCurrentScreenX` | 0 | 0 | untested |
 | `Entity.getCurrentScreenY` | 0 | 0 | untested |
-| `Entity.getDescriptionBits` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getDistanceTo` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getEntityCreationPos` | 0 | 2 | AWAITING RETAIL |
-| `Entity.getLimitVolPerc` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getMainBody` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getMaxCX` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getMaxCY` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getMinCX` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getMinCY` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getMixerID` | 0 | 1 | AWAITING RETAIL |
+| `Entity.getDescriptionBits` | 1 | 1 | PASS |
+| `Entity.getDistanceTo` | 1 | 1 | PASS |
+| `Entity.getEntityCreationPos` | 0 | 2 | FAIL |
+| `Entity.getLimitVolPerc` | 1 | 1 | PASS |
+| `Entity.getMainBody` | 0 | 1 | FAIL |
+| `Entity.getMaxCX` | 1 | 1 | PASS |
+| `Entity.getMaxCY` | 1 | 1 | PASS |
+| `Entity.getMinCX` | 1 | 1 | PASS |
+| `Entity.getMinCY` | 1 | 1 | PASS |
+| `Entity.getMixerID` | 1 | 1 | PASS |
 | `Entity.getMixerParams` | 0 | 0 | untested |
-| `Entity.getNumOffScreensAudible` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getNumParticles` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getObjectID` | 1 | 2 | AWAITING RETAIL |
+| `Entity.getNumOffScreensAudible` | 1 | 1 | PASS |
+| `Entity.getNumParticles` | 0 | 1 | FAIL |
+| `Entity.getObjectID` | 2 | 2 | PASS |
 | `Entity.getPhysicsData` | 1 | 1 | PASS |
-| `Entity.getRadiansToFace` | 0 | 1 | AWAITING RETAIL |
+| `Entity.getRadiansToFace` | 0 | 1 | FAIL |
 | `Entity.getStyle` | 0 | 0 | untested |
-| `Entity.getType` | 0 | 1 | AWAITING RETAIL |
-| `Entity.getTypeName` | 0 | 1 | AWAITING RETAIL |
+| `Entity.getType` | 0 | 1 | FAIL |
+| `Entity.getTypeName` | 1 | 1 | PASS |
 | `Entity.getUID` | 0 | 0 | untested |
-| `Entity.getUniqueAlarmID` | 0 | 2 | AWAITING RETAIL |
+| `Entity.getUniqueAlarmID` | 2 | 2 | PASS |
 | `Entity.getUniqueLFOID` | 0 | 0 | untested |
-| `Entity.getVectorTo` | 0 | 2 | AWAITING RETAIL |
-| `Entity.getVectorToNormalized` | 0 | 2 | AWAITING RETAIL |
+| `Entity.getVectorTo` | 2 | 2 | PASS |
+| `Entity.getVectorToNormalized` | 2 | 2 | PASS |
 | `Entity.getVertexShaderParamIndex` | 0 | 0 | untested |
-| `Entity.getWhichSide` | 0 | 1 | AWAITING RETAIL |
+| `Entity.getWhichSide` | 0 | 1 | FAIL |
 | `Entity.giveBackToBulletCache` | 0 | 0 | untested |
-| `Entity.initializeScreenExtents` | 0 | 4 | AWAITING RETAIL |
+| `Entity.initializeScreenExtents` | 4 | 4 | PASS |
 | `Entity.isAlwaysMusicTriggered` | 0 | 0 | untested |
-| `Entity.isAlwaysProcessed` | 0 | 1 | AWAITING RETAIL |
-| `Entity.isBeingEdited` | 0 | 1 | AWAITING RETAIL |
+| `Entity.isAlwaysProcessed` | 0 | 1 | FAIL |
+| `Entity.isBeingEdited` | 1 | 1 | PASS |
 | `Entity.isBoundedToGameBoard` | 0 | 0 | untested |
-| `Entity.isEditable` | 0 | 1 | AWAITING RETAIL |
+| `Entity.isEditable` | 1 | 1 | PASS |
 | `Entity.isEnabled` | 7 | 7 | PASS |
-| `Entity.isGetting` | 0 | 1 | AWAITING RETAIL |
-| `Entity.isGot` | 0 | 3 | AWAITING RETAIL |
+| `Entity.isGetting` | 0 | 1 | FAIL |
+| `Entity.isGot` | 2 | 3 | FAIL |
 | `Entity.isGround` | 0 | 0 | untested |
 | `Entity.isInGameBoard` | 0 | 0 | untested |
 | `Entity.isInView` | 0 | 0 | untested |
 | `Entity.isInvincible` | 0 | 0 | untested |
-| `Entity.isInvisible` | 0 | 2 | AWAITING RETAIL |
-| `Entity.isOkToRun` | 0 | 2 | AWAITING RETAIL |
+| `Entity.isInvisible` | 2 | 2 | PASS |
+| `Entity.isOkToRun` | 2 | 2 | PASS |
 | `Entity.isOnCurrentScreen` | 0 | 0 | untested |
-| `Entity.isOnScreen` | 0 | 2 | AWAITING RETAIL |
-| `Entity.isPlacing` | 0 | 1 | AWAITING RETAIL |
+| `Entity.isOnScreen` | 2 | 2 | PASS |
+| `Entity.isPlacing` | 1 | 1 | PASS |
 | `Entity.isPlayer` | 0 | 0 | untested |
 | `Entity.isPlayerRelated` | 0 | 0 | untested |
-| `Entity.isSameType` | 0 | 1 | AWAITING RETAIL |
-| `Entity.isSauceBase` | 0 | 1 | AWAITING RETAIL |
-| `Entity.isStaticDraw` | 0 | 1 | AWAITING RETAIL |
+| `Entity.isSameType` | 1 | 1 | PASS |
+| `Entity.isSauceBase` | 1 | 1 | PASS |
+| `Entity.isStaticDraw` | 1 | 1 | PASS |
 | `Entity.isTaggedForDeletion` | 1 | 1 | PASS |
-| `Entity.isType` | 0 | 2 | AWAITING RETAIL |
+| `Entity.isType` | 2 | 2 | PASS |
 | `Entity.isWizard` | 0 | 0 | untested |
-| `Entity.is_getAudibilityPerc_neverOnScreen` | 0 | 1 | AWAITING RETAIL |
+| `Entity.is_getAudibilityPerc_neverOnScreen` | 1 | 1 | PASS |
 | `Entity.loadAnimation` | 0 | 0 | untested |
 | `Entity.onDisable` | 0 | 0 | untested |
 | `Entity.onEnable` | 0 | 0 | untested |
@@ -171,62 +171,62 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.playSound` | 0 | 0 | untested |
 | `Entity.playSoundWithMixer` | 0 | 0 | untested |
 | `Entity.recordScreenExtents` | 0 | 0 | untested |
-| `Entity.redrawSauceBase` | 0 | 1 | AWAITING RETAIL |
+| `Entity.redrawSauceBase` | 1 | 1 | PASS |
 | `Entity.refreshFunctionCache` | 0 | 0 | untested |
-| `Entity.setDescriptionBits` | 0 | 1 | AWAITING RETAIL |
+| `Entity.setDescriptionBits` | 1 | 1 | PASS |
 | `Entity.setEditSensorBox` | 0 | 0 | untested |
-| `Entity.setEntityCreationPos` | 0 | 2 | AWAITING RETAIL |
-| `Entity.setGot` | 0 | 2 | AWAITING RETAIL |
+| `Entity.setEntityCreationPos` | 0 | 2 | FAIL |
+| `Entity.setGot` | 1 | 2 | FAIL |
 | `Entity.setIsAlwaysMusicTriggered` | 0 | 0 | untested |
-| `Entity.setIsAlwaysProcessed` | 0 | 2 | AWAITING RETAIL |
+| `Entity.setIsAlwaysProcessed` | 1 | 2 | FAIL |
 | `Entity.setIsAutoRemove` | 0 | 0 | untested |
 | `Entity.setIsAutoRemoveStranded` | 0 | 0 | untested |
-| `Entity.setIsBeingEdited` | 0 | 2 | AWAITING RETAIL |
+| `Entity.setIsBeingEdited` | 2 | 2 | PASS |
 | `Entity.setIsBoundedToGameBoard` | 0 | 0 | untested |
 | `Entity.setIsDeletable` | 0 | 0 | untested |
-| `Entity.setIsEditable` | 0 | 2 | AWAITING RETAIL |
+| `Entity.setIsEditable` | 2 | 2 | PASS |
 | `Entity.setIsEnabled` | 0 | 0 | untested |
-| `Entity.setIsInvisible` | 0 | 2 | AWAITING RETAIL |
-| `Entity.setIsPlacing` | 0 | 2 | AWAITING RETAIL |
-| `Entity.setIsSauceBase` | 0 | 2 | AWAITING RETAIL |
-| `Entity.setIsStaticDraw` | 0 | 2 | AWAITING RETAIL |
-| `Entity.setLimitVolPerc` | 0 | 1 | AWAITING RETAIL |
-| `Entity.setMixerID` | 0 | 1 | AWAITING RETAIL |
-| `Entity.setNumOffScreensAudible` | 0 | 1 | AWAITING RETAIL |
+| `Entity.setIsInvisible` | 2 | 2 | PASS |
+| `Entity.setIsPlacing` | 2 | 2 | PASS |
+| `Entity.setIsSauceBase` | 2 | 2 | PASS |
+| `Entity.setIsStaticDraw` | 2 | 2 | PASS |
+| `Entity.setLimitVolPerc` | 1 | 1 | PASS |
+| `Entity.setMixerID` | 1 | 1 | PASS |
+| `Entity.setNumOffScreensAudible` | 1 | 1 | PASS |
 | `Entity.setUIDData` | 0 | 0 | untested |
-| `Entity.set_getAudibilityPerc_neverOnScreen` | 0 | 2 | AWAITING RETAIL |
+| `Entity.set_getAudibilityPerc_neverOnScreen` | 2 | 2 | PASS |
 | `Entity.setupDrawList` | 0 | 0 | untested |
 | `Entity.setupStaticDrawList` | 0 | 0 | untested |
-| `Entity.tagForDeletion` | 1 | 2 | AWAITING RETAIL |
+| `Entity.tagForDeletion` | 2 | 2 | PASS |
 | `Entity.unloadAnimation` | 0 | 0 | untested |
 | `Entity.unloadAnimationAll` | 0 | 0 | untested |
-| `Entity.update` | 0 | 2 | AWAITING RETAIL |
-| `Entity.updateExplosionIfGot` | 0 | 1 | AWAITING RETAIL |
+| `Entity.update` | 2 | 2 | PASS |
+| `Entity.updateExplosionIfGot` | 1 | 1 | PASS |
 | `EntityManager.createEntity` | 2 | 2 | PASS |
 | `EntityManager.createEntityAsPlayer` | 0 | 0 | untested |
 | `EntityManager.deleteAllEntities` | 5 | 5 | PASS |
-| `EntityManager.flush` | 12 | 13 | AWAITING RETAIL |
+| `EntityManager.flush` | 13 | 13 | PASS |
 | `EntityManager.getAllEntities` | 11 | 11 | PASS |
 | `EntityManager.getAllManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllNonManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllPlayerEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllPlayerEntitiesRandomly` | 1 | 1 | PASS |
-| `EntityManager.getDummyEntity` | 0 | 1 | AWAITING RETAIL |
+| `EntityManager.getDummyEntity` | 1 | 1 | PASS |
 | `EntityManager.getEntitiesNear` | 7 | 7 | PASS |
 | `EntityManager.getEntitiesRoughlyWithin` | 2 | 2 | PASS |
 | `EntityManager.getEntity` | 2 | 2 | PASS |
 | `EntityManager.getEntityFromUID` | 2 | 2 | PASS |
-| `EntityManager.getEntityPerfCost` | 0 | 3 | AWAITING RETAIL |
-| `EntityManager.getEntityPerfMaxCost` | 0 | 1 | AWAITING RETAIL |
+| `EntityManager.getEntityPerfCost` | 3 | 3 | PASS |
+| `EntityManager.getEntityPerfMaxCost` | 1 | 1 | PASS |
 | `EntityManager.getNumEntities` | 13 | 13 | PASS |
 | `EntityManager.getNumManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumNonManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumPlayers` | 1 | 1 | PASS |
 | `EntityManager.getRandomEntity` | 1 | 1 | PASS |
 | `EntityManager.getRandomPlayer` | 1 | 1 | PASS |
-| `EntityManager.isEntityIDValid` | 45 | 47 | AWAITING RETAIL |
-| `EntityManager.setEntityPerfCost` | 0 | 2 | AWAITING RETAIL |
-| `EntityManager.setEntityPerfMaxCost` | 0 | 1 | AWAITING RETAIL |
+| `EntityManager.isEntityIDValid` | 47 | 47 | PASS |
+| `EntityManager.setEntityPerfCost` | 2 | 2 | PASS |
+| `EntityManager.setEntityPerfMaxCost` | 1 | 1 | PASS |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Physics.createJoint` | 5 | 5 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
@@ -549,71 +549,6 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsBody.isCircle` | bodyApi.physicsBody.isCircle | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | bodyApi.physicsBody.isRect | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
-
-## Awaiting retail capture
-
-These cases ran on OpenEgg but have no retail readings yet; they are excluded from parity scores.
-
-| Function | Case | OpenEgg |
-| --- | --- | --- |
-| `Entity.addLFO` | entityState.addLFO | `1` |
-| `Entity.getAlarm` | entityState.alarmDeleted | `1` |
-| `Entity.getAlarm` | entityState.alarmExists | `1` |
-| `Entity.getUniqueAlarmID` | entityState.alarmIDStep | `1` |
-| `Entity.getAlarm` | entityState.alarmUpdated | `1` |
-| `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `1` |
-| `Entity.isBeingEdited` | entityState.beingEdited | `1` |
-| `Entity.callMethod` | entityState.callMethod | `12` |
-| `Entity.isInvisible` | entityState.clearFlags | `1` |
-| `Entity.update` | entityState.compatibilityCallsComplete | `1` |
-| `Entity.createParticle` | entityState.createParticle | `1` |
-| `Entity.getEntityCreationPos` | entityState.creationPosX | `12.500000` |
-| `Entity.getEntityCreationPos` | entityState.creationPosY | `-4.250000` |
-| `EntityManager.isEntityIDValid` | entityState.deleted | `1` |
-| `Entity.getDescriptionBits` | entityState.descriptionBits | `37` |
-| `Entity.getDistanceTo` | entityState.distance | `5.000000` |
-| `EntityManager.getDummyEntity` | entityState.dummyStable | `1` |
-| `Entity.isEditable` | entityState.editable | `1` |
-| `Entity.isGetting` | entityState.getting | `0` |
-| `Entity.isGot` | entityState.gotCleared | `1` |
-| `Entity.isGot` | entityState.gotDefault | `1` |
-| `Entity.isGot` | entityState.gotSet | `1` |
-| `Entity.isInvisible` | entityState.invisible | `1` |
-| `Entity.isType` | entityState.isType | `1` |
-| `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` |
-| `Entity.getMainBody` | entityState.mainBody | `1` |
-| `Entity.getMixerID` | entityState.mixerID | `7` |
-| `Entity.is_getAudibilityPerc_neverOnScreen` | entityState.neverOnScreen | `1` |
-| `Entity.isOkToRun` | entityState.notOkToRun | `1` |
-| `Entity.getType` | entityState.numericType | `0` |
-| `Entity.getObjectID` | entityState.objectIDsDistinct | `1` |
-| `Entity.getNumOffScreensAudible` | entityState.offScreensAudible | `3` |
-| `Entity.isOkToRun` | entityState.okToRun | `1` |
-| `Entity.isOnScreen` | entityState.onScreenInside | `1` |
-| `Entity.isOnScreen` | entityState.onScreenOutside | `1` |
-| `EntityManager.isEntityIDValid` | entityState.otherDeleted | `1` |
-| `Entity.getNumParticles` | entityState.particleCount | `0` |
-| `Entity.getAllParticles` | entityState.particleIterator | `0` |
-| `EntityManager.getEntityPerfCost` | entityState.perfAdditional | `4` |
-| `EntityManager.getEntityPerfCost` | entityState.perfFirst | `10` |
-| `EntityManager.getEntityPerfMaxCost` | entityState.perfMax | `42` |
-| `EntityManager.getEntityPerfCost` | entityState.perfMissing | `0` |
-| `Entity.isPlacing` | entityState.placing | `1` |
-| `Entity.getRadiansToFace` | entityState.radiansToFace | `0.925393` |
-| `Entity.isSameType` | entityState.sameType | `1` |
-| `Entity.isSauceBase` | entityState.sauceBase | `1` |
-| `Entity.getMaxCX` | entityState.screenMaxX | `4` |
-| `Entity.getMaxCY` | entityState.screenMaxY | `4` |
-| `Entity.getMinCX` | entityState.screenMinX | `2` |
-| `Entity.getMinCY` | entityState.screenMinY | `2` |
-| `Entity.isStaticDraw` | entityState.staticDraw | `1` |
-| `Entity.getTypeName` | entityState.typeName | `EntityQueryProbeEntity` |
-| `Entity.getVectorToNormalized` | entityState.vectorNormX | `0.600000` |
-| `Entity.getVectorToNormalized` | entityState.vectorNormY | `0.800000` |
-| `Entity.getVectorTo` | entityState.vectorToX | `3.000000` |
-| `Entity.getVectorTo` | entityState.vectorToY | `4.000000` |
-| `Entity.getWhichSide` | entityState.whichSide | `1` |
-| `Entity.isType` | entityState.wrongType | `1` |
 
 ## Readings
 
@@ -5225,6 +5160,64 @@ These cases ran on OpenEgg but have no retail readings yet; they are excluded fr
 | `EntityManager.getAllEntities` | entityQ.iterator.resetFirst | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedSnapshotSizeStable | `1` | `1` | PASS |
 | `EntityManager.getAllEntities` | entityQ.iterator.deletedEntryNull | `1` | `1` | PASS |
+| `Entity.addLFO` | entityState.addLFO | `null` | `1` | FAIL |
+| `Entity.getAlarm` | entityState.alarmDeleted | `1` | `1` | PASS |
+| `Entity.getAlarm` | entityState.alarmExists | `0` | `1` | FAIL |
+| `Entity.getUniqueAlarmID` | entityState.alarmIDStep | `null` | `null` | PASS |
+| `Entity.getAlarm` | entityState.alarmUpdated | `0` | `1` | FAIL |
+| `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `null` | `1` | FAIL |
+| `Entity.isBeingEdited` | entityState.beingEdited | `1` | `1` | PASS |
+| `Entity.callMethod` | entityState.callMethod | `null` | `12` | FAIL |
+| `Entity.isInvisible` | entityState.clearFlags | `1` | `1` | PASS |
+| `Entity.update` | entityState.compatibilityCallsComplete | `1` | `1` | PASS |
+| `Entity.createParticle` | entityState.createParticle | `1` | `1` | PASS |
+| `Entity.getEntityCreationPos` | entityState.creationPosX | `null` | `12.500000` | FAIL |
+| `Entity.getEntityCreationPos` | entityState.creationPosY | `null` | `-4.250000` | FAIL |
+| `EntityManager.isEntityIDValid` | entityState.deleted | `1` | `1` | PASS |
+| `Entity.getDescriptionBits` | entityState.descriptionBits | `37` | `37` | PASS |
+| `Entity.getDistanceTo` | entityState.distance | `5.000000` | `5.000000` | PASS |
+| `EntityManager.getDummyEntity` | entityState.dummyStable | `1` | `1` | PASS |
+| `Entity.isEditable` | entityState.editable | `1` | `1` | PASS |
+| `Entity.isGetting` | entityState.getting | `null` | `0` | FAIL |
+| `Entity.isGot` | entityState.gotCleared | `1` | `1` | PASS |
+| `Entity.isGot` | entityState.gotDefault | `1` | `1` | PASS |
+| `Entity.isGot` | entityState.gotSet | `null` | `1` | FAIL |
+| `Entity.isInvisible` | entityState.invisible | `1` | `1` | PASS |
+| `Entity.isType` | entityState.isType | `1` | `1` | PASS |
+| `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
+| `Entity.getMainBody` | entityState.mainBody | `0` | `1` | FAIL |
+| `Entity.getMixerID` | entityState.mixerID | `7` | `7` | PASS |
+| `Entity.is_getAudibilityPerc_neverOnScreen` | entityState.neverOnScreen | `1` | `1` | PASS |
+| `Entity.isOkToRun` | entityState.notOkToRun | `1` | `1` | PASS |
+| `Entity.getType` | entityState.numericType | `1` | `0` | FAIL |
+| `Entity.getObjectID` | entityState.objectIDsDistinct | `1` | `1` | PASS |
+| `Entity.getNumOffScreensAudible` | entityState.offScreensAudible | `3` | `3` | PASS |
+| `Entity.isOkToRun` | entityState.okToRun | `1` | `1` | PASS |
+| `Entity.isOnScreen` | entityState.onScreenInside | `1` | `1` | PASS |
+| `Entity.isOnScreen` | entityState.onScreenOutside | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | entityState.otherDeleted | `1` | `1` | PASS |
+| `Entity.getNumParticles` | entityState.particleCount | `null` | `0` | FAIL |
+| `Entity.getAllParticles` | entityState.particleIterator | `null` | `0` | FAIL |
+| `EntityManager.getEntityPerfCost` | entityState.perfAdditional | `4` | `4` | PASS |
+| `EntityManager.getEntityPerfCost` | entityState.perfFirst | `10` | `10` | PASS |
+| `EntityManager.getEntityPerfMaxCost` | entityState.perfMax | `42` | `42` | PASS |
+| `EntityManager.getEntityPerfCost` | entityState.perfMissing | `0` | `0` | PASS |
+| `Entity.isPlacing` | entityState.placing | `1` | `1` | PASS |
+| `Entity.getRadiansToFace` | entityState.radiansToFace | `0.927295` | `0.925393` | FAIL |
+| `Entity.isSameType` | entityState.sameType | `1` | `1` | PASS |
+| `Entity.isSauceBase` | entityState.sauceBase | `1` | `1` | PASS |
+| `Entity.getMaxCX` | entityState.screenMaxX | `4` | `4` | PASS |
+| `Entity.getMaxCY` | entityState.screenMaxY | `4` | `4` | PASS |
+| `Entity.getMinCX` | entityState.screenMinX | `2` | `2` | PASS |
+| `Entity.getMinCY` | entityState.screenMinY | `2` | `2` | PASS |
+| `Entity.isStaticDraw` | entityState.staticDraw | `1` | `1` | PASS |
+| `Entity.getTypeName` | entityState.typeName | `EntityQueryProbeEntity` | `EntityQueryProbeEntity` | PASS |
+| `Entity.getVectorToNormalized` | entityState.vectorNormX | `0.600000` | `0.600000` | PASS |
+| `Entity.getVectorToNormalized` | entityState.vectorNormY | `0.800000` | `0.800000` | PASS |
+| `Entity.getVectorTo` | entityState.vectorToX | `3.000000` | `3.000000` | PASS |
+| `Entity.getVectorTo` | entityState.vectorToY | `4.000000` | `4.000000` | PASS |
+| `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | FAIL |
+| `Entity.isType` | entityState.wrongType | `1` | `1` | PASS |
 | `physicsBody.setPos` | bodyCtl.position | `1` | `1` | PASS |
 | `physicsBody.setVel` | bodyCtl.velocity | `1` | `1` | PASS |
 | `physicsBody.getSpeed` | bodyCtl.speed | `5.000000` | `5.000000` | PASS |

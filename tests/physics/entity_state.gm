@@ -48,8 +48,13 @@ global Main=function(p) {
             Probe("entityState.sauceBase",entity.isSauceBase());
             Probe("entityState.descriptionBits",entity.getDescriptionBits());
             local creationPos=entity.getEntityCreationPos();
-            Probe("entityState.creationPosX",creationPos.x);
-            Probe("entityState.creationPosY",creationPos.y);
+            if (creationPos==null) {
+                Probe("entityState.creationPosX","null");
+                Probe("entityState.creationPosY","null");
+            } else {
+                Probe("entityState.creationPosX",creationPos.x);
+                Probe("entityState.creationPosY",creationPos.y);
+            }
             Probe("entityState.limitVolPerc",entity.getLimitVolPerc());
             Probe("entityState.offScreensAudible",entity.getNumOffScreensAudible());
             Probe("entityState.neverOnScreen",entity.is_getAudibilityPerc_neverOnScreen());
@@ -70,15 +75,22 @@ global Main=function(p) {
             Probe("entityState.radiansToFace",entity.getRadiansToFace(other));
             Probe("entityState.whichSide",entity.getWhichSide(entity,other));
             local mainBody=entity.getMainBody();
-            Probe("entityState.mainBody",mainBody.getObjectID()==entity.getPhysicsData().getBody(0).getObjectID());
+            Probe("entityState.mainBody",mainBody!=null &&
+                mainBody.getObjectID()==entity.getPhysicsData().getBody(0).getObjectID());
             entity.parityMethod=function(value) { return value+5; };
             Probe("entityState.createParticle",entity.createParticle("unused")==null);
             entity.deleteAllParticles();
             Probe("entityState.particleCount",entity.getNumParticles());
-            Probe("entityState.particleIterator",entity.getAllParticles().size());
+            local particles=entity.getAllParticles();
+            if (particles==null) { Probe("entityState.particleIterator","null"); }
+            else { Probe("entityState.particleIterator",particles.size()); }
             local alarmID=entity.getUniqueAlarmID();
             local nextAlarmID=entity.getUniqueAlarmID();
-            Probe("entityState.alarmIDStep",nextAlarmID-alarmID);
+            if (alarmID==null || nextAlarmID==null) {
+                Probe("entityState.alarmIDStep","null");
+            } else {
+                Probe("entityState.alarmIDStep",nextAlarmID-alarmID);
+            }
             entity.addAlarm(991,100,0);
             Probe("entityState.alarmExists",entity.getAlarm(991)!=null);
             entity.addAlarm(991,50,1);
