@@ -1,0 +1,38 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global ProcessProbeState=table(constructed=0,initialized=0,updates=0,posts=0,destroyed=0);
+global ProcessParityProbe=function(p) {
+    return table(Process=p,
+        constructor=function() { ProcessProbeState.constructed+=1; },
+        init=function() { ProcessProbeState.initialized+=1; return true; },
+        update=function(dt) { ProcessProbeState.updates+=1; },
+        postUpdate=function(dt) { ProcessProbeState.posts+=1; },
+        destructor=function() { ProcessProbeState.destroyed+=1; });
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,probe=null,constructor=function(){},
+        init=function(){return true;},
+        update=function(dt) {
+            if (this.frame==0) {
+                this.probe=GameSystem.runProcess("ProcessParityProbe");
+                Probe("process.created",this.probe!=null);
+                Probe("process.constructed",ProcessProbeState.constructed);
+                Probe("process.running",GameSystem.isProcessRunning("ProcessParityProbe"));
+                Probe("process.same",GameSystem.getProcess("ProcessParityProbe")==this.probe);
+                Probe("process.count.created",GameSystem.getProcessCount());
+            } else if (this.frame==2) {
+                Probe("process.initialized",ProcessProbeState.initialized);
+                Probe("process.updates.before",ProcessProbeState.updates);
+                Probe("process.posts.before",ProcessProbeState.posts);
+            } else if (this.frame==3) {
+                Probe("process.updates.after",ProcessProbeState.updates);
+                this.probe.terminate();
+            } else if (this.frame==4) {
+                Probe("process.destroyed",ProcessProbeState.destroyed);
+                Probe("process.running.after",GameSystem.isProcessRunning("ProcessParityProbe"));
+                Probe("process.count.after",GameSystem.getProcessCount());
+            }
+            this.frame+=1;
+        });
+};

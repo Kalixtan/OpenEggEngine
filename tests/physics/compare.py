@@ -61,6 +61,9 @@ ENTITY_STATE = HERE / "entity_state.gm"
 ENTITY_STATE_PLAN = HERE / "entity_state-plan.json"
 ENTITY_STATE_BASELINE = HERE / "entity_state-retail.tsv"
 ENTITY_STATE_SUPPORT = HERE / "EntityStateProbeEntity.gm"
+PROCESS_ORDER = HERE / "process_order.gm"
+PROCESS_ORDER_PLAN = HERE / "process_order-plan.json"
+PROCESS_ORDER_BASELINE = HERE / "process_order-retail.tsv"
 BODY_CONTROLS = HERE / "body_controls.gm"
 BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
@@ -70,7 +73,8 @@ REPORT = ROOT / "PHYSICS_TEST_REPORT.md"
 PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "shapeCollisionInfo.", "intIter.",
             "jointType.", "jointIter.", "Physics.", "Entity.",
-            "EntityManager.", "EntityListRef.", "ALARM.", "LFO.")
+            "EntityManager.", "EntityListRef.", "GameSystem.", "Process.",
+            "ALARM.", "LFO.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "Global.PHYSICSSHAPECOLLECTIONDEF", "Entity.isEnabled",
            "EntityManager.isEntityIDValid", "EntityManager.getNumEntities",
@@ -397,6 +401,25 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("process."):
+        field = name[len("process."):]
+        function = {
+            "created": "GameSystem.runProcess",
+            "constructed": "GameSystem.runProcess",
+            "running": "GameSystem.isProcessRunning",
+            "same": "GameSystem.getProcess",
+            "count.created": "GameSystem.getProcessCount",
+            "initialized": "GameSystem.runProcess",
+            "updates.before": "GameSystem.runProcess",
+            "posts.before": "GameSystem.runProcess",
+            "updates.after": "GameSystem.runProcess",
+            "destroyed": "Process.terminate",
+            "running.after": "GameSystem.isProcessRunning",
+            "count.after": "GameSystem.getProcessCount",
+        }.get(field)
+        if function not in names:
+            raise ValueError(f"unknown process field: {field}")
+        return function
     if name.startswith("entityMgr."):
         field = name[len("entityMgr."):]
         if field.startswith("update.t"):
@@ -541,6 +564,8 @@ def main():
                                            (ENTITY_STATE, ENTITY_STATE_BASELINE,
                                             ENTITY_STATE_PLAN,
                                             (ENTITY_STATE_SUPPORT,)),
+                                           (PROCESS_ORDER, PROCESS_ORDER_BASELINE,
+                                            PROCESS_ORDER_PLAN, ()),
                                            (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
                                             BODY_CONTROLS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,))):
@@ -555,7 +580,10 @@ def main():
         _, error, log_path, _ = run_script(args.engine.resolve(), HERE, probe.name,
                                            HERE / "smoke.harness", 20, log_dir,
                                            strict="survey")
-        retail, retail_dupes = read_readings(baseline)
+        if set(declared) <= awaiting_retail:
+            retail, retail_dupes = {}, set()
+        else:
+            retail, retail_dupes = read_readings(baseline)
         local, local_dupes = read_readings(log_path)
         if error:
             problems.append(f"{probe.name}: {error}")
@@ -592,7 +620,8 @@ def main():
             grouped[function].append(passed)
             if case.startswith(("scene.", "contact.", "removal.", "entityLife.",
                                 "entityMgr.", "entityQ.", "query.",
-                                "ray.", "reentry.", "joint.", "raymove.", "bodyCtl.")):
+                                "ray.", "reentry.", "joint.", "raymove.",
+                                "bodyCtl.", "process.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

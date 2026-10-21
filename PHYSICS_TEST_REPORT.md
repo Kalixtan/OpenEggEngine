@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-21 15:28 UTC
+Generated: 2026-10-21 16:04 UTC
 
-Matched: **4796/4800 comparable readings (99.9%)**. 10 inconclusive, 3 local-only, and 0 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **4796/4796 comparable readings (100.0%)**. 14 inconclusive, 3 local-only, and 12 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **281/456**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **284/559**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -101,7 +101,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.addAlarm` | 0 | 0 | untested |
 | `Entity.addLFO` | 0 | 0 | untested |
 | `Entity.addTelescope` | 1 | 1 | PASS |
-| `Entity.callMethod` | 0 | 2 | FAIL |
+| `Entity.callMethod` | 0 | 0 | untested |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
 | `Entity.configure` | 0 | 0 | untested |
 | `Entity.constructorSetIsManual` | 0 | 0 | untested |
@@ -148,7 +148,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getVectorTo` | 2 | 2 | PASS |
 | `Entity.getVectorToNormalized` | 2 | 2 | PASS |
 | `Entity.getVertexShaderParamIndex` | 0 | 0 | untested |
-| `Entity.getWhichSide` | 0 | 2 | FAIL |
+| `Entity.getWhichSide` | 0 | 0 | untested |
 | `Entity.giveBackToBulletCache` | 0 | 0 | untested |
 | `Entity.initializeScreenExtents` | 4 | 4 | PASS |
 | `Entity.isAlwaysMusicTriggered` | 0 | 0 | untested |
@@ -241,6 +241,53 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.isEntityIDValid` | 47 | 47 | PASS |
 | `EntityManager.setEntityPerfCost` | 2 | 2 | PASS |
 | `EntityManager.setEntityPerfMaxCost` | 1 | 1 | PASS |
+| `GameSystem.TemporaryStorageCopy` | 0 | 0 | untested |
+| `GameSystem.TemporaryStoragePaste` | 0 | 0 | untested |
+| `GameSystem.debug_isStopped` | 0 | 0 | untested |
+| `GameSystem.debug_setStop` | 0 | 0 | untested |
+| `GameSystem.flushProcesses` | 0 | 0 | untested |
+| `GameSystem.getAllProcesses` | 0 | 0 | untested |
+| `GameSystem.getAutoLoadArea` | 0 | 0 | untested |
+| `GameSystem.getAutoLoadLevel` | 0 | 0 | untested |
+| `GameSystem.getAutoLoadMode` | 0 | 0 | untested |
+| `GameSystem.getAutoLoadPath` | 0 | 0 | untested |
+| `GameSystem.getCurrentTick` | 0 | 0 | untested |
+| `GameSystem.getEntityUpdateProcess` | 0 | 0 | untested |
+| `GameSystem.getMSAlive` | 0 | 0 | untested |
+| `GameSystem.getMSSincePlayStart` | 0 | 0 | untested |
+| `GameSystem.getProcess` | 0 | 1 | AWAITING RETAIL |
+| `GameSystem.getProcessByIndex` | 0 | 0 | untested |
+| `GameSystem.getProcessCount` | 0 | 2 | AWAITING RETAIL |
+| `GameSystem.getRandomAngle` | 0 | 0 | untested |
+| `GameSystem.getRandomBoolean` | 0 | 0 | untested |
+| `GameSystem.getRandomDir` | 0 | 0 | untested |
+| `GameSystem.getRandomInteger` | 0 | 0 | untested |
+| `GameSystem.getRandomReal` | 0 | 0 | untested |
+| `GameSystem.getRandomRealExp` | 0 | 0 | untested |
+| `GameSystem.getRandomSign` | 0 | 0 | untested |
+| `GameSystem.getRandomSignAndReal` | 0 | 0 | untested |
+| `GameSystem.getSimulationSpeed` | 0 | 0 | untested |
+| `GameSystem.getUpdateInterval` | 0 | 0 | untested |
+| `GameSystem.isAutoLoadLevel` | 0 | 0 | untested |
+| `GameSystem.isBeingNice` | 0 | 0 | untested |
+| `GameSystem.isLoading` | 0 | 0 | untested |
+| `GameSystem.isPaused` | 0 | 0 | untested |
+| `GameSystem.isProcessRunning` | 0 | 2 | AWAITING RETAIL |
+| `GameSystem.isShouldUpdateEntities` | 0 | 0 | untested |
+| `GameSystem.openConsole` | 0 | 0 | untested |
+| `GameSystem.quit` | 0 | 0 | untested |
+| `GameSystem.resetPlayTimer` | 0 | 0 | untested |
+| `GameSystem.resetSimulationTimer` | 0 | 0 | untested |
+| `GameSystem.runProcess` | 0 | 6 | AWAITING RETAIL |
+| `GameSystem.setALevelLoaded` | 0 | 0 | untested |
+| `GameSystem.setAsPauseProcess` | 0 | 0 | untested |
+| `GameSystem.setIsBeingNice` | 0 | 0 | untested |
+| `GameSystem.setIsInputEnabled` | 0 | 0 | untested |
+| `GameSystem.setIsLoading` | 0 | 0 | untested |
+| `GameSystem.setIsShouldUpdateEntities` | 0 | 0 | untested |
+| `GameSystem.setSimulationSpeed` | 0 | 0 | untested |
+| `GameSystem.startNewProcessList` | 0 | 0 | untested |
+| `GameSystem.trace` | 0 | 0 | untested |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
 | `LFO.getValue` | 1 | 1 | PASS |
@@ -268,6 +315,62 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.raycastShapes` | 2 | 2 | PASS |
 | `Physics.raycastSimple` | 52 | 52 | PASS |
 | `Physics.setNumFramesToIgnoreCollisions` | 2 | 2 | PASS |
+| `Process.addAlarm` | 0 | 0 | untested |
+| `Process.addLFO` | 0 | 0 | untested |
+| `Process.callMethod` | 0 | 0 | untested |
+| `Process.configure` | 0 | 0 | untested |
+| `Process.deleteAlarm` | 0 | 0 | untested |
+| `Process.deleteLFO` | 0 | 0 | untested |
+| `Process.drawGrounds` | 0 | 0 | untested |
+| `Process.getAlarm` | 0 | 0 | untested |
+| `Process.getCurrentScaleDescription` | 0 | 0 | untested |
+| `Process.getCurrentScreenX` | 0 | 0 | untested |
+| `Process.getCurrentScreenY` | 0 | 0 | untested |
+| `Process.getDrawList` | 0 | 0 | untested |
+| `Process.getFireThickness` | 0 | 0 | untested |
+| `Process.getGroundCountOnScreen` | 0 | 0 | untested |
+| `Process.getName` | 0 | 0 | untested |
+| `Process.getNoteWithPositionAndOffset` | 0 | 0 | untested |
+| `Process.getObjectID` | 0 | 0 | untested |
+| `Process.getPostDrawList` | 0 | 0 | untested |
+| `Process.getPreDrawList` | 0 | 0 | untested |
+| `Process.getScaleIndex` | 0 | 0 | untested |
+| `Process.getScreenHeight` | 0 | 0 | untested |
+| `Process.getScreenWidth` | 0 | 0 | untested |
+| `Process.getScreenX` | 0 | 0 | untested |
+| `Process.getScreenY` | 0 | 0 | untested |
+| `Process.getShader` | 0 | 0 | untested |
+| `Process.getTable` | 0 | 0 | untested |
+| `Process.getTranspose` | 0 | 0 | untested |
+| `Process.getUniqueAlarmID` | 0 | 0 | untested |
+| `Process.getUniqueLFOID` | 0 | 0 | untested |
+| `Process.isBeingEdited` | 0 | 0 | untested |
+| `Process.isHasErrors` | 0 | 0 | untested |
+| `Process.isInited` | 0 | 0 | untested |
+| `Process.isLoading` | 0 | 0 | untested |
+| `Process.lastScale` | 0 | 0 | untested |
+| `Process.nextScale` | 0 | 0 | untested |
+| `Process.notifyEvent` | 0 | 0 | untested |
+| `Process.onMusicTrigger` | 0 | 0 | untested |
+| `Process.refreshFunctionCache` | 0 | 0 | untested |
+| `Process.registerEntity` | 0 | 0 | untested |
+| `Process.rename` | 0 | 0 | untested |
+| `Process.setAsPauseProcess` | 0 | 0 | untested |
+| `Process.setCurrentScreenX` | 0 | 0 | untested |
+| `Process.setCurrentScreenY` | 0 | 0 | untested |
+| `Process.setFireThickness` | 0 | 0 | untested |
+| `Process.setGlobalVolume` | 0 | 0 | untested |
+| `Process.setIsRefreshDrawListOnChange` | 0 | 0 | untested |
+| `Process.setIsStealsInputFocus` | 0 | 0 | untested |
+| `Process.setIsUpdatesEntities` | 0 | 0 | untested |
+| `Process.setScaleIndex` | 0 | 0 | untested |
+| `Process.setTranspose` | 0 | 0 | untested |
+| `Process.setupDrawList` | 0 | 0 | untested |
+| `Process.setupDrawLists` | 0 | 0 | untested |
+| `Process.setupPostDrawList` | 0 | 0 | untested |
+| `Process.setupPreDrawList` | 0 | 0 | untested |
+| `Process.terminate` | 0 | 1 | AWAITING RETAIL |
+| `Process.unregisterEntity` | 0 | 0 | untested |
 | `collisionInfo.getCollidingShapeIDList` | 0 | 0 | untested |
 | `collisionInfo.getContactNormalOfMyCollidingShape` | 112 | 112 | PASS |
 | `collisionInfo.getEntity` | 56 | 56 | PASS |
@@ -563,13 +666,17 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getUID` | entityQ.id.managerUID | `null` | `91001` | The lightweight retail test entity lacks EntityBase's UID access setup. UID registration and lookup are tested separately. |
 | `Entity.addLFO` | entityState.addLFO | `0` | `1` | The synthetic entity fixture does not expose the retail native LFO owner; game scripts attach LFOs to fully initialized retail entities. |
 | `Entity.isAlwaysProcessed` | entityState.alwaysProcessed | `null` | `1` | Synthetic entity fixture exposes the setter but no retail getter state for this property. |
+| `Entity.callMethod` | entityState.callMethod | `null` | `12` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
 | `Entity.getEntityCreationPos` | entityState.creationPosX | `null` | `12.500000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
 | `Entity.getEntityCreationPos` | entityState.creationPosY | `null` | `-4.250000` | Synthetic entity fixture has no retail backing entity state for the setter/getter round trip. |
 | `Entity.addAlarm` | entityState.hasAddAlarm | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
 | `Entity.addLFO` | entityState.hasAddLFO | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
 | `Entity.isAlwaysProcessed` | entityState.hasAlwaysProcessedGetter | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
+| `Entity.callMethod` | entityState.hasCallMethod | `0` | `1` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
 | `Entity.getEntityCreationPos` | entityState.hasCreationPosGetter | `0` | `1` | GameMonkey's table-member existence operator does not report engine type-library methods on the retail entity object. |
+| `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
 | `Entity.getMainBody` | entityState.mainBody | `fixture-limited` | `fixture-limited` | Retail probe entity does not expose initialized PhysicsData to the script helper; direct calls fault before reporting a comparable result. |
+| `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | Latest headless retail capture produced no TTY output; prior probe fixture result is not treated as parity evidence. |
 
 ## OpenEgg-only functions
 
@@ -580,6 +687,25 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsBody.isCircle` | bodyApi.physicsBody.isCircle | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | bodyApi.physicsBody.isRect | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
+
+## Awaiting retail capture
+
+These cases ran on OpenEgg but have no retail readings yet; they are excluded from parity scores.
+
+| Function | Case | OpenEgg |
+| --- | --- | --- |
+| `GameSystem.runProcess` | process.created | `1` |
+| `GameSystem.runProcess` | process.constructed | `1` |
+| `GameSystem.isProcessRunning` | process.running | `1` |
+| `GameSystem.getProcess` | process.same | `1` |
+| `GameSystem.getProcessCount` | process.count.created | `1` |
+| `GameSystem.runProcess` | process.initialized | `1` |
+| `GameSystem.runProcess` | process.updates.before | `0` |
+| `GameSystem.runProcess` | process.posts.before | `1` |
+| `GameSystem.runProcess` | process.updates.after | `1` |
+| `Process.terminate` | process.destroyed | `1` |
+| `GameSystem.isProcessRunning` | process.running.after | `0` |
+| `GameSystem.getProcessCount` | process.count.after | `1` |
 
 ## Readings
 
@@ -5212,7 +5338,6 @@ These extensions have no corresponding retail method and are excluded from the p
 | `ALARM.update` | entityState.alarmUpdateEarly | `0` | `0` | PASS |
 | `ALARM.update` | entityState.alarmUpdateReady | `1` | `1` | PASS |
 | `Entity.isBeingEdited` | entityState.beingEdited | `1` | `1` | PASS |
-| `Entity.callMethod` | entityState.callMethod | `null` | `12` | FAIL |
 | `Entity.isInvisible` | entityState.clearFlags | `1` | `1` | PASS |
 | `Entity.update` | entityState.compatibilityCallsComplete | `1` | `1` | PASS |
 | `Entity.createParticle` | entityState.createParticle | `1` | `1` | PASS |
@@ -5225,8 +5350,6 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.isGot` | entityState.gotCleared | `1` | `1` | PASS |
 | `Entity.isGot` | entityState.gotDefault | `1` | `1` | PASS |
 | `Entity.isGot` | entityState.gotSet | `1` | `1` | PASS |
-| `Entity.callMethod` | entityState.hasCallMethod | `0` | `1` | FAIL |
-| `Entity.getWhichSide` | entityState.hasWhichSide | `0` | `1` | FAIL |
 | `Entity.isInvisible` | entityState.invisible | `1` | `1` | PASS |
 | `Entity.isType` | entityState.isType | `1` | `1` | PASS |
 | `Entity.getLimitVolPerc` | entityState.limitVolPerc | `0.375000` | `0.375000` | PASS |
@@ -5273,7 +5396,6 @@ These extensions have no corresponding retail method and are excluded from the p
 | `Entity.getVectorToNormalized` | entityState.vectorNormY | `0.800000` | `0.800000` | PASS |
 | `Entity.getVectorTo` | entityState.vectorToX | `3.000000` | `3.000000` | PASS |
 | `Entity.getVectorTo` | entityState.vectorToY | `4.000000` | `4.000000` | PASS |
-| `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | FAIL |
 | `Entity.isType` | entityState.wrongType | `1` | `1` | PASS |
 | `physicsBody.setPos` | bodyCtl.position | `1` | `1` | PASS |
 | `physicsBody.setVel` | bodyCtl.velocity | `1` | `1` | PASS |

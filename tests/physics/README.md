@@ -61,6 +61,10 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --support-file tests/physics/EntityStateProbeEntity.gm \
   --expected tests/physics/entity_state-plan.json \
   --baseline tests/physics/entity_state-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/process_order.gm \
+  --expected tests/physics/process_order-plan.json \
+  --baseline tests/physics/process_order-retail.tsv
 python3 tests/physics/compare.py
 ```
 
@@ -80,6 +84,8 @@ committed entities, iterator snapshots, repeated tags, observer-queued deletion
 and creation, and clear-all behavior. The entity state probe exercises exposed
 state, identity, geometry, alarms, particles, compatibility stubs, and perf
 cost calls. Its cases without retail captures remain outside the parity score.
+The process probe checks creation, constructor/init/update/post-update callbacks,
+lookup, termination, and registry counts. Its readings await a retail capture.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired

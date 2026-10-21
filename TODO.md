@@ -18,8 +18,8 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 ## Runtime and physics
 
 - [ ] Match frame timing, pause handling, update order, and physics-step inputs.
-- [ ] Probe `GameSystem.runProcess`, process start/stop timing, pause behavior,
-      and `update`/`postUpdate` order against the same retail script.
+- [ ] Extend process probe with pause/exempt-process timing and exact callback
+      order; capture and compare same script on retail.
 - [ ] Compare contact creation, callback order, deferred events, and body
       destruction against observed game behavior.
 - [ ] Verify contact queries, shape membership, collision filtering, and
