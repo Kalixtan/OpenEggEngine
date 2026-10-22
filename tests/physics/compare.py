@@ -29,6 +29,9 @@ SCENE_PLAN = HERE / "scenes-plan.json"
 CONTACTS = HERE / "contacts.gm"
 CONTACT_BASELINE = HERE / "contacts-retail.tsv"
 CONTACT_PLAN = HERE / "contacts-plan.json"
+COLLISION_FILTERS = HERE / "collision_filters.gm"
+COLLISION_FILTERS_BASELINE = HERE / "collision_filters-retail.tsv"
+COLLISION_FILTERS_PLAN = HERE / "collision_filters-plan.json"
 REMOVAL = HERE / "removal.gm"
 REMOVAL_BASELINE = HERE / "removal-retail.tsv"
 REMOVAL_PLAN = HERE / "removal-plan.json"
@@ -748,6 +751,14 @@ def owner(name, names):
         if function not in names:
             raise ValueError(f"unknown body API function: {function}")
         return function
+    if name.startswith("filter."):
+        function = ("physicsBody.getCollisionGroup" if name.endswith("wideGroupReadback") else
+                    "physicsBody.getCollisionCategory" if name.endswith("wideCategoryReadback") else
+                    "physicsBody.getCategoriesToCollideWith" if name.endswith("wideMaskReadback") else
+                    "physicsData.isColliding")
+        if function not in names:
+            raise ValueError(f"unknown collision filter function: {function}")
+        return function
     if name.startswith("entityLife."):
         function = ENTITY_LIFECYCLE_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names and function != "Entity callbacks" and \
@@ -835,6 +846,9 @@ def main():
     for probe, baseline, plan, support in ((PROBE, BASELINE, None, ()),
                                            (SCENES, SCENE_BASELINE, SCENE_PLAN, ()),
                                            (CONTACTS, CONTACT_BASELINE, CONTACT_PLAN, (CONTACT_SUPPORT,)),
+                                           (COLLISION_FILTERS, COLLISION_FILTERS_BASELINE,
+                                            COLLISION_FILTERS_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,)),
                                            (REMOVAL, REMOVAL_BASELINE, REMOVAL_PLAN, (CONTACT_SUPPORT,)),
                                            (QUERIES, QUERY_BASELINE, QUERY_PLAN, (CONTACT_SUPPORT,)),
                                            (RAYS, RAY_BASELINE, RAY_PLAN, (CONTACT_SUPPORT,)),

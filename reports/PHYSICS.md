@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-22 14:26 UTC
+Generated: 2026-10-22 15:16 UTC
 
-Matched: **6390/6390 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6399/6401 comparable readings (99.97%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **306/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -558,10 +558,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getAngularVel` | 1 | 1 | PASS |
 | `physicsBody.getBBox` | 0 | 0 | untested |
 | `physicsBody.getBrakeAcc` | 1 | 1 | PASS |
-| `physicsBody.getCategoriesToCollideWith` | 74 | 74 | PASS |
+| `physicsBody.getCategoriesToCollideWith` | 75 | 75 | PASS |
 | `physicsBody.getCenterOfMass` | 1 | 1 | PASS |
-| `physicsBody.getCollisionCategory` | 59 | 59 | PASS |
-| `physicsBody.getCollisionGroup` | 57 | 57 | PASS |
+| `physicsBody.getCollisionCategory` | 60 | 60 | PASS |
+| `physicsBody.getCollisionGroup` | 57 | 58 | FAIL |
 | `physicsBody.getDir` | 321 | 321 | PASS |
 | `physicsBody.getDirRef` | 0 | 0 | untested |
 | `physicsBody.getDirty` | 0 | 0 | untested |
@@ -693,7 +693,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getWidth` | 1 | 1 | PASS |
 | `physicsData.isCircle` | 1 | 1 | PASS |
 | `physicsData.isCollidable` | 1 | 1 | PASS |
-| `physicsData.isColliding` | 279 | 279 | PASS |
+| `physicsData.isColliding` | 286 | 287 | FAIL |
 | `physicsData.isPointWithin` | 1 | 1 | PASS |
 | `physicsData.isRect` | 1 | 1 | PASS |
 | `physicsData.isSensor` | 8 | 8 | PASS |
@@ -2255,6 +2255,17 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t8.aArg | `8` | `8` | PASS |
 | `Contact callback argument` | contact.sensor.t8.bArg | `8` | `8` | PASS |
 | `physicsData.isColliding` | contact.sensor.t8.colliding | `0` | `0` | PASS |
+| `physicsData.isColliding` | filter.mutualMaskBlocked | `0` | `0` | PASS |
+| `physicsData.isColliding` | filter.mutualMaskAllowed | `1` | `1` | PASS |
+| `physicsData.isColliding` | filter.positiveGroupOverridesMasks | `1` | `1` | PASS |
+| `physicsData.isColliding` | filter.negativeGroupBlocks | `0` | `0` | PASS |
+| `physicsData.isColliding` | filter.differentGroupsUseMasks | `0` | `0` | PASS |
+| `physicsData.isColliding` | filter.wideGroupInteraction | `0` | `1` | FAIL |
+| `physicsBody.getCollisionGroup` | filter.wideGroupReadback | `65537` | `1` | FAIL |
+| `physicsData.isColliding` | filter.wideCategoryInteraction | `1` | `1` | PASS |
+| `physicsBody.getCollisionCategory` | filter.wideCategoryReadback | `1` | `1` | PASS |
+| `physicsData.isColliding` | filter.wideMaskInteraction | `1` | `1` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | filter.wideMaskReadback | `1` | `1` | PASS |
 | `Contact callback order` | removal.body.t0.trace | `` | `` | PASS |
 | `Entity.onEntityCollidePreSolve` | removal.body.t0.aP | `0` | `0` | PASS |
 | `Entity.onEntityCollide` | removal.body.t0.aC | `0` | `0` | PASS |

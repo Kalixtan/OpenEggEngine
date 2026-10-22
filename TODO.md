@@ -17,6 +17,8 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 
 ## Runtime and physics
 
+- [ ] Match collision group width: retail preserves `65537`; OpenEgg truncates
+      it to `1`, changing filter behavior.
 - [ ] Match frame timing, pause handling, update order, and physics-step inputs.
 - [x] Compare process creation, queued termination, pause/resume timing, and
       callback order with retail probes.

@@ -1,0 +1,13 @@
+# probe-sha256 eff3da6c118cdaba3930b31f69a6f12ba4863c27763b331406716a14bb5a16b8
+# support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
+filter.differentGroupsUseMasks	0
+filter.mutualMaskAllowed	1
+filter.mutualMaskBlocked	0
+filter.negativeGroupBlocks	0
+filter.positiveGroupOverridesMasks	1
+filter.wideCategoryInteraction	1
+filter.wideCategoryReadback	1
+filter.wideGroupInteraction	0
+filter.wideGroupReadback	65537
+filter.wideMaskInteraction	1
+filter.wideMaskReadback	1

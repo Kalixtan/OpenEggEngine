@@ -1,0 +1,18 @@
+{
+  "prefix": "filter",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "filter.mutualMaskBlocked",
+    "filter.mutualMaskAllowed",
+    "filter.positiveGroupOverridesMasks",
+    "filter.negativeGroupBlocks",
+    "filter.differentGroupsUseMasks",
+    "filter.wideGroupInteraction",
+    "filter.wideGroupReadback",
+    "filter.wideCategoryInteraction",
+    "filter.wideCategoryReadback",
+    "filter.wideMaskInteraction",
+    "filter.wideMaskReadback"
+  ]
+}

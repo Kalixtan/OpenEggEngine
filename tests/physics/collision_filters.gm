@@ -1,0 +1,70 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+global FilterShape=PHYSICSSHAPECOLLECTIONDEF();
+global MakeFilterPair=function(x,catA,maskA,groupA,catB,maskB,groupB) {
+    local entityA=EntityManager.createEntity("EntityQueryProbeEntity");
+    local entityB=EntityManager.createEntity("EntityQueryProbeEntity");
+    local dataA=entityA.getPhysicsData();
+    local dataB=entityB.getPhysicsData();
+    local bodyA=dataA.getBody(dataA.createBody());
+    local bodyB=dataB.getBody(dataB.createBody());
+    bodyA.setPos(vector2D(x,0));
+    bodyB.setPos(vector2D(x+3,0));
+    FilterShape.reset();
+    FilterShape.setMass(1);
+    FilterShape.addCircle(2,0,0);
+    bodyA.appendShapes(FilterShape);
+    FilterShape.reset();
+    FilterShape.setMass(0);
+    FilterShape.addCircle(2,0,0);
+    bodyB.appendShapes(FilterShape);
+    bodyA.setCollisionCategory(catA);
+    bodyA.setCategoriesToCollideWith(maskA);
+    bodyA.setCollisionGroup(groupA);
+    bodyB.setCollisionCategory(catB);
+    bodyB.setCategoriesToCollideWith(maskB);
+    bodyB.setCollisionGroup(groupB);
+    entityA.setIsEnabled(1);
+    entityB.setIsEnabled(1);
+    return table(a=entityA,b=entityB,pa=dataA,pb=dataB,ba=bodyA,bb=bodyB);
+};
+global SampleFilter=function(name,pair) {
+    Probe("filter."+name,pair.pa.isColliding(pair.b));
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                GameSystem.setIsShouldUpdateEntities(1);
+                this.blocked=MakeFilterPair(0,1,2,0,4,1,0);
+                this.allowed=MakeFilterPair(100,1,4,0,4,1,0);
+                this.groupPositive=MakeFilterPair(200,1,2,7,4,1,7);
+                this.groupNegative=MakeFilterPair(300,1,-1,-7,1,-1,-7);
+                this.groupsDifferent=MakeFilterPair(400,1,2,7,4,1,8);
+                this.wideGroup=MakeFilterPair(500,1,2,65537,4,1,1);
+                this.wideCategory=MakeFilterPair(600,65537,-1,0,1,1,0);
+                this.wideMask=MakeFilterPair(700,1,65537,0,1,1,0);
+                this.frame=1;
+            } else if (this.frame==5) {
+                SampleFilter("mutualMaskBlocked",this.blocked);
+                SampleFilter("mutualMaskAllowed",this.allowed);
+                SampleFilter("positiveGroupOverridesMasks",this.groupPositive);
+                SampleFilter("negativeGroupBlocks",this.groupNegative);
+                SampleFilter("differentGroupsUseMasks",this.groupsDifferent);
+                SampleFilter("wideGroupInteraction",this.wideGroup);
+                Probe("filter.wideGroupReadback",this.wideGroup.ba.getCollisionGroup());
+                SampleFilter("wideCategoryInteraction",this.wideCategory);
+                Probe("filter.wideCategoryReadback",this.wideCategory.ba.getCollisionCategory());
+                SampleFilter("wideMaskInteraction",this.wideMask);
+                Probe("filter.wideMaskReadback",this.wideMask.ba.getCategoriesToCollideWith());
+                EntityManager.deleteAllEntities();
+                EntityManager.flush();
+                GameSystem.setIsShouldUpdateEntities(1);
+                this.frame=6;
+            } else if (this.frame<5) {
+                this.frame+=1;
+            }
+        });
+};
