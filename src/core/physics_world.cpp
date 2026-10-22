@@ -24,6 +24,12 @@ b2World* g_world = nullptr;
 int g_numFramesToIgnoreCollisions = 0;
 
 static std::set<b2Body*> g_restitutionDisabledBodies;
+struct SleepVelocityState {
+    bool movedWhileAwake = false;
+    bool wasSleeping = false;
+    unsigned int asleepTicks = 0;
+};
+static std::unordered_map<b2Body*, SleepVelocityState> g_sleepVelocityStates;
 // Retail disableContact ORs a bit into the native contact object. Keep the
 // local equivalent for the lifetime of that contact; Box2D resets its own
 // enabled flag at each step, so PreSolve reapplies suppression until
@@ -844,7 +850,19 @@ void StepPhysicsWorld(float a_dt) {
     b2World& world = GetPhysicsWorld();
     const float stepMilliseconds = a_dt;
     std::vector<b2Body*> sweptBodies;
+    std::set<b2Body*> liveBodies;
+    std::set<b2Body*> awakeBeforeStep;
     for (b2Body* body = world.GetBodyList(); body; body = body->GetNext()) {
+        liveBodies.insert(body);
+        SleepVelocityState& state = g_sleepVelocityStates[body];
+        if (body->IsAwake()) {
+            if (state.wasSleeping) state.movedWhileAwake = false;
+            state.wasSleeping = false;
+            awakeBeforeStep.insert(body);
+            state.asleepTicks = 0;
+            const b2Vec2 velocity = body->GetLinearVelocity();
+            state.movedWhileAwake |= velocity.x != 0.0f || velocity.y != 0.0f;
+        }
         if (body->GetType() != b2_dynamicBody || body->IsBullet()) continue;
         const b2Vec2 travel = stepMilliseconds * body->GetLinearVelocity();
         constexpr float kStockTranslationLimit = 2.0f * b2_lengthUnitsPerMeter;
@@ -855,13 +873,22 @@ void StepPhysicsWorld(float a_dt) {
             sweptBodies.push_back(body);
         }
     }
-    std::vector<b2Body*> alreadySleeping;
-    for (b2Body* body = world.GetBodyList(); body; body = body->GetNext()) {
-        if (body->GetType() == b2_dynamicBody && !body->IsAwake())
-            alreadySleeping.push_back(body);
-    }
     world.Step(stepMilliseconds, 2, 2);
-    for (b2Body* body : alreadySleeping) {
+    for (b2Body* body = world.GetBodyList(); body; body = body->GetNext()) {
+        SleepVelocityState& state = g_sleepVelocityStates[body];
+        if (body->IsAwake()) {
+            state.wasSleeping = false;
+            const b2Vec2 velocity = body->GetLinearVelocity();
+            state.movedWhileAwake |= velocity.x != 0.0f || velocity.y != 0.0f;
+            state.asleepTicks = 0;
+            continue;
+        }
+        if (awakeBeforeStep.count(body)) {
+            state.asleepTicks = 0;
+        } else {
+            ++state.asleepTicks;
+        }
+        state.wasSleeping = true;
         bool touching = false;
         for (b2ContactEdge* edge = body->GetContactList(); edge; edge = edge->next) {
             if (edge->contact->IsTouching()) {
@@ -869,8 +896,15 @@ void StepPhysicsWorld(float a_dt) {
                 break;
             }
         }
-        if (!touching && !body->IsAwake())
+        // Retail keeps zero positive for one extra asleep tick after movement.
+        const unsigned int signDelay = state.movedWhileAwake ? 2u : 1u;
+        if (body->GetType() == b2_dynamicBody && !touching &&
+            state.asleepTicks >= signDelay)
             body->SetLinearVelocity(b2Vec2(-0.0f, -0.0f));
+    }
+    for (auto it = g_sleepVelocityStates.begin(); it != g_sleepVelocityStates.end();) {
+        if (!liveBodies.count(it->first)) it = g_sleepVelocityStates.erase(it);
+        else ++it;
     }
     for (b2Body* body : sweptBodies) body->SetBullet(false);
     if (CreatureDebugEnabled() && machine) {
@@ -953,6 +987,14 @@ void MarkContactDisabled(b2Contact* a_contact) {
     // contact-scoped mark and reapply it in PreSolve until EndContact.
     a_contact->SetEnabled(false);
     g_disabledContacts.insert(a_contact);
+}
+
+void MarkPhysicsBodyExplicitlySlept(b2Body* a_body) {
+    if (!a_body) return;
+    SleepVelocityState& state = g_sleepVelocityStates[a_body];
+    state.movedWhileAwake = false;
+    state.wasSleeping = false;
+    state.asleepTicks = 0;
 }
 
 void MarkEntityPhysicsBodyForTeardown(b2Body* a_body) {

@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-22 00:21 UTC
+Generated: 2026-10-22 00:31 UTC
 
-Matched: **6346/6348 comparable readings (99.97%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6348/6348 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **303/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -157,7 +157,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.pointOutside | 1 | 1 |
 | bodyCtl.sleeping | 1 | 1 |
 | bodyCmd.thrust | 288 | 288 |
-| bodyCmd.brake | 286 | 288 |
+| bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
 | bodyCmd.sleep | 288 | 288 |
 | bodyCmd.idle | 288 | 288 |
@@ -507,7 +507,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.setupRelativeJoint` | 1 | 1 | PASS |
 | `physicsBody.appendShapes` | 2 | 2 | PASS |
 | `physicsBody.applyForce` | 0 | 0 | untested |
-| `physicsBody.brake` | 286 | 288 | FAIL |
+| `physicsBody.brake` | 288 | 288 | PASS |
 | `physicsBody.computeAngularVel` | 0 | 0 | untested |
 | `physicsBody.disableRestitutionThisFrame` | 0 | 0 | untested |
 | `physicsBody.doesRotationResponse` | 1 | 1 | PASS |
@@ -556,7 +556,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getShapeWorldVert` | 1 | 1 | PASS |
 | `physicsBody.getSpeed` | 163 | 163 | PASS |
 | `physicsBody.getThrustAcc` | 1 | 1 | PASS |
-| `physicsBody.getVel` | 800 | 802 | FAIL |
+| `physicsBody.getVel` | 802 | 802 | PASS |
 | `physicsBody.getVelRef` | 1 | 1 | PASS |
 | `physicsBody.getWidth` | 1 | 1 | PASS |
 | `physicsBody.getWorldDir` | 1 | 1 | PASS |
@@ -585,7 +585,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setAngularVel` | 1 | 1 | PASS |
 | `physicsBody.setAsCircle` | 0 | 0 | untested |
 | `physicsBody.setAsRect` | 0 | 0 | untested |
-| `physicsBody.setBrakeAcc` | 286 | 288 | FAIL |
+| `physicsBody.setBrakeAcc` | 288 | 288 | PASS |
 | `physicsBody.setCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsBody.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsBody.setCollisionGroup` | 1 | 1 | PASS |
@@ -6351,8 +6351,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.isSleeping` | bodyCmd.thrust.t14.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.brake.t14.x | `199.999985` | `199.999985` | PASS |
 | `physicsBody.getPos` | bodyCmd.brake.t14.y | `1000.000000` | `1000.000000` | PASS |
-| `physicsBody.getVel` | bodyCmd.brake.t14.vx | `0.000000` | `-0.000000` | FAIL |
-| `physicsBody.getVel` | bodyCmd.brake.t14.vy | `0.000000` | `-0.000000` | FAIL |
+| `physicsBody.getVel` | bodyCmd.brake.t14.vx | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getVel` | bodyCmd.brake.t14.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.brake.t14.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.brake.t14.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.brake.t14.dirY | `0.000000` | `0.000000` | PASS |

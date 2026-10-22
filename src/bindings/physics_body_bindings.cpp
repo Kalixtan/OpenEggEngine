@@ -146,7 +146,10 @@ struct PhysicsBodyData {
 
 void SetBodySleeping(PhysicsBodyData* a_body, bool a_sleeping) {
     if (!a_body || !a_body->body) return;
-    if (a_sleeping) a_body->fixedRotationVel = 0.0f;
+    if (a_sleeping) {
+        a_body->fixedRotationVel = 0.0f;
+        MarkPhysicsBodyExplicitlySlept(a_body->body);
+    }
     a_body->body->SetAwake(!a_sleeping);
 }
 

@@ -52,6 +52,7 @@ bool PhysicsDataPairIsColliding(uintptr_t a_myPhysicsData,
 
 void DisableRestitutionThisFrameForBody(b2Body* a_body);
 void MarkContactDisabled(b2Contact* a_contact);
+void MarkPhysicsBodyExplicitlySlept(b2Body* a_body);
 
 void MarkEntityPhysicsBodyForTeardown(b2Body* a_body);
 void ClearEntityPhysicsBodyTeardown(b2Body* a_body);
