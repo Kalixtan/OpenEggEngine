@@ -1,0 +1,27 @@
+{
+  "prefix": "physicsBody",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "physicsBody.getNumShapes.polygon", "physicsBody.getShapeType.polygon",
+    "physicsBody.getNumShapeVerts.polygon", "physicsBody.getShapeVerts.firstX",
+    "physicsBody.getShapeVerts.lastY", "physicsBody.getShapeVert.x",
+    "physicsBody.getShapeVert.y", "physicsBody.getWidth.polygon",
+    "physicsBody.getHeight.polygon", "physicsBody.getNumShapeVerts.edited",
+    "physicsBody.getShapeVerts.editedX", "physicsBody.getWidth.edited",
+    "physicsBody.getHeight.edited", "physicsBody.getMass.beforeRebuild",
+    "physicsBody.getMass.afterRebuild", "physicsBody.getNumShapes.circle",
+    "physicsBody.getShapeType.circle", "physicsBody.getShapeRadius.circle",
+    "physicsBody.getWidth.circle", "physicsBody.getHeight.circle",
+    "physicsBody.isCircle.circle", "physicsBody.isShapeSensor.circle",
+    "physicsBody.getCollisionCategory.circle",
+    "physicsBody.getCategoriesToCollideWith.circle",
+    "physicsBody.getNumShapes.rect", "physicsBody.getShapeType.rect",
+    "physicsBody.getWidth.rect", "physicsBody.getHeight.rect",
+    "physicsBody.isRect.rect", "physicsBody.isShapeSensor.rect",
+    "physicsBody.getNumShapes.edges", "physicsBody.getShapeType.edge",
+    "physicsBody.getShapeType.edgeMiddle", "physicsBody.getWidth.edgeEdited",
+    "physicsBody.getNumShapes.removed",
+    "physicsBody.getNumShapes.invalidRemove"
+  ]
+}

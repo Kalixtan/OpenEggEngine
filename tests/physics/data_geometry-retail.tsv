@@ -1,0 +1,30 @@
+# probe-sha256 0ed1068073e9293322455844225a7c58fd6b46fda372339820dedafbe93ac4ca
+# support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
+physicsBody.doesRotationResponse.disabledFirst	1
+physicsBody.doesRotationResponse.disabledSecond	1
+physicsBody.doesRotationResponse.enabledFirst	1
+physicsBody.doesRotationResponse.enabledSecond	1
+physicsBody.getCategoriesToCollideWith.first	5
+physicsBody.getCategoriesToCollideWith.second	5
+physicsBody.getCollisionCategory.first	16
+physicsBody.getCollisionCategory.second	16
+physicsBody.getHeight.secondAfterRect	4.000000
+physicsBody.getMaxSpeed.first	9999999.000000
+physicsBody.getMaxSpeed.second	9999999.000000
+physicsBody.getShapeRadius.dataCircle	2.000000
+physicsBody.getShapeType.dataCircle	0
+physicsBody.getShapeType.dataRect	0
+physicsBody.getShapeType.secondAfterCircle	1
+physicsBody.getShapeType.secondAfterRect	1
+physicsBody.getWidth.secondAfterRect	10.000000
+physicsBody.isSensor.first	1
+physicsBody.isSensor.resetFirst	0
+physicsBody.isSensor.resetSecond	0
+physicsBody.isSensor.second	1
+physicsData.appendShapes.first	0
+physicsData.appendShapes.second	0
+physicsData.getHeight.dataCircle	64.000000
+physicsData.getHeight.dataRect	64.000000
+physicsData.getNumBodies.afterCircle	2
+physicsData.getWidth.dataCircle	67.000000
+physicsData.getWidth.dataRect	67.000000

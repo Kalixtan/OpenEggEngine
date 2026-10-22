@@ -1,0 +1,88 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+GameSystem.setIsShouldUpdateEntities(0);
+local entity=EntityManager.createEntity("EntityQueryProbeEntity");
+local data=entity.getPhysicsData();
+local body=data.getBody(data.createBody());
+body.setPos(vector2D(40,50));
+entity.setIsEnabled(1);
+EntityManager.flush();
+
+local polygon=PHYSICSSHAPECOLLECTIONDEF();
+polygon.setMass(2);
+local points=table();
+points[0]=vector2D(0,0);
+points[1]=vector2D(6,0);
+points[2]=vector2D(6,4);
+points[3]=vector2D(0,4);
+polygon.addPolygon(points,4);
+body.appendShapes(polygon);
+Probe("physicsBody.getNumShapes.polygon",body.getNumShapes());
+Probe("physicsBody.getShapeType.polygon",body.getShapeType(0));
+Probe("physicsBody.getNumShapeVerts.polygon",body.getNumShapeVerts(0));
+local polygonVerts=body.getShapeVerts(0);
+Probe("physicsBody.getShapeVerts.firstX",polygonVerts[0].x);
+Probe("physicsBody.getShapeVerts.lastY",polygonVerts[3].y);
+local point=body.getShapeVert(0,2);
+Probe("physicsBody.getShapeVert.x",point.x);
+Probe("physicsBody.getShapeVert.y",point.y);
+Probe("physicsBody.getWidth.polygon",body.getWidth());
+Probe("physicsBody.getHeight.polygon",body.getHeight());
+
+local triangle=table();
+triangle[0]=vector2D(0,0);
+triangle[1]=vector2D(8,0);
+triangle[2]=vector2D(0,6);
+body.setPolygonShapeVertices(0,triangle,3);
+Probe("physicsBody.getNumShapeVerts.edited",body.getNumShapeVerts(0));
+local edited=body.getShapeVerts(0);
+Probe("physicsBody.getShapeVerts.editedX",edited[1].x);
+Probe("physicsBody.getWidth.edited",body.getWidth());
+Probe("physicsBody.getHeight.edited",body.getHeight());
+Probe("physicsBody.getMass.beforeRebuild",body.getMass());
+body.rebuildBodyMass();
+Probe("physicsBody.getMass.afterRebuild",body.getMass());
+
+body.setIsSensor(1);
+body.setCollisionCategory(32);
+body.setCategoriesToCollideWith(7);
+body.setAsCircle(3);
+Probe("physicsBody.getNumShapes.circle",body.getNumShapes());
+Probe("physicsBody.getShapeType.circle",body.getShapeType(0));
+Probe("physicsBody.getShapeRadius.circle",body.getShapeRadius(0));
+Probe("physicsBody.getWidth.circle",body.getWidth());
+Probe("physicsBody.getHeight.circle",body.getHeight());
+Probe("physicsBody.isCircle.circle",body.isCircle());
+Probe("physicsBody.isShapeSensor.circle",body.isShapeSensor(0));
+Probe("physicsBody.getCollisionCategory.circle",body.getCollisionCategory());
+Probe("physicsBody.getCategoriesToCollideWith.circle",body.getCategoriesToCollideWith());
+
+body.setAsRect(8,4);
+Probe("physicsBody.getNumShapes.rect",body.getNumShapes());
+Probe("physicsBody.getShapeType.rect",body.getShapeType(0));
+Probe("physicsBody.getWidth.rect",body.getWidth());
+Probe("physicsBody.getHeight.rect",body.getHeight());
+Probe("physicsBody.isRect.rect",body.isRect());
+Probe("physicsBody.isShapeSensor.rect",body.isShapeSensor(0));
+
+polygon.reset();
+local edgePoints=table();
+edgePoints[0]=vector2D(-2,0);
+edgePoints[1]=vector2D(2,0);
+polygon.addEdges(edgePoints,2,0);
+body.appendShapes(polygon);
+Probe("physicsBody.getNumShapes.edges",body.getNumShapes());
+Probe("physicsBody.getShapeType.edge",body.getShapeType(0));
+Probe("physicsBody.getShapeType.edgeMiddle",body.getShapeType(1));
+body.setEdgeShapeVertex(1,vector2D(-6,0),vector2D(6,0));
+Probe("physicsBody.getWidth.edgeEdited",body.getWidth());
+body.removeShape(2);
+Probe("physicsBody.getNumShapes.removed",body.getNumShapes());
+body.removeShape(100);
+Probe("physicsBody.getNumShapes.invalidRemove",body.getNumShapes());
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

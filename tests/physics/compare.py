@@ -111,6 +111,12 @@ BODY_COMMANDS = HERE / "body_commands.gm"
 BODY_COMMANDS_BASELINE = HERE / "body_commands-retail.tsv"
 BODY_COMMANDS_PLAN = HERE / "body_commands-plan.json"
 BODY_COMMANDS_SUPPORT = HERE / "BodyCommandProbeEntity.gm"
+SHAPE_GEOMETRY = HERE / "shape_geometry.gm"
+SHAPE_GEOMETRY_BASELINE = HERE / "shape_geometry-retail.tsv"
+SHAPE_GEOMETRY_PLAN = HERE / "shape_geometry-plan.json"
+DATA_GEOMETRY = HERE / "data_geometry.gm"
+DATA_GEOMETRY_BASELINE = HERE / "data_geometry-retail.tsv"
+DATA_GEOMETRY_PLAN = HERE / "data_geometry-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "reports" / "PHYSICS.md"
@@ -1046,7 +1052,13 @@ def main():
                                             (ENTITY_QUERIES_SUPPORT,)),
                                            (BODY_COMMANDS, BODY_COMMANDS_BASELINE,
                                             BODY_COMMANDS_PLAN,
-                                            (BODY_COMMANDS_SUPPORT,))):
+                                            (BODY_COMMANDS_SUPPORT,)),
+                                           (SHAPE_GEOMETRY, SHAPE_GEOMETRY_BASELINE,
+                                            SHAPE_GEOMETRY_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,)),
+                                           (DATA_GEOMETRY, DATA_GEOMETRY_BASELINE,
+                                            DATA_GEOMETRY_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,))):
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
         awaiting_retail = set(plan_data.get("awaitingRetail", []))

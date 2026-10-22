@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 20:01 UTC
+Generated: 2026-10-22 23:23 UTC
 
-Matched: **7861/7918 comparable readings (99.28%)**. 29 inconclusive, 3 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **7907/7980 comparable readings (99.09%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **347/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **349/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -605,29 +605,29 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.brake` | 288 | 288 | PASS |
 | `physicsBody.computeAngularVel` | 3 | 3 | PASS |
 | `physicsBody.disableRestitutionThisFrame` | 0 | 0 | untested |
-| `physicsBody.doesRotationResponse` | 1 | 1 | PASS |
+| `physicsBody.doesRotationResponse` | 4 | 5 | FAIL |
 | `physicsBody.dummy` | 0 | 0 | untested |
 | `physicsBody.getAABB` | 8 | 8 | PASS |
 | `physicsBody.getAngularVel` | 1 | 1 | PASS |
 | `physicsBody.getBBox` | 0 | 0 | untested |
 | `physicsBody.getBrakeAcc` | 1 | 1 | PASS |
-| `physicsBody.getCategoriesToCollideWith` | 75 | 75 | PASS |
+| `physicsBody.getCategoriesToCollideWith` | 77 | 78 | FAIL |
 | `physicsBody.getCenterOfMass` | 1 | 1 | PASS |
-| `physicsBody.getCollisionCategory` | 60 | 60 | PASS |
+| `physicsBody.getCollisionCategory` | 62 | 63 | FAIL |
 | `physicsBody.getCollisionGroup` | 58 | 58 | PASS |
 | `physicsBody.getDir` | 714 | 771 | FAIL |
 | `physicsBody.getDirRef` | 0 | 0 | untested |
 | `physicsBody.getDirty` | 0 | 0 | untested |
 | `physicsBody.getEntity` | 2 | 2 | PASS |
 | `physicsBody.getFriction` | 1 | 1 | PASS |
-| `physicsBody.getHeight` | 1 | 1 | PASS |
-| `physicsBody.getMass` | 1 | 1 | PASS |
+| `physicsBody.getHeight` | 5 | 6 | FAIL |
+| `physicsBody.getMass` | 3 | 3 | PASS |
 | `physicsBody.getMaxPos` | 1 | 1 | PASS |
 | `physicsBody.getMaxRotateSpeed` | 1 | 1 | PASS |
-| `physicsBody.getMaxSpeed` | 1 | 1 | PASS |
+| `physicsBody.getMaxSpeed` | 2 | 3 | FAIL |
 | `physicsBody.getMinPos` | 1 | 1 | PASS |
-| `physicsBody.getNumShapeVerts` | 1 | 1 | PASS |
-| `physicsBody.getNumShapes` | 4 | 4 | PASS |
+| `physicsBody.getNumShapeVerts` | 3 | 3 | PASS |
+| `physicsBody.getNumShapes` | 10 | 10 | PASS |
 | `physicsBody.getObjectID` | 2 | 2 | PASS |
 | `physicsBody.getPos` | 1202 | 1202 | PASS |
 | `physicsBody.getPosRef` | 1 | 1 | PASS |
@@ -642,10 +642,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getShapeIndex` | 1 | 1 | PASS |
 | `physicsBody.getShapeObjectID` | 2 | 2 | PASS |
 | `physicsBody.getShapeOffset` | 1 | 1 | PASS |
-| `physicsBody.getShapeRadius` | 2 | 2 | PASS |
-| `physicsBody.getShapeType` | 2 | 2 | PASS |
-| `physicsBody.getShapeVert` | 0 | 0 | untested |
-| `physicsBody.getShapeVerts` | 0 | 0 | untested |
+| `physicsBody.getShapeRadius` | 2 | 4 | FAIL |
+| `physicsBody.getShapeType` | 8 | 11 | FAIL |
+| `physicsBody.getShapeVert` | 2 | 2 | PASS |
+| `physicsBody.getShapeVerts` | 3 | 3 | PASS |
 | `physicsBody.getShapeWidth` | 2 | 2 | PASS |
 | `physicsBody.getShapeWorldCenterPos` | 1 | 1 | PASS |
 | `physicsBody.getShapeWorldVert` | 1 | 1 | PASS |
@@ -653,18 +653,18 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getThrustAcc` | 1 | 1 | PASS |
 | `physicsBody.getVel` | 1058 | 1058 | PASS |
 | `physicsBody.getVelRef` | 1 | 1 | PASS |
-| `physicsBody.getWidth` | 1 | 1 | PASS |
+| `physicsBody.getWidth` | 5 | 7 | FAIL |
 | `physicsBody.getWorldDir` | 1 | 1 | PASS |
 | `physicsBody.getWorldPos` | 1 | 1 | PASS |
 | `physicsBody.isBullet` | 61 | 61 | PASS |
-| `physicsBody.isCircle` | 0 | 1 | LOCAL-ONLY |
+| `physicsBody.isCircle` | 0 | 2 | LOCAL-ONLY |
 | `physicsBody.isCollidable` | 56 | 56 | PASS |
 | `physicsBody.isContainsShape` | 1 | 1 | PASS |
 | `physicsBody.isPointWithin` | 4 | 4 | PASS |
 | `physicsBody.isPointWithinShape` | 1 | 1 | PASS |
-| `physicsBody.isRect` | 0 | 1 | LOCAL-ONLY |
-| `physicsBody.isSensor` | 8 | 8 | PASS |
-| `physicsBody.isShapeSensor` | 1 | 1 | PASS |
+| `physicsBody.isRect` | 0 | 2 | LOCAL-ONLY |
+| `physicsBody.isSensor` | 12 | 12 | PASS |
+| `physicsBody.isShapeSensor` | 3 | 3 | PASS |
 | `physicsBody.isSleeping` | 289 | 290 | AWAITING RETAIL |
 | `physicsBody.putToSleep` | 0 | 0 | untested |
 | `physicsBody.raycast` | 12 | 12 | PASS |
@@ -712,7 +712,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setVelocityDecayRate` | 0 | 0 | untested |
 | `physicsBody.stopRotatingTo` | 288 | 288 | PASS |
 | `physicsBody.thrust` | 288 | 288 | PASS |
-| `physicsData.appendShapes` | 5 | 5 | PASS |
+| `physicsData.appendShapes` | 7 | 7 | PASS |
 | `physicsData.brake` | 0 | 0 | untested |
 | `physicsData.createBody` | 4 | 4 | PASS |
 | `physicsData.doesRotationResponse` | 1 | 1 | PASS |
@@ -725,14 +725,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getCollisionGroup` | 1 | 1 | PASS |
 | `physicsData.getCollisionInfo` | 56 | 56 | PASS |
 | `physicsData.getDir` | 0 | 0 | untested |
-| `physicsData.getHeight` | 1 | 1 | PASS |
+| `physicsData.getHeight` | 1 | 3 | FAIL |
 | `physicsData.getJointsOnMe` | 5 | 5 | PASS |
 | `physicsData.getMass` | 1 | 1 | PASS |
 | `physicsData.getMaxPos` | 1 | 1 | PASS |
 | `physicsData.getMaxRotateSpeed` | 1 | 1 | PASS |
 | `physicsData.getMaxSpeed` | 1 | 1 | PASS |
 | `physicsData.getMinPos` | 1 | 1 | PASS |
-| `physicsData.getNumBodies` | 26 | 26 | PASS |
+| `physicsData.getNumBodies` | 27 | 27 | PASS |
 | `physicsData.getPos` | 1 | 1 | PASS |
 | `physicsData.getPosRef` | 1 | 1 | PASS |
 | `physicsData.getRadius` | 1 | 1 | PASS |
@@ -743,7 +743,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getThrustAcc` | 1 | 1 | PASS |
 | `physicsData.getType` | 1 | 1 | PASS |
 | `physicsData.getVel` | 1 | 1 | PASS |
-| `physicsData.getWidth` | 1 | 1 | PASS |
+| `physicsData.getWidth` | 1 | 3 | FAIL |
 | `physicsData.isCircle` | 1 | 1 | PASS |
 | `physicsData.isCollidable` | 1 | 1 | PASS |
 | `physicsData.isColliding` | 290 | 290 | PASS |
@@ -882,6 +882,8 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsBody.isCircle` | bodyApi.physicsBody.isCircle | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | bodyApi.physicsBody.isRect | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
+| `physicsBody.isCircle` | physicsBody.isCircle.circle | `null` | `1` | OpenEgg convenience method; no retail method exists |
+| `physicsBody.isRect` | physicsBody.isRect.rect | `null` | `1` | OpenEgg convenience method; no retail method exists |
 
 ## Awaiting retail capture
 
@@ -8817,3 +8819,65 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.idle.t31.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.idle.t31.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.idle.t31.sleeping | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getNumShapes` | physicsBody.getNumShapes.polygon | `1` | `1` | PASS |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.polygon | `1` | `1` | PASS |
+| `physicsBody.getNumShapeVerts` | physicsBody.getNumShapeVerts.polygon | `4` | `4` | PASS |
+| `physicsBody.getShapeVerts` | physicsBody.getShapeVerts.firstX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getShapeVerts` | physicsBody.getShapeVerts.lastY | `4.000000` | `4.000000` | PASS |
+| `physicsBody.getShapeVert` | physicsBody.getShapeVert.x | `6.000000` | `6.000000` | PASS |
+| `physicsBody.getShapeVert` | physicsBody.getShapeVert.y | `4.000000` | `4.000000` | PASS |
+| `physicsBody.getWidth` | physicsBody.getWidth.polygon | `6.000000` | `6.000000` | PASS |
+| `physicsBody.getHeight` | physicsBody.getHeight.polygon | `4.000000` | `4.000000` | PASS |
+| `physicsBody.getNumShapeVerts` | physicsBody.getNumShapeVerts.edited | `3` | `3` | PASS |
+| `physicsBody.getShapeVerts` | physicsBody.getShapeVerts.editedX | `8.000000` | `8.000000` | PASS |
+| `physicsBody.getWidth` | physicsBody.getWidth.edited | `8.000000` | `8.000000` | PASS |
+| `physicsBody.getHeight` | physicsBody.getHeight.edited | `6.000000` | `6.000000` | PASS |
+| `physicsBody.getMass` | physicsBody.getMass.beforeRebuild | `48.000000` | `48.000000` | PASS |
+| `physicsBody.getMass` | physicsBody.getMass.afterRebuild | `48.000000` | `48.000000` | PASS |
+| `physicsBody.getNumShapes` | physicsBody.getNumShapes.circle | `1` | `1` | PASS |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.circle | `1` | `0` | FAIL |
+| `physicsBody.getShapeRadius` | physicsBody.getShapeRadius.circle | `8.000000` | `3.000000` | FAIL |
+| `physicsBody.getWidth` | physicsBody.getWidth.circle | `8.000000` | `6.000000` | FAIL |
+| `physicsBody.getHeight` | physicsBody.getHeight.circle | `6.000000` | `6.000000` | PASS |
+| `physicsBody.isShapeSensor` | physicsBody.isShapeSensor.circle | `1` | `1` | PASS |
+| `physicsBody.getCollisionCategory` | physicsBody.getCollisionCategory.circle | `32` | `32` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | physicsBody.getCategoriesToCollideWith.circle | `7` | `7` | PASS |
+| `physicsBody.getNumShapes` | physicsBody.getNumShapes.rect | `1` | `1` | PASS |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.rect | `1` | `1` | PASS |
+| `physicsBody.getWidth` | physicsBody.getWidth.rect | `8.000000` | `8.000000` | PASS |
+| `physicsBody.getHeight` | physicsBody.getHeight.rect | `6.000000` | `4.000000` | FAIL |
+| `physicsBody.isShapeSensor` | physicsBody.isShapeSensor.rect | `1` | `1` | PASS |
+| `physicsBody.getNumShapes` | physicsBody.getNumShapes.edges | `3` | `3` | PASS |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.edge | `1` | `1` | PASS |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.edgeMiddle | `1` | `2` | FAIL |
+| `physicsBody.getWidth` | physicsBody.getWidth.edgeEdited | `12.666667` | `12.000000` | FAIL |
+| `physicsBody.getNumShapes` | physicsBody.getNumShapes.removed | `2` | `2` | PASS |
+| `physicsBody.getNumShapes` | physicsBody.getNumShapes.invalidRemove | `2` | `2` | PASS |
+| `physicsData.appendShapes` | physicsData.appendShapes.first | `0` | `0` | PASS |
+| `physicsData.appendShapes` | physicsData.appendShapes.second | `0` | `0` | PASS |
+| `physicsData.getNumBodies` | physicsData.getNumBodies.afterCircle | `2` | `2` | PASS |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.dataCircle | `0` | `0` | PASS |
+| `physicsBody.getShapeRadius` | physicsBody.getShapeRadius.dataCircle | `2.000000` | `5.000000` | FAIL |
+| `physicsData.getWidth` | physicsData.getWidth.dataCircle | `67.000000` | `10.000000` | FAIL |
+| `physicsData.getHeight` | physicsData.getHeight.dataCircle | `64.000000` | `10.000000` | FAIL |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.secondAfterCircle | `1` | `1` | PASS |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.dataRect | `0` | `1` | FAIL |
+| `physicsData.getWidth` | physicsData.getWidth.dataRect | `67.000000` | `12.000000` | FAIL |
+| `physicsData.getHeight` | physicsData.getHeight.dataRect | `64.000000` | `6.000000` | FAIL |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.secondAfterRect | `1` | `1` | PASS |
+| `physicsBody.getWidth` | physicsBody.getWidth.secondAfterRect | `10.000000` | `10.000000` | PASS |
+| `physicsBody.getHeight` | physicsBody.getHeight.secondAfterRect | `4.000000` | `4.000000` | PASS |
+| `physicsBody.isSensor` | physicsBody.isSensor.first | `1` | `1` | PASS |
+| `physicsBody.isSensor` | physicsBody.isSensor.second | `1` | `1` | PASS |
+| `physicsBody.isSensor` | physicsBody.isSensor.resetFirst | `0` | `0` | PASS |
+| `physicsBody.isSensor` | physicsBody.isSensor.resetSecond | `0` | `0` | PASS |
+| `physicsBody.getCollisionCategory` | physicsBody.getCollisionCategory.first | `16` | `16` | PASS |
+| `physicsBody.getCollisionCategory` | physicsBody.getCollisionCategory.second | `16` | `1` | FAIL |
+| `physicsBody.getCategoriesToCollideWith` | physicsBody.getCategoriesToCollideWith.first | `5` | `5` | PASS |
+| `physicsBody.getCategoriesToCollideWith` | physicsBody.getCategoriesToCollideWith.second | `5` | `65535` | FAIL |
+| `physicsBody.getMaxSpeed` | physicsBody.getMaxSpeed.first | `9999999.000000` | `7.000000` | FAIL |
+| `physicsBody.getMaxSpeed` | physicsBody.getMaxSpeed.second | `9999999.000000` | `9999999.000000` | PASS |
+| `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.disabledFirst | `1` | `0` | FAIL |
+| `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.disabledSecond | `1` | `1` | PASS |
+| `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.enabledFirst | `1` | `1` | PASS |
+| `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.enabledSecond | `1` | `1` | PASS |

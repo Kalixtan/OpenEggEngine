@@ -23,6 +23,16 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --expected tests/physics/body_commands-plan.json \
   --baseline tests/physics/body_commands-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/shape_geometry.gm \
+  --support-file tests/physics/EntityQueryProbeEntity.gm \
+  --expected tests/physics/shape_geometry-plan.json \
+  --baseline tests/physics/shape_geometry-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/data_geometry.gm \
+  --support-file tests/physics/EntityQueryProbeEntity.gm \
+  --expected tests/physics/data_geometry-plan.json \
+  --baseline tests/physics/data_geometry-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/contacts.gm \
   --support-file tests/physics/ProbeContactEntity.gm \
   --expected tests/physics/contacts-plan.json \
@@ -146,6 +156,10 @@ Body command probe follows thrust, braking, target rotation, and sleep/wake stat
 over 32 ticks per scenario; mismatches remain in the report for follow-up.
 Joint scenes sample five joint types over time; moving rays check hit order
 after bodies move and overlap. The report keeps mismatches visible.
+Shape geometry probes polygon reads and edits, mass rebuilds, circle/rectangle
+replacement, edge edits, and fixture removal.
+PhysicsData geometry probes multi-body shape replacement and forwarded sensor,
+filter, speed, and rotation-response settings.
 Entity lifecycle checks enable/disable, contact callbacks, re-enable, and
 delete/flush while bodies overlap. Entity manager probes cover pending versus
 committed entities, iterator snapshots, live-iterator deletion/appends,

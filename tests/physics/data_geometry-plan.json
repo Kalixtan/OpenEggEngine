@@ -1,0 +1,24 @@
+{
+  "prefix": "physicsData",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "physicsData.appendShapes.first", "physicsData.appendShapes.second",
+    "physicsData.getNumBodies.afterCircle", "physicsBody.getShapeType.dataCircle",
+    "physicsBody.getShapeRadius.dataCircle", "physicsData.getWidth.dataCircle",
+    "physicsData.getHeight.dataCircle", "physicsBody.getShapeType.secondAfterCircle",
+    "physicsBody.getShapeType.dataRect", "physicsData.getWidth.dataRect",
+    "physicsData.getHeight.dataRect", "physicsBody.getShapeType.secondAfterRect",
+    "physicsBody.getWidth.secondAfterRect", "physicsBody.getHeight.secondAfterRect",
+    "physicsBody.isSensor.first", "physicsBody.isSensor.second",
+    "physicsBody.isSensor.resetFirst", "physicsBody.isSensor.resetSecond",
+    "physicsBody.getCollisionCategory.first", "physicsBody.getCollisionCategory.second",
+    "physicsBody.getCategoriesToCollideWith.first",
+    "physicsBody.getCategoriesToCollideWith.second",
+    "physicsBody.getMaxSpeed.first", "physicsBody.getMaxSpeed.second",
+    "physicsBody.doesRotationResponse.disabledFirst",
+    "physicsBody.doesRotationResponse.disabledSecond",
+    "physicsBody.doesRotationResponse.enabledFirst",
+    "physicsBody.doesRotationResponse.enabledSecond"
+  ]
+}
