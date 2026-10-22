@@ -26,6 +26,8 @@
     "joint.config.resetMotor",
     "joint.config.pinMotor",
     "joint.config.prismaticTranslation",
-    "joint.config.prismaticMotor"
+    "joint.config.prismaticMotor",
+    "joint.control.pinRtSpeed",
+    "joint.control.prismaticRtSpeed"
   ]
 }

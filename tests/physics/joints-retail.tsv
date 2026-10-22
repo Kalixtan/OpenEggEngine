@@ -1,4 +1,4 @@
-# probe-sha256 190f849a8fad25dc0048e2e9b0d7c8da4d9e5f95fcda5ff6663f41a15abd49d3
+# probe-sha256 2cf8f730084918835614daefd03cd6f1d61ea35cb0cfa088641151ef49d123a2
 joint.config.genericMotor	0.250000
 joint.config.pinMotor	0.000000
 joint.config.prismaticMotor	0.000000
@@ -11,6 +11,8 @@ joint.control.genericMotor	0.625000
 joint.control.motorAfterRebuild	0.625000
 joint.control.motorReset	0.625000
 joint.control.motorSet	0.625000
+joint.control.pinRtSpeed	0.000000
+joint.control.prismaticRtSpeed	0.000000
 joint.control.rtSpeed	0.625000
 joint.distance.t0.aX	0.000000
 joint.distance.t0.anchorX	0.000000

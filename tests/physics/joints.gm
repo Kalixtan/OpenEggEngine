@@ -117,6 +117,9 @@ global Main=function(p) {
                 this.configPin.setPinMotor(1,0.2,2);
                 this.configPin.setupPinJoint(this.configPinBody.b,vector2D(1040,600));
                 Probe("joint.config.pinMotor",this.configPin.getRTMotorSpeed());
+                this.configPin.setRTMotorSpeed(0.55);
+                this.configPin.setRTMaxMotorTorque(1.25);
+                Probe("joint.control.pinRtSpeed",this.configPin.getRTMotorSpeed());
 
                 this.configPrismaticA=JointBody(1070,600,0);
                 this.configPrismaticB=JointBody(1075,600,1);
@@ -126,6 +129,8 @@ global Main=function(p) {
                 this.configPrismatic.setupJoint(this.configPrismaticA.b,this.configPrismaticB.b,
                     vector2D(1070,600));
                 Probe("joint.config.prismaticTranslation",this.configPrismatic.getRTMotorSpeed());
+                this.configPrismatic.setRTMotorSpeed(0.65);
+                Probe("joint.control.prismaticRtSpeed",this.configPrismatic.getRTMotorSpeed());
 
                 this.configPrismaticGeneric=Physics.createJoint(PHYSICSJOINTTYPE_PRISMATIC);
                 this.configPrismaticGeneric.setPrismaticWorldAxis(vector2D(1,0));

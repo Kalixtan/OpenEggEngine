@@ -207,6 +207,8 @@ ASSOCIATED = {
     "joint.control.genericMotor": ("jointType.setMotor",),
     "joint.control.collidableOn": ("jointType.setIsBodiesCollidable",),
     "joint.control.collidableOff": ("jointType.setIsBodiesCollidable",),
+    "joint.control.pinRtSpeed": ("jointType.setRTMotorSpeed", "jointType.setRTMaxMotorTorque"),
+    "joint.control.prismaticRtSpeed": ("jointType.setRTMotorSpeed",),
     "joint.config.revoluteMotor": ("jointType.setRevoluteMotor",),
     "joint.config.genericMotor": ("jointType.setMotor",),
     "joint.config.resetMotor": ("jointType.setMotor", "jointType.setRevoluteMotor"),
@@ -296,6 +298,8 @@ JOINT_FIELDS = {
     "pinMotor": "jointType.getRTMotorSpeed",
     "prismaticTranslation": "jointType.getRTMotorSpeed",
     "prismaticMotor": "jointType.getRTMotorSpeed",
+    "pinRtSpeed": "jointType.getRTMotorSpeed",
+    "prismaticRtSpeed": "jointType.getRTMotorSpeed",
 }
 RAY_MOTION_FIELDS = {"count": "Physics.raycast", "trace": "Physics.raycast",
                      "simple": "Physics.raycastSimple", "hit": "Physics.raycastOne",

@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 17:31 UTC
+Generated: 2026-10-22 17:33 UTC
 
-Matched: **6427/6427 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6429/6429 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **321/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **322/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -37,7 +37,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | joint.prismatic | 156 | 156 |
 | joint.relative | 156 | 156 |
 | joint.registry | 5 | 5 |
-| joint.control | 7 | 7 |
+| joint.control | 9 | 9 |
 | joint.config | 6 | 6 |
 | raymove.solid | 96 | 96 |
 | raymove.sensor | 96 | 96 |
@@ -532,7 +532,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getEntity1` | 60 | 60 | PASS |
 | `jointType.getEntity2` | 48 | 48 | PASS |
 | `jointType.getObjectID` | 1 | 1 | PASS |
-| `jointType.getRTMotorSpeed` | 11 | 11 | PASS |
+| `jointType.getRTMotorSpeed` | 13 | 13 | PASS |
 | `jointType.getReactionForce` | 120 | 120 | PASS |
 | `jointType.getReactionTorque` | 60 | 60 | PASS |
 | `jointType.getType` | 60 | 60 | PASS |
@@ -546,8 +546,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.setPinMotor` | 1 | 1 | PASS |
 | `jointType.setPrismaticTranslation` | 1 | 1 | PASS |
 | `jointType.setPrismaticWorldAxis` | 1 | 1 | PASS |
-| `jointType.setRTMaxMotorTorque` | 0 | 0 | untested |
-| `jointType.setRTMotorSpeed` | 1 | 1 | PASS |
+| `jointType.setRTMaxMotorTorque` | 1 | 1 | PASS |
+| `jointType.setRTMotorSpeed` | 3 | 3 | PASS |
 | `jointType.setRelativeVel` | 1 | 1 | PASS |
 | `jointType.setRevoluteAngularConstraint` | 0 | 0 | untested |
 | `jointType.setRevoluteMotor` | 4 | 4 | PASS |
@@ -4887,6 +4887,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getRTMotorSpeed` | joint.config.pinMotor | `0.000000` | `0.000000` | PASS |
 | `jointType.getRTMotorSpeed` | joint.config.prismaticTranslation | `0.000000` | `0.000000` | PASS |
 | `jointType.getRTMotorSpeed` | joint.config.prismaticMotor | `0.000000` | `0.000000` | PASS |
+| `jointType.getRTMotorSpeed` | joint.control.pinRtSpeed | `0.000000` | `0.000000` | PASS |
+| `jointType.getRTMotorSpeed` | joint.control.prismaticRtSpeed | `0.000000` | `0.000000` | PASS |
 | `Physics.raycast` | raymove.solid.t0.count | `2` | `2` | PASS |
 | `Physics.raycast` | raymove.solid.t0.trace | `AC` | `AC` | PASS |
 | `Physics.raycastSimple` | raymove.solid.t0.simple | `0.145455` | `0.145455` | PASS |
