@@ -99,11 +99,12 @@ int GM_CDECL gmf_GetRadiansBetween(gmThread* a_thread) {
         GM_EXCEPTION_MSG("MATHUTIL_GetRadiansBetween: expecting two vector2D params");
         return GM_EXCEPTION;
     }
-    float la = std::sqrt(ax * ax + ay * ay), lb = std::sqrt(bx * bx + by * by);
-    if (la <= 0.0f || lb <= 0.0f) { a_thread->PushFloat(0.0f); return GM_OK; }
-    float dot = (ax * bx + ay * by) / (la * lb);
-    dot = std::min(1.0f, std::max(-1.0f, dot));
-    a_thread->PushFloat(std::acos(dot));
+    // Retail compares the two atan2 headings, so a zero vector has heading 0.
+    float angleA = std::atan2(ay, ax);
+    float angleB = std::atan2(by, bx);
+    float difference = std::fabs(angleA - angleB);
+    if (difference > kPi) difference = 2.0f * kPi - difference;
+    a_thread->PushFloat(difference);
     return GM_OK;
 }
 
@@ -145,7 +146,8 @@ int GM_CDECL gmf_GetAngleDistanceNegative(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(b, 1, 0.0f);
     float d = std::fmod(a - b, 2.0f * kPi);
     if (d < 0.0f) d += 2.0f * kPi;
-    a_thread->PushFloat(-d);
+    // Retail returns the positive amount to travel in the negative direction.
+    a_thread->PushFloat(d);
     return GM_OK;
 }
 
@@ -289,7 +291,12 @@ int GM_CDECL gmf_CalculateExponentialDecay(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(rate, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(dt, 1, 0.0f);
-    a_thread->PushFloat(std::exp(-rate * dt));
+    // The retail helper clamps its exp result to [0, 1] with ordered compares.
+    float value = std::exp(-rate * dt);
+    float clamped = 0.0f;
+    if (0.0f - value < 0.0f) clamped = value;
+    if (1.0f - clamped < 0.0f) clamped = 1.0f;
+    a_thread->PushFloat(clamped);
     return GM_OK;
 }
 // The complement -- fraction of the way FROM current TOWARD target after
@@ -309,7 +316,9 @@ int GM_CDECL gmf_CalculateExponentialGrowth(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(rate, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(dt, 1, 0.0f);
-    a_thread->PushFloat(1.0f - std::exp(-rate * dt));
+    (void)rate;
+    (void)dt;
+    // Retail exposes this call without pushing a script result.
     return GM_OK;
 }
 

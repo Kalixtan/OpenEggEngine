@@ -1,8 +1,8 @@
 # Math probes
 
 Vector, angle, range, geometry, and easing probes run headlessly on retail and
-OpenEgg. The current capture matches **59/63** readings. Four edge cases differ:
-zero-vector angle, negative angular distance, negative decay rate, and growth.
+OpenEgg. The current capture matches **63/63** readings, including the four
+previously mismatched edge cases.
 
 Capture and compare with:
 
