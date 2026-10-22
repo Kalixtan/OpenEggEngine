@@ -39,12 +39,21 @@ global Main=function(p) {
                 this.turn=MakeCommandBody(100,2000);
                 this.sleep=MakeCommandBody(200,3000);
                 this.idle=MakeCommandBody(1000,4000);
+                this.left=MakeCommandBody(300,5000);
+                this.right=MakeCommandBody(400,6000);
+                this.rotate=MakeCommandBody(500,7000);
                 this.thrust.b.setThrustAcc(0.2);
                 this.thrust.b.setMaxSpeed(3);
                 this.brake.b.setBrakeAcc(0.15);
                 this.brake.b.setVel(vector2D(2,0));
                 this.turn.b.setRotateAcc(0.08);
                 this.turn.b.setMaxRotateSpeed(0.5);
+                this.left.b.setRotateAcc(0.08);
+                this.left.b.setMaxRotateSpeed(0.5);
+                this.right.b.setRotateAcc(0.08);
+                this.right.b.setMaxRotateSpeed(0.5);
+                this.rotate.b.setRotateAcc(0.08);
+                this.rotate.b.setMaxRotateSpeed(0.5);
                 this.sleep.b.setAllowSleeping(1);
                 this.sleep.pd.putToSleep();
                 this.idle.b.setAllowSleeping(1);
@@ -57,6 +66,9 @@ global Main=function(p) {
                 if (this.frame<10) { this.turn.b.rotateTo(vector2D(100,2100),1); }
                 if (this.frame>=10 && this.frame<18) { this.turn.b.rotateTo(vector2D(100,1900),-1); }
                 if (this.frame==18) { this.turn.b.stopRotatingTo(); }
+                if (this.frame<8) { this.left.b.rotateLeft(); }
+                if (this.frame<8) { this.right.b.rotateRight(); }
+                if (this.frame<8) { this.rotate.b.rotate(0.3); }
                 if (this.frame==5) {
                     this.sleep.pd.wakeUp();
                     this.sleep.b.setVel(vector2D(1,0));
@@ -69,6 +81,9 @@ global Main=function(p) {
                 SampleCommandBody("thrust",this.frame,this.thrust.b);
                 SampleCommandBody("brake",this.frame,this.brake.b);
                 SampleCommandBody("turn",this.frame,this.turn.b);
+                SampleCommandBody("left",this.frame,this.left.b);
+                SampleCommandBody("right",this.frame,this.right.b);
+                SampleCommandBody("rotate",this.frame,this.rotate.b);
                 SampleCommandBody("sleep",this.frame,this.sleep.b);
                 SampleCommandBody("idle",this.frame,this.idle.b);
                 this.frame+=1;

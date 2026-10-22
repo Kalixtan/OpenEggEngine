@@ -18,6 +18,11 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 ## Runtime and physics
 
 - [ ] Match frame timing, pause handling, update order, and physics-step inputs.
+- [ ] Trace the remaining `physicsBody.rotate`, `rotateLeft`, and `rotateRight`
+      drift. Their command and angular-velocity readings match, but 39 of 864
+      sampled direction values differ at ticks near axis crossings (usually by
+      0.000001). The mismatch is repeatable; its angle/integration source is
+      not isolated yet. See `reports/PHYSICS.md`.
 - [x] Compare process creation, queued termination, pause/resume timing, and
       callback order with retail probes.
 - [ ] Compare contact creation, callback order, deferred events, and body
