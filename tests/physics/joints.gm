@@ -76,6 +76,28 @@ global Main=function(p) {
                 JointSample("prismatic",this.frame,this.prismatic,this.sa,this.sb);
                 JointSample("relative",this.frame,this.relative,this.la,this.lb);
                 this.frame+=1;
+            } else if (this.frame==12) {
+                local distanceID=this.distance.getObjectID();
+                local revoluteID=this.revolute.getObjectID();
+                Probe("joint.registry.idDistinct",revoluteID!=distanceID);
+                Probe("joint.registry.lookup",Physics.getJoint(distanceID)!=null);
+                Probe("joint.registry.unknown",Physics.getJoint(-1)==null);
+                this.revolute.setRTMotorSpeed(0.625);
+                Probe("joint.control.rtSpeed",this.revolute.getRTMotorSpeed());
+                this.revolute.setRevoluteMotor(1);
+                Probe("joint.control.motorReset",this.revolute.getRTMotorSpeed());
+                this.revolute.setRevoluteMotor(1,0.375,2);
+                Probe("joint.control.motorSet",this.revolute.getRTMotorSpeed());
+                this.revolute.setIsBodiesCollidable(1);
+                Probe("joint.control.collidableOn",this.revolute.isBodiesCollidable());
+                Probe("joint.control.motorAfterRebuild",this.revolute.getRTMotorSpeed());
+                this.revolute.setIsBodiesCollidable(0);
+                Probe("joint.control.collidableOff",this.revolute.isBodiesCollidable());
+                Physics.deleteJoint(this.distance);
+                Probe("joint.registry.deleted",Physics.getJoint(distanceID)==null);
+                Physics.deleteAllJoints();
+                Probe("joint.registry.cleared",Physics.getJoint(revoluteID)==null);
+                this.frame+=1;
             }
         });
 };

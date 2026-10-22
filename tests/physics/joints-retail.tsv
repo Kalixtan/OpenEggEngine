@@ -1,4 +1,10 @@
-# probe-sha256 89fc4d3a1585e8ee3ba3a450c634f219efb0d55b31864b6cac74a59216724bba
+# probe-sha256 7b54a65e7a9fb9164cb040208faafd041a4c3026e151fd6fad6e2ed5417e5e96
+joint.control.collidableOff	0
+joint.control.collidableOn	1
+joint.control.motorAfterRebuild	0.625000
+joint.control.motorReset	0.625000
+joint.control.motorSet	0.625000
+joint.control.rtSpeed	0.625000
 joint.distance.t0.aX	0.000000
 joint.distance.t0.anchorX	0.000000
 joint.distance.t0.anchorY	100.000000
@@ -443,6 +449,11 @@ joint.prismatic.t9.forceX	null
 joint.prismatic.t9.forceY	null
 joint.prismatic.t9.torque	0.000000
 joint.prismatic.t9.type	2
+joint.registry.cleared	1
+joint.registry.deleted	1
+joint.registry.idDistinct	1
+joint.registry.lookup	1
+joint.registry.unknown	1
 joint.relative.t0.aX	120.000000
 joint.relative.t0.anchorX	0.000000
 joint.relative.t0.anchorY	0.000000

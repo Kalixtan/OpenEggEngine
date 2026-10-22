@@ -266,6 +266,13 @@ JOINT_FIELDS = {
     "forceX": "jointType.getReactionForce", "forceY": "jointType.getReactionForce",
     "torque": "jointType.getReactionTorque",
     "aX": "physicsBody.getPos", "bX": "physicsBody.getPos",
+    "lookup": "Physics.getJoint", "unknown": "Physics.getJoint",
+    "deleted": "Physics.deleteJoint", "cleared": "Physics.deleteAllJoints",
+    "idDistinct": "jointType.getObjectID", "rtSpeed": "jointType.getRTMotorSpeed",
+    "motorReset": "jointType.getRTMotorSpeed", "motorSet": "jointType.getRTMotorSpeed",
+    "collidableOn": "jointType.isBodiesCollidable",
+    "motorAfterRebuild": "jointType.getRTMotorSpeed",
+    "collidableOff": "jointType.isBodiesCollidable",
 }
 RAY_MOTION_FIELDS = {"count": "Physics.raycast", "trace": "Physics.raycast",
                      "simple": "Physics.raycastSimple", "hit": "Physics.raycastOne",

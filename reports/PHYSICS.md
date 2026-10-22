@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 15:30 UTC
+Generated: 2026-10-22 15:39 UTC
 
-Matched: **6404/6404 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6412/6415 comparable readings (99.95%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **306/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **311/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -36,6 +36,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | joint.pin | 132 | 132 |
 | joint.prismatic | 156 | 156 |
 | joint.relative | 156 | 156 |
+| joint.registry | 5 | 5 |
+| joint.control | 3 | 6 |
 | raymove.solid | 96 | 96 |
 | raymove.sensor | 96 | 96 |
 | raymove.inside | 96 | 96 |
@@ -424,12 +426,12 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `LFO.setRate` | 7 | 7 | PASS |
 | `LFO.update` | 7 | 7 | PASS |
 | `Physics.createJoint` | 6 | 6 | PASS |
-| `Physics.deleteAllJoints` | 0 | 0 | untested |
-| `Physics.deleteJoint` | 0 | 0 | untested |
+| `Physics.deleteAllJoints` | 1 | 1 | PASS |
+| `Physics.deleteJoint` | 1 | 1 | PASS |
 | `Physics.flush` | 0 | 0 | untested |
 | `Physics.getBodyFromShapeID` | 1 | 1 | PASS |
 | `Physics.getEntityFromShapeID` | 1 | 1 | PASS |
-| `Physics.getJoint` | 0 | 0 | untested |
+| `Physics.getJoint` | 2 | 2 | PASS |
 | `Physics.getNumFramesToIgnoreCollisions` | 3 | 3 | PASS |
 | `Physics.getShapeByID` | 1 | 1 | PASS |
 | `Physics.getShapesNear` | 2 | 2 | PASS |
@@ -523,12 +525,12 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getBody2` | 48 | 48 | PASS |
 | `jointType.getEntity1` | 60 | 60 | PASS |
 | `jointType.getEntity2` | 48 | 48 | PASS |
-| `jointType.getObjectID` | 0 | 0 | untested |
-| `jointType.getRTMotorSpeed` | 0 | 0 | untested |
+| `jointType.getObjectID` | 1 | 1 | PASS |
+| `jointType.getRTMotorSpeed` | 1 | 4 | FAIL |
 | `jointType.getReactionForce` | 120 | 120 | PASS |
 | `jointType.getReactionTorque` | 60 | 60 | PASS |
 | `jointType.getType` | 60 | 60 | PASS |
-| `jointType.isBodiesCollidable` | 60 | 60 | PASS |
+| `jointType.isBodiesCollidable` | 62 | 62 | PASS |
 | `jointType.setAngularSpring` | 0 | 0 | untested |
 | `jointType.setIsBodiesCollidable` | 0 | 0 | untested |
 | `jointType.setIsNeedsHighAccuracy` | 0 | 0 | untested |
@@ -4861,6 +4863,17 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getReactionTorque` | joint.relative.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t11.aX | `120.000000` | `120.000000` | PASS |
 | `physicsBody.getPos` | joint.relative.t11.bX | `125.000000` | `125.000000` | PASS |
+| `jointType.getObjectID` | joint.registry.idDistinct | `1` | `1` | PASS |
+| `Physics.getJoint` | joint.registry.lookup | `1` | `1` | PASS |
+| `Physics.getJoint` | joint.registry.unknown | `1` | `1` | PASS |
+| `Physics.deleteJoint` | joint.registry.deleted | `1` | `1` | PASS |
+| `Physics.deleteAllJoints` | joint.registry.cleared | `1` | `1` | PASS |
+| `jointType.getRTMotorSpeed` | joint.control.rtSpeed | `0.625000` | `0.625000` | PASS |
+| `jointType.getRTMotorSpeed` | joint.control.motorReset | `0.625000` | `0.000000` | FAIL |
+| `jointType.getRTMotorSpeed` | joint.control.motorSet | `0.625000` | `0.375000` | FAIL |
+| `jointType.isBodiesCollidable` | joint.control.collidableOn | `1` | `1` | PASS |
+| `jointType.getRTMotorSpeed` | joint.control.motorAfterRebuild | `0.625000` | `0.375000` | FAIL |
+| `jointType.isBodiesCollidable` | joint.control.collidableOff | `0` | `0` | PASS |
 | `Physics.raycast` | raymove.solid.t0.count | `2` | `2` | PASS |
 | `Physics.raycast` | raymove.solid.t0.trace | `AC` | `AC` | PASS |
 | `Physics.raycastSimple` | raymove.solid.t0.simple | `0.145455` | `0.145455` | PASS |
