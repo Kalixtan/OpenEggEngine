@@ -229,5 +229,17 @@ global Main=function(p) {
             Probe("bodyCtl.removeAllBodyBefore",bodyLifeData.getNumBodies());
             bodyLifeData.removeBody();
             Probe("bodyCtl.removeAllBodyAfter",bodyLifeData.getNumBodies());
+            local appendIndex=bodyLifeData.createBody();
+            BodyShape.reset();
+            BodyShape.setMass(1);
+            BodyShape.addCircle(2,0,0);
+            Probe("bodyCtl.dataAppendFirst",bodyLifeData.appendShapes(appendIndex,BodyShape));
+            Probe("bodyCtl.dataAppendSecond",bodyLifeData.appendShapes(appendIndex,BodyShape));
+            Probe("bodyCtl.dataAppendShapeCount",bodyLifeData.getBody(appendIndex).getNumShapes());
+            body.setDir(vector2D(0,2));
+            Probe("bodyCtl.directionSetX",body.getDir().x);
+            Probe("bodyCtl.directionSetY",body.getDir().y);
+            body.setRotateVel(0.25);
+            Probe("bodyCtl.rotateVelSet",body.getRotateVel());
         });
 };

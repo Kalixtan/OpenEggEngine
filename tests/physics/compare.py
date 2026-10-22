@@ -215,6 +215,14 @@ ASSOCIATED = {
     "joint.config.pinMotor": ("jointType.setPinMotor",),
     "joint.config.prismaticTranslation": ("jointType.setPrismaticTranslation",),
     "joint.config.prismaticMotor": ("jointType.setMotor",),
+    "jointIter.attachedSize": ("physicsData.getJointsOnMe",),
+    "jointIter.attachedValid": ("physicsData.getJointsOnMe",),
+    "jointIter.attachedType": ("physicsData.getJointsOnMe",),
+    "jointIter.afterEndValid": ("jointIter.goToNext",),
+    "jointIter.multipleSize": ("physicsData.getJointsOnMe",),
+    "jointIter.firstIsOriginal": ("jointIter.get",),
+    "jointIter.secondIsExtra": ("jointIter.goToNext", "jointIter.get"),
+    "jointIter.afterTwoValid": ("jointIter.goToNext",),
     "bodyCtl.flushAfterOne": ("physicsBody.setVel", "Physics.flush"),
     "bodyCtl.flushAfterTen": ("physicsBody.setVel", "Physics.flush"),
     "bodyCtl.updateEntitiesOff": ("GameSystem.setIsShouldUpdateEntities",),
@@ -226,6 +234,12 @@ ASSOCIATED = {
     "bodyCtl.removeBodyCount": ("physicsData.removeBody",),
     "bodyCtl.removeAllBodyBefore": ("physicsData.createBody",),
     "bodyCtl.removeAllBodyAfter": ("physicsData.removeBody",),
+    "bodyCtl.dataAppendFirst": ("physicsData.appendShapes",),
+    "bodyCtl.dataAppendSecond": ("physicsData.appendShapes",),
+    "bodyCtl.dataAppendShapeCount": ("physicsData.appendShapes",),
+    "bodyCtl.directionSetX": ("physicsBody.setDir",),
+    "bodyCtl.directionSetY": ("physicsBody.setDir",),
+    "bodyCtl.rotateVelSet": ("physicsBody.setRotateVel",),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -307,6 +321,12 @@ JOINT_FIELDS = {
     "prismaticMotor": "jointType.getRTMotorSpeed",
     "pinRtSpeed": "jointType.getRTMotorSpeed",
     "prismaticRtSpeed": "jointType.getRTMotorSpeed",
+}
+JOINT_ITER_FIELDS = {
+    "attachedSize": "jointIter.size", "attachedValid": "jointIter.isValid",
+    "attachedType": "jointIter.get", "afterEndValid": "jointIter.goToNext",
+    "multipleSize": "physicsData.getJointsOnMe", "firstIsOriginal": "jointIter.get",
+    "secondIsExtra": "jointIter.get", "afterTwoValid": "jointIter.goToNext",
 }
 RAY_MOTION_FIELDS = {"count": "Physics.raycast", "trace": "Physics.raycast",
                      "simple": "Physics.raycastSimple", "hit": "Physics.raycastOne",
@@ -587,6 +607,12 @@ BODY_CONTROL_FIELDS = {
     "removeBodyCount": "physicsData.removeBody",
     "removeAllBodyBefore": "physicsData.createBody",
     "removeAllBodyAfter": "physicsData.removeBody",
+    "dataAppendFirst": "physicsData.appendShapes",
+    "dataAppendSecond": "physicsData.appendShapes",
+    "dataAppendShapeCount": "physicsBody.getNumShapes",
+    "directionSetX": "physicsBody.getDir",
+    "directionSetY": "physicsBody.getDir",
+    "rotateVelSet": "physicsBody.getRotateVel",
 }
 BODY_COMMAND_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -821,6 +847,11 @@ def owner(name, names):
         function = JOINT_FIELDS[name.rsplit(".", 1)[1]]
         if function not in names:
             raise ValueError(f"unknown joint function: {function}")
+        return function
+    if name.startswith("jointIter."):
+        function = JOINT_ITER_FIELDS[name.rsplit(".", 1)[1]]
+        if function not in names:
+            raise ValueError(f"unknown joint iterator function: {function}")
         return function
     if name.startswith("raymove."):
         function = RAY_MOTION_FIELDS[name.rsplit(".", 1)[1]]

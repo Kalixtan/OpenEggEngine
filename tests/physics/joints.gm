@@ -82,6 +82,23 @@ global Main=function(p) {
                 Probe("joint.registry.idDistinct",revoluteID!=distanceID);
                 Probe("joint.registry.lookup",Physics.getJoint(distanceID)!=null);
                 Probe("joint.registry.unknown",Physics.getJoint(-1)==null);
+                local attached=this.ra.e.getPhysicsData().getJointsOnMe();
+                Probe("jointIter.attachedSize",attached.size());
+                Probe("jointIter.attachedValid",attached.isValid());
+                Probe("jointIter.attachedType",attached.get().getType());
+                attached.goToNext();
+                Probe("jointIter.afterEndValid",attached.isValid());
+                this.extraJointBody=JointBody(40,200,1);
+                this.extraJoint=Physics.createJoint(PHYSICSJOINTTYPE_REVOLUTE);
+                this.extraJoint.setupJoint(this.ra.b,this.extraJointBody.b,vector2D(30,200));
+                local attachedMany=this.ra.e.getPhysicsData().getJointsOnMe();
+                Probe("jointIter.multipleSize",attachedMany.size());
+                Probe("jointIter.firstIsOriginal",attachedMany.get().getObjectID()==revoluteID);
+                attachedMany.goToNext();
+                Probe("jointIter.secondIsExtra",
+                    attachedMany.isValid() && attachedMany.get().getObjectID()==this.extraJoint.getObjectID());
+                attachedMany.goToNext();
+                Probe("jointIter.afterTwoValid",attachedMany.isValid());
                 this.revolute.setRTMotorSpeed(0.625);
                 Probe("joint.control.rtSpeed",this.revolute.getRTMotorSpeed());
                 this.revolute.setRevoluteMotor(1);

@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 17:50 UTC
+Generated: 2026-10-22 18:04 UTC
 
-Matched: **6436/6436 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6450/6450 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **324/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **332/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -213,6 +213,12 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.removeBodyCount | 1 | 1 |
 | bodyCtl.removeAllBodyBefore | 1 | 1 |
 | bodyCtl.removeAllBodyAfter | 1 | 1 |
+| bodyCtl.dataAppendFirst | 1 | 1 |
+| bodyCtl.dataAppendSecond | 1 | 1 |
+| bodyCtl.dataAppendShapeCount | 1 | 1 |
+| bodyCtl.directionSetX | 1 | 1 |
+| bodyCtl.directionSetY | 1 | 1 |
+| bodyCtl.rotateVelSet | 1 | 1 |
 | bodyCmd.thrust | 288 | 288 |
 | bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
@@ -529,10 +535,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `intIter.isValid` | 0 | 0 | untested |
 | `intIter.reset` | 0 | 0 | untested |
 | `intIter.size` | 56 | 56 | PASS |
-| `jointIter.get` | 0 | 0 | untested |
-| `jointIter.goToNext` | 0 | 0 | untested |
-| `jointIter.isValid` | 0 | 0 | untested |
-| `jointIter.size` | 0 | 0 | untested |
+| `jointIter.get` | 5 | 5 | PASS |
+| `jointIter.goToNext` | 5 | 5 | PASS |
+| `jointIter.isValid` | 1 | 1 | PASS |
+| `jointIter.size` | 1 | 1 | PASS |
 | `jointType.getAnchorPos` | 120 | 120 | PASS |
 | `jointType.getBody1` | 60 | 60 | PASS |
 | `jointType.getBody2` | 48 | 48 | PASS |
@@ -577,7 +583,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getCenterOfMass` | 1 | 1 | PASS |
 | `physicsBody.getCollisionCategory` | 60 | 60 | PASS |
 | `physicsBody.getCollisionGroup` | 58 | 58 | PASS |
-| `physicsBody.getDir` | 321 | 321 | PASS |
+| `physicsBody.getDir` | 323 | 323 | PASS |
 | `physicsBody.getDirRef` | 0 | 0 | untested |
 | `physicsBody.getDirty` | 0 | 0 | untested |
 | `physicsBody.getEntity` | 0 | 0 | untested |
@@ -589,7 +595,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getMaxSpeed` | 1 | 1 | PASS |
 | `physicsBody.getMinPos` | 1 | 1 | PASS |
 | `physicsBody.getNumShapeVerts` | 1 | 1 | PASS |
-| `physicsBody.getNumShapes` | 3 | 3 | PASS |
+| `physicsBody.getNumShapes` | 4 | 4 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
 | `physicsBody.getPos` | 946 | 946 | PASS |
 | `physicsBody.getPosRef` | 1 | 1 | PASS |
@@ -597,7 +603,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getRadius` | 2 | 2 | PASS |
 | `physicsBody.getRestitution` | 1 | 1 | PASS |
 | `physicsBody.getRotateAcc` | 1 | 1 | PASS |
-| `physicsBody.getRotateVel` | 161 | 161 | PASS |
+| `physicsBody.getRotateVel` | 162 | 162 | PASS |
 | `physicsBody.getShape` | 0 | 0 | untested |
 | `physicsBody.getShapeCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsBody.getShapeHeight` | 2 | 2 | PASS |
@@ -646,7 +652,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsBody.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsBody.setCollisionGroup` | 1 | 1 | PASS |
-| `physicsBody.setDir` | 0 | 0 | untested |
+| `physicsBody.setDir` | 2 | 2 | PASS |
 | `physicsBody.setDoesRotationResponse` | 0 | 0 | untested |
 | `physicsBody.setEdgeShapeVertex` | 0 | 0 | untested |
 | `physicsBody.setFriction` | 1 | 1 | PASS |
@@ -664,7 +670,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setPos` | 1 | 1 | PASS |
 | `physicsBody.setRestitution` | 1 | 1 | PASS |
 | `physicsBody.setRotateAcc` | 288 | 288 | PASS |
-| `physicsBody.setRotateVel` | 0 | 0 | untested |
+| `physicsBody.setRotateVel` | 1 | 1 | PASS |
 | `physicsBody.setRotationDecayRate` | 0 | 0 | untested |
 | `physicsBody.setShapeCategoriesToCollideWith` | 0 | 0 | untested |
 | `physicsBody.setShapeDensity` | 0 | 0 | untested |
@@ -674,7 +680,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setVelocityDecayRate` | 0 | 0 | untested |
 | `physicsBody.stopRotatingTo` | 288 | 288 | PASS |
 | `physicsBody.thrust` | 288 | 288 | PASS |
-| `physicsData.appendShapes` | 0 | 0 | untested |
+| `physicsData.appendShapes` | 5 | 5 | PASS |
 | `physicsData.brake` | 0 | 0 | untested |
 | `physicsData.createBody` | 4 | 4 | PASS |
 | `physicsData.doesRotationResponse` | 1 | 1 | PASS |
@@ -688,7 +694,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getCollisionInfo` | 56 | 56 | PASS |
 | `physicsData.getDir` | 0 | 0 | untested |
 | `physicsData.getHeight` | 1 | 1 | PASS |
-| `physicsData.getJointsOnMe` | 0 | 0 | untested |
+| `physicsData.getJointsOnMe` | 5 | 5 | PASS |
 | `physicsData.getMass` | 1 | 1 | PASS |
 | `physicsData.getMaxPos` | 1 | 1 | PASS |
 | `physicsData.getMaxRotateSpeed` | 1 | 1 | PASS |
@@ -4879,6 +4885,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getObjectID` | joint.registry.idDistinct | `1` | `1` | PASS |
 | `Physics.getJoint` | joint.registry.lookup | `1` | `1` | PASS |
 | `Physics.getJoint` | joint.registry.unknown | `1` | `1` | PASS |
+| `jointIter.size` | jointIter.attachedSize | `1` | `1` | PASS |
+| `jointIter.isValid` | jointIter.attachedValid | `1` | `1` | PASS |
+| `jointIter.get` | jointIter.attachedType | `1` | `1` | PASS |
+| `jointIter.goToNext` | jointIter.afterEndValid | `0` | `0` | PASS |
+| `physicsData.getJointsOnMe` | jointIter.multipleSize | `2` | `2` | PASS |
+| `jointIter.get` | jointIter.firstIsOriginal | `1` | `1` | PASS |
+| `jointIter.get` | jointIter.secondIsExtra | `1` | `1` | PASS |
+| `jointIter.goToNext` | jointIter.afterTwoValid | `0` | `0` | PASS |
 | `Physics.deleteJoint` | joint.registry.deleted | `1` | `1` | PASS |
 | `Physics.deleteAllJoints` | joint.registry.cleared | `1` | `1` | PASS |
 | `jointType.getRTMotorSpeed` | joint.control.rtSpeed | `0.625000` | `0.625000` | PASS |
@@ -5766,6 +5780,12 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.removeBody` | bodyCtl.removeBodyCount | `1` | `1` | PASS |
 | `physicsData.createBody` | bodyCtl.removeAllBodyBefore | `2` | `2` | PASS |
 | `physicsData.removeBody` | bodyCtl.removeAllBodyAfter | `0` | `0` | PASS |
+| `physicsData.appendShapes` | bodyCtl.dataAppendFirst | `0` | `0` | PASS |
+| `physicsData.appendShapes` | bodyCtl.dataAppendSecond | `1` | `1` | PASS |
+| `physicsBody.getNumShapes` | bodyCtl.dataAppendShapeCount | `2` | `2` | PASS |
+| `physicsBody.getDir` | bodyCtl.directionSetX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.getDir` | bodyCtl.directionSetY | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCtl.rotateVelSet | `0.250000` | `0.250000` | PASS |
 | `physicsBody.doesRotationResponse` | bodyApi.physicsBody.doesRotationResponse | `1` | `1` | PASS |
 | `physicsBody.getAngularVel` | bodyApi.physicsBody.getAngularVel | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getBrakeAcc` | bodyApi.physicsBody.getBrakeAcc | `999.000000` | `999.000000` | PASS |
