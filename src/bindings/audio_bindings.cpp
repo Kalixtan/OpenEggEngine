@@ -940,10 +940,11 @@ void QueueMixedVoices(float a_deltaMs) {
         if (!playbackSample || playbackSample->stereo.size() < 2) continue;
         const size_t soundFrames = playbackSample->stereo.size() / 2;
         const float pan = std::clamp(voice.pan, -1.0f, 1.0f);
-        // Retail's mono output is 3 dB down at center pan. Its captured
-        // hard-pan output is about 2/3 of the decoded PCM amplitude.
+        // Captures show different backend scales for mono and stereo samples.
+        const float channelGain = playbackSample->sourceChannels == 1
+            ? (2.0f / 3.0f) : 0.70710678f;
         const float gain = std::max(0.0f, voice.volume * voiceGainScale) *
-                           (2.0f / 3.0f);
+                           channelGain;
         // Retail captures show a small level change as playback rate moves
         // away from unity. Compensate for it in the software mixer.
         const float rateGain = voice.speed > 0.0f
