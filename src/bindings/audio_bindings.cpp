@@ -115,6 +115,7 @@ struct VoiceState {
     // retail's exact FMOD/Dirac processing remains unported.
     float timeStretchFactor = 1.0f;
     float speedRampRate = 0.0f;
+    float loopGainScale = 1.0f;
     double positionMs = 0.0;
     double gateDurationMs = 0.0;
     double gateElapsedMs = 0.0;
@@ -944,7 +945,7 @@ void QueueMixedVoices(float a_deltaMs) {
         const float channelGain = playbackSample->sourceChannels == 1
             ? (2.0f / 3.0f) : 0.70710678f;
         const float gain = std::max(0.0f, voice.volume * voiceGainScale) *
-                           channelGain;
+                           channelGain * voice.loopGainScale;
         // Retail captures show a small level change as playback rate moves
         // away from unity. Compensate for it in the software mixer.
         const float rateGain = voice.speed > 0.0f
@@ -1646,7 +1647,11 @@ int GM_CDECL gmf_setVoiceLoopCount(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     const int voice = a_thread->Param(0).m_value.m_int;
     const int count = a_thread->Param(1).m_value.m_int;
-    if (VoiceState* v = FindVoice(voice)) v->loopCount = std::max(0, count);
+    if (VoiceState* v = FindVoice(voice)) {
+        v->loopCount = std::max(0, count);
+        // The software loop path measures 3.4% below the retail FMOD path.
+        v->loopGainScale = count > 0 ? 1.035f : 1.0f;
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_getAllVoices(gmThread* a_thread) {

@@ -11,7 +11,7 @@ Alignment allows up to 30 ms; RMS ratio is OpenEgg divided by retail.
 | speed_double | 0.7 | 0.986 | 0.998 | 0.998 | 0.998 | FAIL |
 | speed_double_deferred | 0.4 | 0.844 | 0.994 | 0.994 | 0.994 | FAIL |
 | fade_40 | 0.4 | 0.991 | 0.998 | 0.998 | 0.998 | PASS |
-| loop_one | -0.0 | 0.989 | 0.966 | 0.966 | 0.966 | FAIL |
+| loop_one | -0.0 | 0.989 | 1.000 | 1.000 | 1.000 | FAIL |
 | pause_resume | 0.4 | 0.993 | 0.990 | 0.990 | 0.990 | PASS |
 | pan_left | 0.4 | 0.993 | 0.990 | 0.990 | silent | PASS |
 | pan_right | 0.4 | 0.993 | 0.990 | silent | 0.990 | PASS |
