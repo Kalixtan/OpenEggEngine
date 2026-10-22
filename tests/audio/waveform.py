@@ -33,6 +33,8 @@ SUITES = {
                                   "loop_count_2", "loop_count_3",
                                   "loop_forever_timed_stop", "offset_loop_1"),
                  (), RATE // 2),
+    "speed": ("waveform_speed.gm", ("immediate_2x", "delay_1_tick",
+                                  "delay_2_ticks", "delay_3_ticks"), ()),
 }
 MAX_ALIGNMENT_MS = 30.0
 RESULTS = ROOT / "tests/_results/audio/waveforms"
@@ -266,7 +268,8 @@ def main():
     target = RESULTS if args.suite == "basic" else RESULTS / args.suite
     report_names = {"basic": "AUDIO_WAVEFORM.md",
                     "controls": "AUDIO_CONTROLS_WAVEFORM.md",
-                    "looping": "AUDIO_LOOPING_WAVEFORM.md"}
+                    "looping": "AUDIO_LOOPING_WAVEFORM.md",
+                    "speed": "AUDIO_SPEED_WAVEFORM.md"}
     report = ROOT / "reports" / report_names[args.suite]
     sound = args.game_data.resolve() / SOUND
     if not sound.is_file():

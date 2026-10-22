@@ -1,0 +1,30 @@
+// Compare 2x speed changes at different update offsets.
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        constructor=function(){},
+        init=function() {
+            Audio.stopAllVoices();
+            Audio.setMusicVolume(0);
+            return true;
+        },
+        update=function() {
+            local path="Platformer/sounds/fx/button-high.wav";
+            if (this.frame==20) {
+                local voice=Audio.playSound(path);
+                Audio.setVoiceSpeed(voice,2);
+            }
+            if (this.frame==80) { this.oneTick=Audio.playSound(path); }
+            if (this.frame==81) { Audio.setVoiceSpeed(this.oneTick,2); }
+            if (this.frame==140) { this.twoTicks=Audio.playSound(path); }
+            if (this.frame==142) { Audio.setVoiceSpeed(this.twoTicks,2); }
+            if (this.frame==200) { this.threeTicks=Audio.playSound(path); }
+            if (this.frame==203) { Audio.setVoiceSpeed(this.threeTicks,2); }
+            if (this.frame==260) {
+                GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
+            }
+            this.frame+=1;
+        }
+    );
+};
