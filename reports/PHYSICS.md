@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 18:04 UTC
+Generated: 2026-10-22 18:33 UTC
 
-Matched: **6450/6450 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6470/6470 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 4 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **332/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **340/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -219,6 +219,26 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.directionSetX | 1 | 1 |
 | bodyCtl.directionSetY | 1 | 1 |
 | bodyCtl.rotateVelSet | 1 | 1 |
+| bodyCtl.bodyBoundsMinX | 1 | 1 |
+| bodyCtl.bodyBoundsMaxX | 1 | 1 |
+| bodyCtl.bodyBoundsMinY | 1 | 1 |
+| bodyCtl.bodyBoundsMaxY | 1 | 1 |
+| bodyCtl.dataBoundsMinX | 1 | 1 |
+| bodyCtl.dataBoundsMaxX | 1 | 1 |
+| bodyCtl.dataBoundsMinY | 1 | 1 |
+| bodyCtl.dataBoundsMaxY | 1 | 1 |
+| bodyCtl.forceAfterOneX | 1 | 1 |
+| bodyCtl.forceAfterOneAngular | 1 | 1 |
+| bodyCtl.forceAfterTenX | 1 | 1 |
+| bodyCtl.forceAfterTenAngular | 1 | 1 |
+| bodyCtl.ownerMatches | 1 | 1 |
+| bodyCtl.bodyIDPositive | 1 | 1 |
+| bodyCtl.shapeIDPositive | 1 | 1 |
+| bodyCtl.shapeDensityBefore | 1 | 1 |
+| bodyCtl.shapeDensityAfter | 1 | 1 |
+| bodyCtl.shapeDensityValidMass | 1 | 1 |
+| bodyCtl.shapeDensityInvalidMass | 1 | 1 |
+| bodyCtl.shapeMaskValid | 1 | 1 |
 | bodyCmd.thrust | 288 | 288 |
 | bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
@@ -447,7 +467,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.createJoint` | 6 | 6 | PASS |
 | `Physics.deleteAllJoints` | 1 | 1 | PASS |
 | `Physics.deleteJoint` | 1 | 1 | PASS |
-| `Physics.flush` | 4 | 4 | PASS |
+| `Physics.flush` | 8 | 8 | PASS |
 | `Physics.getBodyFromShapeID` | 1 | 1 | PASS |
 | `Physics.getEntityFromShapeID` | 1 | 1 | PASS |
 | `Physics.getJoint` | 2 | 2 | PASS |
@@ -569,13 +589,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.setupPinJoint` | 1 | 1 | PASS |
 | `jointType.setupRelativeJoint` | 1 | 1 | PASS |
 | `physicsBody.appendShapes` | 2 | 2 | PASS |
-| `physicsBody.applyForce` | 0 | 0 | untested |
+| `physicsBody.applyForce` | 8 | 8 | PASS |
 | `physicsBody.brake` | 288 | 288 | PASS |
 | `physicsBody.computeAngularVel` | 0 | 0 | untested |
 | `physicsBody.disableRestitutionThisFrame` | 0 | 0 | untested |
 | `physicsBody.doesRotationResponse` | 1 | 1 | PASS |
 | `physicsBody.dummy` | 0 | 0 | untested |
-| `physicsBody.getAABB` | 0 | 0 | untested |
+| `physicsBody.getAABB` | 8 | 8 | PASS |
 | `physicsBody.getAngularVel` | 1 | 1 | PASS |
 | `physicsBody.getBBox` | 0 | 0 | untested |
 | `physicsBody.getBrakeAcc` | 1 | 1 | PASS |
@@ -586,7 +606,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getDir` | 323 | 323 | PASS |
 | `physicsBody.getDirRef` | 0 | 0 | untested |
 | `physicsBody.getDirty` | 0 | 0 | untested |
-| `physicsBody.getEntity` | 0 | 0 | untested |
+| `physicsBody.getEntity` | 2 | 2 | PASS |
 | `physicsBody.getFriction` | 1 | 1 | PASS |
 | `physicsBody.getHeight` | 1 | 1 | PASS |
 | `physicsBody.getMass` | 1 | 1 | PASS |
@@ -596,7 +616,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getMinPos` | 1 | 1 | PASS |
 | `physicsBody.getNumShapeVerts` | 1 | 1 | PASS |
 | `physicsBody.getNumShapes` | 4 | 4 | PASS |
-| `physicsBody.getObjectID` | 0 | 0 | untested |
+| `physicsBody.getObjectID` | 2 | 2 | PASS |
 | `physicsBody.getPos` | 946 | 946 | PASS |
 | `physicsBody.getPosRef` | 1 | 1 | PASS |
 | `physicsBody.getPosVec` | 1 | 1 | PASS |
@@ -608,7 +628,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getShapeCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsBody.getShapeHeight` | 2 | 2 | PASS |
 | `physicsBody.getShapeIndex` | 1 | 1 | PASS |
-| `physicsBody.getShapeObjectID` | 0 | 0 | untested |
+| `physicsBody.getShapeObjectID` | 2 | 2 | PASS |
 | `physicsBody.getShapeOffset` | 1 | 1 | PASS |
 | `physicsBody.getShapeRadius` | 2 | 2 | PASS |
 | `physicsBody.getShapeType` | 2 | 2 | PASS |
@@ -645,7 +665,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.rotateRight` | 0 | 0 | untested |
 | `physicsBody.rotateTo` | 288 | 288 | PASS |
 | `physicsBody.setAllowSleeping` | 288 | 288 | PASS |
-| `physicsBody.setAngularVel` | 1 | 1 | PASS |
+| `physicsBody.setAngularVel` | 2 | 2 | PASS |
 | `physicsBody.setAsCircle` | 0 | 0 | untested |
 | `physicsBody.setAsRect` | 0 | 0 | untested |
 | `physicsBody.setBrakeAcc` | 288 | 288 | PASS |
@@ -672,11 +692,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setRotateAcc` | 288 | 288 | PASS |
 | `physicsBody.setRotateVel` | 1 | 1 | PASS |
 | `physicsBody.setRotationDecayRate` | 0 | 0 | untested |
-| `physicsBody.setShapeCategoriesToCollideWith` | 0 | 0 | untested |
-| `physicsBody.setShapeDensity` | 0 | 0 | untested |
+| `physicsBody.setShapeCategoriesToCollideWith` | 2 | 4 | AWAITING RETAIL |
+| `physicsBody.setShapeDensity` | 8 | 8 | PASS |
 | `physicsBody.setSpeed` | 1 | 1 | PASS |
 | `physicsBody.setThrustAcc` | 288 | 288 | PASS |
-| `physicsBody.setVel` | 291 | 291 | PASS |
+| `physicsBody.setVel` | 292 | 292 | PASS |
 | `physicsBody.setVelocityDecayRate` | 0 | 0 | untested |
 | `physicsBody.stopRotatingTo` | 288 | 288 | PASS |
 | `physicsBody.thrust` | 288 | 288 | PASS |
@@ -684,7 +704,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.brake` | 0 | 0 | untested |
 | `physicsData.createBody` | 4 | 4 | PASS |
 | `physicsData.doesRotationResponse` | 1 | 1 | PASS |
-| `physicsData.getAABB` | 0 | 0 | untested |
+| `physicsData.getAABB` | 8 | 8 | PASS |
 | `physicsData.getBody` | 1 | 1 | PASS |
 | `physicsData.getBrakeAcc` | 1 | 1 | PASS |
 | `physicsData.getCategoriesToCollideWith` | 1 | 1 | PASS |
@@ -860,6 +880,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
+| `physicsBody.setShapeCategoriesToCollideWith` | bodyCtl.shapeMaskInvalid | `5` | Invalid shape index faults at 0x00091c40 while reading 0x28. |
 
 ## Readings
 
@@ -5786,6 +5807,26 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCtl.directionSetX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCtl.directionSetY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCtl.rotateVelSet | `0.250000` | `0.250000` | PASS |
+| `physicsBody.getAABB` | bodyCtl.bodyBoundsMinX | `3.599999` | `3.599999` | PASS |
+| `physicsBody.getAABB` | bodyCtl.bodyBoundsMaxX | `5.599999` | `5.599999` | PASS |
+| `physicsBody.getAABB` | bodyCtl.bodyBoundsMinY | `4.799999` | `4.799999` | PASS |
+| `physicsBody.getAABB` | bodyCtl.bodyBoundsMaxY | `6.799999` | `6.799999` | PASS |
+| `physicsData.getAABB` | bodyCtl.dataBoundsMinX | `3.599999` | `3.599999` | PASS |
+| `physicsData.getAABB` | bodyCtl.dataBoundsMaxX | `5.599999` | `5.599999` | PASS |
+| `physicsData.getAABB` | bodyCtl.dataBoundsMinY | `4.799999` | `4.799999` | PASS |
+| `physicsData.getAABB` | bodyCtl.dataBoundsMaxY | `6.799999` | `6.799999` | PASS |
+| `physicsBody.applyForce` | bodyCtl.forceAfterOneX | `0.333333` | `0.333333` | PASS |
+| `physicsBody.applyForce` | bodyCtl.forceAfterOneAngular | `-0.333333` | `-0.333333` | PASS |
+| `physicsBody.applyForce` | bodyCtl.forceAfterTenX | `0.333333` | `0.333333` | PASS |
+| `physicsBody.applyForce` | bodyCtl.forceAfterTenAngular | `-0.333333` | `-0.333333` | PASS |
+| `physicsBody.getEntity` | bodyCtl.ownerMatches | `1` | `1` | PASS |
+| `physicsBody.getObjectID` | bodyCtl.bodyIDPositive | `1` | `1` | PASS |
+| `physicsBody.getShapeObjectID` | bodyCtl.shapeIDPositive | `1` | `1` | PASS |
+| `physicsBody.setShapeDensity` | bodyCtl.shapeDensityBefore | `1` | `1` | PASS |
+| `physicsBody.setShapeDensity` | bodyCtl.shapeDensityAfter | `1` | `1` | PASS |
+| `physicsBody.setShapeDensity` | bodyCtl.shapeDensityValidMass | `6.283185` | `6.283185` | PASS |
+| `physicsBody.setShapeDensity` | bodyCtl.shapeDensityInvalidMass | `6.283185` | `6.283185` | PASS |
+| `physicsBody.setShapeCategoriesToCollideWith` | bodyCtl.shapeMaskValid | `5` | `5` | PASS |
 | `physicsBody.doesRotationResponse` | bodyApi.physicsBody.doesRotationResponse | `1` | `1` | PASS |
 | `physicsBody.getAngularVel` | bodyApi.physicsBody.getAngularVel | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getBrakeAcc` | bodyApi.physicsBody.getBrakeAcc | `999.000000` | `999.000000` | PASS |

@@ -18,6 +18,8 @@ global Main=function(p) {
                 Probe("bodyCtl.updateInterval",GameSystem.getUpdateInterval());
                 this.ran=3;
                 GameSystem.setIsShouldUpdateEntities(1);
+                this.body.setShapeCategoriesToCollideWith(10,3);
+                Probe("bodyCtl.shapeMaskInvalid",this.body.getShapeCategoriesToCollideWith(0));
                 return;
             }
             if (this.ran) { return; }
@@ -26,6 +28,7 @@ global Main=function(p) {
             local entity=EntityManager.createEntity("EntityQueryProbeEntity");
             local pd=entity.getPhysicsData();
             local body=pd.getBody(pd.createBody());
+            this.body=body;
             body.setPos(vector2D(4,5));
             BodyShape.reset();
             BodyShape.setMass(2);
@@ -241,5 +244,41 @@ global Main=function(p) {
             Probe("bodyCtl.directionSetY",body.getDir().y);
             body.setRotateVel(0.25);
             Probe("bodyCtl.rotateVelSet",body.getRotateVel());
+            local bodyBounds=body.getAABB();
+            Probe("bodyCtl.bodyBoundsMinX",bodyBounds.minx);
+            Probe("bodyCtl.bodyBoundsMaxX",bodyBounds.maxx);
+            Probe("bodyCtl.bodyBoundsMinY",bodyBounds.miny);
+            Probe("bodyCtl.bodyBoundsMaxY",bodyBounds.maxy);
+            local dataBounds=pd.getAABB();
+            Probe("bodyCtl.dataBoundsMinX",dataBounds.minx);
+            Probe("bodyCtl.dataBoundsMaxX",dataBounds.maxx);
+            Probe("bodyCtl.dataBoundsMinY",dataBounds.miny);
+            Probe("bodyCtl.dataBoundsMaxY",dataBounds.maxy);
+            body.setVel(vector2D(0,0));
+            body.setAngularVel(0);
+            local bodyPos=body.getPos();
+            local forcePoint=vector2D(bodyPos.x,bodyPos.y+1);
+            body.applyForce(vector2D(100,0),forcePoint);
+            Physics.flush();
+            Probe("bodyCtl.forceAfterOneX",body.getVel().x);
+            Probe("bodyCtl.forceAfterOneAngular",body.getAngularVel());
+            for (flushIndex=0;flushIndex<9;flushIndex+=1) {
+                Physics.flush();
+            }
+            Probe("bodyCtl.forceAfterTenX",body.getVel().x);
+            Probe("bodyCtl.forceAfterTenAngular",body.getAngularVel());
+            Probe("bodyCtl.ownerMatches",body.getEntity().getObjectID()==entity.getObjectID());
+            Probe("bodyCtl.bodyIDPositive",body.getObjectID()>0);
+            Probe("bodyCtl.shapeIDPositive",body.getShapeObjectID(0)>0);
+            body.setVel(vector2D(0,0));
+            body.setAngularVel(0);
+            Probe("bodyCtl.shapeDensityBefore",1);
+            body.setShapeDensity(0,2);
+            Probe("bodyCtl.shapeDensityAfter",1);
+            Probe("bodyCtl.shapeDensityValidMass",body.getMass());
+            body.setShapeDensity(10,3);
+            Probe("bodyCtl.shapeDensityInvalidMass",body.getMass());
+            body.setShapeCategoriesToCollideWith(0,5);
+            Probe("bodyCtl.shapeMaskValid",body.getShapeCategoriesToCollideWith(0));
         });
 };

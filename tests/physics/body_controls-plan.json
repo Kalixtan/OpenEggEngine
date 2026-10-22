@@ -20,6 +20,17 @@
     "bodyCtl.dataAppendShapeCount",
     "bodyCtl.directionSetX", "bodyCtl.directionSetY",
     "bodyCtl.rotateVelSet",
+    "bodyCtl.bodyBoundsMinX", "bodyCtl.bodyBoundsMaxX",
+    "bodyCtl.bodyBoundsMinY", "bodyCtl.bodyBoundsMaxY",
+    "bodyCtl.dataBoundsMinX", "bodyCtl.dataBoundsMaxX",
+    "bodyCtl.dataBoundsMinY", "bodyCtl.dataBoundsMaxY",
+    "bodyCtl.forceAfterOneX", "bodyCtl.forceAfterOneAngular",
+    "bodyCtl.forceAfterTenX", "bodyCtl.forceAfterTenAngular",
+    "bodyCtl.ownerMatches", "bodyCtl.bodyIDPositive",
+    "bodyCtl.shapeIDPositive",
+    "bodyCtl.shapeDensityBefore", "bodyCtl.shapeDensityAfter",
+    "bodyCtl.shapeDensityValidMass", "bodyCtl.shapeDensityInvalidMass",
+    "bodyCtl.shapeMaskValid", "bodyCtl.shapeMaskInvalid",
     "bodyApi.physicsBody.doesRotationResponse",
     "bodyApi.physicsBody.getAngularVel", "bodyApi.physicsBody.getBrakeAcc",
     "bodyApi.physicsBody.getCategoriesToCollideWith",
@@ -72,5 +83,11 @@
     "bodyApi.shapeDef.addBox", "bodyApi.shapeDef.setMass",
     "bodyApi.shapeDef.setIsSensor", "bodyApi.shapeDef.getRestitution",
     "bodyApi.shapeDef.addPolygon", "bodyApi.shapeDef.addEdges"
-  ]
+  ],
+  "awaitingRetail": [
+    "bodyCtl.shapeMaskInvalid"
+  ],
+  "retailCrash": {
+    "bodyCtl.shapeMaskInvalid": "Invalid shape index faults at 0x00091c40 while reading 0x28."
+  }
 }

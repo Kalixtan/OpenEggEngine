@@ -1,4 +1,4 @@
-# probe-sha256 03ec3ad5fa615409626699a6b687aa4925181242c72ddab7621a691a87ac0656
+# probe-sha256 806d09579837b2d490d2374d094f6fe35a9ba5a29d05488259043edaad5c644a
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
 bodyApi.physicsBody.doesRotationResponse	1
 bodyApi.physicsBody.getAngularVel	0.500000
@@ -93,23 +93,37 @@ bodyApi.shapeDef.setIsSensor	1
 bodyApi.shapeDef.setMass	0.000000
 bodyApi.shapeDef.setRestitution	0.600000
 bodyCtl.angularVelocity	0.500000
+bodyCtl.bodyBoundsMaxX	5.599999
+bodyCtl.bodyBoundsMaxY	6.799999
+bodyCtl.bodyBoundsMinX	3.599999
+bodyCtl.bodyBoundsMinY	4.799999
+bodyCtl.bodyIDPositive	1
 bodyCtl.bullet	1.000000
 bodyCtl.category	4
 bodyCtl.collidable	0
 bodyCtl.dataAppendFirst	0
 bodyCtl.dataAppendSecond	1
 bodyCtl.dataAppendShapeCount	2
+bodyCtl.dataBoundsMaxX	5.599999
+bodyCtl.dataBoundsMaxY	6.799999
+bodyCtl.dataBoundsMinX	3.599999
+bodyCtl.dataBoundsMinY	4.799999
 bodyCtl.direction	1
 bodyCtl.directionSetX	-0.000000
 bodyCtl.directionSetY	1.000000
 bodyCtl.flushAfterOne	200.009995
 bodyCtl.flushAfterTen	200.099945
+bodyCtl.forceAfterOneAngular	-0.333333
+bodyCtl.forceAfterOneX	0.333333
+bodyCtl.forceAfterTenAngular	-0.333333
+bodyCtl.forceAfterTenX	0.333333
 bodyCtl.friction	0.250000
 bodyCtl.group	-2
 bodyCtl.mask	7
 bodyCtl.mass	3.000000
 bodyCtl.maxRotateSpeed	2.000000
 bodyCtl.maxSpeed	12.000000
+bodyCtl.ownerMatches	1
 bodyCtl.pointInside	1
 bodyCtl.pointOutside	0
 bodyCtl.position	1
@@ -125,6 +139,12 @@ bodyCtl.rotateVelSet	0.250000
 bodyCtl.sensor	1
 bodyCtl.setSpeed	10.000000
 bodyCtl.shapeCount	1
+bodyCtl.shapeDensityAfter	1
+bodyCtl.shapeDensityBefore	1
+bodyCtl.shapeDensityInvalidMass	6.283185
+bodyCtl.shapeDensityValidMass	6.283185
+bodyCtl.shapeIDPositive	1
+bodyCtl.shapeMaskValid	5
 bodyCtl.sleeping	0.000000
 bodyCtl.speed	5.000000
 bodyCtl.updateEntitiesOff	0

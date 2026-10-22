@@ -240,6 +240,28 @@ ASSOCIATED = {
     "bodyCtl.directionSetX": ("physicsBody.setDir",),
     "bodyCtl.directionSetY": ("physicsBody.setDir",),
     "bodyCtl.rotateVelSet": ("physicsBody.setRotateVel",),
+    "bodyCtl.bodyBoundsMinX": ("physicsBody.getAABB",),
+    "bodyCtl.bodyBoundsMaxX": ("physicsBody.getAABB",),
+    "bodyCtl.bodyBoundsMinY": ("physicsBody.getAABB",),
+    "bodyCtl.bodyBoundsMaxY": ("physicsBody.getAABB",),
+    "bodyCtl.dataBoundsMinX": ("physicsData.getAABB",),
+    "bodyCtl.dataBoundsMaxX": ("physicsData.getAABB",),
+    "bodyCtl.dataBoundsMinY": ("physicsData.getAABB",),
+    "bodyCtl.dataBoundsMaxY": ("physicsData.getAABB",),
+    "bodyCtl.forceAfterOneX": ("physicsBody.setVel", "physicsBody.applyForce", "Physics.flush"),
+    "bodyCtl.forceAfterOneAngular": ("physicsBody.setAngularVel", "physicsBody.applyForce",
+                                      "Physics.flush"),
+    "bodyCtl.forceAfterTenX": ("physicsBody.applyForce", "Physics.flush"),
+    "bodyCtl.forceAfterTenAngular": ("physicsBody.applyForce", "Physics.flush"),
+    "bodyCtl.ownerMatches": ("physicsBody.getEntity",),
+    "bodyCtl.bodyIDPositive": ("physicsBody.getObjectID",),
+    "bodyCtl.shapeIDPositive": ("physicsBody.getShapeObjectID",),
+    "bodyCtl.shapeDensityBefore": ("physicsBody.setShapeDensity",),
+    "bodyCtl.shapeDensityAfter": ("physicsBody.setShapeDensity",),
+    "bodyCtl.shapeDensityValidMass": ("physicsBody.setShapeDensity",),
+    "bodyCtl.shapeDensityInvalidMass": ("physicsBody.setShapeDensity",),
+    "bodyCtl.shapeMaskValid": ("physicsBody.setShapeCategoriesToCollideWith",),
+    "bodyCtl.shapeMaskInvalid": ("physicsBody.setShapeCategoriesToCollideWith",),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -613,6 +635,23 @@ BODY_CONTROL_FIELDS = {
     "directionSetX": "physicsBody.getDir",
     "directionSetY": "physicsBody.getDir",
     "rotateVelSet": "physicsBody.getRotateVel",
+    "bodyBoundsMinX": "physicsBody.getAABB", "bodyBoundsMaxX": "physicsBody.getAABB",
+    "bodyBoundsMinY": "physicsBody.getAABB", "bodyBoundsMaxY": "physicsBody.getAABB",
+    "dataBoundsMinX": "physicsData.getAABB", "dataBoundsMaxX": "physicsData.getAABB",
+    "dataBoundsMinY": "physicsData.getAABB", "dataBoundsMaxY": "physicsData.getAABB",
+    "forceAfterOneX": "physicsBody.applyForce",
+    "forceAfterOneAngular": "physicsBody.applyForce",
+    "forceAfterTenX": "physicsBody.applyForce",
+    "forceAfterTenAngular": "physicsBody.applyForce",
+    "ownerMatches": "physicsBody.getEntity",
+    "bodyIDPositive": "physicsBody.getObjectID",
+    "shapeIDPositive": "physicsBody.getShapeObjectID",
+    "shapeDensityBefore": "physicsBody.setShapeDensity",
+    "shapeDensityAfter": "physicsBody.setShapeDensity",
+    "shapeDensityValidMass": "physicsBody.setShapeDensity",
+    "shapeDensityInvalidMass": "physicsBody.setShapeDensity",
+    "shapeMaskValid": "physicsBody.setShapeCategoriesToCollideWith",
+    "shapeMaskInvalid": "physicsBody.setShapeCategoriesToCollideWith",
 }
 BODY_COMMAND_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -1002,6 +1041,12 @@ def main():
         elif probe == BODY_CONTROLS and "WARNING: PhysicsBody.isSleeping()" in output:
             problems.append("body_controls.gm: unexpected retail-crash warning for a "
                             "live PhysicsBody")
+        if probe == BODY_CONTROLS:
+            warning = ("WARNING: PhysicsBody.setShapeCategoriesToCollideWith(10) "
+                       "would fault retail")
+            if output.count(warning) != 1:
+                problems.append("body_controls.gm: expected one warning for the "
+                                "confirmed invalid shape-index crash")
         if set(declared) <= awaiting_retail:
             retail, retail_dupes = {}, set()
         else:

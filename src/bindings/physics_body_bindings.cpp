@@ -99,6 +99,7 @@ struct PhysicsBodyData {
     int32_t collisionGroup = 0;
     bool ownerEntityDeleted = false;
     bool retailCrashWarningReported = false;
+    bool shapeMaskCrashWarningReported = false;
     bool isSensor = false;
     bool isCollidable = true;
     bool geometryDirty = false;
@@ -1231,10 +1232,8 @@ int GM_CDECL gmf_pb_setShapeDensity(gmThread* a_thread) {
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_FLOAT_OR_INT_PARAM(d, 1, 1.0f);
     b2Fixture* selected = FixtureAtShapeIndex(b->body, shapeIndex);
-    if (selected) selected->SetDensity(d);
-    else {
-        for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetDensity(d);
-    }
+    if (!selected) return GM_OK;
+    selected->SetDensity(d);
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
 }
@@ -1254,11 +1253,20 @@ int GM_CDECL gmf_pb_setShapeCategoriesToCollideWith(gmThread* a_thread) {
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_INT_PARAM(mask, 1, -1);
     b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
-    if (fx) {
-        b2Filter filter = DesiredFixtureFilter(b, fx);
-        filter.maskBits = (uint16)mask;
-        ApplyDesiredFixtureFilter(b, fx, filter);
+    if (!fx) {
+        if (!b->shapeMaskCrashWarningReported) {
+            std::fprintf(stderr,
+                "WARNING: PhysicsBody.setShapeCategoriesToCollideWith(%d) "
+                "would fault retail (observed RPCS3 PPU access violation at "
+                "0x00091c40 reading 0x28); OpenEgg leaves the fixture unchanged.\n",
+                shapeIndex);
+            b->shapeMaskCrashWarningReported = true;
+        }
+        return GM_OK;
     }
+    b2Filter filter = DesiredFixtureFilter(b, fx);
+    filter.maskBits = (uint16)mask;
+    ApplyDesiredFixtureFilter(b, fx, filter);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getShapeCategoriesToCollideWith(gmThread* a_thread) {
