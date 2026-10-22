@@ -8,6 +8,7 @@
     "left": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "rotateVelRaw", "dirXRaw", "dirYRaw", "sleeping"],
     "right": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "rotateVelRaw", "dirXRaw", "dirYRaw", "sleeping"],
     "rotate": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "rotateVelRaw", "dirXRaw", "dirYRaw", "sleeping"],
+    "clamp": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "sleeping"],
     "sleep": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "sleeping"],
     "idle": ["x", "y", "vx", "vy", "speed", "dirX", "dirY", "rotateVel", "sleeping"]
   }

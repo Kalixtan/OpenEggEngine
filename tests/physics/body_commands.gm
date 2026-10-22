@@ -47,6 +47,7 @@ global Main=function(p) {
                 this.left=MakeCommandBody(300,5000);
                 this.right=MakeCommandBody(400,6000);
                 this.rotate=MakeCommandBody(500,7000);
+                this.clamp=MakeCommandBody(600,8000);
                 this.thrust.b.setThrustAcc(0.2);
                 this.thrust.b.setMaxSpeed(3);
                 this.brake.b.setBrakeAcc(0.15);
@@ -59,6 +60,10 @@ global Main=function(p) {
                 this.right.b.setMaxRotateSpeed(0.5);
                 this.rotate.b.setRotateAcc(0.08);
                 this.rotate.b.setMaxRotateSpeed(0.5);
+                this.clamp.b.setMaxRotateSpeed(0.05);
+                this.clamp.b.setRotationDecayRate(0.01);
+                this.clamp.b.setMaxRotationDecayRate(0.4);
+                this.clamp.b.setAngularVel(0.2);
                 this.sleep.b.setAllowSleeping(1);
                 this.sleep.pd.putToSleep();
                 this.idle.b.setAllowSleeping(1);
@@ -89,6 +94,7 @@ global Main=function(p) {
                 SampleCommandBody("left",this.frame,this.left.b);
                 SampleCommandBody("right",this.frame,this.right.b);
                 SampleCommandBody("rotate",this.frame,this.rotate.b);
+                SampleCommandBody("clamp",this.frame,this.clamp.b);
                 SampleCommandBody("sleep",this.frame,this.sleep.b);
                 SampleCommandBody("idle",this.frame,this.idle.b);
                 this.frame+=1;

@@ -4325,10 +4325,15 @@ gmVariable MakePhysicsData(gmMachine& a_machine, gmVariable a_ownerEntity, int a
 
 float RetailStepAngularVelocity(const PhysicsBodyData& a_body, float a_velocity,
                                 float a_dt) {
-    const float decayed = a_velocity * a_body.rotationDecayRate;
-    const float excess = std::max(decayed - a_body.maxRotateSpeed, 0.0f);
+    // Retail uses PPC fmsubs here: keep velocity*decay fused with subtraction
+    // when finding excess, then fuse it again when applying excess decay.
+    const float excess = std::max(std::fma(a_velocity,
+                                            a_body.rotationDecayRate,
+                                            -a_body.maxRotateSpeed), 0.0f);
     const float excessFactor = 1.0f - a_body.maxRotationDecayRate;
-    float result = std::fma(-excess, excessFactor, decayed);
+    const float excessDecay = excess * excessFactor;
+    float result = std::fma(a_velocity, a_body.rotationDecayRate,
+                            -excessDecay);
     result = std::fma(a_body.rotAccum, a_dt, result);
     if (std::fabs(result) > a_body.maxRotateSpeed)
         result = std::copysign(a_body.maxRotateSpeed, result);
