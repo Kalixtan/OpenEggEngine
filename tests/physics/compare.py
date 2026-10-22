@@ -219,6 +219,13 @@ ASSOCIATED = {
     "bodyCtl.flushAfterTen": ("physicsBody.setVel", "Physics.flush"),
     "bodyCtl.updateEntitiesOff": ("GameSystem.setIsShouldUpdateEntities",),
     "bodyCtl.updateEntitiesOn": ("GameSystem.setIsShouldUpdateEntities",),
+    "bodyCtl.replaceBodyExists": ("physicsData.replaceBody",),
+    "bodyCtl.replaceBodyCount": ("physicsData.replaceBody",),
+    "bodyCtl.replaceBodyPos": ("physicsData.replaceBody",),
+    "bodyCtl.replaceBodyOutOfRangeExists": ("physicsData.replaceBody",),
+    "bodyCtl.removeBodyCount": ("physicsData.removeBody",),
+    "bodyCtl.removeAllBodyBefore": ("physicsData.createBody",),
+    "bodyCtl.removeAllBodyAfter": ("physicsData.removeBody",),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -573,6 +580,13 @@ BODY_CONTROL_FIELDS = {
     "updateEntitiesOff": "GameSystem.isShouldUpdateEntities",
     "updateEntitiesOn": "GameSystem.isShouldUpdateEntities",
     "updateInterval": "GameSystem.getUpdateInterval",
+    "replaceBodyExists": "physicsData.replaceBody",
+    "replaceBodyCount": "physicsData.getNumBodies",
+    "replaceBodyPos": "physicsBody.getPos",
+    "replaceBodyOutOfRangeExists": "physicsData.replaceBody",
+    "removeBodyCount": "physicsData.removeBody",
+    "removeAllBodyBefore": "physicsData.createBody",
+    "removeAllBodyAfter": "physicsData.removeBody",
 }
 BODY_COMMAND_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",

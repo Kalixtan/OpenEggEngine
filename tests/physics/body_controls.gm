@@ -11,19 +11,17 @@ global Main=function(p) {
                 this.sleepWait+=1;
                 if (this.sleepWait<30) { return; }
                 Probe("bodyCtl.sleeping",this.sleepBody.isSleeping());
+                GameSystem.setIsShouldUpdateEntities(0);
+                Probe("bodyCtl.updateEntitiesOff",GameSystem.isShouldUpdateEntities());
+                GameSystem.setIsShouldUpdateEntities(1);
+                Probe("bodyCtl.updateEntitiesOn",GameSystem.isShouldUpdateEntities());
+                Probe("bodyCtl.updateInterval",GameSystem.getUpdateInterval());
                 this.ran=3;
                 GameSystem.setIsShouldUpdateEntities(1);
                 return;
             }
             if (this.ran) { return; }
             this.ran=1;
-            local updateEntities=GameSystem.isShouldUpdateEntities();
-            GameSystem.setIsShouldUpdateEntities(0);
-            Probe("bodyCtl.updateEntitiesOff",GameSystem.isShouldUpdateEntities());
-            GameSystem.setIsShouldUpdateEntities(1);
-            Probe("bodyCtl.updateEntitiesOn",GameSystem.isShouldUpdateEntities());
-            GameSystem.setIsShouldUpdateEntities(updateEntities);
-            Probe("bodyCtl.updateInterval",GameSystem.getUpdateInterval());
             GameSystem.setIsShouldUpdateEntities(0);
             local entity=EntityManager.createEntity("EntityQueryProbeEntity");
             local pd=entity.getPhysicsData();
@@ -215,5 +213,21 @@ global Main=function(p) {
                 Physics.flush();
             }
             Probe("bodyCtl.flushAfterTen",this.sleepBody.getPos().x);
+
+            this.bodyLifeEntity=EntityManager.createEntity("EntityQueryProbeEntity");
+            local bodyLifeData=this.bodyLifeEntity.getPhysicsData();
+            local bodyLifeIndex=bodyLifeData.createBody();
+            bodyLifeData.getBody(bodyLifeIndex).setPos(vector2D(240,250));
+            local replaced=bodyLifeData.replaceBody(0);
+            Probe("bodyCtl.replaceBodyExists",?replaced);
+            Probe("bodyCtl.replaceBodyCount",bodyLifeData.getNumBodies());
+            Probe("bodyCtl.replaceBodyPos",replaced.getPos().x);
+            Probe("bodyCtl.replaceBodyOutOfRangeExists",?bodyLifeData.replaceBody(10));
+            bodyLifeData.removeBody(replaced.getObjectID());
+            Probe("bodyCtl.removeBodyCount",bodyLifeData.getNumBodies());
+            bodyLifeData.createBody();
+            Probe("bodyCtl.removeAllBodyBefore",bodyLifeData.getNumBodies());
+            bodyLifeData.removeBody();
+            Probe("bodyCtl.removeAllBodyAfter",bodyLifeData.getNumBodies());
         });
 };

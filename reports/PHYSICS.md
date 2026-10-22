@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 17:33 UTC
+Generated: 2026-10-22 17:50 UTC
 
-Matched: **6429/6429 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6436/6436 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **322/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **324/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -206,6 +206,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.updateEntitiesOff | 1 | 1 |
 | bodyCtl.updateEntitiesOn | 1 | 1 |
 | bodyCtl.updateInterval | 1 | 1 |
+| bodyCtl.replaceBodyExists | 1 | 1 |
+| bodyCtl.replaceBodyCount | 1 | 1 |
+| bodyCtl.replaceBodyPos | 1 | 1 |
+| bodyCtl.replaceBodyOutOfRangeExists | 1 | 1 |
+| bodyCtl.removeBodyCount | 1 | 1 |
+| bodyCtl.removeAllBodyBefore | 1 | 1 |
+| bodyCtl.removeAllBodyAfter | 1 | 1 |
 | bodyCmd.thrust | 288 | 288 |
 | bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
@@ -584,7 +591,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getNumShapeVerts` | 1 | 1 | PASS |
 | `physicsBody.getNumShapes` | 3 | 3 | PASS |
 | `physicsBody.getObjectID` | 0 | 0 | untested |
-| `physicsBody.getPos` | 945 | 945 | PASS |
+| `physicsBody.getPos` | 946 | 946 | PASS |
 | `physicsBody.getPosRef` | 1 | 1 | PASS |
 | `physicsBody.getPosVec` | 1 | 1 | PASS |
 | `physicsBody.getRadius` | 2 | 2 | PASS |
@@ -669,7 +676,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.thrust` | 288 | 288 | PASS |
 | `physicsData.appendShapes` | 0 | 0 | untested |
 | `physicsData.brake` | 0 | 0 | untested |
-| `physicsData.createBody` | 2 | 2 | PASS |
+| `physicsData.createBody` | 4 | 4 | PASS |
 | `physicsData.doesRotationResponse` | 1 | 1 | PASS |
 | `physicsData.getAABB` | 0 | 0 | untested |
 | `physicsData.getBody` | 1 | 1 | PASS |
@@ -687,7 +694,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getMaxRotateSpeed` | 1 | 1 | PASS |
 | `physicsData.getMaxSpeed` | 1 | 1 | PASS |
 | `physicsData.getMinPos` | 1 | 1 | PASS |
-| `physicsData.getNumBodies` | 25 | 25 | PASS |
+| `physicsData.getNumBodies` | 26 | 26 | PASS |
 | `physicsData.getPos` | 1 | 1 | PASS |
 | `physicsData.getPosRef` | 1 | 1 | PASS |
 | `physicsData.getRadius` | 1 | 1 | PASS |
@@ -709,8 +716,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.putToSleep` | 288 | 288 | PASS |
 | `physicsData.raycast` | 6 | 6 | PASS |
 | `physicsData.raycastShapesOne` | 6 | 6 | PASS |
-| `physicsData.removeBody` | 0 | 0 | untested |
-| `physicsData.replaceBody` | 0 | 0 | untested |
+| `physicsData.removeBody` | 4 | 4 | PASS |
+| `physicsData.replaceBody` | 6 | 6 | PASS |
 | `physicsData.reverseThrust` | 0 | 0 | untested |
 | `physicsData.rotateLeft` | 0 | 0 | untested |
 | `physicsData.rotateRight` | 0 | 0 | untested |
@@ -5752,6 +5759,13 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `GameSystem.isShouldUpdateEntities` | bodyCtl.updateEntitiesOff | `0` | `0` | PASS |
 | `GameSystem.isShouldUpdateEntities` | bodyCtl.updateEntitiesOn | `1` | `1` | PASS |
 | `GameSystem.getUpdateInterval` | bodyCtl.updateInterval | `16.666666` | `16.666666` | PASS |
+| `physicsData.replaceBody` | bodyCtl.replaceBodyExists | `1` | `1` | PASS |
+| `physicsData.getNumBodies` | bodyCtl.replaceBodyCount | `1` | `1` | PASS |
+| `physicsBody.getPos` | bodyCtl.replaceBodyPos | `0.000000` | `0.000000` | PASS |
+| `physicsData.replaceBody` | bodyCtl.replaceBodyOutOfRangeExists | `1` | `1` | PASS |
+| `physicsData.removeBody` | bodyCtl.removeBodyCount | `1` | `1` | PASS |
+| `physicsData.createBody` | bodyCtl.removeAllBodyBefore | `2` | `2` | PASS |
+| `physicsData.removeBody` | bodyCtl.removeAllBodyAfter | `0` | `0` | PASS |
 | `physicsBody.doesRotationResponse` | bodyApi.physicsBody.doesRotationResponse | `1` | `1` | PASS |
 | `physicsBody.getAngularVel` | bodyApi.physicsBody.getAngularVel | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getBrakeAcc` | bodyApi.physicsBody.getBrakeAcc | `999.000000` | `999.000000` | PASS |

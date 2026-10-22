@@ -2104,9 +2104,9 @@ struct PhysicsDataObj {
     // The local entity query path does not yet have that retail index/update.
     float visibilityAabbScaleX = 1.0f;
     float visibilityAabbScaleY = 1.0f;
-    // rotateTo's retail multi-body wrapper sets its native update flag at
-    // PhysicsData offset +0x40. The corresponding consumer/reset is unknown.
-    bool rotateToDirty = false;
+    // Retail marks PhysicsData offset +0x40 after rotateTo and body-list
+    // replacement. The corresponding consumer/reset is not yet mapped.
+    bool physicsDataDirty = false;
     // The entity table this PhysicsData belongs to, if any -- see
     // MakePhysicsData/getCollidingEntities.
     gmVariable ownerEntity = gmVariable::s_null;
@@ -3639,7 +3639,7 @@ int GM_CDECL gmf_pd_rotateTo(gmThread* a_thread) {
         b->rotateToY = y;
         b->rotateToSign = (int)a_thread->ParamFloatOrInt(1, 0.0f);
     }
-    d->rotateToDirty = true;
+    d->physicsDataDirty = true;
     return GM_OK;
 }
 int GM_CDECL gmf_pd_stopRotatingTo(gmThread* a_thread) {
@@ -3794,17 +3794,23 @@ int GM_CDECL gmf_pd_replaceBody(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(index, 0, 0);
     gmMachine& m = *a_thread->GetMachine();
-    if (index < 0 || index >= (int)d->bodies.size()) { a_thread->PushNull(); return GM_OK; }
-    PhysicsBodyData* old = GetBodyData(m, d->bodies[(size_t)index]);
-    float x = 0.0f, y = 0.0f;
-    if (old && old->body) { b2Vec2 p = old->body->GetPosition(); x = p.x; y = p.y; }
-    InvalidatePhysicsBody(old);
-    UnrootGmVariable(m, d->bodies[(size_t)index]);
-    gmVariable fresh = MakePhysicsBody(m, x, y, false, true);
+    if (index >= 0 && index < (int)d->bodies.size()) {
+        PhysicsBodyData* old = GetBodyData(m, d->bodies[(size_t)index]);
+        InvalidatePhysicsBody(old);
+        UnrootGmVariable(m, d->bodies[(size_t)index]);
+        d->bodies.erase(d->bodies.begin() + index);
+    }
+    // Retail creates a replacement even when a nonnegative index is beyond
+    // the current body list, appending it at the end. New bodies start at 0,0.
+    gmVariable fresh = MakePhysicsBody(m, 0.0f, 0.0f, false, true);
     PhysicsBodyData* bd = GetBodyData(m, fresh);
     if (bd && bd->body) bd->body->GetUserData().pointer = (uintptr_t)d;
     RootGmVariable(m, fresh);
-    d->bodies[(size_t)index] = fresh;
+    const size_t insertIndex = index < 0
+        ? 0
+        : std::min((size_t)index, d->bodies.size());
+    d->bodies.insert(d->bodies.begin() + insertIndex, fresh);
+    d->physicsDataDirty = true;
     a_thread->Push(fresh);
     return GM_OK;
 }

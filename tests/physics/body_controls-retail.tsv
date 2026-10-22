@@ -1,4 +1,4 @@
-# probe-sha256 4b9c8964d727015c36340cba2122db113f934b9cca87844db24a99293ac38212
+# probe-sha256 b1130a7b0485ba3672eaf877f72d344ef30bf5186e9d1ed02c453879fd671ea1
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
 bodyApi.physicsBody.doesRotationResponse	1
 bodyApi.physicsBody.getAngularVel	0.500000
@@ -108,6 +108,13 @@ bodyCtl.maxSpeed	12.000000
 bodyCtl.pointInside	1
 bodyCtl.pointOutside	0
 bodyCtl.position	1
+bodyCtl.removeAllBodyAfter	0
+bodyCtl.removeAllBodyBefore	2
+bodyCtl.removeBodyCount	1
+bodyCtl.replaceBodyCount	1
+bodyCtl.replaceBodyExists	1
+bodyCtl.replaceBodyOutOfRangeExists	1
+bodyCtl.replaceBodyPos	0.000000
 bodyCtl.restitution	0.750000
 bodyCtl.sensor	1
 bodyCtl.setSpeed	10.000000
