@@ -1,8 +1,11 @@
-# probe-sha256 eff3da6c118cdaba3930b31f69a6f12ba4863c27763b331406716a14bb5a16b8
+# probe-sha256 7ad60792cff42a3368be64a7960f5074bcedbd8247d6eb5e3882f536bc86ca9c
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
+filter.deferredGroupInteraction	1
+filter.deferredGroupReadback	0
 filter.differentGroupsUseMasks	0
 filter.mutualMaskAllowed	1
 filter.mutualMaskBlocked	0
+filter.negativeGroupAfterReenable	0
 filter.negativeGroupBlocks	0
 filter.positiveGroupOverridesMasks	1
 filter.wideCategoryInteraction	1

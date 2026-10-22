@@ -94,6 +94,9 @@ bool ReadVec2Args(gmThread* a_thread, gmMachine& a_machine, float& a_x, float& a
 
 struct PhysicsBodyData {
     b2Body* body = nullptr;
+    // Retail stores collision groups as 32-bit values; Box2D's filter field
+    // is only 16-bit, so the contact filter reads this full-width value.
+    int32_t collisionGroup = 0;
     bool ownerEntityDeleted = false;
     bool retailCrashWarningReported = false;
     bool isSensor = false;
@@ -174,6 +177,20 @@ void ApplyDesiredFixtureFilter(PhysicsBodyData* body, b2Fixture* fixture,
     }
 }
 
+void SetBodyCollisionGroup(PhysicsBodyData* body, int32_t group) {
+    if (!body || !body->body) return;
+    // Retail applies this through existing shape records. A call made before
+    // the first fixture exists is a no-op and does not affect later shapes.
+    if (!body->body->GetFixtureList()) return;
+    body->collisionGroup = group;
+    for (b2Fixture* fixture = body->body->GetFixtureList(); fixture;
+         fixture = fixture->GetNext()) {
+        b2Filter filter = DesiredFixtureFilter(body, fixture);
+        filter.groupIndex = static_cast<int16>(group);
+        ApplyDesiredFixtureFilter(body, fixture, filter);
+    }
+}
+
 void SetBodyCollidable(PhysicsBodyData* body, bool collidable) {
     if (body->isCollidable == collidable) return;
     if (!collidable) {
@@ -205,8 +222,11 @@ void SetBodyCollidable(PhysicsBodyData* body, bool collidable) {
 }
 
 void TrackNewFixture(PhysicsBodyData* body, b2Fixture* fixture) {
+    if (!body || !fixture) return;
+    b2Filter desired = fixture->GetFilterData();
+    desired.groupIndex = static_cast<int16>(body->collisionGroup);
+    fixture->SetFilterData(desired);
     if (body->isCollidable) return;
-    const b2Filter desired = fixture->GetFilterData();
     body->savedCollidableFilters[fixture] = desired;
     b2Filter disabled = desired;
     disabled.categoryBits = 0;
@@ -251,6 +271,7 @@ std::vector<gmVariable> g_bodiesByObjectId; // index 0 reserved/invalid
 // holds the script-visible gmVariable handles) because the integrator needs
 // the raw struct.
 std::vector<PhysicsBodyData*> g_allPhysicsBodies;
+std::unordered_map<b2Body*, PhysicsBodyData*> g_bodyDataByB2Body;
 struct PhysicsDataObj;
 std::vector<PhysicsDataObj*> g_allPhysicsData;
 std::vector<PhysicsDataObj*> g_orderedPhysicsMovementData;
@@ -267,6 +288,7 @@ gmVariable MakePhysicsBody(gmMachine& a_machine, float a_x = 0.0f, float a_y = 0
     def.position.Set(a_x, a_y);
     def.awake = a_awake;
     data->body = GetPhysicsWorld().CreateBody(&def);
+    g_bodyDataByB2Body[data->body] = data;
     gmUserObject* obj = a_machine.AllocUserObject(data, g_physicsBodyType);
     data->selfVar = gmVariable(obj);
     if (g_bodiesByObjectId.empty()) g_bodiesByObjectId.push_back(gmVariable::s_null); // reserve id 0
@@ -321,10 +343,8 @@ b2Fixture* ThisShape(gmThread* a_thread) {
 }
 PhysicsBodyData* PhysicsBodyForShapeFixture(b2Fixture* fixture) {
     if (!fixture) return nullptr;
-    b2Body* owner = fixture->GetBody();
-    for (PhysicsBodyData* body : g_allPhysicsBodies)
-        if (body && body->body == owner) return body;
-    return nullptr;
+    auto it = g_bodyDataByB2Body.find(fixture->GetBody());
+    return it == g_bodyDataByB2Body.end() ? nullptr : it->second;
 }
 
 int RetailShapeVertexCount(const b2Shape* shape) {
@@ -526,6 +546,7 @@ void InvalidatePhysicsBody(PhysicsBodyData* a_body) {
     // before clearing its owner pointer or scheduling DestroyBody.
     RemovePhysicsContactPairsForBody(body);
     UnregisterBodyShapeGlobalIds(body);
+    g_bodyDataByB2Body.erase(body);
     // A checkpoint can remove a vehicle from onEntityCollide, i.e. while
     // b2World::Step is still dispatching callbacks. Box2D forbids body or
     // joint destruction while locked. Detach the script-visible wrapper now
@@ -1098,20 +1119,15 @@ int GM_CDECL gmf_pb_setCollisionGroup(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(group, 0, 0);
-    for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-        b2Filter filter = DesiredFixtureFilter(b, f);
-        filter.groupIndex = (int16)group;
-        ApplyDesiredFixtureFilter(b, f, filter);
-    }
+    SetBodyCollisionGroup(b, group);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getCollisionGroup(gmThread* a_thread) {
     // RETAIL PPC VERIFIED: PHYSICSBODY.getCollisionGroup (0x90394) resolves
-    // shape index 0 and returns its 32-bit field at +0x40. This adapter reads
-    // the first fixture's groupIndex; its narrowed width is documented above.
+    // shape index 0 and returns its 32-bit field at +0x40.
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     b2Fixture* f = b->body->GetFixtureList();
-    a_thread->PushInt(f ? (int)DesiredFixtureFilter(b, f).groupIndex : 0);
+    a_thread->PushInt(f ? b->collisionGroup : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
@@ -3708,12 +3724,7 @@ int GM_CDECL gmf_pd_setCollisionGroup(gmThread* a_thread) {
     gmMachine& m = *a_thread->GetMachine();
     for (const gmVariable& bodyVar : d->bodies) {
         PhysicsBodyData* b = GetBodyData(m, bodyVar);
-        if (!b || !b->body) continue;
-        for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
-            b2Filter filter = DesiredFixtureFilter(b, f);
-            filter.groupIndex = (int16)group;
-            ApplyDesiredFixtureFilter(b, f, filter);
-        }
+        SetBodyCollisionGroup(b, group);
     }
     return GM_OK;
 }
@@ -4006,6 +4017,12 @@ int GM_CDECL gmf_pd_getShapeRadius(gmThread* a_thread) {
 }
 
 } // namespace
+
+int32_t GetPhysicsFixtureCollisionGroup(const b2Fixture* fixture) {
+    PhysicsBodyData* body = PhysicsBodyForShapeFixture(
+        const_cast<b2Fixture*>(fixture));
+    return body ? body->collisionGroup : 0;
+}
 
 void InvalidatePhysicsMovementMembership() {
     g_physicsMovementMembershipDirty = true;

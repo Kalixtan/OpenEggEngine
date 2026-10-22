@@ -13,6 +13,9 @@
     "filter.wideCategoryInteraction",
     "filter.wideCategoryReadback",
     "filter.wideMaskInteraction",
-    "filter.wideMaskReadback"
+    "filter.wideMaskReadback",
+    "filter.negativeGroupAfterReenable",
+    "filter.deferredGroupReadback",
+    "filter.deferredGroupInteraction"
   ]
 }

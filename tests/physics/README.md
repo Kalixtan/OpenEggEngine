@@ -3,10 +3,9 @@
 `probe.gm` runs unchanged on retail PS3 and OpenEgg. The checked-in retail
 baseline records the exact readings and hashes of the probe scripts.
 
-The collision filter edge probe found one parity issue: retail preserves a
-collision group value of `65537`, while OpenEgg reads it back as `1`. With
-groups `65537` and `1`, retail applies the masks and rejects contact; OpenEgg
-truncates both groups to `1` and allows contact. See `reports/PHYSICS.md`.
+The collision filter edge probe checks category masks, signed groups, and
+full-width group values against retail. It also checks that groups `65537`
+and `1` remain distinct when the masks reject contact.
 
 To run both engines again, first capture retail from your own installed game:
 

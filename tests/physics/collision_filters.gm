@@ -30,6 +30,18 @@ global MakeFilterPair=function(x,catA,maskA,groupA,catB,maskB,groupB) {
     entityB.setIsEnabled(1);
     return table(a=entityA,b=entityB,pa=dataA,pb=dataB,ba=bodyA,bb=bodyB);
 };
+global MakeFilterBody=function(x,mass) {
+    local entity=EntityManager.createEntity("EntityQueryProbeEntity");
+    local data=entity.getPhysicsData();
+    local body=data.getBody(data.createBody());
+    body.setPos(vector2D(x,0));
+    FilterShape.reset();
+    FilterShape.setMass(mass);
+    FilterShape.addCircle(2,0,0);
+    body.appendShapes(FilterShape);
+    entity.setIsEnabled(1);
+    return table(entity=entity,data=data,body=body);
+};
 global SampleFilter=function(name,pair) {
     Probe("filter."+name,pair.pa.isColliding(pair.b));
 };
@@ -46,6 +58,28 @@ global Main=function(p) {
                 this.wideGroup=MakeFilterPair(500,1,2,65537,4,1,1);
                 this.wideCategory=MakeFilterPair(600,65537,-1,0,1,1,0);
                 this.wideMask=MakeFilterPair(700,1,65537,0,1,1,0);
+                this.disabledGroup=MakeFilterPair(800,1,1,0,1,1,0);
+                this.disabledGroup.ba.setIsCollidable(0);
+                this.disabledGroup.ba.setCollisionGroup(-12);
+                this.disabledGroup.bb.setCollisionGroup(-12);
+                this.disabledGroup.ba.setCollisionCategory(2);
+                this.disabledGroup.ba.setCategoriesToCollideWith(1);
+                this.deferredEntity=EntityManager.createEntity("EntityQueryProbeEntity");
+                this.deferredData=this.deferredEntity.getPhysicsData();
+                this.deferredBody=this.deferredData.getBody(this.deferredData.createBody());
+                this.deferredBody.setPos(vector2D(900,0));
+                this.deferredBody.setCollisionGroup(65537);
+                this.deferredBody.setCollisionCategory(2);
+                this.deferredBody.setCategoriesToCollideWith(0);
+                FilterShape.reset();
+                FilterShape.setMass(1);
+                FilterShape.addCircle(2,0,0);
+                this.deferredBody.appendShapes(FilterShape);
+                this.deferredEntity.setIsEnabled(1);
+                this.deferredPeer=MakeFilterBody(903,0);
+                this.deferredPeer.body.setCollisionCategory(1);
+                this.deferredPeer.body.setCategoriesToCollideWith(1);
+                this.deferredPeer.body.setCollisionGroup(1);
                 this.frame=1;
             } else if (this.frame==5) {
                 SampleFilter("mutualMaskBlocked",this.blocked);
@@ -59,6 +93,11 @@ global Main=function(p) {
                 Probe("filter.wideCategoryReadback",this.wideCategory.ba.getCollisionCategory());
                 SampleFilter("wideMaskInteraction",this.wideMask);
                 Probe("filter.wideMaskReadback",this.wideMask.ba.getCategoriesToCollideWith());
+                this.disabledGroup.ba.setIsCollidable(1);
+                SampleFilter("negativeGroupAfterReenable",this.disabledGroup);
+                Probe("filter.deferredGroupReadback",this.deferredBody.getCollisionGroup());
+                SampleFilter("deferredGroupInteraction",table(
+                    pa=this.deferredData,pb=this.deferredPeer.data,b=this.deferredPeer.entity));
                 EntityManager.deleteAllEntities();
                 EntityManager.flush();
                 GameSystem.setIsShouldUpdateEntities(1);

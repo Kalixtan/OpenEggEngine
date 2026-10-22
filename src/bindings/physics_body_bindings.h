@@ -6,6 +6,10 @@
 class b2Fixture;
 class b2Body;
 
+// Collision group is 32-bit in the retail shape record; Box2D stores only
+// 16 bits in b2Filter, so its contact filter asks this binding-side state.
+int32_t GetPhysicsFixtureCollisionGroup(const b2Fixture* a_fixture);
+
 // Runtime user type created by RegisterPhysicsBodyBindings. Video's
 // setInterpolatedColour wrapper accepts this type as one of its two native
 // colour-source forms (retail type tag 37).

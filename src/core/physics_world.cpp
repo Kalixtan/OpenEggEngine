@@ -666,13 +666,29 @@ private:
 
 };
 
+class RetailCollisionFilter : public b2ContactFilter {
+public:
+    bool ShouldCollide(b2Fixture* a_fixtureA, b2Fixture* a_fixtureB) override {
+        const int32_t groupA = GetPhysicsFixtureCollisionGroup(a_fixtureA);
+        const int32_t groupB = GetPhysicsFixtureCollisionGroup(a_fixtureB);
+        if (groupA != 0 && groupA == groupB) return groupA > 0;
+
+        const b2Filter filterA = a_fixtureA->GetFilterData();
+        const b2Filter filterB = a_fixtureB->GetFilterData();
+        return (filterA.maskBits & filterB.categoryBits) != 0 &&
+               (filterA.categoryBits & filterB.maskBits) != 0;
+    }
+};
+
 ScriptContactListener g_contactListener;
+RetailCollisionFilter g_collisionFilter;
 } // namespace
 
 b2World& GetPhysicsWorld() {
     if (!g_world) {
         g_world = new b2World(b2Vec2(0.0f, 0.0f));
         g_world->SetContactListener(&g_contactListener);
+        g_world->SetContactFilter(&g_collisionFilter);
     }
     return *g_world;
 }
