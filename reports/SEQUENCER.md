@@ -1,6 +1,6 @@
 # Sequencer test report
 
-Generated: 2026-10-21 21:15 UTC
+Generated: 2026-10-22 00:34 UTC
 Retail: `tests/sequencer/retail-baseline.tsv` and `tests/sequencer/edge-baselines/` | OpenEgg: `tests/_results/sequencer/`
 
 Matched: **204/204 declared readings (100%)** | Known gaps: **0** | Failures: **0** | Uncaptured: **0** | Edge groups run: **20** | Clock samples: **4** | Undefined retail outputs: **3**

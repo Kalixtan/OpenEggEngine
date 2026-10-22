@@ -1,6 +1,6 @@
 # Physics test report
 
-Generated: 2026-10-22 00:31 UTC
+Generated: 2026-10-22 00:34 UTC
 
 Matched: **6348/6348 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 

@@ -1,6 +1,6 @@
 # Animation probe
 
-Generated: 2026-10-21 17:51 UTC
+Generated: 2026-10-22 00:35 UTC
 Retail comparison: **39/39 matched**.
 Asset: `Platformer/gameAssets/checkpointTriggeredInactive.fsa` (copied from the supplied extracted game data for this run).
 Local checks: **16/16 passed**.
