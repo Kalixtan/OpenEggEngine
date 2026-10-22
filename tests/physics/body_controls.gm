@@ -17,6 +17,13 @@ global Main=function(p) {
             }
             if (this.ran) { return; }
             this.ran=1;
+            local updateEntities=GameSystem.isShouldUpdateEntities();
+            GameSystem.setIsShouldUpdateEntities(0);
+            Probe("bodyCtl.updateEntitiesOff",GameSystem.isShouldUpdateEntities());
+            GameSystem.setIsShouldUpdateEntities(1);
+            Probe("bodyCtl.updateEntitiesOn",GameSystem.isShouldUpdateEntities());
+            GameSystem.setIsShouldUpdateEntities(updateEntities);
+            Probe("bodyCtl.updateInterval",GameSystem.getUpdateInterval());
             GameSystem.setIsShouldUpdateEntities(0);
             local entity=EntityManager.createEntity("EntityQueryProbeEntity");
             local pd=entity.getPhysicsData();

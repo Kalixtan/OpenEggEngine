@@ -10,6 +10,8 @@
     "bodyCtl.angularVelocity", "bodyCtl.shapeCount",
     "bodyCtl.pointInside", "bodyCtl.pointOutside", "bodyCtl.sleeping",
     "bodyCtl.flushAfterOne", "bodyCtl.flushAfterTen",
+    "bodyCtl.updateEntitiesOff", "bodyCtl.updateEntitiesOn",
+    "bodyCtl.updateInterval",
     "bodyApi.physicsBody.doesRotationResponse",
     "bodyApi.physicsBody.getAngularVel", "bodyApi.physicsBody.getBrakeAcc",
     "bodyApi.physicsBody.getCategoriesToCollideWith",

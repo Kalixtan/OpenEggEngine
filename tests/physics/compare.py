@@ -212,6 +212,8 @@ ASSOCIATED = {
     "joint.config.resetMotor": ("jointType.setMotor", "jointType.setRevoluteMotor"),
     "bodyCtl.flushAfterOne": ("physicsBody.setVel", "Physics.flush"),
     "bodyCtl.flushAfterTen": ("physicsBody.setVel", "Physics.flush"),
+    "bodyCtl.updateEntitiesOff": ("GameSystem.setIsShouldUpdateEntities",),
+    "bodyCtl.updateEntitiesOn": ("GameSystem.setIsShouldUpdateEntities",),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -558,6 +560,9 @@ BODY_CONTROL_FIELDS = {
     "pointInside": "physicsBody.isPointWithin", "pointOutside": "physicsBody.isPointWithin",
     "shapeCount": "physicsBody.getNumShapes", "sleeping": "physicsBody.isSleeping",
     "flushAfterOne": "Physics.flush", "flushAfterTen": "Physics.flush",
+    "updateEntitiesOff": "GameSystem.isShouldUpdateEntities",
+    "updateEntitiesOn": "GameSystem.isShouldUpdateEntities",
+    "updateInterval": "GameSystem.getUpdateInterval",
 }
 BODY_COMMAND_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",

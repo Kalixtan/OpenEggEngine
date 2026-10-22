@@ -1,4 +1,4 @@
-# probe-sha256 b4bd672bfe85a9036b0b0ddef64d0f2f7ead15d6b9926f036be392a497017805
+# probe-sha256 4b9c8964d727015c36340cba2122db113f934b9cca87844db24a99293ac38212
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
 bodyApi.physicsBody.doesRotationResponse	1
 bodyApi.physicsBody.getAngularVel	0.500000
@@ -114,4 +114,7 @@ bodyCtl.setSpeed	10.000000
 bodyCtl.shapeCount	1
 bodyCtl.sleeping	0.000000
 bodyCtl.speed	5.000000
+bodyCtl.updateEntitiesOff	0
+bodyCtl.updateEntitiesOn	1
+bodyCtl.updateInterval	16.666666
 bodyCtl.velocity	1

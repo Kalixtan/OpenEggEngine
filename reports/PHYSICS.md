@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 17:26 UTC
+Generated: 2026-10-22 17:29 UTC
 
-Matched: **6421/6421 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6424/6424 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **316/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **319/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -203,6 +203,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.sleeping | 1 | 1 |
 | bodyCtl.flushAfterOne | 1 | 1 |
 | bodyCtl.flushAfterTen | 1 | 1 |
+| bodyCtl.updateEntitiesOff | 1 | 1 |
+| bodyCtl.updateEntitiesOn | 1 | 1 |
+| bodyCtl.updateInterval | 1 | 1 |
 | bodyCmd.thrust | 288 | 288 |
 | bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
@@ -398,13 +401,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.getRandomSign` | 0 | 0 | untested |
 | `GameSystem.getRandomSignAndReal` | 0 | 0 | untested |
 | `GameSystem.getSimulationSpeed` | 2 | 2 | PASS |
-| `GameSystem.getUpdateInterval` | 0 | 0 | untested |
+| `GameSystem.getUpdateInterval` | 1 | 1 | PASS |
 | `GameSystem.isAutoLoadLevel` | 0 | 0 | untested |
 | `GameSystem.isBeingNice` | 0 | 0 | untested |
 | `GameSystem.isLoading` | 0 | 0 | untested |
 | `GameSystem.isPaused` | 7 | 7 | PASS |
 | `GameSystem.isProcessRunning` | 6 | 6 | PASS |
-| `GameSystem.isShouldUpdateEntities` | 0 | 0 | untested |
+| `GameSystem.isShouldUpdateEntities` | 2 | 2 | PASS |
 | `GameSystem.openConsole` | 0 | 0 | untested |
 | `GameSystem.quit` | 0 | 0 | untested |
 | `GameSystem.resetPlayTimer` | 0 | 0 | untested |
@@ -415,7 +418,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.setIsBeingNice` | 0 | 0 | untested |
 | `GameSystem.setIsInputEnabled` | 0 | 0 | untested |
 | `GameSystem.setIsLoading` | 0 | 0 | untested |
-| `GameSystem.setIsShouldUpdateEntities` | 0 | 0 | untested |
+| `GameSystem.setIsShouldUpdateEntities` | 2 | 2 | PASS |
 | `GameSystem.setSimulationSpeed` | 4 | 4 | PASS |
 | `GameSystem.startNewProcessList` | 2 | 2 | PASS |
 | `GameSystem.trace` | 0 | 0 | untested |
@@ -5741,6 +5744,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.isSleeping` | bodyCtl.sleeping | `0.000000` | `0.000000` | PASS |
 | `Physics.flush` | bodyCtl.flushAfterOne | `200.009995` | `200.009995` | PASS |
 | `Physics.flush` | bodyCtl.flushAfterTen | `200.099945` | `200.099945` | PASS |
+| `GameSystem.isShouldUpdateEntities` | bodyCtl.updateEntitiesOff | `0` | `0` | PASS |
+| `GameSystem.isShouldUpdateEntities` | bodyCtl.updateEntitiesOn | `1` | `1` | PASS |
+| `GameSystem.getUpdateInterval` | bodyCtl.updateInterval | `16.666666` | `16.666666` | PASS |
 | `physicsBody.doesRotationResponse` | bodyApi.physicsBody.doesRotationResponse | `1` | `1` | PASS |
 | `physicsBody.getAngularVel` | bodyApi.physicsBody.getAngularVel | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getBrakeAcc` | bodyApi.physicsBody.getBrakeAcc | `999.000000` | `999.000000` | PASS |
