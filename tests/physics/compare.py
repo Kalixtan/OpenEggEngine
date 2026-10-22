@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def percent(passed, total):
-    return f"{passed * 100 / total:.1f}%" if total else "—"
+    return f"{passed * 100 / total:.2f}%" if total else "—"
 
 
 PROBE = HERE / "probe.gm"
@@ -529,8 +529,10 @@ BODY_COMMAND_EFFECTS = {
     "brake": ("physicsBody.brake", "physicsBody.setBrakeAcc"),
     "turn": ("physicsBody.rotateTo", "physicsBody.stopRotatingTo",
              "physicsBody.setRotateAcc", "physicsBody.setMaxRotateSpeed"),
-    "sleep": ("physicsBody.putToSleep", "physicsBody.setAllowSleeping",
+    "sleep": ("physicsBody.setAllowSleeping", "physicsData.putToSleep",
+              "physicsData.wakeUp",
               "physicsBody.setVel"),
+    "idle": (),
 }
 LOCAL_ONLY = {
     "physicsBody.isCircle": "OpenEgg convenience method; no retail method exists",

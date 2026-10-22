@@ -855,7 +855,23 @@ void StepPhysicsWorld(float a_dt) {
             sweptBodies.push_back(body);
         }
     }
+    std::vector<b2Body*> alreadySleeping;
+    for (b2Body* body = world.GetBodyList(); body; body = body->GetNext()) {
+        if (body->GetType() == b2_dynamicBody && !body->IsAwake())
+            alreadySleeping.push_back(body);
+    }
     world.Step(stepMilliseconds, 2, 2);
+    for (b2Body* body : alreadySleeping) {
+        bool touching = false;
+        for (b2ContactEdge* edge = body->GetContactList(); edge; edge = edge->next) {
+            if (edge->contact->IsTouching()) {
+                touching = true;
+                break;
+            }
+        }
+        if (!touching && !body->IsAwake())
+            body->SetLinearVelocity(b2Vec2(-0.0f, -0.0f));
+    }
     for (b2Body* body : sweptBodies) body->SetBullet(false);
     if (CreatureDebugEnabled() && machine) {
         for (b2Body* body = GetPhysicsWorld().GetBodyList(); body;

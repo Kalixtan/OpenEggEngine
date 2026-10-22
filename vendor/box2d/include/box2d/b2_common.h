@@ -113,7 +113,8 @@
 // Sleep
 
 /// Milliseconds a body must be still before it can sleep.
-#define b2_timeToSleep				500.0f
+// Retail marks a stationary body asleep after about seven 60 Hz ticks.
+#define b2_timeToSleep				100.0f
 
 /// Sleep velocity limits use world units and radians per millisecond.
 #define b2_linearSleepTolerance		(0.00001f * b2_lengthUnitsPerMeter)

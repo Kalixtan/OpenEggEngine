@@ -370,7 +370,21 @@ void b2Island::Solve(b2Profile* profile, const b2TimeStep& step, const b2Vec2& g
 				continue;
 			}
 
+			bool hasSensorFixture = false;
+			// Sensor overlaps are polled without solver contacts. Keep those
+			// bodies awake so filter changes can produce the next overlap event.
+			for (b2Fixture* fixture = b->GetFixtureList(); fixture;
+				 fixture = fixture->GetNext())
+			{
+				if (fixture->IsSensor())
+				{
+					hasSensorFixture = true;
+					break;
+				}
+			}
+
 			if ((b->m_flags & b2Body::e_autoSleepFlag) == 0 ||
+				hasSensorFixture ||
 				b->m_angularVelocity * b->m_angularVelocity > angTolSqr ||
 				b2Dot(b->m_linearVelocity, b->m_linearVelocity) > linTolSqr)
 			{
