@@ -1,5 +1,6 @@
-# probe-sha256 ba90dee3c1d17c5ef0079283d56d49787284d19f9ca149128a9e0205c0cda6cc
-# support-sha256 MutationProbeEntity.gm 2c6920a44fdf98b137089bd8fb8c15ba851b2a09c3964c2bf14fb3149d3986b5
+# probe-sha256 507dfcd30bc8b0012b0243c5ccb43a196f63c92d596a2c930d9c3d4b84b45066
+# support-sha256 MutationProbeEntity.gm 054c96a0a64b6bc580650ed00b09dbfc9694205192fc80dba9860c7d5f5017fb
+callbackMutation.addedValidAfterCallbackFlush	1
 callbackMutation.addedValidAfterFlush	1
 callbackMutation.addedValidPending	0
 callbackMutation.countAfterCreate	3

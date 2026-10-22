@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-22 14:21 UTC
+Generated: 2026-10-22 14:26 UTC
 
-Matched: **6389/6389 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6390/6390 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **306/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -140,6 +140,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | callbackMutation.otherValidBefore | 1 | 1 |
 | callbackMutation.countBefore | 1 | 1 |
 | callbackMutation.addedValidPending | 1 | 1 |
+| callbackMutation.addedValidAfterCallbackFlush | 1 | 1 |
 | callbackMutation.countAfterCreate | 1 | 1 |
 | callbackMutation.jointType | 1 | 1 |
 | callbackMutation.otherTagged | 1 | 1 |
@@ -342,7 +343,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.createEntity` | 2 | 2 | PASS |
 | `EntityManager.createEntityAsPlayer` | 0 | 0 | untested |
 | `EntityManager.deleteAllEntities` | 6 | 6 | PASS |
-| `EntityManager.flush` | 17 | 17 | PASS |
+| `EntityManager.flush` | 18 | 18 | PASS |
 | `EntityManager.getAllEntities` | 11 | 11 | PASS |
 | `EntityManager.getAllManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllNonManualEntities` | 1 | 1 | PASS |
@@ -5646,6 +5647,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityManager.isEntityIDValid` | callbackMutation.otherValidBefore | `1` | `1` | PASS |
 | `EntityManager.getNumEntities` | callbackMutation.countBefore | `2` | `2` | PASS |
 | `EntityManager.isEntityIDValid` | callbackMutation.addedValidPending | `0` | `0` | PASS |
+| `EntityManager.flush` | callbackMutation.addedValidAfterCallbackFlush | `1` | `1` | PASS |
 | `EntityManager.getNumEntities` | callbackMutation.countAfterCreate | `3` | `3` | PASS |
 | `Physics.createJoint` | callbackMutation.jointType | `3` | `3` | PASS |
 | `Entity.tagForDeletion` | callbackMutation.otherTagged | `1` | `1` | PASS |

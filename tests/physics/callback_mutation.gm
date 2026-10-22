@@ -35,6 +35,8 @@ global Main=function(p) {
                 Probe("callbackMutation.countBefore",MutationState.countBefore);
                 Probe("callbackMutation.addedValidPending",MutationState.addedValidPending);
                 Probe("callbackMutation.countAfterCreate",MutationState.countAfterCreate);
+                Probe("callbackMutation.addedValidAfterCallbackFlush",
+                    MutationState.addedValidAfterCallbackFlush);
                 Probe("callbackMutation.jointType",MutationState.jointType);
                 Probe("callbackMutation.otherTagged",MutationState.otherTagged);
                 Probe("callbackMutation.otherValidTagged",MutationState.otherValidTagged);

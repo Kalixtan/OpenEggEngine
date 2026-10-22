@@ -158,11 +158,10 @@ and reuse after collection.
 Process probes compare creation, deferred init, queued termination, pause
 state, callback order, and registry counts with retail.
 
-Advanced lifecycle probes create a joint and entities, then tag both contact
-participants for deletion; stress collection with 96 entities; replace a
-process list while it owns an entity; and combine simulation-speed changes
-with pause-process dispatch. Run `python3 tests/physics/compare.py` for paired
-headless checks.
+Advanced lifecycle probes flush a newly created entity inside a contact
+callback, stress collection with 96 entities, replace a process list while it
+owns an entity, and combine simulation-speed changes with pause dispatch. Run
+`python3 tests/physics/compare.py` for paired headless checks.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired

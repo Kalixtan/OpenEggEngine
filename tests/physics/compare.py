@@ -574,6 +574,7 @@ def owner(name, names):
             "otherValidBefore": "EntityManager.isEntityIDValid",
             "countBefore": "EntityManager.getNumEntities",
             "addedValidPending": "EntityManager.isEntityIDValid",
+            "addedValidAfterCallbackFlush": "EntityManager.flush",
             "countAfterCreate": "EntityManager.getNumEntities",
             "jointType": "Physics.createJoint",
             "otherTagged": "Entity.tagForDeletion",

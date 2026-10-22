@@ -16,6 +16,9 @@ global MutationProbeEntity=function(handle) {
             state.addedID=added.Entity.getObjectID();
             state.addedValidPending=EntityManager.isEntityIDValid(state.addedID);
             state.countAfterCreate=EntityManager.getNumEntities("MutationProbeEntity");
+            EntityManager.flush();
+            state.addedValidAfterCallbackFlush=EntityManager.isEntityIDValid(
+                state.addedID);
             local joint=Physics.createJoint(PHYSICSJOINTTYPE_DISTANCE);
             joint.setupDistanceJoint(this.PhysicsData.getBody(0),
                 other.PhysicsData.getBody(0),

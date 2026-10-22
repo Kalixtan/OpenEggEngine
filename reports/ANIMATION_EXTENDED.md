@@ -1,6 +1,6 @@
 # Animation edge probes
 
-Generated: 2026-10-22 14:17 UTC
+Generated: 2026-10-22 14:25 UTC
 Local checks: **23/23 passed**.
 Captured retail readings: **20/20 matched**.
 
