@@ -674,6 +674,8 @@ BODY_COMMAND_FIELDS = {
     "speed": "physicsBody.getSpeed", "dirX": "physicsBody.getDir",
     "dirY": "physicsBody.getDir", "rotateVel": "physicsBody.getRotateVel",
     "sleeping": "physicsBody.isSleeping",
+    "rotateVelRaw": "physicsBody.getRotateVel",
+    "dirXRaw": "physicsBody.getDir", "dirYRaw": "physicsBody.getDir",
 }
 BODY_COMMAND_EFFECTS = {
     "thrust": ("physicsBody.thrust", "physicsBody.reverseThrust",

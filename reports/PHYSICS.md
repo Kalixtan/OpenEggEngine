@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-22 18:59 UTC
+Generated: 2026-10-22 19:46 UTC
 
-Matched: **7303/7342 comparable readings (99.47%)**. 29 inconclusive, 3 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **7573/7630 comparable readings (99.25%)**. 29 inconclusive, 3 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **345/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -250,9 +250,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCmd.thrust | 288 | 288 |
 | bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
-| bodyCmd.left | 275 | 288 |
-| bodyCmd.right | 275 | 288 |
-| bodyCmd.rotate | 275 | 288 |
+| bodyCmd.left | 365 | 384 |
+| bodyCmd.right | 365 | 384 |
+| bodyCmd.rotate | 365 | 384 |
 | bodyCmd.sleep | 288 | 288 |
 | bodyCmd.idle | 288 | 288 |
 
@@ -614,7 +614,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getCenterOfMass` | 1 | 1 | PASS |
 | `physicsBody.getCollisionCategory` | 60 | 60 | PASS |
 | `physicsBody.getCollisionGroup` | 58 | 58 | PASS |
-| `physicsBody.getDir` | 476 | 515 | FAIL |
+| `physicsBody.getDir` | 650 | 707 | FAIL |
 | `physicsBody.getDirRef` | 0 | 0 | untested |
 | `physicsBody.getDirty` | 0 | 0 | untested |
 | `physicsBody.getEntity` | 2 | 2 | PASS |
@@ -634,7 +634,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getRadius` | 2 | 2 | PASS |
 | `physicsBody.getRestitution` | 1 | 1 | PASS |
 | `physicsBody.getRotateAcc` | 1 | 1 | PASS |
-| `physicsBody.getRotateVel` | 258 | 258 | PASS |
+| `physicsBody.getRotateVel` | 354 | 354 | PASS |
 | `physicsBody.getShape` | 0 | 0 | untested |
 | `physicsBody.getShapeCategoriesToCollideWith` | 3 | 5 | AWAITING RETAIL |
 | `physicsBody.getShapeHeight` | 2 | 2 | PASS |
@@ -671,9 +671,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.rebuildBodyMass` | 0 | 0 | untested |
 | `physicsBody.removeShape` | 0 | 0 | untested |
 | `physicsBody.reverseThrust` | 288 | 288 | PASS |
-| `physicsBody.rotate` | 275 | 288 | FAIL |
-| `physicsBody.rotateLeft` | 275 | 288 | FAIL |
-| `physicsBody.rotateRight` | 275 | 288 | FAIL |
+| `physicsBody.rotate` | 365 | 384 | FAIL |
+| `physicsBody.rotateLeft` | 365 | 384 | FAIL |
+| `physicsBody.rotateRight` | 365 | 384 | FAIL |
 | `physicsBody.rotateTo` | 288 | 288 | PASS |
 | `physicsBody.setAllowSleeping` | 288 | 288 | PASS |
 | `physicsBody.setAngularVel` | 2 | 2 | PASS |
@@ -693,14 +693,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setIsShapeSensor` | 8 | 8 | PASS |
 | `physicsBody.setIsUsingContinuousPhysics` | 0 | 0 | untested |
 | `physicsBody.setMass` | 1 | 1 | PASS |
-| `physicsBody.setMaxRotateSpeed` | 1114 | 1153 | FAIL |
+| `physicsBody.setMaxRotateSpeed` | 1384 | 1441 | FAIL |
 | `physicsBody.setMaxRotationDecayRate` | 0 | 0 | untested |
 | `physicsBody.setMaxSpeed` | 289 | 289 | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | 0 | 0 | untested |
 | `physicsBody.setPolygonShapeVertices` | 0 | 0 | untested |
 | `physicsBody.setPos` | 1 | 1 | PASS |
 | `physicsBody.setRestitution` | 1 | 1 | PASS |
-| `physicsBody.setRotateAcc` | 1113 | 1152 | FAIL |
+| `physicsBody.setRotateAcc` | 1383 | 1440 | FAIL |
 | `physicsBody.setRotateVel` | 1 | 1 | PASS |
 | `physicsBody.setRotationDecayRate` | 0 | 0 | untested |
 | `physicsBody.setShapeCategoriesToCollideWith` | 2 | 4 | AWAITING RETAIL |
@@ -5971,6 +5971,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t0.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t0.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t0.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t0.rotateVelRaw | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t0.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t0.dirYRaw | `0.000000` | `0.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t0.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t0.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t0.y | `6000.000000` | `6000.000000` | PASS |
@@ -5980,6 +5983,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t0.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t0.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t0.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t0.rotateVelRaw | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t0.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t0.dirYRaw | `0.000000` | `0.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t0.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t0.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t0.y | `7000.000000` | `7000.000000` | PASS |
@@ -5989,6 +5995,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t0.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t0.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t0.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t0.rotateVelRaw | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t0.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t0.dirYRaw | `0.000000` | `0.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t0.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t0.x | `200.000000` | `200.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t0.y | `3000.000000` | `3000.000000` | PASS |
@@ -6043,6 +6052,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t1.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t1.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t1.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t1.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t1.dirXRaw | `-4.371139` | `-4.371139` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t1.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t1.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t1.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t1.y | `6000.000000` | `6000.000000` | PASS |
@@ -6052,6 +6064,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t1.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t1.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t1.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t1.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t1.dirXRaw | `-4.371139` | `-4.371139` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t1.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t1.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t1.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t1.y | `7000.000000` | `7000.000000` | PASS |
@@ -6061,6 +6076,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t1.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t1.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t1.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t1.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t1.dirXRaw | `-4.371139` | `-4.371139` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t1.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t1.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t1.x | `200.000000` | `200.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t1.y | `3000.000000` | `3000.000000` | PASS |
@@ -6115,6 +6133,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t2.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t2.dirY | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t2.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t2.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t2.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t2.dirYRaw | `-8.742278` | `-8.742278` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t2.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t2.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t2.y | `6000.000000` | `6000.000000` | PASS |
@@ -6124,6 +6145,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t2.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t2.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t2.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t2.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t2.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t2.dirYRaw | `8.742278` | `8.742278` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t2.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t2.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t2.y | `7000.000000` | `7000.000000` | PASS |
@@ -6133,6 +6157,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t2.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t2.dirY | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t2.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t2.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t2.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t2.dirYRaw | `-8.742278` | `-8.742278` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t2.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t2.x | `200.000000` | `200.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t2.y | `3000.000000` | `3000.000000` | PASS |
@@ -6187,6 +6214,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t3.dirX | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t3.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t3.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t3.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t3.dirXRaw | `1.192487` | `1.192488` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t3.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t3.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t3.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t3.y | `6000.000000` | `6000.000000` | PASS |
@@ -6196,6 +6226,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t3.dirX | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t3.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t3.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t3.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t3.dirXRaw | `1.192487` | `1.192488` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t3.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t3.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t3.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t3.y | `7000.000000` | `7000.000000` | PASS |
@@ -6205,6 +6238,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t3.dirX | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t3.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t3.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t3.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t3.dirXRaw | `1.192487` | `1.192488` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t3.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t3.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t3.x | `200.000000` | `200.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t3.y | `3000.000000` | `3000.000000` | PASS |
@@ -6259,6 +6295,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t4.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t4.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t4.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t4.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t4.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t4.dirYRaw | `17.484556` | `17.484556` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t4.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t4.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t4.y | `6000.000000` | `6000.000000` | PASS |
@@ -6268,6 +6307,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t4.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t4.dirY | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t4.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t4.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t4.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t4.dirYRaw | `-17.484556` | `-17.484556` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t4.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t4.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t4.y | `7000.000000` | `7000.000000` | PASS |
@@ -6277,6 +6319,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t4.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t4.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t4.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t4.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t4.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t4.dirYRaw | `17.484556` | `17.484556` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t4.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t4.x | `200.000000` | `200.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t4.y | `3000.000000` | `3000.000000` | PASS |
@@ -6331,6 +6376,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t5.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t5.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t5.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t5.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t5.dirXRaw | `-33.776623` | `-33.776623` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t5.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t5.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t5.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t5.y | `6000.000000` | `6000.000000` | PASS |
@@ -6340,6 +6388,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t5.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t5.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t5.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t5.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t5.dirXRaw | `-33.776623` | `-33.776623` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t5.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t5.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t5.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t5.y | `7000.000000` | `7000.000000` | PASS |
@@ -6349,6 +6400,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t5.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t5.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t5.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t5.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t5.dirXRaw | `-33.776623` | `-33.776623` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t5.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t5.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t5.x | `200.000000` | `200.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t5.y | `3000.000000` | `3000.000000` | PASS |
@@ -6401,8 +6455,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t6.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t6.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t6.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t6.dirY | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t6.dirY | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t6.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t6.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t6.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t6.dirYRaw | `-2.384975` | `-2.384976` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.left.t6.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t6.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t6.y | `6000.000000` | `6000.000000` | PASS |
@@ -6410,8 +6467,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t6.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t6.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t6.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t6.dirY | `0.000000` | `-0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t6.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t6.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t6.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t6.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t6.dirYRaw | `2.384975` | `2.384976` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.right.t6.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t6.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t6.y | `7000.000000` | `7000.000000` | PASS |
@@ -6419,8 +6479,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t6.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t6.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t6.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t6.dirY | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t6.dirY | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t6.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t6.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t6.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t6.dirYRaw | `-2.384975` | `-2.384976` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t6.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t6.x | `216.666672` | `216.666672` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t6.y | `3000.000000` | `3000.000000` | PASS |
@@ -6475,6 +6538,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t7.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t7.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t7.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t7.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t7.dirXRaw | `-29.006674` | `-29.006670` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t7.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t7.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t7.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t7.y | `6000.000000` | `6000.000000` | PASS |
@@ -6484,6 +6550,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t7.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t7.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t7.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t7.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t7.dirXRaw | `-29.006674` | `-29.006670` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t7.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t7.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t7.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t7.y | `7000.000000` | `7000.000000` | PASS |
@@ -6493,6 +6562,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t7.dirX | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t7.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t7.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t7.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t7.dirXRaw | `-29.006674` | `-29.006670` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t7.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t7.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t7.x | `233.333344` | `233.333344` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t7.y | `3000.000000` | `3000.000000` | PASS |
@@ -6547,6 +6619,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t8.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t8.dirY | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t8.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t8.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t8.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t8.dirYRaw | `-60.398319` | `-60.398319` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t8.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t8.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t8.y | `6000.000000` | `6000.000000` | PASS |
@@ -6556,6 +6631,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t8.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t8.dirY | `0.000001` | `0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t8.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t8.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t8.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t8.dirYRaw | `60.398319` | `60.398319` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t8.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t8.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t8.y | `7000.000000` | `7000.000000` | PASS |
@@ -6565,6 +6643,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t8.dirX | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t8.dirY | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t8.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t8.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t8.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t8.dirYRaw | `-60.398319` | `-60.398319` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t8.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t8.x | `250.000015` | `250.000015` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t8.y | `3000.000000` | `3000.000000` | PASS |
@@ -6619,6 +6700,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t9.dirX | `0.000001` | `0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t9.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t9.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t9.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t9.dirXRaw | `91.789970` | `91.789970` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t9.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t9.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t9.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t9.y | `6000.000000` | `6000.000000` | PASS |
@@ -6628,6 +6712,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t9.dirX | `0.000001` | `0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t9.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t9.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t9.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t9.dirXRaw | `91.789970` | `91.789970` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t9.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t9.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t9.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t9.y | `7000.000000` | `7000.000000` | PASS |
@@ -6637,6 +6724,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t9.dirX | `0.000001` | `0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t9.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t9.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t9.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t9.dirXRaw | `91.789970` | `91.789970` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t9.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t9.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t9.x | `266.666687` | `266.666687` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t9.y | `3000.000000` | `3000.000000` | PASS |
@@ -6689,8 +6779,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t10.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t10.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t10.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t10.dirY | `0.000001` | `0.000002` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t10.dirY | `0.000001` | `0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t10.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t10.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t10.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t10.dirYRaw | `123.181618` | `123.181610` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.left.t10.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t10.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t10.y | `6000.000000` | `6000.000000` | PASS |
@@ -6698,8 +6791,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t10.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t10.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t10.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t10.dirY | `-0.000001` | `-0.000002` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t10.dirY | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t10.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t10.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t10.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t10.dirYRaw | `-123.181618` | `-123.181610` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.right.t10.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t10.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t10.y | `7000.000000` | `7000.000000` | PASS |
@@ -6707,8 +6803,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t10.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t10.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t10.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t10.dirY | `0.000001` | `0.000002` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t10.dirY | `0.000001` | `0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t10.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t10.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t10.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t10.dirYRaw | `123.181618` | `123.181610` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t10.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t10.x | `283.333344` | `283.333344` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t10.y | `3000.000000` | `3000.000000` | PASS |
@@ -6763,6 +6862,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t11.dirX | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t11.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t11.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t11.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t11.dirXRaw | `-59.205830` | `-59.205830` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t11.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t11.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t11.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t11.y | `6000.000000` | `6000.000000` | PASS |
@@ -6772,6 +6874,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t11.dirX | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t11.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t11.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t11.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t11.dirXRaw | `-59.205830` | `-59.205830` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t11.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t11.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t11.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t11.y | `7000.000000` | `7000.000000` | PASS |
@@ -6781,6 +6886,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t11.dirX | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t11.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t11.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t11.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t11.dirXRaw | `-59.205830` | `-59.205830` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t11.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t11.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t11.x | `300.000000` | `300.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t11.y | `3000.000000` | `3000.000000` | PASS |
@@ -6833,8 +6941,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t12.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t12.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t12.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t12.dirY | `0.000000` | `-0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t12.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t12.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t12.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t12.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t12.dirYRaw | `4.769950` | `4.769952` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.left.t12.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t12.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t12.y | `6000.000000` | `6000.000000` | PASS |
@@ -6842,8 +6953,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t12.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t12.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t12.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t12.dirY | `-0.000000` | `0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t12.dirY | `-0.000000` | `-0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t12.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t12.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t12.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t12.dirYRaw | `-4.769950` | `-4.769952` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.right.t12.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t12.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t12.y | `7000.000000` | `7000.000000` | PASS |
@@ -6851,8 +6965,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t12.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t12.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t12.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t12.dirY | `0.000000` | `-0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t12.dirY | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t12.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t12.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t12.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t12.dirYRaw | `4.769950` | `4.769952` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t12.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t12.x | `316.666656` | `316.666656` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t12.y | `3000.000000` | `3000.000000` | PASS |
@@ -6904,27 +7021,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t13.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t13.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t13.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t13.dirX | `-0.000001` | `-0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t13.dirX | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t13.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t13.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t13.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t13.dirXRaw | `-68.745735` | `-68.745735` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t13.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t13.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t13.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t13.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t13.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t13.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t13.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t13.dirX | `-0.000001` | `-0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t13.dirX | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t13.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t13.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t13.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t13.dirXRaw | `-68.745735` | `-68.745735` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t13.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t13.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t13.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t13.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t13.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t13.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t13.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t13.dirX | `-0.000001` | `-0.000000` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t13.dirX | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t13.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t13.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t13.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t13.dirXRaw | `-68.745735` | `-68.745735` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t13.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t13.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t13.x | `333.333313` | `333.333313` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t13.y | `3000.000000` | `3000.000000` | PASS |
@@ -6979,6 +7105,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t14.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t14.dirY | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t14.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t14.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t14.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t14.dirYRaw | `-132.721512` | `-132.721512` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t14.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t14.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t14.y | `6000.000000` | `6000.000000` | PASS |
@@ -6988,6 +7117,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t14.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t14.dirY | `0.000001` | `0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t14.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t14.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t14.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t14.dirYRaw | `132.721512` | `132.721512` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t14.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t14.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t14.y | `7000.000000` | `7000.000000` | PASS |
@@ -6997,6 +7129,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t14.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t14.dirY | `-0.000001` | `-0.000001` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t14.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t14.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t14.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t14.dirYRaw | `-132.721512` | `-132.721512` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t14.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t14.x | `349.999969` | `349.999969` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t14.y | `3000.000000` | `3000.000000` | PASS |
@@ -7048,27 +7183,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t15.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t15.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t15.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t15.dirX | `0.000002` | `0.000001` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t15.dirX | `0.000002` | `0.000002` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t15.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t15.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t15.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t15.dirXRaw | `196.697311` | `196.697311` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t15.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t15.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t15.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t15.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t15.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t15.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t15.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t15.dirX | `0.000002` | `0.000001` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t15.dirX | `0.000002` | `0.000002` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t15.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t15.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t15.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t15.dirXRaw | `196.697311` | `196.697311` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t15.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t15.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t15.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t15.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t15.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t15.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t15.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t15.dirX | `0.000002` | `0.000001` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t15.dirX | `0.000002` | `0.000002` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t15.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t15.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t15.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t15.dirXRaw | `196.697311` | `196.697311` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t15.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t15.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t15.x | `366.666626` | `366.666626` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t15.y | `3000.000000` | `3000.000000` | PASS |
@@ -7121,8 +7265,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t16.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t16.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t16.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t16.dirY | `0.000003` | `0.000002` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t16.dirY | `0.000003` | `0.000003` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t16.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t16.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t16.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t16.dirYRaw | `260.673096` | `260.673096` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t16.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t16.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t16.y | `6000.000000` | `6000.000000` | PASS |
@@ -7130,8 +7277,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t16.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t16.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t16.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t16.dirY | `-0.000003` | `-0.000002` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t16.dirY | `-0.000003` | `-0.000003` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t16.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t16.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t16.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t16.dirYRaw | `-260.673096` | `-260.673096` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t16.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t16.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t16.y | `7000.000000` | `7000.000000` | PASS |
@@ -7139,8 +7289,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t16.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t16.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t16.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t16.dirY | `0.000003` | `0.000002` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t16.dirY | `0.000003` | `0.000003` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t16.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t16.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t16.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t16.dirYRaw | `260.673096` | `260.673096` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t16.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t16.x | `383.333282` | `383.333282` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t16.y | `3000.000000` | `3000.000000` | PASS |
@@ -7195,6 +7348,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t17.dirX | `-0.000003` | `-0.000003` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t17.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t17.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t17.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t17.dirXRaw | `-324.648865` | `-324.648865` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t17.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t17.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t17.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t17.y | `6000.000000` | `6000.000000` | PASS |
@@ -7204,6 +7360,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t17.dirX | `-0.000003` | `-0.000003` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t17.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t17.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t17.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t17.dirXRaw | `-324.648865` | `-324.648865` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t17.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t17.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t17.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t17.y | `7000.000000` | `7000.000000` | PASS |
@@ -7213,6 +7372,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t17.dirX | `-0.000003` | `-0.000003` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t17.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t17.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t17.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t17.dirXRaw | `-324.648865` | `-324.648865` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t17.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t17.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t17.x | `399.999939` | `399.999939` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t17.y | `3000.000000` | `3000.000000` | PASS |
@@ -7265,8 +7427,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t18.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t18.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t18.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t18.dirY | `-0.000004` | `-0.000003` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t18.dirY | `-0.000004` | `-0.000004` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t18.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t18.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t18.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t18.dirYRaw | `-388.624634` | `-388.624664` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.left.t18.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t18.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t18.y | `6000.000000` | `6000.000000` | PASS |
@@ -7274,8 +7439,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t18.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t18.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t18.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t18.dirY | `0.000004` | `0.000003` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t18.dirY | `0.000004` | `0.000004` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t18.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t18.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t18.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t18.dirYRaw | `388.624634` | `388.624664` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.right.t18.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t18.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t18.y | `7000.000000` | `7000.000000` | PASS |
@@ -7283,8 +7451,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t18.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t18.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t18.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t18.dirY | `-0.000004` | `-0.000003` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t18.dirY | `-0.000004` | `-0.000004` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t18.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t18.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t18.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t18.dirYRaw | `-388.624634` | `-388.624664` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t18.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t18.x | `416.666595` | `416.666595` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t18.y | `3000.000000` | `3000.000000` | PASS |
@@ -7336,27 +7507,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t19.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t19.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t19.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t19.dirX | `0.000005` | `0.000004` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t19.dirX | `0.000005` | `0.000005` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t19.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t19.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t19.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t19.dirXRaw | `452.600433` | `452.600433` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t19.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t19.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t19.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t19.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t19.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t19.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t19.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t19.dirX | `0.000005` | `0.000004` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t19.dirX | `0.000005` | `0.000005` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t19.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t19.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t19.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t19.dirXRaw | `452.600433` | `452.600433` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t19.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t19.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t19.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t19.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t19.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t19.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t19.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t19.dirX | `0.000005` | `0.000004` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t19.dirX | `0.000005` | `0.000005` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t19.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t19.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t19.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t19.dirXRaw | `452.600433` | `452.600433` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t19.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t19.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t19.x | `433.333252` | `433.333252` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t19.y | `3000.000000` | `3000.000000` | PASS |
@@ -7409,8 +7589,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t20.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t20.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t20.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t20.dirY | `0.000005` | `0.000004` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t20.dirY | `0.000005` | `0.000005` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t20.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t20.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t20.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t20.dirYRaw | `516.576233` | `516.576233` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t20.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t20.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t20.y | `6000.000000` | `6000.000000` | PASS |
@@ -7418,8 +7601,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t20.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t20.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t20.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t20.dirY | `-0.000005` | `-0.000004` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t20.dirY | `-0.000005` | `-0.000005` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t20.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t20.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t20.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t20.dirYRaw | `-516.576233` | `-516.576233` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t20.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t20.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t20.y | `7000.000000` | `7000.000000` | PASS |
@@ -7427,8 +7613,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t20.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t20.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t20.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t20.dirY | `0.000005` | `0.000004` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t20.dirY | `0.000005` | `0.000005` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t20.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t20.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t20.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t20.dirYRaw | `516.576233` | `516.576233` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t20.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t20.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t20.y | `3000.000000` | `3000.000000` | PASS |
@@ -7480,27 +7669,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t21.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t21.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t21.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t21.dirX | `-0.000006` | `-0.000005` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t21.dirX | `-0.000006` | `-0.000006` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t21.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t21.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t21.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t21.dirXRaw | `-580.552002` | `-580.552002` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t21.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t21.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t21.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t21.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t21.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t21.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t21.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t21.dirX | `-0.000006` | `-0.000005` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t21.dirX | `-0.000006` | `-0.000006` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t21.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t21.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t21.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t21.dirXRaw | `-580.552002` | `-580.552002` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t21.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t21.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t21.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t21.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t21.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t21.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t21.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t21.dirX | `-0.000006` | `-0.000005` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t21.dirX | `-0.000006` | `-0.000006` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t21.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t21.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t21.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t21.dirXRaw | `-580.552002` | `-580.552002` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t21.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t21.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t21.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t21.y | `3000.000000` | `3000.000000` | PASS |
@@ -7555,6 +7753,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.left.t22.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t22.dirY | `-0.000006` | `-0.000006` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t22.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t22.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t22.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t22.dirYRaw | `-644.527771` | `-644.527771` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t22.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t22.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t22.y | `6000.000000` | `6000.000000` | PASS |
@@ -7564,6 +7765,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.right.t22.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t22.dirY | `0.000006` | `0.000006` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t22.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t22.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t22.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t22.dirYRaw | `644.527771` | `644.527771` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t22.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t22.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t22.y | `7000.000000` | `7000.000000` | PASS |
@@ -7573,6 +7777,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDir` | bodyCmd.rotate.t22.dirX | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t22.dirY | `-0.000006` | `-0.000006` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t22.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t22.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t22.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t22.dirYRaw | `-644.527771` | `-644.527771` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t22.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t22.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t22.y | `3000.000000` | `3000.000000` | PASS |
@@ -7624,27 +7831,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t23.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t23.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t23.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t23.dirX | `0.000007` | `0.000006` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t23.dirX | `0.000007` | `0.000007` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t23.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t23.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t23.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t23.dirXRaw | `708.503540` | `708.503540` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t23.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t23.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t23.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t23.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t23.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t23.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t23.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t23.dirX | `0.000007` | `0.000006` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t23.dirX | `0.000007` | `0.000007` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t23.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t23.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t23.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t23.dirXRaw | `708.503540` | `708.503540` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t23.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t23.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t23.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t23.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t23.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t23.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t23.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t23.dirX | `0.000007` | `0.000006` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t23.dirX | `0.000007` | `0.000007` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t23.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t23.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t23.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t23.dirXRaw | `708.503540` | `708.503540` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t23.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t23.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t23.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t23.y | `3000.000000` | `3000.000000` | PASS |
@@ -7697,8 +7913,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t24.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t24.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t24.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t24.dirY | `0.000008` | `0.000007` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t24.dirY | `0.000008` | `0.000008` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t24.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t24.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t24.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t24.dirYRaw | `772.479309` | `772.479309` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t24.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t24.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t24.y | `6000.000000` | `6000.000000` | PASS |
@@ -7706,8 +7925,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t24.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t24.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t24.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t24.dirY | `-0.000008` | `-0.000007` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t24.dirY | `-0.000008` | `-0.000008` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t24.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t24.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t24.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t24.dirYRaw | `-772.479309` | `-772.479309` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t24.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t24.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t24.y | `7000.000000` | `7000.000000` | PASS |
@@ -7715,8 +7937,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t24.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t24.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t24.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t24.dirY | `0.000008` | `0.000007` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t24.dirY | `0.000008` | `0.000008` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t24.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t24.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t24.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t24.dirYRaw | `772.479309` | `772.479309` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t24.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t24.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t24.y | `3000.000000` | `3000.000000` | PASS |
@@ -7768,27 +7993,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t25.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t25.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t25.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t25.dirX | `-0.000008` | `-0.000007` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t25.dirX | `-0.000008` | `-0.000008` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t25.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t25.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t25.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t25.dirXRaw | `-836.455078` | `-836.455200` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t25.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t25.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t25.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t25.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t25.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t25.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t25.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t25.dirX | `-0.000008` | `-0.000007` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t25.dirX | `-0.000008` | `-0.000008` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t25.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t25.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t25.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t25.dirXRaw | `-836.455078` | `-836.455200` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t25.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t25.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t25.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t25.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t25.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t25.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t25.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t25.dirX | `-0.000008` | `-0.000007` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t25.dirX | `-0.000008` | `-0.000008` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t25.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t25.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t25.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t25.dirXRaw | `-836.455078` | `-836.455200` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t25.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t25.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t25.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t25.y | `3016.666748` | `3016.666748` | PASS |
@@ -7841,8 +8075,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t26.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t26.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t26.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t26.dirY | `-0.000008` | `-0.000008` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t26.dirY | `-0.000008` | `-0.000009` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.left.t26.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t26.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t26.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t26.dirYRaw | `-795.523560` | `-900.430969` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.left.t26.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t26.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t26.y | `6000.000000` | `6000.000000` | PASS |
@@ -7850,8 +8087,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t26.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t26.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t26.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t26.dirY | `0.000008` | `0.000008` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t26.dirY | `0.000008` | `0.000009` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.right.t26.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t26.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t26.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t26.dirYRaw | `795.523560` | `900.430969` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.right.t26.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t26.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t26.y | `7000.000000` | `7000.000000` | PASS |
@@ -7859,8 +8099,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t26.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t26.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t26.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t26.dirY | `-0.000008` | `-0.000008` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t26.dirY | `-0.000008` | `-0.000009` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t26.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t26.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t26.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t26.dirYRaw | `-795.523560` | `-900.430969` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t26.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t26.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t26.y | `3033.333496` | `3033.333496` | PASS |
@@ -7912,27 +8155,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t27.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t27.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t27.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t27.dirX | `0.000009` | `0.000009` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t27.dirX | `0.000009` | `0.000010` | FAIL |
 | `physicsBody.getDir` | bodyCmd.left.t27.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t27.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t27.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t27.dirXRaw | `859.499390` | `964.406738` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t27.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t27.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t27.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t27.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t27.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t27.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t27.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t27.dirX | `0.000009` | `0.000009` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t27.dirX | `0.000009` | `0.000010` | FAIL |
 | `physicsBody.getDir` | bodyCmd.right.t27.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t27.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t27.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t27.dirXRaw | `859.499390` | `964.406738` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t27.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t27.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t27.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t27.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t27.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t27.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t27.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t27.dirX | `0.000009` | `0.000009` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t27.dirX | `0.000009` | `0.000010` | FAIL |
 | `physicsBody.getDir` | bodyCmd.rotate.t27.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t27.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t27.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t27.dirXRaw | `859.499390` | `964.406738` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t27.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t27.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t27.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t27.y | `3050.000244` | `3050.000244` | PASS |
@@ -7985,8 +8237,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t28.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t28.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t28.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t28.dirY | `0.000009` | `0.000009` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t28.dirY | `0.000009` | `0.000010` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.left.t28.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t28.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t28.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t28.dirYRaw | `905.990601` | `1028.382446` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.left.t28.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t28.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t28.y | `6000.000000` | `6000.000000` | PASS |
@@ -7994,8 +8249,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t28.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t28.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t28.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t28.dirY | `-0.000009` | `-0.000009` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t28.dirY | `-0.000009` | `-0.000010` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.right.t28.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t28.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t28.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t28.dirYRaw | `-905.990601` | `-1028.382446` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.right.t28.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t28.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t28.y | `7000.000000` | `7000.000000` | PASS |
@@ -8003,8 +8261,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t28.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t28.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t28.dirX | `1.000000` | `1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t28.dirY | `0.000009` | `0.000009` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t28.dirY | `0.000009` | `0.000010` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t28.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t28.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t28.dirXRaw | `100000000.000000` | `100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t28.dirYRaw | `905.990601` | `1028.382446` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t28.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t28.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t28.y | `3066.666992` | `3066.666992` | PASS |
@@ -8056,27 +8317,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t29.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t29.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t29.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t29.dirX | `-0.000010` | `-0.000010` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t29.dirX | `-0.000010` | `-0.000011` | FAIL |
 | `physicsBody.getDir` | bodyCmd.left.t29.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t29.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t29.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t29.dirXRaw | `-969.966370` | `-1092.358276` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t29.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t29.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t29.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t29.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t29.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t29.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t29.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t29.dirX | `-0.000010` | `-0.000010` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t29.dirX | `-0.000010` | `-0.000011` | FAIL |
 | `physicsBody.getDir` | bodyCmd.right.t29.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t29.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t29.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t29.dirXRaw | `-969.966370` | `-1092.358276` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t29.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t29.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t29.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t29.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t29.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t29.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t29.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t29.dirX | `-0.000010` | `-0.000010` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t29.dirX | `-0.000010` | `-0.000011` | FAIL |
 | `physicsBody.getDir` | bodyCmd.rotate.t29.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t29.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t29.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t29.dirXRaw | `-969.966370` | `-1092.358276` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t29.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t29.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t29.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t29.y | `3083.333740` | `3083.333740` | PASS |
@@ -8129,8 +8399,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t30.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t30.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.left.t30.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t30.dirY | `-0.000010` | `-0.000010` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t30.dirY | `-0.000010` | `-0.000012` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.left.t30.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t30.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t30.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t30.dirYRaw | `-1033.942139` | `-1156.333984` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.left.t30.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t30.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t30.y | `6000.000000` | `6000.000000` | PASS |
@@ -8138,8 +8411,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.right.t30.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t30.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.right.t30.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t30.dirY | `0.000010` | `0.000010` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t30.dirY | `0.000010` | `0.000012` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.right.t30.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t30.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t30.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t30.dirYRaw | `1033.942139` | `1156.333984` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.right.t30.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t30.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t30.y | `7000.000000` | `7000.000000` | PASS |
@@ -8147,8 +8423,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.rotate.t30.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t30.speed | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getDir` | bodyCmd.rotate.t30.dirX | `-1.000000` | `-1.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t30.dirY | `-0.000010` | `-0.000010` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t30.dirY | `-0.000010` | `-0.000012` | FAIL |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t30.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t30.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t30.dirXRaw | `-100000000.000000` | `-100000000.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t30.dirYRaw | `-1033.942139` | `-1156.333984` | FAIL |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t30.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t30.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t30.y | `3100.000488` | `3100.000488` | PASS |
@@ -8200,27 +8479,36 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getVel` | bodyCmd.left.t31.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.left.t31.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.left.t31.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.left.t31.dirX | `0.000011` | `0.000011` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t31.dirX | `0.000011` | `0.000012` | FAIL |
 | `physicsBody.getDir` | bodyCmd.left.t31.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.left.t31.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.left.t31.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.left.t31.dirXRaw | `1097.917969` | `1220.309937` | FAIL |
+| `physicsBody.getDir` | bodyCmd.left.t31.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.left.t31.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t31.x | `400.000000` | `400.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.right.t31.y | `6000.000000` | `6000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t31.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.right.t31.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.right.t31.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.right.t31.dirX | `0.000011` | `0.000011` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t31.dirX | `0.000011` | `0.000012` | FAIL |
 | `physicsBody.getDir` | bodyCmd.right.t31.dirY | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.right.t31.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.right.t31.rotateVelRaw | `-9424779.000000` | `-9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.right.t31.dirXRaw | `1097.917969` | `1220.309937` | FAIL |
+| `physicsBody.getDir` | bodyCmd.right.t31.dirYRaw | `100000000.000000` | `100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.right.t31.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t31.x | `500.000000` | `500.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.rotate.t31.y | `7000.000000` | `7000.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t31.vx | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getVel` | bodyCmd.rotate.t31.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getSpeed` | bodyCmd.rotate.t31.speed | `0.000000` | `0.000000` | PASS |
-| `physicsBody.getDir` | bodyCmd.rotate.t31.dirX | `0.000011` | `0.000011` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t31.dirX | `0.000011` | `0.000012` | FAIL |
 | `physicsBody.getDir` | bodyCmd.rotate.t31.dirY | `-1.000000` | `-1.000000` | PASS |
 | `physicsBody.getRotateVel` | bodyCmd.rotate.t31.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsBody.getRotateVel` | bodyCmd.rotate.t31.rotateVelRaw | `9424779.000000` | `9424779.000000` | PASS |
+| `physicsBody.getDir` | bodyCmd.rotate.t31.dirXRaw | `1097.917969` | `1220.309937` | FAIL |
+| `physicsBody.getDir` | bodyCmd.rotate.t31.dirYRaw | `-100000000.000000` | `-100000000.000000` | PASS |
 | `physicsBody.isSleeping` | bodyCmd.rotate.t31.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t31.x | `449.999908` | `449.999908` | PASS |
 | `physicsBody.getPos` | bodyCmd.sleep.t31.y | `3116.667236` | `3116.667236` | PASS |

@@ -253,9 +253,8 @@ b2Fixture* FixtureAtShapeIndex(b2Body* a_body, int a_index);
 
 b2Vec2 BodyFacingDirection(const PhysicsBodyData& a_body) {
     if (a_body.body->IsFixedRotation()) return b2Vec2(a_body.dirX, a_body.dirY);
-    const float angle = a_body.body->GetAngle();
-    return b2Vec2(GroundRenderMath::RetailGroundSinCos(angle, true),
-                  GroundRenderMath::RetailGroundSinCos(angle, false));
+    const b2Rot& rotation = a_body.body->GetTransform().q;
+    return b2Vec2(rotation.c, rotation.s);
 }
 
 // Retail createBody creates dynamic bodies and has no body-type setter.

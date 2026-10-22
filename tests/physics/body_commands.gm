@@ -28,6 +28,11 @@ global SampleCommandBody=function(key,tick,body) {
     Probe(name+"dirX",dir.x);
     Probe(name+"dirY",dir.y);
     Probe(name+"rotateVel",body.getRotateVel());
+    if (key=="left" || key=="right" || key=="rotate") {
+        Probe(name+"rotateVelRaw",body.getRotateVel()*100000000);
+        Probe(name+"dirXRaw",dir.x*100000000);
+        Probe(name+"dirYRaw",dir.y*100000000);
+    }
     Probe(name+"sleeping",body.isSleeping());
 };
 global Main=function(p) {
