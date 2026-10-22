@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 23:23 UTC
+Generated: 2026-10-22 23:45 UTC
 
-Matched: **7907/7980 comparable readings (99.09%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **7987/8100 comparable readings (98.60%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **349/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **356/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -713,7 +713,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.stopRotatingTo` | 288 | 288 | PASS |
 | `physicsBody.thrust` | 288 | 288 | PASS |
 | `physicsData.appendShapes` | 7 | 7 | PASS |
-| `physicsData.brake` | 0 | 0 | untested |
+| `physicsData.brake` | 40 | 40 | PASS |
 | `physicsData.createBody` | 4 | 4 | PASS |
 | `physicsData.doesRotationResponse` | 1 | 1 | PASS |
 | `physicsData.getAABB` | 8 | 8 | PASS |
@@ -756,10 +756,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.raycastShapesOne` | 6 | 6 | PASS |
 | `physicsData.removeBody` | 4 | 4 | PASS |
 | `physicsData.replaceBody` | 6 | 6 | PASS |
-| `physicsData.reverseThrust` | 0 | 0 | untested |
-| `physicsData.rotateLeft` | 0 | 0 | untested |
-| `physicsData.rotateRight` | 0 | 0 | untested |
-| `physicsData.rotateTo` | 0 | 0 | untested |
+| `physicsData.reverseThrust` | 4 | 20 | FAIL |
+| `physicsData.rotateLeft` | 15 | 15 | PASS |
+| `physicsData.rotateRight` | 8 | 15 | FAIL |
+| `physicsData.rotateTo` | 2 | 5 | FAIL |
 | `physicsData.setAllowSleeping` | 0 | 0 | untested |
 | `physicsData.setAsCircle` | 0 | 0 | untested |
 | `physicsData.setAsRect` | 0 | 0 | untested |
@@ -785,8 +785,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.setVel` | 0 | 0 | untested |
 | `physicsData.setVelocityDecayRate` | 0 | 0 | untested |
 | `physicsData.setVisibilityAABBScale` | 0 | 0 | untested |
-| `physicsData.stopRotatingTo` | 0 | 0 | untested |
-| `physicsData.thrust` | 0 | 0 | untested |
+| `physicsData.stopRotatingTo` | 1 | 5 | FAIL |
+| `physicsData.thrust` | 10 | 20 | FAIL |
 | `physicsData.wakeUp` | 288 | 288 | PASS |
 | `physicsShape.dummy` | 0 | 0 | untested |
 | `physicsShape.getIsSensor` | 0 | 1 | LOCAL-ONLY |
@@ -8881,3 +8881,123 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.disabledSecond | `1` | `1` | PASS |
 | `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.enabledFirst | `1` | `1` | PASS |
 | `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.enabledSecond | `1` | `1` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t1.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t1.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t1.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t1.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t2.vx | `12.000000` | `2.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t2.speed | `12.000000` | `2.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t2.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t2.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t3.vx | `11.999999` | `2.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t3.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t3.speed | `11.999999` | `2.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t3.rotateVel | `-0.000000` | `0.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t3.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.thrust` | physicsData.thrust.t4.vx | `12.000000` | `2.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t4.vy | `-0.000000` | `0.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t4.speed | `12.000000` | `2.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t4.rotateVel | `-0.000000` | `0.000000` | FAIL |
+| `physicsData.thrust` | physicsData.thrust.t4.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t5.vx | `12.000000` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t5.vy | `0.000052` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t5.speed | `12.000000` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t5.rotateVel | `-0.029383` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t5.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t6.vx | `-7.831076` | `-0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t6.vy | `9.092538` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t6.speed | `12.000000` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t6.rotateVel | `0.094248` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t6.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t7.vx | `-5.651539` | `-1.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t7.vy | `-10.585845` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t7.speed | `12.000001` | `1.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t7.rotateVel | `0.094248` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t7.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t8.vx | `10.585570` | `-1.500000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t8.vy | `-5.652053` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t8.speed | `12.000000` | `1.500000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t8.rotateVel | `0.094248` | `0.000000` | FAIL |
+| `physicsData.reverseThrust` | physicsData.reverseThrust.t8.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t1.vx | `2.000000` | `2.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t1.speed | `2.000000` | `2.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t1.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t1.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t2.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t2.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t2.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t2.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t3.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t3.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t3.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t3.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t4.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t4.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t4.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t4.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t5.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t5.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t5.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t5.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t5.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t6.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t6.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t6.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t6.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t6.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t7.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t7.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t7.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t7.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t7.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t8.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t8.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t8.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t8.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.brake` | physicsData.brake.t8.sleeping | `1.000000` | `1.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t1.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t1.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t1.rotateVel | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t1.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t2.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t2.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t2.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t2.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t3.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t3.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t3.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsData.rotateLeft` | physicsData.rotateLeft.t3.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t4.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t4.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t4.rotateVel | `0.094248` | `0.094248` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t4.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t5.vx | `12.000000` | `0.000000` | FAIL |
+| `physicsData.rotateRight` | physicsData.rotateRight.t5.vy | `-0.000144` | `0.000000` | FAIL |
+| `physicsData.rotateRight` | physicsData.rotateRight.t5.speed | `12.000000` | `0.000000` | FAIL |
+| `physicsData.rotateRight` | physicsData.rotateRight.t5.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t5.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateRight` | physicsData.rotateRight.t6.vx | `-11.456215` | `0.000000` | FAIL |
+| `physicsData.rotateRight` | physicsData.rotateRight.t6.vy | `3.571436` | `0.000000` | FAIL |
+| `physicsData.rotateRight` | physicsData.rotateRight.t6.speed | `12.000001` | `0.000000` | FAIL |
+| `physicsData.rotateRight` | physicsData.rotateRight.t6.rotateVel | `0.094248` | `-0.094248` | FAIL |
+| `physicsData.rotateRight` | physicsData.rotateRight.t6.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.rotateTo` | physicsData.rotateTo.t7.vx | `-11.456215` | `0.000000` | FAIL |
+| `physicsData.rotateTo` | physicsData.rotateTo.t7.vy | `3.571436` | `0.000000` | FAIL |
+| `physicsData.rotateTo` | physicsData.rotateTo.t7.speed | `12.000001` | `0.000000` | FAIL |
+| `physicsData.rotateTo` | physicsData.rotateTo.t7.rotateVel | `-0.094248` | `-0.094248` | PASS |
+| `physicsData.rotateTo` | physicsData.rotateTo.t7.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.vx | `-11.456215` | `0.000000` | FAIL |
+| `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.vy | `3.571436` | `0.000000` | FAIL |
+| `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.speed | `12.000001` | `0.000000` | FAIL |
+| `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.rotateVel | `0.094248` | `0.000000` | FAIL |
+| `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.sleeping | `0.000000` | `0.000000` | PASS |

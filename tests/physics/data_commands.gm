@@ -1,0 +1,74 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+GameSystem.setIsShouldUpdateEntities(0);
+
+global CommandShapes=PHYSICSSHAPECOLLECTIONDEF();
+global MakeDataCommand=function(x,y) {
+    local entity=EntityManager.createEntity("EntityQueryProbeEntity");
+    local data=entity.getPhysicsData();
+    local body=data.getBody(data.createBody());
+    body.setPos(vector2D(x,y));
+    CommandShapes.reset();
+    CommandShapes.setMass(1);
+    CommandShapes.addCircle(1,0,0);
+    data.appendShapes(0,CommandShapes);
+    entity.setIsEnabled(1);
+    return table(entity=entity,data=data,body=body);
+};
+global SampleDataCommand=function(name,tick,data,body) {
+    local prefix="physicsData."+name+".t"+tick+".";
+    local velocity=body.getVel();
+    Probe(prefix+"vx",velocity.x);
+    Probe(prefix+"vy",velocity.y);
+    Probe(prefix+"speed",body.getSpeed());
+    Probe(prefix+"rotateVel",body.getRotateVel());
+    Probe(prefix+"sleeping",body.isSleeping());
+};
+
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                this.thrust=MakeDataCommand(-400,100);
+                this.reverse=MakeDataCommand(-200,100);
+                this.brake=MakeDataCommand(0,100);
+                this.rotate=MakeDataCommand(200,100);
+                this.thrust.data.setThrustAcc(0.2);
+                this.thrust.data.setMaxSpeed(2);
+                this.reverse.data.setThrustAcc(0.2);
+                this.reverse.data.setMaxSpeed(2);
+                this.brake.data.setVel(vector2D(2,0));
+                this.brake.data.setBrakeAcc(0.15);
+                this.rotate.data.setRotateAcc(0.08);
+                this.rotate.data.setMaxRotateSpeed(0.5);
+                EntityManager.flush();
+            } else if (this.frame<=8) {
+                if (this.frame<=4) {
+                    this.thrust.data.thrust();
+                    SampleDataCommand("thrust",this.frame,this.thrust.data,this.thrust.body);
+                }
+                if (this.frame>4) {
+                    this.reverse.data.reverseThrust();
+                    SampleDataCommand("reverseThrust",this.frame,this.reverse.data,this.reverse.body);
+                }
+                this.brake.data.brake();
+                SampleDataCommand("brake",this.frame,this.brake.data,this.brake.body);
+                if (this.frame<=3) {
+                    this.rotate.data.rotateLeft();
+                    SampleDataCommand("rotateLeft",this.frame,this.rotate.data,this.rotate.body);
+                } else if (this.frame<=6) {
+                    this.rotate.data.rotateRight();
+                    SampleDataCommand("rotateRight",this.frame,this.rotate.data,this.rotate.body);
+                } else if (this.frame==7) {
+                    this.rotate.data.rotateTo(vector2D(1,0),1);
+                    SampleDataCommand("rotateTo",this.frame,this.rotate.data,this.rotate.body);
+                } else if (this.frame==8) {
+                    this.rotate.data.stopRotatingTo();
+                    SampleDataCommand("stopRotatingTo",this.frame,this.rotate.data,this.rotate.body);
+                }
+            }
+            this.frame+=1;
+        });
+};

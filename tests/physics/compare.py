@@ -117,6 +117,9 @@ SHAPE_GEOMETRY_PLAN = HERE / "shape_geometry-plan.json"
 DATA_GEOMETRY = HERE / "data_geometry.gm"
 DATA_GEOMETRY_BASELINE = HERE / "data_geometry-retail.tsv"
 DATA_GEOMETRY_PLAN = HERE / "data_geometry-plan.json"
+DATA_COMMANDS = HERE / "data_commands.gm"
+DATA_COMMANDS_BASELINE = HERE / "data_commands-retail.tsv"
+DATA_COMMANDS_PLAN = HERE / "data_commands-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "reports" / "PHYSICS.md"
@@ -1058,6 +1061,9 @@ def main():
                                             (ENTITY_QUERIES_SUPPORT,)),
                                            (DATA_GEOMETRY, DATA_GEOMETRY_BASELINE,
                                             DATA_GEOMETRY_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,)),
+                                           (DATA_COMMANDS, DATA_COMMANDS_BASELINE,
+                                            DATA_COMMANDS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,))):
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
