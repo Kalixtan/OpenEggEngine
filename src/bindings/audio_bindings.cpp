@@ -463,7 +463,8 @@ float ReadPcm16(const void* a_source, size_t a_frame, size_t a_channel) {
 float InterpolatedSample(const void* a_source, ResampleReader a_read,
                         size_t a_frameCount, size_t a_channel,
                         double a_sourceFrame, double a_sourceStep,
-                        bool a_loop = false) {
+                        bool a_loop = false,
+                        bool a_exactIntegerPlaybackFrame = false) {
     if (!a_source || !a_read || a_frameCount == 0) return 0.0f;
     const double integral = std::floor(a_sourceFrame);
     const int64_t base = static_cast<int64_t>(integral);
@@ -478,7 +479,11 @@ float InterpolatedSample(const void* a_source, ResampleReader a_read,
         return static_cast<size_t>(std::clamp<int64_t>(
             index, 0, static_cast<int64_t>(a_frameCount - 1)));
     };
-    if (std::fabs(a_sourceStep - 1.0) < 1.0e-6 && fraction == 0.0)
+    // Retail playback reads the exact PCM frame at integer positions; the
+    // playback rate alone does not trigger the decode resampling filter.
+    if (fraction == 0.0 &&
+        (a_exactIntegerPlaybackFrame ||
+         std::fabs(a_sourceStep - 1.0) < 1.0e-6))
         return a_read(a_source, resolveIndex(base), a_channel);
 
     constexpr int radius = 2;
@@ -986,11 +991,11 @@ void QueueMixedVoices(float a_deltaMs) {
             const float leftSample = InterpolatedSample(
                 playbackSample->stereo.data(), ReadStereoFloat,
                 soundFrames, 0, sourceFrame, sourceStep,
-                voice.looping || voice.loopCount > 0);
+                voice.looping || voice.loopCount > 0, true);
             const float rightSample = InterpolatedSample(
                 playbackSample->stereo.data(), ReadStereoFloat,
                 soundFrames, 1, sourceFrame, sourceStep,
-                voice.looping || voice.loopCount > 0);
+                voice.looping || voice.loopCount > 0, true);
             mix[(size_t)frame * 2] += leftSample * gain * rateGain * fade * leftPan;
             mix[(size_t)frame * 2 + 1] += rightSample * gain * rateGain * fade * rightPan;
         }
