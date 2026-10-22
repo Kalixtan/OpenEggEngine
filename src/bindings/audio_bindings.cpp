@@ -118,7 +118,7 @@ struct VoiceState {
     double positionMs = 0.0;
     double gateDurationMs = 0.0;
     double gateElapsedMs = 0.0;
-    bool gateSetAfterLastAudioUpdate = false;
+    bool gateFading = false;
     double fadeRemainingMs = 0.0;
     double fadeDurationMs = 0.0;
     float fadeGain = 1.0f;
@@ -956,7 +956,8 @@ void QueueMixedVoices(float a_deltaMs) {
             : (pan < 0.0f ? 1.0f + pan : 1.0f);
         for (int frame = 0; frame < frameCount; ++frame) {
             const double frameMs = (double)frame * 1000.0 / kOutputRate;
-            if (voice.stopping && voice.fadeDurationMs > 0.0 &&
+            const bool fadeActive = voice.stopping || voice.gateFading;
+            if (fadeActive && voice.fadeDurationMs > 0.0 &&
                 voice.fadeRemainingMs <= frameMs) continue;
             if (voice.stopping && voice.stopRemainingMs > 0.0 &&
                 voice.stopRemainingMs <= frameMs) continue;
@@ -964,12 +965,12 @@ void QueueMixedVoices(float a_deltaMs) {
             // that tick's resulting gain for the whole queued block instead
             // of applying a smooth per-sample ramp. Gate expiry is handled
             // after this block by AdvanceAudioVoices, then fades next tick.
-            const float fade = voice.stopping && voice.fadeDurationMs > 0.0
+            const float fade = fadeActive && voice.fadeDurationMs > 0.0
                 ? static_cast<float>(std::clamp(
                     static_cast<double>(voice.fadeGain) -
                         a_deltaMs / voice.fadeDurationMs,
                     0.0, 1.0))
-                : voice.stopping ? voice.fadeGain : 1.0f;
+                : fadeActive ? voice.fadeGain : 1.0f;
             const double positionMs = voice.positionMs +
                 PlaybackAdvanceMs(voice, frameMs);
             double sourceFrame = positionMs * kOutputRate / 1000.0;
@@ -1531,8 +1532,6 @@ int GM_CDECL gmf_setVoiceGateTime(gmThread* a_thread) {
     const float gateMs = static_cast<float>(gateValue);
     if (VoiceState* v = FindVoice(voice)) {
         v->gateDurationMs = gateMs;
-        // The retail timer begins on the manager pass after script setup.
-        v->gateSetAfterLastAudioUpdate = true;
     }
     return GM_OK;
 }
@@ -2640,22 +2639,19 @@ void AdvanceAudioVoices(float a_deltaMs) {
         }
         bool gateTriggered = false;
         if (!voice.stopping && voice.gateDurationMs > 0.0) {
-            if (voice.gateSetAfterLastAudioUpdate) {
-                voice.gateSetAfterLastAudioUpdate = false;
-            } else {
-                voice.gateElapsedMs += a_deltaMs;
-                if (voice.gateElapsedMs >= voice.gateDurationMs) {
-                    StartVoiceFade(voice, 60.0);
-                    voice.gateElapsedMs = 0.0;
-                    gateTriggered = true;
-                }
+            voice.gateElapsedMs += a_deltaMs;
+            if (voice.gateElapsedMs >= voice.gateDurationMs) {
+                // Retail's gate alarm starts a fade without marking the voice
+                // stopped. Short gates can retrigger before voice cleanup.
+                voice.gateFading = true;
+                voice.fadeDurationMs = 60.0;
+                voice.fadeRemainingMs = 60.0;
+                voice.fadeGain = 1.0f;
+                voice.gateElapsedMs = 0.0;
+                gateTriggered = true;
             }
         }
-        if (gateTriggered) {
-            ++it;
-            continue;
-        }
-        if (voice.stopping && !gateTriggered) {
+        if (voice.stopping) {
             if (voice.stopRemainingMs > 0.0) {
                 voice.stopRemainingMs -= a_deltaMs;
                 if (voice.stopRemainingMs <= 0.0) {
@@ -2678,6 +2674,14 @@ void AdvanceAudioVoices(float a_deltaMs) {
                 voice.fadeGain = static_cast<float>(
                     - (fadeStep - static_cast<double>(voice.fadeGain)));
                 if (voice.fadeGain <= 0.0f) voice.fadeGain = 0.0f;
+                voice.fadeRemainingMs =
+                    static_cast<double>(voice.fadeGain) * voice.fadeDurationMs;
+            }
+        } else if (voice.gateFading && !gateTriggered) {
+            if (voice.fadeGain > 0.0f) {
+                const double fadeStep = a_deltaMs / voice.fadeDurationMs;
+                voice.fadeGain = static_cast<float>(std::max(
+                    static_cast<double>(voice.fadeGain) - fadeStep, 0.0));
                 voice.fadeRemainingMs =
                     static_cast<double>(voice.fadeGain) * voice.fadeDurationMs;
             }

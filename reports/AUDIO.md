@@ -1,8 +1,8 @@
 # Audio test report
 
-Generated: 2026-10-21 21:19 UTC
+Generated: 2026-10-22 11:04 UTC
 
-Matched: **128/132 (97%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
+Matched: **132/132 (100%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 
 Asset probes: tested with user supplied sound. Functions with readings: **61/68**.
 
@@ -60,7 +60,7 @@ Asset probes: tested with user supplied sound. Functions with readings: **61/68*
 | `Audio.setMusicVolume` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.setRetriggerTime` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.setSFXVolume` | 1 | 1 | 0 | 0 | PASS |
-| `Audio.setVoiceGateTime` | 3 | 7 | 0 | 0 | FAIL |
+| `Audio.setVoiceGateTime` | 7 | 7 | 0 | 0 | PASS |
 | `Audio.setVoiceLoop` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.setVoiceLoopCount` | 2 | 2 | 0 | 12 | PASS |
 | `Audio.setVoiceNote` | 1 | 1 | 0 | 0 | PASS |
@@ -244,7 +244,7 @@ Asset probes: tested with user supplied sound. Functions with readings: **61/68*
 | `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.active | `1` | `1` | PASS |
 | `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterOneTick | `1` | `1` | PASS |
 | `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterFourTicks | `1` | `1` | PASS |
-| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterEightTicks | `1` | `0` | FAIL |
-| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterTwentyTicks | `1` | `0` | FAIL |
-| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterSixtyTicks | `1` | `0` | FAIL |
-| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterHundredTicks | `1` | `0` | FAIL |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterEightTicks | `1` | `1` | PASS |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterTwentyTicks | `1` | `1` | PASS |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterSixtyTicks | `1` | `1` | PASS |
+| `Audio.setVoiceGateTime` | Audio.setVoiceGateTime.afterHundredTicks | `1` | `1` | PASS |
