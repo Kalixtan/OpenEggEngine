@@ -1,0 +1,29 @@
+# probe-sha256 0fe5929c690c6a2fb32f3c9bd245961215ba002f5257851becd7ec1061dbbf78
+# support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
+physicsData.setAsCircle.radius	2.000000
+physicsData.setAsRect.height	4.000000
+physicsData.setAsRect.width	4.000000
+physicsData.setBrakeAcc.value	999.000000
+physicsData.setCategoriesToCollideWith.value	5
+physicsData.setCollisionCategory.value	16
+physicsData.setCollisionGroup.value	-3
+physicsData.setDir.x	-0.000000
+physicsData.setDir.y	1.000000
+physicsData.setDoesRotationResponse.disabled	1
+physicsData.setDoesRotationResponse.enabled	1
+physicsData.setIsCollidable.disabled	0
+physicsData.setIsCollidable.enabled	1
+physicsData.setIsSensor.reset	0
+physicsData.setIsSensor.sensor	1
+physicsData.setMass.value	25.132742
+physicsData.setMaxRotateSpeed.value	0.350000
+physicsData.setMaxSpeed.value	9999999.000000
+physicsData.setPos.x	12.000000
+physicsData.setPos.y	-8.000000
+physicsData.setRestitution.value	0.000000
+physicsData.setRotateAcc.value	0.120000
+physicsData.setSpeed.speed	7.000000
+physicsData.setThrustAcc.value	999.000000
+physicsData.setVel.speed	5.000000
+physicsData.setVel.x	3.000000
+physicsData.setVel.y	4.000000

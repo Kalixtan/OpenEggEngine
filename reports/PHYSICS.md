@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 23:45 UTC
+Generated: 2026-10-22 23:56 UTC
 
-Matched: **7987/8100 comparable readings (98.60%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8005/8127 comparable readings (98.50%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **356/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **375/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -761,28 +761,28 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.rotateRight` | 8 | 15 | FAIL |
 | `physicsData.rotateTo` | 2 | 5 | FAIL |
 | `physicsData.setAllowSleeping` | 0 | 0 | untested |
-| `physicsData.setAsCircle` | 0 | 0 | untested |
-| `physicsData.setAsRect` | 0 | 0 | untested |
-| `physicsData.setBrakeAcc` | 0 | 0 | untested |
-| `physicsData.setCategoriesToCollideWith` | 0 | 0 | untested |
-| `physicsData.setCollisionCategory` | 0 | 0 | untested |
-| `physicsData.setCollisionGroup` | 0 | 0 | untested |
-| `physicsData.setDir` | 0 | 0 | untested |
-| `physicsData.setDoesRotationResponse` | 0 | 0 | untested |
-| `physicsData.setIsCollidable` | 0 | 0 | untested |
-| `physicsData.setIsSensor` | 0 | 0 | untested |
-| `physicsData.setMass` | 0 | 0 | untested |
-| `physicsData.setMaxRotateSpeed` | 0 | 0 | untested |
+| `physicsData.setAsCircle` | 0 | 1 | FAIL |
+| `physicsData.setAsRect` | 0 | 2 | FAIL |
+| `physicsData.setBrakeAcc` | 0 | 1 | FAIL |
+| `physicsData.setCategoriesToCollideWith` | 1 | 1 | PASS |
+| `physicsData.setCollisionCategory` | 1 | 1 | PASS |
+| `physicsData.setCollisionGroup` | 1 | 1 | PASS |
+| `physicsData.setDir` | 2 | 2 | PASS |
+| `physicsData.setDoesRotationResponse` | 1 | 2 | FAIL |
+| `physicsData.setIsCollidable` | 2 | 2 | PASS |
+| `physicsData.setIsSensor` | 2 | 2 | PASS |
+| `physicsData.setMass` | 0 | 1 | FAIL |
+| `physicsData.setMaxRotateSpeed` | 1 | 1 | PASS |
 | `physicsData.setMaxRotationDecayRate` | 0 | 0 | untested |
-| `physicsData.setMaxSpeed` | 0 | 0 | untested |
+| `physicsData.setMaxSpeed` | 0 | 1 | FAIL |
 | `physicsData.setMaxVelocityDecayRate` | 0 | 0 | untested |
-| `physicsData.setPos` | 0 | 0 | untested |
-| `physicsData.setRestitution` | 0 | 0 | untested |
-| `physicsData.setRotateAcc` | 0 | 0 | untested |
+| `physicsData.setPos` | 2 | 2 | PASS |
+| `physicsData.setRestitution` | 0 | 1 | FAIL |
+| `physicsData.setRotateAcc` | 1 | 1 | PASS |
 | `physicsData.setRotationDecayRate` | 0 | 0 | untested |
-| `physicsData.setSpeed` | 0 | 0 | untested |
-| `physicsData.setThrustAcc` | 0 | 0 | untested |
-| `physicsData.setVel` | 0 | 0 | untested |
+| `physicsData.setSpeed` | 1 | 1 | PASS |
+| `physicsData.setThrustAcc` | 0 | 1 | FAIL |
+| `physicsData.setVel` | 3 | 3 | PASS |
 | `physicsData.setVelocityDecayRate` | 0 | 0 | untested |
 | `physicsData.setVisibilityAABBScale` | 0 | 0 | untested |
 | `physicsData.stopRotatingTo` | 1 | 5 | FAIL |
@@ -9001,3 +9001,30 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.speed | `12.000001` | `0.000000` | FAIL |
 | `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.rotateVel | `0.094248` | `0.000000` | FAIL |
 | `physicsData.stopRotatingTo` | physicsData.stopRotatingTo.t8.sleeping | `0.000000` | `0.000000` | PASS |
+| `physicsData.setPos` | physicsData.setPos.x | `12.000000` | `12.000000` | PASS |
+| `physicsData.setPos` | physicsData.setPos.y | `-8.000000` | `-8.000000` | PASS |
+| `physicsData.setVel` | physicsData.setVel.x | `3.000000` | `3.000000` | PASS |
+| `physicsData.setVel` | physicsData.setVel.y | `4.000000` | `4.000000` | PASS |
+| `physicsData.setVel` | physicsData.setVel.speed | `5.000000` | `5.000000` | PASS |
+| `physicsData.setSpeed` | physicsData.setSpeed.speed | `7.000000` | `7.000000` | PASS |
+| `physicsData.setDir` | physicsData.setDir.x | `-0.000000` | `-0.000000` | PASS |
+| `physicsData.setDir` | physicsData.setDir.y | `1.000000` | `1.000000` | PASS |
+| `physicsData.setAsCircle` | physicsData.setAsCircle.radius | `2.000000` | `5.000000` | FAIL |
+| `physicsData.setAsRect` | physicsData.setAsRect.width | `4.000000` | `12.000000` | FAIL |
+| `physicsData.setAsRect` | physicsData.setAsRect.height | `4.000000` | `6.000000` | FAIL |
+| `physicsData.setIsSensor` | physicsData.setIsSensor.sensor | `1` | `1` | PASS |
+| `physicsData.setIsSensor` | physicsData.setIsSensor.reset | `0` | `0` | PASS |
+| `physicsData.setCollisionCategory` | physicsData.setCollisionCategory.value | `16` | `16` | PASS |
+| `physicsData.setCategoriesToCollideWith` | physicsData.setCategoriesToCollideWith.value | `5` | `5` | PASS |
+| `physicsData.setCollisionGroup` | physicsData.setCollisionGroup.value | `-3` | `-3` | PASS |
+| `physicsData.setMaxSpeed` | physicsData.setMaxSpeed.value | `9999999.000000` | `7.000000` | FAIL |
+| `physicsData.setMaxRotateSpeed` | physicsData.setMaxRotateSpeed.value | `0.350000` | `0.350000` | PASS |
+| `physicsData.setRotateAcc` | physicsData.setRotateAcc.value | `0.120000` | `0.120000` | PASS |
+| `physicsData.setBrakeAcc` | physicsData.setBrakeAcc.value | `999.000000` | `0.250000` | FAIL |
+| `physicsData.setThrustAcc` | physicsData.setThrustAcc.value | `999.000000` | `0.180000` | FAIL |
+| `physicsData.setDoesRotationResponse` | physicsData.setDoesRotationResponse.disabled | `1` | `0` | FAIL |
+| `physicsData.setDoesRotationResponse` | physicsData.setDoesRotationResponse.enabled | `1` | `1` | PASS |
+| `physicsData.setIsCollidable` | physicsData.setIsCollidable.disabled | `0` | `0` | PASS |
+| `physicsData.setIsCollidable` | physicsData.setIsCollidable.enabled | `1` | `1` | PASS |
+| `physicsData.setMass` | physicsData.setMass.value | `25.132742` | `4.000000` | FAIL |
+| `physicsData.setRestitution` | physicsData.setRestitution.value | `0.000000` | `0.600000` | FAIL |

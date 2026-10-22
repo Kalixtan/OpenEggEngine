@@ -1,0 +1,84 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+GameSystem.setIsShouldUpdateEntities(0);
+
+global Shapes=PHYSICSSHAPECOLLECTIONDEF();
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.done) { return; }
+            this.done=true;
+            local entity=EntityManager.createEntity("EntityQueryProbeEntity");
+            local data=entity.getPhysicsData();
+            local body=data.getBody(data.createBody());
+            Shapes.setMass(2);
+            Shapes.addCircle(2,0,0);
+            data.appendShapes(0,Shapes);
+            entity.setIsEnabled(1);
+            EntityManager.flush();
+
+            data.setPos(vector2D(12,-8));
+            local pos=body.getPos();
+            Probe("physicsData.setPos.x",pos.x);
+            Probe("physicsData.setPos.y",pos.y);
+
+            data.setVel(vector2D(3,4));
+            local vel=body.getVel();
+            Probe("physicsData.setVel.x",vel.x);
+            Probe("physicsData.setVel.y",vel.y);
+            Probe("physicsData.setVel.speed",body.getSpeed());
+
+            data.setSpeed(7);
+            Probe("physicsData.setSpeed.speed",body.getSpeed());
+            data.setDir(vector2D(0,1));
+            local dir=body.getDir();
+            Probe("physicsData.setDir.x",dir.x);
+            Probe("physicsData.setDir.y",dir.y);
+
+            data.setAsCircle(5);
+            Probe("physicsData.setAsCircle.radius",body.getShapeRadius(0));
+            data.setAsRect(12,6);
+            Probe("physicsData.setAsRect.width",body.getShapeWidth(0));
+            Probe("physicsData.setAsRect.height",body.getShapeHeight(0));
+
+            data.setIsSensor(1);
+            Probe("physicsData.setIsSensor.sensor",body.isSensor());
+            data.setIsSensor(0);
+            Probe("physicsData.setIsSensor.reset",body.isSensor());
+
+            data.setCollisionCategory(16);
+            Probe("physicsData.setCollisionCategory.value",body.getCollisionCategory());
+            data.setCategoriesToCollideWith(5);
+            Probe("physicsData.setCategoriesToCollideWith.value",body.getCategoriesToCollideWith());
+            data.setCollisionGroup(-3);
+            Probe("physicsData.setCollisionGroup.value",body.getCollisionGroup());
+
+            data.setMaxSpeed(7);
+            Probe("physicsData.setMaxSpeed.value",body.getMaxSpeed());
+            data.setMaxRotateSpeed(0.35);
+            Probe("physicsData.setMaxRotateSpeed.value",body.getMaxRotateSpeed());
+            data.setRotateAcc(0.12);
+            Probe("physicsData.setRotateAcc.value",body.getRotateAcc());
+            data.setBrakeAcc(0.25);
+            Probe("physicsData.setBrakeAcc.value",body.getBrakeAcc());
+            data.setThrustAcc(0.18);
+            Probe("physicsData.setThrustAcc.value",body.getThrustAcc());
+
+            data.setDoesRotationResponse(0);
+            Probe("physicsData.setDoesRotationResponse.disabled",body.doesRotationResponse());
+            data.setDoesRotationResponse(1);
+            Probe("physicsData.setDoesRotationResponse.enabled",body.doesRotationResponse());
+            data.setIsCollidable(0);
+            Probe("physicsData.setIsCollidable.disabled",body.isCollidable());
+            data.setIsCollidable(1);
+            Probe("physicsData.setIsCollidable.enabled",body.isCollidable());
+
+            data.setMass(4);
+            Probe("physicsData.setMass.value",body.getMass());
+            data.setRestitution(0.6);
+            Probe("physicsData.setRestitution.value",body.getRestitution());
+        }
+    );
+};
