@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 15:59 UTC
+Generated: 2026-10-22 17:26 UTC
 
-Matched: **6416/6416 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6421/6421 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **315/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **316/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -38,6 +38,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | joint.relative | 156 | 156 |
 | joint.registry | 5 | 5 |
 | joint.control | 7 | 7 |
+| joint.config | 3 | 3 |
 | raymove.solid | 96 | 96 |
 | raymove.sensor | 96 | 96 |
 | raymove.inside | 96 | 96 |
@@ -200,6 +201,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.pointInside | 1 | 1 |
 | bodyCtl.pointOutside | 1 | 1 |
 | bodyCtl.sleeping | 1 | 1 |
+| bodyCtl.flushAfterOne | 1 | 1 |
+| bodyCtl.flushAfterTen | 1 | 1 |
 | bodyCmd.thrust | 288 | 288 |
 | bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
@@ -428,7 +431,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Physics.createJoint` | 6 | 6 | PASS |
 | `Physics.deleteAllJoints` | 1 | 1 | PASS |
 | `Physics.deleteJoint` | 1 | 1 | PASS |
-| `Physics.flush` | 0 | 0 | untested |
+| `Physics.flush` | 4 | 4 | PASS |
 | `Physics.getBodyFromShapeID` | 1 | 1 | PASS |
 | `Physics.getEntityFromShapeID` | 1 | 1 | PASS |
 | `Physics.getJoint` | 2 | 2 | PASS |
@@ -526,7 +529,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getEntity1` | 60 | 60 | PASS |
 | `jointType.getEntity2` | 48 | 48 | PASS |
 | `jointType.getObjectID` | 1 | 1 | PASS |
-| `jointType.getRTMotorSpeed` | 5 | 5 | PASS |
+| `jointType.getRTMotorSpeed` | 8 | 8 | PASS |
 | `jointType.getReactionForce` | 120 | 120 | PASS |
 | `jointType.getReactionTorque` | 60 | 60 | PASS |
 | `jointType.getType` | 60 | 60 | PASS |
@@ -535,7 +538,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.setIsBodiesCollidable` | 2 | 2 | PASS |
 | `jointType.setIsNeedsHighAccuracy` | 0 | 0 | untested |
 | `jointType.setLinearSpring` | 0 | 0 | untested |
-| `jointType.setMotor` | 1 | 1 | PASS |
+| `jointType.setMotor` | 3 | 3 | PASS |
 | `jointType.setPinAngularConstraint` | 0 | 0 | untested |
 | `jointType.setPinMotor` | 0 | 0 | untested |
 | `jointType.setPrismaticTranslation` | 0 | 0 | untested |
@@ -544,7 +547,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.setRTMotorSpeed` | 1 | 1 | PASS |
 | `jointType.setRelativeVel` | 1 | 1 | PASS |
 | `jointType.setRevoluteAngularConstraint` | 0 | 0 | untested |
-| `jointType.setRevoluteMotor` | 2 | 2 | PASS |
+| `jointType.setRevoluteMotor` | 4 | 4 | PASS |
 | `jointType.setupDistanceJoint` | 1 | 1 | PASS |
 | `jointType.setupJoint` | 2 | 2 | PASS |
 | `jointType.setupPinJoint` | 1 | 1 | PASS |
@@ -657,7 +660,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setShapeDensity` | 0 | 0 | untested |
 | `physicsBody.setSpeed` | 1 | 1 | PASS |
 | `physicsBody.setThrustAcc` | 288 | 288 | PASS |
-| `physicsBody.setVel` | 289 | 289 | PASS |
+| `physicsBody.setVel` | 291 | 291 | PASS |
 | `physicsBody.setVelocityDecayRate` | 0 | 0 | untested |
 | `physicsBody.stopRotatingTo` | 288 | 288 | PASS |
 | `physicsBody.thrust` | 288 | 288 | PASS |
@@ -4875,6 +4878,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.isBodiesCollidable` | joint.control.collidableOn | `1` | `1` | PASS |
 | `jointType.getRTMotorSpeed` | joint.control.motorAfterRebuild | `0.625000` | `0.625000` | PASS |
 | `jointType.isBodiesCollidable` | joint.control.collidableOff | `0` | `0` | PASS |
+| `jointType.getRTMotorSpeed` | joint.config.revoluteMotor | `0.375000` | `0.375000` | PASS |
+| `jointType.getRTMotorSpeed` | joint.config.genericMotor | `0.250000` | `0.250000` | PASS |
+| `jointType.getRTMotorSpeed` | joint.config.resetMotor | `0.000000` | `0.000000` | PASS |
 | `Physics.raycast` | raymove.solid.t0.count | `2` | `2` | PASS |
 | `Physics.raycast` | raymove.solid.t0.trace | `AC` | `AC` | PASS |
 | `Physics.raycastSimple` | raymove.solid.t0.simple | `0.145455` | `0.145455` | PASS |
@@ -5732,7 +5738,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getNumShapes` | bodyCtl.shapeCount | `1` | `1` | PASS |
 | `physicsBody.isPointWithin` | bodyCtl.pointInside | `1` | `1` | PASS |
 | `physicsBody.isPointWithin` | bodyCtl.pointOutside | `0` | `0` | PASS |
-| `physicsBody.isSleeping` | bodyCtl.sleeping | `1.000000` | `1.000000` | PASS |
+| `physicsBody.isSleeping` | bodyCtl.sleeping | `0.000000` | `0.000000` | PASS |
+| `Physics.flush` | bodyCtl.flushAfterOne | `200.009995` | `200.009995` | PASS |
+| `Physics.flush` | bodyCtl.flushAfterTen | `200.099945` | `200.099945` | PASS |
 | `physicsBody.doesRotationResponse` | bodyApi.physicsBody.doesRotationResponse | `1` | `1` | PASS |
 | `physicsBody.getAngularVel` | bodyApi.physicsBody.getAngularVel | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getBrakeAcc` | bodyApi.physicsBody.getBrakeAcc | `999.000000` | `999.000000` | PASS |

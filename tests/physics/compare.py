@@ -207,6 +207,11 @@ ASSOCIATED = {
     "joint.control.genericMotor": ("jointType.setMotor",),
     "joint.control.collidableOn": ("jointType.setIsBodiesCollidable",),
     "joint.control.collidableOff": ("jointType.setIsBodiesCollidable",),
+    "joint.config.revoluteMotor": ("jointType.setRevoluteMotor",),
+    "joint.config.genericMotor": ("jointType.setMotor",),
+    "joint.config.resetMotor": ("jointType.setMotor", "jointType.setRevoluteMotor"),
+    "bodyCtl.flushAfterOne": ("physicsBody.setVel", "Physics.flush"),
+    "bodyCtl.flushAfterTen": ("physicsBody.setVel", "Physics.flush"),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -280,6 +285,9 @@ JOINT_FIELDS = {
     "collidableOn": "jointType.isBodiesCollidable",
     "motorAfterRebuild": "jointType.getRTMotorSpeed",
     "collidableOff": "jointType.isBodiesCollidable",
+    "revoluteMotor": "jointType.getRTMotorSpeed",
+    "genericMotor": "jointType.getRTMotorSpeed",
+    "resetMotor": "jointType.getRTMotorSpeed",
 }
 RAY_MOTION_FIELDS = {"count": "Physics.raycast", "trace": "Physics.raycast",
                      "simple": "Physics.raycastSimple", "hit": "Physics.raycastOne",
@@ -549,6 +557,7 @@ BODY_CONTROL_FIELDS = {
     "group": "physicsBody.setCollisionGroup", "angularVelocity": "physicsBody.setAngularVel",
     "pointInside": "physicsBody.isPointWithin", "pointOutside": "physicsBody.isPointWithin",
     "shapeCount": "physicsBody.getNumShapes", "sleeping": "physicsBody.isSleeping",
+    "flushAfterOne": "Physics.flush", "flushAfterTen": "Physics.flush",
 }
 BODY_COMMAND_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",

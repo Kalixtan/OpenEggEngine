@@ -1,4 +1,4 @@
-# probe-sha256 45df6050a1814d63331a0c4eb16aa42ddc702462ede4dcf9109ced4fe4a4c5ab
+# probe-sha256 b4bd672bfe85a9036b0b0ddef64d0f2f7ead15d6b9926f036be392a497017805
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
 bodyApi.physicsBody.doesRotationResponse	1
 bodyApi.physicsBody.getAngularVel	0.500000
@@ -97,6 +97,8 @@ bodyCtl.bullet	1.000000
 bodyCtl.category	4
 bodyCtl.collidable	0
 bodyCtl.direction	1
+bodyCtl.flushAfterOne	200.009995
+bodyCtl.flushAfterTen	200.099945
 bodyCtl.friction	0.250000
 bodyCtl.group	-2
 bodyCtl.mask	7
@@ -110,6 +112,6 @@ bodyCtl.restitution	0.750000
 bodyCtl.sensor	1
 bodyCtl.setSpeed	10.000000
 bodyCtl.shapeCount	1
-bodyCtl.sleeping	1.000000
+bodyCtl.sleeping	0.000000
 bodyCtl.speed	5.000000
 bodyCtl.velocity	1

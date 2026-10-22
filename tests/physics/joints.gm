@@ -95,6 +95,22 @@ global Main=function(p) {
                 Probe("joint.control.motorAfterRebuild",this.revolute.getRTMotorSpeed());
                 this.revolute.setIsBodiesCollidable(0);
                 Probe("joint.control.collidableOff",this.revolute.isBodiesCollidable());
+
+                this.configA=JointBody(1000,600,0);
+                this.configB=JointBody(1005,600,1);
+                this.configRevolute=Physics.createJoint(PHYSICSJOINTTYPE_REVOLUTE);
+                this.configRevolute.setRevoluteMotor(1,0.375,2);
+                this.configRevolute.setupJoint(this.configA.b,this.configB.b,vector2D(1000,600));
+                Probe("joint.config.revoluteMotor",this.configRevolute.getRTMotorSpeed());
+                this.configGeneric=Physics.createJoint(PHYSICSJOINTTYPE_REVOLUTE);
+                this.configGeneric.setMotor(1,0.25,3);
+                this.configGeneric.setupJoint(this.configA.b,this.configB.b,vector2D(1005,600));
+                Probe("joint.config.genericMotor",this.configGeneric.getRTMotorSpeed());
+                this.configReset=Physics.createJoint(PHYSICSJOINTTYPE_REVOLUTE);
+                this.configReset.setMotor(1,0.5,4);
+                this.configReset.setRevoluteMotor(1);
+                this.configReset.setupJoint(this.configA.b,this.configB.b,vector2D(1010,600));
+                Probe("joint.config.resetMotor",this.configReset.getRTMotorSpeed());
                 Physics.deleteJoint(this.distance);
                 Probe("joint.registry.deleted",Physics.getJoint(distanceID)==null);
                 Physics.deleteAllJoints();

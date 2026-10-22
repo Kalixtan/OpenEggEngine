@@ -1,4 +1,7 @@
-# probe-sha256 0de57b8c89b21e7e0a449ce702808d34640f8369079684de2b84d6125a171f3f
+# probe-sha256 aaf851683a7d2401e31096d8b10e849a67f84aa5395289bf8d7685d4c0dadc5a
+joint.config.genericMotor	0.250000
+joint.config.resetMotor	0.000000
+joint.config.revoluteMotor	0.375000
 joint.control.collidableOff	0
 joint.control.collidableOn	1
 joint.control.genericMotor	0.625000

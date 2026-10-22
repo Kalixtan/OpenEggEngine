@@ -197,5 +197,16 @@ global Main=function(p) {
             shapeDef.reset();
             shapeDef.addEdges(verts,3,true);
             Probe("bodyApi.shapeDef.addEdges",1);
+
+            this.sleepBody.wakeUp();
+            this.sleepBody.setPos(vector2D(200,200));
+            this.sleepBody.setVel(vector2D(1,0));
+            Physics.flush();
+            Probe("bodyCtl.flushAfterOne",this.sleepBody.getPos().x);
+            local flushIndex=0;
+            for (flushIndex=0;flushIndex<9;flushIndex+=1) {
+                Physics.flush();
+            }
+            Probe("bodyCtl.flushAfterTen",this.sleepBody.getPos().x);
         });
 };

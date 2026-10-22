@@ -20,6 +20,9 @@
     "joint.control.genericMotor",
     "joint.control.collidableOn",
     "joint.control.motorAfterRebuild",
-    "joint.control.collidableOff"
+    "joint.control.collidableOff",
+    "joint.config.revoluteMotor",
+    "joint.config.genericMotor",
+    "joint.config.resetMotor"
   ]
 }

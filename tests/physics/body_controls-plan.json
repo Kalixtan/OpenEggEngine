@@ -9,6 +9,7 @@
     "bodyCtl.bullet", "bodyCtl.category", "bodyCtl.mask", "bodyCtl.group",
     "bodyCtl.angularVelocity", "bodyCtl.shapeCount",
     "bodyCtl.pointInside", "bodyCtl.pointOutside", "bodyCtl.sleeping",
+    "bodyCtl.flushAfterOne", "bodyCtl.flushAfterTen",
     "bodyApi.physicsBody.doesRotationResponse",
     "bodyApi.physicsBody.getAngularVel", "bodyApi.physicsBody.getBrakeAcc",
     "bodyApi.physicsBody.getCategoriesToCollideWith",
