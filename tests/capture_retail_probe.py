@@ -24,7 +24,9 @@ def main():
     parser.add_argument("--rpcs3", type=Path, default=Path("/usr/bin/rpcs3"))
     parser.add_argument("--probe", type=Path, default=PROBE)
     parser.add_argument("--support-file", type=Path, action="append", default=[],
-                        help="extra probe script copied beside retail Main.gm for this run")
+                        help="extra file copied to the support directory for this run")
+    parser.add_argument("--support-dir", type=Path,
+                        help="directory for support files; defaults to Main.gm's directory")
     parser.add_argument("--expected", type=Path,
                         help="frame-sample plan for probes with generated names")
     parser.add_argument("--baseline", type=Path, default=BASELINE)
@@ -49,8 +51,10 @@ def main():
 
     support = []
     used = set()
+    support_dir = (args.support_dir.resolve() if args.support_dir
+                   else main_path.parent)
     for source in args.support_file:
-        target = main_path.parent / source.name
+        target = support_dir / source.name
         if target == main_path or target in used:
             parser.error(f"duplicate or invalid support file: {source}")
         used.add(target)

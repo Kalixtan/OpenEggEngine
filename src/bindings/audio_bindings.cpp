@@ -1640,7 +1640,10 @@ int GM_CDECL gmf_setVoiceLoop(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     const int voice = a_thread->Param(0).m_value.m_int;
     const bool loop = a_thread->Param(1).m_value.m_int != 0;
-    if (VoiceState* v = FindVoice(voice)) v->looping = loop;
+    if (VoiceState* v = FindVoice(voice)) {
+        v->looping = loop;
+        v->loopGainScale = loop || v->loopCount > 0 ? 1.05f : 1.0f;
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_setVoiceLoopCount(gmThread* a_thread) {
@@ -1649,8 +1652,8 @@ int GM_CDECL gmf_setVoiceLoopCount(gmThread* a_thread) {
     const int count = a_thread->Param(1).m_value.m_int;
     if (VoiceState* v = FindVoice(voice)) {
         v->loopCount = std::max(0, count);
-        // The software loop path measures 3.4% below the retail FMOD path.
-        v->loopGainScale = count > 0 ? 1.035f : 1.0f;
+        // Repeated passes measure about 5% below retail FMOD in captures.
+        v->loopGainScale = v->looping || v->loopCount > 0 ? 1.05f : 1.0f;
     }
     return GM_OK;
 }

@@ -76,8 +76,8 @@ def inventory():
                       if row["name"].startswith("Audio."))
 
 
-def compare_section(engine, probe, baseline, root, log_dir, names):
-    check_baseline_source(baseline, probe)
+def compare_section(engine, probe, baseline, root, log_dir, names, support=()):
+    check_baseline_source(baseline, probe, support)
     declared = expected_readings(probe)
     if len(declared) != len(set(declared)):
         raise ValueError(f"duplicate reading names in {probe}")
@@ -120,7 +120,7 @@ def main():
     names = inventory()
     baselines = [HERE / f"{stem}-retail.tsv" for stem in
                  ("state", "manager", "effects", "script_playback",
-                  "voice", "voice_controls", "slicker", "voice_lifetime",
+                  "resources", "voice", "voice_controls", "slicker", "voice_lifetime",
                   "voice_gate")]
     warnings = retail_setup_warnings(baselines)
     log_dir = ROOT / "tests/_results/audio"
@@ -148,12 +148,15 @@ def main():
             stream_target = root / STREAM_SOUND
             stream_target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(stream_source, stream_target)
-            for stem in ("voice", "voice_controls", "slicker", "voice_lifetime",
+            for stem in ("resources", "voice", "voice_controls", "slicker", "voice_lifetime",
                          "voice_gate"):
                 shutil.copyfile(HERE / f"{stem}.gm", root / f"{stem}.gm")
+                support = (HERE / "sampleList.txt",) if stem == "resources" else ()
+                for support_file in support:
+                    shutil.copyfile(support_file, root / support_file.name)
                 section_rows, section_problems = compare_section(
                     args.engine.resolve(), HERE / f"{stem}.gm",
-                    HERE / f"{stem}-retail.tsv", root, log_dir, names)
+                    HERE / f"{stem}-retail.tsv", root, log_dir, names, support)
                 rows.extend(section_rows)
                 problems.extend(section_problems)
         asset_status = "tested with user supplied sound"

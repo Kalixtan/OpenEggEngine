@@ -1,0 +1,43 @@
+// Compare loop counts with same short sample.
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        foreverVoice=0,
+        constructor=function(){},
+        init=function() {
+            Audio.stopAllVoices();
+            Audio.setMusicVolume(0);
+            return true;
+        },
+        update=function() {
+            local path="Platformer/sounds/fx/button-high.wav";
+            if (this.frame==20) {
+                Audio.playSound(path);
+            }
+            if (this.frame==80) {
+                local voice=Audio.playSound(path);
+                Audio.setVoiceLoopCount(voice,1);
+            }
+            if (this.frame==140) {
+                local voice=Audio.playSound(path);
+                Audio.setVoiceLoopCount(voice,2);
+            }
+            if (this.frame==200) {
+                local voice=Audio.playSound(path);
+                Audio.setVoiceLoopCount(voice,3);
+            }
+            if (this.frame==260) {
+                this.foreverVoice=Audio.playSound(path);
+                Audio.setVoiceLoop(this.foreverVoice,true);
+            }
+            if (this.frame==280) {
+                Audio.stopVoice(this.foreverVoice,100);
+            }
+            if (this.frame==340) {
+                GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
+            }
+            this.frame+=1;
+        }
+    );
+};

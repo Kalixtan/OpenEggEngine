@@ -1,0 +1,25 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local path="Platformer/sounds/fx/button-high.wav";
+Probe("Audio.loadSampleList.count",Audio.loadSampleList("ignored-list.txt"));
+Probe("Audio.loadSampleList.length",Audio.getSoundLength(path)>0);
+
+Audio.unloadAllSounds();
+Probe("Audio.unloadAllSounds.retainsSample",Audio.getSoundLength(path)>0);
+
+local six=Audio.playSound(path,48,0,0,1,128);
+Probe("Audio.playSound.sixArgsPositive",six>0);
+local chain=Audio.getMasterEffectChain();
+local seven=Audio.playSound(path,48,0,0,1,128,chain);
+Probe("Audio.playSound.sevenArgsPositive",seven>0);
+local eight=Audio.playSound(path,48,0,0,1,128,chain,10.9);
+Probe("Audio.playSound.eightArgsPositive",eight>0);
+Probe("Audio.playSound.startPositionTruncated",Audio.getVoicePosition(eight));
+Audio.stopAllVoices();
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},
+        update=function(){});
+};

@@ -55,6 +55,16 @@ python3 tests/audio/waveform.py --suite controls --game-data /path/to/game_data 
 python3 tests/audio/waveform.py --suite controls --game-data /path/to/game_data
 ```
 
+`waveform_looping.gm` compares loop counts 0 through 3, plus an indefinite loop
+with a timed stop. It writes a separate report:
+
+```sh
+python3 tests/audio/waveform.py --suite looping --game-data /path/to/game_data \
+  --capture-retail --main /path/to/installed/game_data/Main.gm \
+  --eboot /path/to/installed/EBOOT.BIN
+python3 tests/audio/waveform.py --suite looping --game-data /path/to/game_data
+```
+
 Needs RPCS3, `pactl`, `parec`, NumPy, SciPy, and SoundFile. The capture uses a
 temporary RPCS3 config and virtual sink. It briefly appends the probe to the
 installed `Main.gm`, then restores it. Retail and OpenEgg audio stays under

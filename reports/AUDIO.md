@@ -1,10 +1,10 @@
 # Audio test report
 
-Generated: 2026-10-22 11:04 UTC
+Generated: 2026-10-22 11:43 UTC
 
-Matched: **132/132 (100%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
+Matched: **139/139 (100%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 
-Asset probes: tested with user supplied sound. Functions with readings: **61/68**.
+Asset probes: tested with user supplied sound. Functions with readings: **63/68**.
 
 ## Retail setup warnings
 
@@ -45,13 +45,13 @@ Asset probes: tested with user supplied sound. Functions with readings: **61/68*
 | `Audio.isRetriggering` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.isVoicePaused` | 4 | 4 | 0 | 0 | PASS |
 | `Audio.isVoiceValid` | 5 | 5 | 0 | 0 | PASS |
-| `Audio.loadSampleList` | 0 | 0 | 0 | 0 | untested |
+| `Audio.loadSampleList` | 2 | 2 | 0 | 0 | PASS |
 | `Audio.loadScriptFromFile` | 0 | 0 | 0 | 0 | untested |
 | `Audio.loadSound` | 2 | 2 | 0 | 0 | PASS |
 | `Audio.loadSoundSlicker` | 2 | 2 | 0 | 0 | PASS |
 | `Audio.onVoiceEndFreeEffectChain` | 2 | 2 | 0 | 0 | PASS |
 | `Audio.onVoiceEndFreeSoundEffect` | 0 | 0 | 0 | 0 | untested |
-| `Audio.playSound` | 7 | 7 | 0 | 11 | PASS |
+| `Audio.playSound` | 11 | 11 | 0 | 11 | PASS |
 | `Audio.playSoundSlicker` | 0 | 0 | 2 | 0 | SKIP |
 | `Audio.playStream` | 2 | 2 | 2 | 0 | PASS |
 | `Audio.saveScriptToFile` | 0 | 0 | 0 | 0 | untested |
@@ -81,7 +81,7 @@ Asset probes: tested with user supplied sound. Functions with readings: **61/68*
 | `Audio.stopRecordingScript` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.stopRetriggering` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.stopVoice` | 7 | 7 | 0 | 0 | PASS |
-| `Audio.unloadAllSounds` | 0 | 0 | 0 | 0 | untested |
+| `Audio.unloadAllSounds` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.unloadSound` | 3 | 3 | 0 | 0 | PASS |
 
 ## Readings
@@ -142,6 +142,13 @@ Asset probes: tested with user supplied sound. Functions with readings: **61/68*
 | `Audio.freeEffectChain` | Audio.freeEffectChain.released | `1` | `1` | PASS |
 | `Audio.startPlayingScript` | Audio.startPlayingScript.active | `1` | `1` | PASS |
 | `Audio.stopPlayingScript` | Audio.stopPlayingScript.inactive | `0` | `0` | PASS |
+| `Audio.loadSampleList` | Audio.loadSampleList.count | `1` | `1` | PASS |
+| `Audio.loadSampleList` | Audio.loadSampleList.length | `1` | `1` | PASS |
+| `Audio.unloadAllSounds` | Audio.unloadAllSounds.retainsSample | `1` | `1` | PASS |
+| `Audio.playSound` | Audio.playSound.sixArgsPositive | `1` | `1` | PASS |
+| `Audio.playSound` | Audio.playSound.sevenArgsPositive | `1` | `1` | PASS |
+| `Audio.playSound` | Audio.playSound.eightArgsPositive | `1` | `1` | PASS |
+| `Audio.playSound` | Audio.playSound.startPositionTruncated | `10` | `10` | PASS |
 | `Audio.loadSound` | Audio.loadSound.sample | `1` | `1` | PASS |
 | `Audio.getSoundLength` | Audio.getSoundLength.sample | `87` | `87` | PASS |
 | `Audio.playSound` | Audio.playSound.onePositive | `1` | `1` | PASS |

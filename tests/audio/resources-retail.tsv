@@ -1,0 +1,9 @@
+# probe-sha256 99fac78faea0f8eee2113f0e8e2d87b8e4809b2ba2f50fd371c5032d06fed589
+# support-sha256 sampleList.txt 672b20611199e18c995ac090433384ce4285f07c3cc341a88d4b4a66bf381697
+Audio.loadSampleList.count	1
+Audio.loadSampleList.length	1
+Audio.playSound.eightArgsPositive	1
+Audio.playSound.sevenArgsPositive	1
+Audio.playSound.sixArgsPositive	1
+Audio.playSound.startPositionTruncated	10
+Audio.unloadAllSounds.retainsSample	1

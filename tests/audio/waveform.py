@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 SOUND = Path("Platformer/sounds/fx/button-high.wav")
 GATE_SOUND = Path("Platformer/sounds/singlenote/tone.wav")
+RATE = 48000
 SUITES = {
     "basic": ("waveform.gm", ("normal", "half_volume", "pan_left", "pan_right"), ()),
     "controls": ("waveform_controls.gm", ("speed_half", "speed_double",
@@ -28,8 +29,10 @@ SUITES = {
                                   "fade_40", "loop_one", "pause_resume",
                                   "pan_left", "pan_right", "gate_100_ms"),
                  (GATE_SOUND,)),
+    "looping": ("waveform_looping.gm", ("no_loop", "loop_count_1",
+                                  "loop_count_2", "loop_count_3",
+                                  "loop_forever_timed_stop"), (), RATE // 2),
 }
-RATE = 48000
 MAX_ALIGNMENT_MS = 30.0
 RESULTS = ROOT / "tests/_results/audio/waveforms"
 
@@ -45,7 +48,7 @@ def load_raw(path):
     return data.reshape(-1, 2)
 
 
-def save_cases(raw, target, cases):
+def save_cases(raw, target, cases, clip_frames=RATE // 4):
     # Merge gaps within each short hit, then find isolated events.
     peak = maximum_filter1d(np.max(np.abs(raw), axis=1), size=240)
     active = np.flatnonzero(peak > 0.008)
@@ -57,14 +60,14 @@ def save_cases(raw, target, cases):
     target.mkdir(parents=True, exist_ok=True)
     for name, start in zip(cases, starts):
         first = max(0, int(start) - 240)
-        clip = raw[first:first + RATE // 4]
-        if len(clip) != RATE // 4:
+        clip = raw[first:first + clip_frames]
+        if len(clip) != clip_frames:
             raise RuntimeError(f"{name}: recording ended before the sound finished")
         sf.write(target / f"{name}.wav", clip, RATE, subtype="FLOAT")
     return starts / RATE
 
 
-def capture_retail(args, sound, extra_sounds, target, probe, cases):
+def capture_retail(args, sound, extra_sounds, target, probe, cases, clip_frames):
     main = args.main.resolve()
     eboot = args.eboot.resolve()
     if not main.is_file() or not eboot.is_file():
@@ -95,7 +98,7 @@ def capture_retail(args, sound, extra_sounds, target, probe, cases):
         config_copy = Path(temporary) / "rpcs3.yml"
         config_copy.write_text(settings)
         env = os.environ.copy()
-        env.update({"QT_QPA_PLATFORM": "offscreen", "PULSE_SINK": sink})
+        env.update({"QT_QPA_PLATFORM": args.qt_platform, "PULSE_SINK": sink})
         recorder = emulator = None
         try:
             with raw_path.open("wb") as raw_file, (target / "retail-boot.log").open("wb") as log:
@@ -136,7 +139,7 @@ def capture_retail(args, sound, extra_sounds, target, probe, cases):
                 recorder.wait(timeout=5)
             main.write_bytes(original)
             subprocess.run(["pactl", "unload-module", module], check=True)
-    starts = save_cases(load_raw(raw_path), target / "retail", cases)
+    starts = save_cases(load_raw(raw_path), target / "retail", cases, clip_frames)
     (target / "retail.json").write_text(json.dumps({
         "probe_sha256": sha(probe), "sound_sha256": sha(sound),
         "extra_sound_sha256": {str(relative): sha(args.game_data / relative)
@@ -146,7 +149,7 @@ def capture_retail(args, sound, extra_sounds, target, probe, cases):
     }, indent=2) + "\n")
 
 
-def capture_openegg(args, sound, extra_sounds, target, probe, cases):
+def capture_openegg(args, sound, extra_sounds, target, probe, cases, clip_frames):
     target.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="openegg-wave-data-") as temporary:
         root = Path(temporary)
@@ -159,7 +162,7 @@ def capture_openegg(args, sound, extra_sounds, target, probe, cases):
             shutil.copyfile(args.game_data.resolve() / relative, extra)
         shutil.copyfile(probe, root / probe.name)
         harness = root / "waveform.harness"
-        harness.write_text(f"wait {60 * len(cases) + 40}\nquit\n")
+        harness.write_text("wait 900\nquit\n")
         raw_path = target / "openegg-full.f32le"
         env = os.environ.copy()
         env.update({"GE3_HEADLESS": "1", "GE3_AUDIO_CAPTURE_RAW": str(raw_path),
@@ -172,7 +175,7 @@ def capture_openegg(args, sound, extra_sounds, target, probe, cases):
         (target / "openegg.log").write_text(result.stdout)
         if result.returncode or "wave_done" not in result.stdout:
             raise RuntimeError(f"OpenEgg probe failed; see {target / 'openegg.log'}")
-    return save_cases(load_raw(raw_path), target / "openegg", cases)
+    return save_cases(load_raw(raw_path), target / "openegg", cases, clip_frames)
 
 
 def compare(target, cases, report):
@@ -251,13 +254,19 @@ def main():
     parser.add_argument("--main", type=Path)
     parser.add_argument("--eboot", type=Path)
     parser.add_argument("--rpcs3", type=Path, default=Path("/usr/bin/rpcs3"))
+    parser.add_argument("--qt-platform", default="offscreen",
+                        help="Qt platform plugin for RPCS3 (for example xcb with AppImage builds)")
     parser.add_argument("--timeout", type=int, default=45)
     args = parser.parse_args()
-    probe_name, cases, extra_sounds = SUITES[args.suite]
+    suite = SUITES[args.suite]
+    probe_name, cases, extra_sounds = suite[:3]
+    clip_frames = suite[3] if len(suite) > 3 else RATE // 4
     probe = HERE / probe_name
     target = RESULTS if args.suite == "basic" else RESULTS / args.suite
-    report = ROOT / "reports" / ("AUDIO_WAVEFORM.md" if args.suite == "basic"
-                                else "AUDIO_CONTROLS_WAVEFORM.md")
+    report_names = {"basic": "AUDIO_WAVEFORM.md",
+                    "controls": "AUDIO_CONTROLS_WAVEFORM.md",
+                    "looping": "AUDIO_LOOPING_WAVEFORM.md"}
+    report = ROOT / "reports" / report_names[args.suite]
     sound = args.game_data.resolve() / SOUND
     if not sound.is_file():
         parser.error(f"sound missing: {sound}")
@@ -267,7 +276,7 @@ def main():
     if args.capture_retail:
         if not args.main or not args.eboot:
             parser.error("--capture-retail requires --main and --eboot")
-        capture_retail(args, sound, extra_sounds, target, probe, cases)
+        capture_retail(args, sound, extra_sounds, target, probe, cases, clip_frames)
     metadata = target / "retail.json"
     if not metadata.is_file():
         parser.error("no saved retail capture; run with --capture-retail")
@@ -278,7 +287,7 @@ def main():
                 str(relative): sha(args.game_data.resolve() / relative)
                 for relative in extra_sounds} or saved["cases"] != list(cases)):
         parser.error("retail capture uses a different probe or sample; recapture it")
-    capture_openegg(args, sound, extra_sounds, target, probe, cases)
+    capture_openegg(args, sound, extra_sounds, target, probe, cases, clip_frames)
     return compare(target, cases, report)
 
 
