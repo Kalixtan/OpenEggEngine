@@ -1,5 +1,8 @@
-# probe-sha256 aaf851683a7d2401e31096d8b10e849a67f84aa5395289bf8d7685d4c0dadc5a
+# probe-sha256 190f849a8fad25dc0048e2e9b0d7c8da4d9e5f95fcda5ff6663f41a15abd49d3
 joint.config.genericMotor	0.250000
+joint.config.pinMotor	0.000000
+joint.config.prismaticMotor	0.000000
+joint.config.prismaticTranslation	0.000000
 joint.config.resetMotor	0.000000
 joint.config.revoluteMotor	0.375000
 joint.control.collidableOff	0

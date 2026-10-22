@@ -23,6 +23,9 @@
     "joint.control.collidableOff",
     "joint.config.revoluteMotor",
     "joint.config.genericMotor",
-    "joint.config.resetMotor"
+    "joint.config.resetMotor",
+    "joint.config.pinMotor",
+    "joint.config.prismaticTranslation",
+    "joint.config.prismaticMotor"
   ]
 }

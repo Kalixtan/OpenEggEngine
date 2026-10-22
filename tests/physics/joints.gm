@@ -111,6 +111,28 @@ global Main=function(p) {
                 this.configReset.setRevoluteMotor(1);
                 this.configReset.setupJoint(this.configA.b,this.configB.b,vector2D(1010,600));
                 Probe("joint.config.resetMotor",this.configReset.getRTMotorSpeed());
+
+                this.configPinBody=JointBody(1040,600,1);
+                this.configPin=Physics.createJoint(PHYSICSJOINTTYPE_PIN);
+                this.configPin.setPinMotor(1,0.2,2);
+                this.configPin.setupPinJoint(this.configPinBody.b,vector2D(1040,600));
+                Probe("joint.config.pinMotor",this.configPin.getRTMotorSpeed());
+
+                this.configPrismaticA=JointBody(1070,600,0);
+                this.configPrismaticB=JointBody(1075,600,1);
+                this.configPrismatic=Physics.createJoint(PHYSICSJOINTTYPE_PRISMATIC);
+                this.configPrismatic.setPrismaticWorldAxis(vector2D(1,0));
+                this.configPrismatic.setPrismaticTranslation(0.35,2);
+                this.configPrismatic.setupJoint(this.configPrismaticA.b,this.configPrismaticB.b,
+                    vector2D(1070,600));
+                Probe("joint.config.prismaticTranslation",this.configPrismatic.getRTMotorSpeed());
+
+                this.configPrismaticGeneric=Physics.createJoint(PHYSICSJOINTTYPE_PRISMATIC);
+                this.configPrismaticGeneric.setPrismaticWorldAxis(vector2D(1,0));
+                this.configPrismaticGeneric.setMotor(1,0.45,3);
+                this.configPrismaticGeneric.setupJoint(this.configPrismaticA.b,this.configPrismaticB.b,
+                    vector2D(1075,600));
+                Probe("joint.config.prismaticMotor",this.configPrismaticGeneric.getRTMotorSpeed());
                 Physics.deleteJoint(this.distance);
                 Probe("joint.registry.deleted",Physics.getJoint(distanceID)==null);
                 Physics.deleteAllJoints();
