@@ -1,0 +1,16 @@
+{
+  "prefix": "sceneTransition",
+  "frames": 0,
+  "extra": [
+    "sceneTransition.oldCreated",
+    "sceneTransition.speedBefore",
+    "sceneTransition.oldRunning",
+    "sceneTransition.oldDestroyed",
+    "sceneTransition.oldUpdates",
+    "sceneTransition.oldProcessGone",
+    "sceneTransition.newProcessRunning",
+    "sceneTransition.entitySurvived",
+    "sceneTransition.newInitialized",
+    "sceneTransition.processCount"
+  ]
+}

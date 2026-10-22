@@ -1,0 +1,11 @@
+# probe-sha256 ec921e0ec096f7cfd1f64ecb928268e6a610ae3511afa4cd488146dcc8dcca54
+# support-sha256 ProcessPauseScaleA.gm e46634b4b2cf6e3e1f727af412b9f8cb2456fa0d436446b8230a7a72d3ef002e
+# support-sha256 ProcessPauseScaleB.gm 5c91783e1d1b749fdb3ee92dc3d5a55159604b98786062c60fa833fec17628d1
+pauseScale.bHeld	3
+pauseScale.doubleDeltaApplied	0
+pauseScale.doubleSpeed	2.000000
+pauseScale.finalSpeed	1.000000
+pauseScale.halfDeltaApplied	0
+pauseScale.halfSpeed	0.500000
+pauseScale.pauseSeen	1
+pauseScale.resumed	1

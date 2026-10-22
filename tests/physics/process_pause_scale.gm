@@ -1,0 +1,26 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global ProcessPauseScaleState=table(aUpdates=0,bUpdates=0,halfSpeed=0,
+    doubleSpeed=0,halfDeltaApplied=0,doubleDeltaApplied=0,pauseSeen=0,bHeld=0);
+global Main=function(p) {
+    return table(Process=p,frame=0,a=null,b=null,constructor=function(){},
+        init=function(){return true;},update=function(dt) {
+            if (this.frame==0) {
+                this.a=GameSystem.runProcess("ProcessPauseScaleA");
+                this.b=GameSystem.runProcess("ProcessPauseScaleB");
+            } else if (this.frame==5) {
+                Probe("pauseScale.halfSpeed",ProcessPauseScaleState.halfSpeed);
+                Probe("pauseScale.doubleSpeed",ProcessPauseScaleState.doubleSpeed);
+                Probe("pauseScale.halfDeltaApplied",ProcessPauseScaleState.halfDeltaApplied);
+                Probe("pauseScale.doubleDeltaApplied",ProcessPauseScaleState.doubleDeltaApplied);
+                Probe("pauseScale.pauseSeen",ProcessPauseScaleState.pauseSeen);
+                Probe("pauseScale.bHeld",ProcessPauseScaleState.bHeld);
+                Probe("pauseScale.resumed",!GameSystem.isPaused());
+                Probe("pauseScale.finalSpeed",GameSystem.getSimulationSpeed());
+                this.a.terminate();
+                this.b.terminate();
+            }
+            this.frame+=1;
+        });
+};

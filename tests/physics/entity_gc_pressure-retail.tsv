@@ -1,0 +1,11 @@
+# probe-sha256 675058c6349a3f9711a6e8206673c6e3a1131ecf33adfb2a42eefe5d1c03c790
+# support-sha256 EntityGCProbe.gm fe3f1ce0f8f2e345fcac79f31812d884f455eaeab391705cc7923877f651824d
+gcPressure.countAfterCreate	96
+gcPressure.countBeforeCollect	64
+gcPressure.emptyAfterClear	0
+gcPressure.firstRootValid	1
+gcPressure.oldIdsInvalid	1
+gcPressure.retainedRootValid	1
+gcPressure.rootCount	6
+gcPressure.totalAfterCollect	64
+gcPressure.validAfterCollect	64

@@ -1,0 +1,21 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityGCProbe.gm");
+global DeepTransitionState=table(oldDestroyed=0,oldUpdates=0,entityID=-1,
+    newInitialized=0);
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function(dt) {
+            if (this.frame==0) {
+                GameSystem.setSimulationSpeed(0.5);
+                this.old=GameSystem.runProcess("DeepOldProcess");
+                Probe("sceneTransition.oldCreated",this.old!=null);
+                Probe("sceneTransition.speedBefore",GameSystem.getSimulationSpeed());
+            } else if (this.frame==2) {
+                Probe("sceneTransition.oldRunning",GameSystem.isProcessRunning("DeepOldProcess"));
+                GameSystem.startNewProcessList("DeepSceneProcess",1);
+            }
+            this.frame+=1;
+        });
+};

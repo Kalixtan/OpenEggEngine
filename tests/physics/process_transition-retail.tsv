@@ -1,0 +1,14 @@
+# probe-sha256 387b380457979622fa789528972539943cd49256f8f2b91902d7546c40e0f886
+# support-sha256 EntityGCProbe.gm fe3f1ce0f8f2e345fcac79f31812d884f455eaeab391705cc7923877f651824d
+# support-sha256 DeepOldProcess.gm 3db0324a18dbdaeb9319485cfc0a9e4d6208c211d12b66fdae93051915ec9261
+# support-sha256 DeepSceneProcess.gm 6853f9c500c8c2c8a8fc46b787514cc5a8ac928b99126af68489ee27aa26c964
+sceneTransition.entitySurvived	0
+sceneTransition.newInitialized	1
+sceneTransition.newProcessRunning	1
+sceneTransition.oldCreated	1
+sceneTransition.oldDestroyed	1
+sceneTransition.oldProcessGone	1
+sceneTransition.oldRunning	1
+sceneTransition.oldUpdates	1
+sceneTransition.processCount	1
+sceneTransition.speedBefore	0.500000

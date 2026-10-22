@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 00:34 UTC
+Generated: 2026-10-22 14:21 UTC
 
-Matched: **6348/6348 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6389/6389 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **303/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **306/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -135,6 +135,47 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | processPause.destroyed | 1 | 1 |
 | processPause.running | 1 | 1 |
 | processPause.count | 1 | 1 |
+| callbackMutation.trace | 1 | 1 |
+| callbackMutation.fired | 1 | 1 |
+| callbackMutation.otherValidBefore | 1 | 1 |
+| callbackMutation.countBefore | 1 | 1 |
+| callbackMutation.addedValidPending | 1 | 1 |
+| callbackMutation.countAfterCreate | 1 | 1 |
+| callbackMutation.jointType | 1 | 1 |
+| callbackMutation.otherTagged | 1 | 1 |
+| callbackMutation.otherValidTagged | 1 | 1 |
+| callbackMutation.selfTagged | 1 | 1 |
+| callbackMutation.otherValidAfterFlush | 1 | 1 |
+| callbackMutation.selfValidAfterFlush | 1 | 1 |
+| callbackMutation.addedValidAfterFlush | 1 | 1 |
+| callbackMutation.finalCount | 1 | 1 |
+| gcPressure.countAfterCreate | 1 | 1 |
+| gcPressure.rootCount | 1 | 1 |
+| gcPressure.firstRootValid | 1 | 1 |
+| gcPressure.countBeforeCollect | 1 | 1 |
+| gcPressure.validAfterCollect | 1 | 1 |
+| gcPressure.retainedRootValid | 1 | 1 |
+| gcPressure.totalAfterCollect | 1 | 1 |
+| gcPressure.emptyAfterClear | 1 | 1 |
+| gcPressure.oldIdsInvalid | 1 | 1 |
+| sceneTransition.oldCreated | 1 | 1 |
+| sceneTransition.speedBefore | 1 | 1 |
+| sceneTransition.oldRunning | 1 | 1 |
+| sceneTransition.oldDestroyed | 1 | 1 |
+| sceneTransition.oldUpdates | 1 | 1 |
+| sceneTransition.oldProcessGone | 1 | 1 |
+| sceneTransition.newProcessRunning | 1 | 1 |
+| sceneTransition.entitySurvived | 1 | 1 |
+| sceneTransition.newInitialized | 1 | 1 |
+| sceneTransition.processCount | 1 | 1 |
+| pauseScale.halfSpeed | 1 | 1 |
+| pauseScale.doubleSpeed | 1 | 1 |
+| pauseScale.halfDeltaApplied | 1 | 1 |
+| pauseScale.doubleDeltaApplied | 1 | 1 |
+| pauseScale.pauseSeen | 1 | 1 |
+| pauseScale.bHeld | 1 | 1 |
+| pauseScale.resumed | 1 | 1 |
+| pauseScale.finalSpeed | 1 | 1 |
 | bodyCtl.position | 1 | 1 |
 | bodyCtl.velocity | 1 | 1 |
 | bodyCtl.speed | 1 | 1 |
@@ -293,15 +334,15 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.set_getAudibilityPerc_neverOnScreen` | 2 | 2 | PASS |
 | `Entity.setupDrawList` | 0 | 0 | untested |
 | `Entity.setupStaticDrawList` | 0 | 0 | untested |
-| `Entity.tagForDeletion` | 2 | 2 | PASS |
+| `Entity.tagForDeletion` | 4 | 4 | PASS |
 | `Entity.unloadAnimation` | 0 | 0 | untested |
 | `Entity.unloadAnimationAll` | 0 | 0 | untested |
 | `Entity.update` | 2 | 2 | PASS |
 | `Entity.updateExplosionIfGot` | 1 | 1 | PASS |
 | `EntityManager.createEntity` | 2 | 2 | PASS |
 | `EntityManager.createEntityAsPlayer` | 0 | 0 | untested |
-| `EntityManager.deleteAllEntities` | 5 | 5 | PASS |
-| `EntityManager.flush` | 14 | 14 | PASS |
+| `EntityManager.deleteAllEntities` | 6 | 6 | PASS |
+| `EntityManager.flush` | 17 | 17 | PASS |
 | `EntityManager.getAllEntities` | 11 | 11 | PASS |
 | `EntityManager.getAllManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getAllNonManualEntities` | 1 | 1 | PASS |
@@ -314,16 +355,16 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `EntityManager.getEntityFromUID` | 2 | 2 | PASS |
 | `EntityManager.getEntityPerfCost` | 3 | 3 | PASS |
 | `EntityManager.getEntityPerfMaxCost` | 1 | 1 | PASS |
-| `EntityManager.getNumEntities` | 18 | 18 | PASS |
+| `EntityManager.getNumEntities` | 24 | 24 | PASS |
 | `EntityManager.getNumManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumNonManualEntities` | 1 | 1 | PASS |
 | `EntityManager.getNumPlayers` | 1 | 1 | PASS |
 | `EntityManager.getRandomEntity` | 1 | 1 | PASS |
 | `EntityManager.getRandomPlayer` | 1 | 1 | PASS |
-| `EntityManager.isEntityIDValid` | 54 | 55 | AWAITING RETAIL |
+| `EntityManager.isEntityIDValid` | 62 | 63 | AWAITING RETAIL |
 | `EntityManager.setEntityPerfCost` | 2 | 2 | PASS |
 | `EntityManager.setEntityPerfMaxCost` | 1 | 1 | PASS |
-| `GameMonkeyScript.clean` | 1 | 1 | PASS |
+| `GameMonkeyScript.clean` | 2 | 2 | PASS |
 | `GameMonkeyScript.isCollectingGarbage` | 3 | 4 | AWAITING RETAIL |
 | `GameSystem.TemporaryStorageCopy` | 0 | 0 | untested |
 | `GameSystem.TemporaryStoragePaste` | 0 | 0 | untested |
@@ -341,7 +382,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.getMSSincePlayStart` | 0 | 0 | untested |
 | `GameSystem.getProcess` | 1 | 1 | PASS |
 | `GameSystem.getProcessByIndex` | 0 | 0 | untested |
-| `GameSystem.getProcessCount` | 3 | 3 | PASS |
+| `GameSystem.getProcessCount` | 4 | 4 | PASS |
 | `GameSystem.getRandomAngle` | 0 | 0 | untested |
 | `GameSystem.getRandomBoolean` | 0 | 0 | untested |
 | `GameSystem.getRandomDir` | 0 | 0 | untested |
@@ -350,27 +391,27 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.getRandomRealExp` | 0 | 0 | untested |
 | `GameSystem.getRandomSign` | 0 | 0 | untested |
 | `GameSystem.getRandomSignAndReal` | 0 | 0 | untested |
-| `GameSystem.getSimulationSpeed` | 0 | 0 | untested |
+| `GameSystem.getSimulationSpeed` | 2 | 2 | PASS |
 | `GameSystem.getUpdateInterval` | 0 | 0 | untested |
 | `GameSystem.isAutoLoadLevel` | 0 | 0 | untested |
 | `GameSystem.isBeingNice` | 0 | 0 | untested |
 | `GameSystem.isLoading` | 0 | 0 | untested |
-| `GameSystem.isPaused` | 5 | 5 | PASS |
-| `GameSystem.isProcessRunning` | 3 | 3 | PASS |
+| `GameSystem.isPaused` | 7 | 7 | PASS |
+| `GameSystem.isProcessRunning` | 6 | 6 | PASS |
 | `GameSystem.isShouldUpdateEntities` | 0 | 0 | untested |
 | `GameSystem.openConsole` | 0 | 0 | untested |
 | `GameSystem.quit` | 0 | 0 | untested |
 | `GameSystem.resetPlayTimer` | 0 | 0 | untested |
 | `GameSystem.resetSimulationTimer` | 0 | 0 | untested |
-| `GameSystem.runProcess` | 13 | 13 | PASS |
+| `GameSystem.runProcess` | 15 | 15 | PASS |
 | `GameSystem.setALevelLoaded` | 0 | 0 | untested |
-| `GameSystem.setAsPauseProcess` | 3 | 3 | PASS |
+| `GameSystem.setAsPauseProcess` | 4 | 4 | PASS |
 | `GameSystem.setIsBeingNice` | 0 | 0 | untested |
 | `GameSystem.setIsInputEnabled` | 0 | 0 | untested |
 | `GameSystem.setIsLoading` | 0 | 0 | untested |
 | `GameSystem.setIsShouldUpdateEntities` | 0 | 0 | untested |
-| `GameSystem.setSimulationSpeed` | 0 | 0 | untested |
-| `GameSystem.startNewProcessList` | 0 | 0 | untested |
+| `GameSystem.setSimulationSpeed` | 4 | 4 | PASS |
+| `GameSystem.startNewProcessList` | 2 | 2 | PASS |
 | `GameSystem.trace` | 0 | 0 | untested |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
@@ -381,7 +422,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `LFO.setRange` | 1 | 1 | PASS |
 | `LFO.setRate` | 7 | 7 | PASS |
 | `LFO.update` | 7 | 7 | PASS |
-| `Physics.createJoint` | 5 | 5 | PASS |
+| `Physics.createJoint` | 6 | 6 | PASS |
 | `Physics.deleteAllJoints` | 0 | 0 | untested |
 | `Physics.deleteJoint` | 0 | 0 | untested |
 | `Physics.flush` | 0 | 0 | untested |
@@ -734,7 +775,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | --- | ---: | ---: |
 | `Contact callback argument` | 50 | 50 |
 | `Contact callback order` | 25 | 25 |
-| `Entity callbacks` | 30 | 30 |
+| `Entity callbacks` | 32 | 32 |
 | `Entity.onEntityCollide` | 64 | 64 |
 | `Entity.onEntityCollidePreSolve` | 64 | 64 |
 | `Entity.onEntitySeparate` | 64 | 64 |
@@ -5600,6 +5641,47 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Process.terminate` | processPause.destroyed | `2` | `2` | PASS |
 | `GameSystem.isProcessRunning` | processPause.running | `0` | `0` | PASS |
 | `GameSystem.getProcessCount` | processPause.count | `1` | `1` | PASS |
+| `Entity callbacks` | callbackMutation.trace | `A` | `A` | PASS |
+| `Entity callbacks` | callbackMutation.fired | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | callbackMutation.otherValidBefore | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | callbackMutation.countBefore | `2` | `2` | PASS |
+| `EntityManager.isEntityIDValid` | callbackMutation.addedValidPending | `0` | `0` | PASS |
+| `EntityManager.getNumEntities` | callbackMutation.countAfterCreate | `3` | `3` | PASS |
+| `Physics.createJoint` | callbackMutation.jointType | `3` | `3` | PASS |
+| `Entity.tagForDeletion` | callbackMutation.otherTagged | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | callbackMutation.otherValidTagged | `1` | `1` | PASS |
+| `Entity.tagForDeletion` | callbackMutation.selfTagged | `1` | `1` | PASS |
+| `EntityManager.flush` | callbackMutation.otherValidAfterFlush | `0` | `0` | PASS |
+| `EntityManager.flush` | callbackMutation.selfValidAfterFlush | `0` | `0` | PASS |
+| `EntityManager.flush` | callbackMutation.addedValidAfterFlush | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | callbackMutation.finalCount | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | gcPressure.countAfterCreate | `96` | `96` | PASS |
+| `GameMonkeyScript.clean` | gcPressure.rootCount | `6` | `6` | PASS |
+| `EntityManager.isEntityIDValid` | gcPressure.firstRootValid | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | gcPressure.countBeforeCollect | `64` | `64` | PASS |
+| `EntityManager.isEntityIDValid` | gcPressure.validAfterCollect | `64` | `64` | PASS |
+| `EntityManager.isEntityIDValid` | gcPressure.retainedRootValid | `1` | `1` | PASS |
+| `EntityManager.getNumEntities` | gcPressure.totalAfterCollect | `64` | `64` | PASS |
+| `EntityManager.deleteAllEntities` | gcPressure.emptyAfterClear | `0` | `0` | PASS |
+| `EntityManager.isEntityIDValid` | gcPressure.oldIdsInvalid | `1` | `1` | PASS |
+| `GameSystem.runProcess` | sceneTransition.oldCreated | `1` | `1` | PASS |
+| `GameSystem.getSimulationSpeed` | sceneTransition.speedBefore | `0.500000` | `0.500000` | PASS |
+| `GameSystem.isProcessRunning` | sceneTransition.oldRunning | `1` | `1` | PASS |
+| `GameSystem.startNewProcessList` | sceneTransition.oldDestroyed | `1` | `1` | PASS |
+| `GameSystem.runProcess` | sceneTransition.oldUpdates | `1` | `1` | PASS |
+| `GameSystem.isProcessRunning` | sceneTransition.oldProcessGone | `1` | `1` | PASS |
+| `GameSystem.isProcessRunning` | sceneTransition.newProcessRunning | `1` | `1` | PASS |
+| `EntityManager.isEntityIDValid` | sceneTransition.entitySurvived | `0` | `0` | PASS |
+| `GameSystem.startNewProcessList` | sceneTransition.newInitialized | `1` | `1` | PASS |
+| `GameSystem.getProcessCount` | sceneTransition.processCount | `1` | `1` | PASS |
+| `GameSystem.setSimulationSpeed` | pauseScale.halfSpeed | `0.500000` | `0.500000` | PASS |
+| `GameSystem.setSimulationSpeed` | pauseScale.doubleSpeed | `2.000000` | `2.000000` | PASS |
+| `GameSystem.setSimulationSpeed` | pauseScale.halfDeltaApplied | `0` | `0` | PASS |
+| `GameSystem.setSimulationSpeed` | pauseScale.doubleDeltaApplied | `0` | `0` | PASS |
+| `GameSystem.isPaused` | pauseScale.pauseSeen | `1` | `1` | PASS |
+| `GameSystem.setAsPauseProcess` | pauseScale.bHeld | `3` | `3` | PASS |
+| `GameSystem.isPaused` | pauseScale.resumed | `1` | `1` | PASS |
+| `GameSystem.getSimulationSpeed` | pauseScale.finalSpeed | `1.000000` | `1.000000` | PASS |
 | `physicsBody.setPos` | bodyCtl.position | `1` | `1` | PASS |
 | `physicsBody.setVel` | bodyCtl.velocity | `1` | `1` | PASS |
 | `physicsBody.getSpeed` | bodyCtl.speed | `5.000000` | `5.000000` | PASS |

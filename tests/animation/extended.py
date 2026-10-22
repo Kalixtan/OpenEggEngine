@@ -106,6 +106,9 @@ def main():
     entity, entity_run = run_probe(
         engine, game_data, ROOT / "tests/animation/entity_clock.gm",
         [ASSETS["checkpoint"]], ["AnimationProbeEntity.gm"])
+    resource, resource_run = run_probe(
+        engine, game_data, ROOT / "tests/animation/resource_lifetime.gm",
+        [ASSETS["checkpoint"]], ["AnimationProbeEntity.gm"])
 
     records_expected = {
         "Animation.records.images": "19", "Animation.records.frames": "19",
@@ -119,6 +122,16 @@ def main():
         "Animation.entity.enabled.restored": "1",
         "Animation.entity.enabled.clockResumed": "1",
     }
+    resource_expected = {
+        "Animation.resource.entityFrames": "35",
+        "Animation.resource.sharedFrames": "35",
+        "Animation.resource.playbackAdvanced": "1",
+        "Animation.resource.entityAfterModuleUnload": "35",
+        "Animation.resource.sharedAfterModuleUnload": "35",
+        "Animation.resource.entityAfterOwnedUnload": "35",
+        "Animation.resource.entityDeleted": "1",
+        "Animation.resource.reloadFrames": "35",
+    }
     negative_started = negative.get("Animation.negativeFrame.started") == "1"
     negative_returned = negative.get("Animation.negativeFrame.returned") == "1"
     warning = ("WARNING: Animation.setCurrentFrame(-1) would fault retail "
@@ -129,9 +142,11 @@ def main():
                      "Access violation" not in negative_run.stdout)
     records_probe = ROOT / "tests/animation/record_boundaries.gm"
     entity_probe = ROOT / "tests/animation/entity_clock.gm"
+    resource_probe = ROOT / "tests/animation/resource_lifetime.gm"
     negative_probe = ROOT / "tests/animation/negative_frame.gm"
     records_baseline = ROOT / "tests/animation/records-retail.tsv"
     entity_baseline = ROOT / "tests/animation/entity-clock-retail.tsv"
+    resource_baseline = ROOT / "tests/animation/resource-lifetime-retail.tsv"
     negative_baseline = ROOT / "tests/animation/negative-frame-retail.tsv"
     crash_record = negative_baseline.read_text(errors="replace")
     checks = {
@@ -139,6 +154,8 @@ def main():
            for name, expected in records_expected.items()},
         **{name: equal(entity.get(name), expected)
            for name, expected in entity_expected.items()},
+        **{name: equal(resource.get(name), expected)
+           for name, expected in resource_expected.items()},
         "negative index does not crash OpenEgg": negative_safe,
         "retail negative-index fault is recorded":
             "# retail-fault ppu=0x000b6848 read=0x38600004" in crash_record,
@@ -146,18 +163,23 @@ def main():
             baseline_matches(records_baseline, records_probe) and
             baseline_matches(entity_baseline, entity_probe,
                              [ROOT / "tests/animation/AnimationProbeEntity.gm"]) and
+            baseline_matches(resource_baseline, resource_probe,
+                             [ROOT / "tests/animation/AnimationProbeEntity.gm"]) and
             baseline_matches(negative_baseline, negative_probe),
         "retail-fault warning is limited to negative index":
-            warning not in records_run.stdout and warning not in entity_run.stdout,
+            warning not in records_run.stdout and warning not in entity_run.stdout and
+            warning not in resource_run.stdout,
     }
 
     baselines = {
         "records": read_baseline(ROOT / "tests/animation/records-retail.tsv"),
         "entity": read_baseline(ROOT / "tests/animation/entity-clock-retail.tsv"),
+        "resource": read_baseline(ROOT / "tests/animation/resource-lifetime-retail.tsv"),
         "negative": read_baseline(ROOT / "tests/animation/negative-frame-retail.tsv"),
     }
-    all_readings = {**records, **entity, **negative}
-    retail = {**baselines["records"], **baselines["entity"], **baselines["negative"]}
+    all_readings = {**records, **entity, **resource, **negative}
+    retail = {**baselines["records"], **baselines["entity"],
+              **baselines["resource"], **baselines["negative"]}
     compared = [(name, value, retail[name]) for name, value in all_readings.items()
                 if name in retail]
     matched = sum(equal(value, expected) for _, value, expected in compared)

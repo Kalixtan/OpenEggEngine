@@ -1,0 +1,12 @@
+global DeepOldProcess=function(p) {
+    return table(Process=p,entity=null,
+        init=function() {
+            this.entity=EntityManager.createEntity("EntityGCProbe");
+            return true;
+        },
+        update=function(dt) { DeepTransitionState.oldUpdates+=1; },
+        destructor=function() {
+            DeepTransitionState.oldDestroyed+=1;
+            DeepTransitionState.entityID=this.entity.getObjectID();
+        });
+};

@@ -20,6 +20,10 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/USRDIR/EBOOT.BIN --probe tests/animation/entity_clock.gm \
   --support-file tests/animation/AnimationProbeEntity.gm \
   --baseline tests/animation/entity-clock-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/USRDIR/EBOOT.BIN --probe tests/animation/resource_lifetime.gm \
+  --support-file tests/animation/AnimationProbeEntity.gm \
+  --baseline tests/animation/resource-lifetime-retail.tsv
 python3 tests/animation/capture_negative_frame.py \
   --main /path/to/game_data/Main.gm --eboot /path/to/USRDIR/EBOOT.BIN
 ```
@@ -27,3 +31,7 @@ python3 tests/animation/capture_negative_frame.py \
 The negative-index capture is isolated because retail faults there. See
 `retail-crashes.md` for the observed failure and OpenEgg warning. A failed or
 incomplete capture does not count as a parity mismatch.
+
+The resource-lifetime probe keeps an entity animation playing while unloading
+module and entity-owned references, then deletes the entity and reloads the
+resource.

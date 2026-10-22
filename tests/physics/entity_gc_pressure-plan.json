@@ -1,0 +1,15 @@
+{
+  "prefix": "gcPressure",
+  "frames": 0,
+  "extra": [
+    "gcPressure.countAfterCreate",
+    "gcPressure.rootCount",
+    "gcPressure.firstRootValid",
+    "gcPressure.countBeforeCollect",
+    "gcPressure.validAfterCollect",
+    "gcPressure.retainedRootValid",
+    "gcPressure.totalAfterCollect",
+    "gcPressure.emptyAfterClear",
+    "gcPressure.oldIdsInvalid"
+  ]
+}

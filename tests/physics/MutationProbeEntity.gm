@@ -1,0 +1,32 @@
+global MutationProbeEntity=function(handle) {
+    return table(Entity=handle, PhysicsData=handle.getPhysicsData(),
+        constructor=function() {},
+        configure=function() { return true; },
+        onEntityCollide=function(other) {
+            if (this.mutationState.fired) { return; }
+            local state=this.mutationState;
+            state.fired=1;
+            state.trace+=this.mutationSide;
+            state.selfID=this.Entity.getObjectID();
+            state.otherID=other.Entity.getObjectID();
+            state.otherValidBefore=EntityManager.isEntityIDValid(
+                state.otherID);
+            state.countBefore=EntityManager.getNumEntities("MutationProbeEntity");
+            local added=EntityManager.createEntity("MutationProbeEntity");
+            state.addedID=added.Entity.getObjectID();
+            state.addedValidPending=EntityManager.isEntityIDValid(state.addedID);
+            state.countAfterCreate=EntityManager.getNumEntities("MutationProbeEntity");
+            local joint=Physics.createJoint(PHYSICSJOINTTYPE_DISTANCE);
+            joint.setupDistanceJoint(this.PhysicsData.getBody(0),
+                other.PhysicsData.getBody(0),
+                this.PhysicsData.getBody(0).getPos(),
+                other.PhysicsData.getBody(0).getPos());
+            state.jointType=joint.getType();
+            other.Entity.tagForDeletion();
+            state.otherTagged=other.Entity.isTaggedForDeletion();
+            state.otherValidTagged=EntityManager.isEntityIDValid(
+                state.otherID);
+            this.Entity.tagForDeletion();
+            state.selfTagged=this.Entity.isTaggedForDeletion();
+        });
+};

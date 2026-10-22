@@ -1,0 +1,14 @@
+{
+  "prefix": "pauseScale",
+  "frames": 0,
+  "extra": [
+    "pauseScale.halfSpeed",
+    "pauseScale.doubleSpeed",
+    "pauseScale.halfDeltaApplied",
+    "pauseScale.doubleDeltaApplied",
+    "pauseScale.pauseSeen",
+    "pauseScale.bHeld",
+    "pauseScale.resumed",
+    "pauseScale.finalSpeed"
+  ]
+}

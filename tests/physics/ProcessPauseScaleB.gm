@@ -1,0 +1,4 @@
+global ProcessPauseScaleB=function(p) {
+    return table(Process=p,init=function(){return true;},
+        update=function(dt) { ProcessPauseScaleState.bUpdates+=1; });
+};

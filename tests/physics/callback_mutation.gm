@@ -1,0 +1,54 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("MutationProbeEntity.gm");
+global Shape=PHYSICSSHAPECOLLECTIONDEF();
+global MutationState=table(fired=0,trace="",otherValidBefore=0,countBefore=0,
+    addedID=-1,addedValidPending=0,countAfterCreate=0,otherTagged=0,
+    otherValidTagged=0,selfID=-1,selfTagged=0,jointType=-1);
+global MakeMutationEntity=function(x,side) {
+    local e=EntityManager.createEntity("MutationProbeEntity");
+    e.mutationState=MutationState;
+    e.mutationSide=side;
+    local body=e.PhysicsData.getBody(e.PhysicsData.createBody());
+    body.setPos(vector2D(x,0));
+    Shape.reset(); Shape.setMass(1); Shape.addCircle(2,0,0);
+    body.appendShapes(Shape);
+    e.Entity.setIsEnabled(1);
+    return e;
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},
+        init=function(){return true;},update=function() {
+            if (this.frame==0) {
+                GameSystem.setIsShouldUpdateEntities(1);
+                MutationState.otherID=-1;
+                this.a=MakeMutationEntity(0,"A");
+                this.b=MakeMutationEntity(20,"B");
+                EntityManager.flush();
+            } else if (this.frame==1) {
+                this.b.PhysicsData.getBody(0).setPos(vector2D(3,0));
+            } else if (this.frame==4) {
+                Probe("callbackMutation.trace",MutationState.trace);
+                Probe("callbackMutation.fired",MutationState.fired);
+                Probe("callbackMutation.otherValidBefore",MutationState.otherValidBefore);
+                Probe("callbackMutation.countBefore",MutationState.countBefore);
+                Probe("callbackMutation.addedValidPending",MutationState.addedValidPending);
+                Probe("callbackMutation.countAfterCreate",MutationState.countAfterCreate);
+                Probe("callbackMutation.jointType",MutationState.jointType);
+                Probe("callbackMutation.otherTagged",MutationState.otherTagged);
+                Probe("callbackMutation.otherValidTagged",MutationState.otherValidTagged);
+                Probe("callbackMutation.selfTagged",MutationState.selfTagged);
+                EntityManager.flush();
+                Probe("callbackMutation.otherValidAfterFlush",
+                    EntityManager.isEntityIDValid(MutationState.otherID));
+                Probe("callbackMutation.selfValidAfterFlush",
+                    EntityManager.isEntityIDValid(MutationState.selfID));
+                Probe("callbackMutation.addedValidAfterFlush",
+                    EntityManager.isEntityIDValid(MutationState.addedID));
+                Probe("callbackMutation.finalCount",
+                    EntityManager.getNumEntities("MutationProbeEntity"));
+            }
+            this.frame+=1;
+        });
+};

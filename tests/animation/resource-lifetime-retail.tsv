@@ -1,0 +1,10 @@
+# probe-sha256 418055ce0288baf7bd052d389bcd286d9e58de68893c267eed5c40612f2abca4
+# support-sha256 AnimationProbeEntity.gm 6d7370eed58ad5b3304ae2498975884df1e68258e82ceb2340f6f99da68bd8a2
+Animation.resource.entityAfterModuleUnload	35
+Animation.resource.entityAfterOwnedUnload	35
+Animation.resource.entityDeleted	1
+Animation.resource.entityFrames	35
+Animation.resource.playbackAdvanced	1
+Animation.resource.reloadFrames	35
+Animation.resource.sharedAfterModuleUnload	35
+Animation.resource.sharedFrames	35

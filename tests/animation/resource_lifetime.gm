@@ -1,0 +1,60 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("AnimationProbeEntity.gm");
+global ResourcePath="Platformer/gameAssets/checkpointTriggeredInactive.fsa";
+global ResourceState=table(stage=0,entityID=-1,entity=null,animation=null,shared=null);
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            local state=ResourceState;
+            if (state.stage==0) {
+                state.entity=EntityManager.createEntity("AnimationProbeEntity");
+                state.entityID=state.entity.getObjectID();
+                local data=state.entity.getPhysicsData();
+                local body=data.getBody(data.createBody());
+                local shape=PHYSICSSHAPECOLLECTIONDEF();
+                shape.setMass(1);
+                shape.addCircle(1,0,0);
+                body.appendShapes(shape);
+                state.entity.setIsEnabled(1);
+                state.animation=state.entity.loadAnimation(ResourcePath);
+                state.animation.finishLoad();
+                state.shared=AnimationModule.loadAnimation(ResourcePath);
+                state.shared.finishLoad();
+                state.animation.setPlayTime(3000);
+                state.animation.play(1);
+                Probe("Animation.resource.entityFrames",state.animation.getNumFrames());
+                Probe("Animation.resource.sharedFrames",state.shared.getNumFrames());
+                state.stage=1;
+            } else if (this.frame==5 && state.stage==1) {
+                Probe("Animation.resource.playbackAdvanced",
+                    state.animation.getPlayPosition()>0);
+                AnimationModule.unloadAll();
+                Probe("Animation.resource.entityAfterModuleUnload",
+                    state.animation.getNumFrames());
+                Probe("Animation.resource.sharedAfterModuleUnload",
+                    state.shared.getNumFrames());
+                state.entity.unloadAnimationAll();
+                Probe("Animation.resource.entityAfterOwnedUnload",
+                    state.animation.getNumFrames());
+                state.stage=1;
+            } else if (this.frame==6 && state.stage==1) {
+                EntityManager.deleteAllEntities();
+                EntityManager.flush();
+                GameMonkeyScript.clean(1);
+                Probe("Animation.resource.entityDeleted",
+                    !EntityManager.isEntityIDValid(state.entityID));
+                local fresh=AnimationModule.loadAnimation(ResourcePath);
+                fresh.finishLoad();
+                Probe("Animation.resource.reloadFrames",fresh.getNumFrames());
+                AnimationModule.unloadAnimation(fresh);
+                state.entity=null;
+                state.animation=null;
+                state.shared=null;
+                GameMonkeyScript.clean(1);
+                state.stage=2;
+            }
+            this.frame+=1;
+        });
+};

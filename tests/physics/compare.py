@@ -84,6 +84,23 @@ PROCESS_PAUSE_PLAN = HERE / "process_pause-plan.json"
 PROCESS_PAUSE_BASELINE = HERE / "process_pause-retail.tsv"
 PROCESS_ORDER_SUPPORT = HERE / "ProcessParityProbe.gm"
 PROCESS_PAUSE_SUPPORT = (HERE / "ProcessPauseA.gm", HERE / "ProcessPauseB.gm")
+CALLBACK_MUTATION = HERE / "callback_mutation.gm"
+CALLBACK_MUTATION_PLAN = HERE / "callback_mutation-plan.json"
+CALLBACK_MUTATION_BASELINE = HERE / "callback_mutation-retail.tsv"
+CALLBACK_MUTATION_SUPPORT = (HERE / "MutationProbeEntity.gm",)
+GC_PRESSURE = HERE / "entity_gc_pressure.gm"
+GC_PRESSURE_PLAN = HERE / "entity_gc_pressure-plan.json"
+GC_PRESSURE_BASELINE = HERE / "entity_gc_pressure-retail.tsv"
+PROCESS_TRANSITION = HERE / "process_transition.gm"
+PROCESS_TRANSITION_PLAN = HERE / "process_transition-plan.json"
+PROCESS_TRANSITION_BASELINE = HERE / "process_transition-retail.tsv"
+PROCESS_TRANSITION_SUPPORT = (HERE / "EntityGCProbe.gm", HERE / "DeepOldProcess.gm",
+                              HERE / "DeepSceneProcess.gm")
+PROCESS_PAUSE_SCALE = HERE / "process_pause_scale.gm"
+PROCESS_PAUSE_SCALE_PLAN = HERE / "process_pause_scale-plan.json"
+PROCESS_PAUSE_SCALE_BASELINE = HERE / "process_pause_scale-retail.tsv"
+PROCESS_PAUSE_SCALE_SUPPORT = (HERE / "ProcessPauseScaleA.gm",
+                              HERE / "ProcessPauseScaleB.gm")
 BODY_CONTROLS = HERE / "body_controls.gm"
 BODY_CONTROLS_BASELINE = HERE / "body_controls-retail.tsv"
 BODY_CONTROLS_PLAN = HERE / "body_controls-plan.json"
@@ -550,6 +567,74 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("callbackMutation."):
+        field = name[len("callbackMutation."):]
+        function = {
+            "trace": "Entity callbacks", "fired": "Entity callbacks",
+            "otherValidBefore": "EntityManager.isEntityIDValid",
+            "countBefore": "EntityManager.getNumEntities",
+            "addedValidPending": "EntityManager.isEntityIDValid",
+            "countAfterCreate": "EntityManager.getNumEntities",
+            "jointType": "Physics.createJoint",
+            "otherTagged": "Entity.tagForDeletion",
+            "otherValidTagged": "EntityManager.isEntityIDValid",
+            "selfTagged": "Entity.tagForDeletion",
+            "otherValidAfterFlush": "EntityManager.flush",
+            "selfValidAfterFlush": "EntityManager.flush",
+            "addedValidAfterFlush": "EntityManager.flush",
+            "finalCount": "EntityManager.getNumEntities",
+        }[field]
+        if function != "Entity callbacks" and function not in names:
+            raise ValueError(f"unknown callback mutation function: {function}")
+        return function
+    if name.startswith("gcPressure."):
+        field = name[len("gcPressure."):]
+        function = {
+            "countAfterCreate": "EntityManager.getNumEntities",
+            "rootCount": "GameMonkeyScript.clean",
+            "firstRootValid": "EntityManager.isEntityIDValid",
+            "countBeforeCollect": "EntityManager.getNumEntities",
+            "validAfterCollect": "EntityManager.isEntityIDValid",
+            "retainedRootValid": "EntityManager.isEntityIDValid",
+            "totalAfterCollect": "EntityManager.getNumEntities",
+            "emptyAfterClear": "EntityManager.deleteAllEntities",
+            "oldIdsInvalid": "EntityManager.isEntityIDValid",
+        }[field]
+        if function not in names:
+            raise ValueError(f"unknown GC pressure function: {function}")
+        return function
+    if name.startswith("sceneTransition."):
+        field = name[len("sceneTransition."):]
+        function = {
+            "oldCreated": "GameSystem.runProcess",
+            "speedBefore": "GameSystem.getSimulationSpeed",
+            "oldRunning": "GameSystem.isProcessRunning",
+            "oldDestroyed": "GameSystem.startNewProcessList",
+            "oldUpdates": "GameSystem.runProcess",
+            "oldProcessGone": "GameSystem.isProcessRunning",
+            "newProcessRunning": "GameSystem.isProcessRunning",
+            "entitySurvived": "EntityManager.isEntityIDValid",
+            "newInitialized": "GameSystem.startNewProcessList",
+            "processCount": "GameSystem.getProcessCount",
+        }[field]
+        if function not in names:
+            raise ValueError(f"unknown scene transition function: {function}")
+        return function
+    if name.startswith("pauseScale."):
+        field = name[len("pauseScale."):]
+        function = {
+            "halfSpeed": "GameSystem.setSimulationSpeed",
+            "doubleSpeed": "GameSystem.setSimulationSpeed",
+            "halfDeltaApplied": "GameSystem.setSimulationSpeed",
+            "doubleDeltaApplied": "GameSystem.setSimulationSpeed",
+            "pauseSeen": "GameSystem.isPaused",
+            "bHeld": "GameSystem.setAsPauseProcess",
+            "resumed": "GameSystem.isPaused",
+            "finalSpeed": "GameSystem.getSimulationSpeed",
+        }[field]
+        if function not in names:
+            raise ValueError(f"unknown pause scale function: {function}")
+        return function
     if name.startswith("processPause."):
         field = name[len("processPause."):]
         function = {
@@ -781,6 +866,17 @@ def main():
                                             PROCESS_ORDER_PLAN, (PROCESS_ORDER_SUPPORT,)),
                                            (PROCESS_PAUSE, PROCESS_PAUSE_BASELINE,
                                             PROCESS_PAUSE_PLAN, PROCESS_PAUSE_SUPPORT),
+                                           (CALLBACK_MUTATION, CALLBACK_MUTATION_BASELINE,
+                                            CALLBACK_MUTATION_PLAN,
+                                            CALLBACK_MUTATION_SUPPORT),
+                                           (GC_PRESSURE, GC_PRESSURE_BASELINE,
+                                            GC_PRESSURE_PLAN, (ENTITY_GC_SUPPORT,)),
+                                           (PROCESS_TRANSITION, PROCESS_TRANSITION_BASELINE,
+                                            PROCESS_TRANSITION_PLAN,
+                                            PROCESS_TRANSITION_SUPPORT),
+                                           (PROCESS_PAUSE_SCALE, PROCESS_PAUSE_SCALE_BASELINE,
+                                            PROCESS_PAUSE_SCALE_PLAN,
+                                            PROCESS_PAUSE_SCALE_SUPPORT),
                                            (BODY_CONTROLS, BODY_CONTROLS_BASELINE,
                                             BODY_CONTROLS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,)),
@@ -854,7 +950,9 @@ def main():
                                 "ray.", "reentry.", "joint.", "raymove.",
                                 "bodyCtl.", "bodyCmd.", "process.", "processPause.",
                                 "entityCallbacks.", "entityGC.",
-                                "entityGCCycles.", "entityGCIter.")):
+                                "entityGCCycles.", "entityGCIter.",
+                                "callbackMutation.", "gcPressure.",
+                                "sceneTransition.", "pauseScale.")):
                 scenes[".".join(case.split(".")[:2])].append(passed)
             for extra in ASSOCIATED.get(case, ()):
                 if extra not in names:

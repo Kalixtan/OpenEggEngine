@@ -1,0 +1,22 @@
+global ProcessPauseScaleA=function(p) {
+    return table(Process=p,init=function(){return true;},
+        update=function(dt) {
+            ProcessPauseScaleState.aUpdates+=1;
+            if (ProcessPauseScaleState.aUpdates==1) {
+                GameSystem.setSimulationSpeed(0.5);
+                ProcessPauseScaleState.halfSpeed=GameSystem.getSimulationSpeed();
+            } else if (ProcessPauseScaleState.aUpdates==2) {
+                ProcessPauseScaleState.halfDeltaApplied=dt<10;
+                GameSystem.setSimulationSpeed(2);
+                ProcessPauseScaleState.doubleSpeed=GameSystem.getSimulationSpeed();
+            } else if (ProcessPauseScaleState.aUpdates==3) {
+                ProcessPauseScaleState.doubleDeltaApplied=dt>20;
+                GameSystem.setAsPauseProcess(1,this.Process);
+            } else if (ProcessPauseScaleState.aUpdates==4) {
+                ProcessPauseScaleState.pauseSeen=GameSystem.isPaused();
+                ProcessPauseScaleState.bHeld=ProcessPauseScaleState.bUpdates;
+                GameSystem.setSimulationSpeed(1);
+                GameSystem.setAsPauseProcess(0,this.Process);
+            }
+        });
+};

@@ -99,6 +99,29 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --support-file tests/physics/ProcessPauseB.gm \
   --expected tests/physics/process_pause-plan.json \
   --baseline tests/physics/process_pause-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/callback_mutation.gm \
+  --support-file tests/physics/MutationProbeEntity.gm \
+  --expected tests/physics/callback_mutation-plan.json \
+  --baseline tests/physics/callback_mutation-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/entity_gc_pressure.gm \
+  --support-file tests/physics/EntityGCProbe.gm \
+  --expected tests/physics/entity_gc_pressure-plan.json \
+  --baseline tests/physics/entity_gc_pressure-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/process_transition.gm \
+  --support-file tests/physics/EntityGCProbe.gm \
+  --support-file tests/physics/DeepOldProcess.gm \
+  --support-file tests/physics/DeepSceneProcess.gm \
+  --expected tests/physics/process_transition-plan.json \
+  --baseline tests/physics/process_transition-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/process_pause_scale.gm \
+  --support-file tests/physics/ProcessPauseScaleA.gm \
+  --support-file tests/physics/ProcessPauseScaleB.gm \
+  --expected tests/physics/process_pause_scale-plan.json \
+  --baseline tests/physics/process_pause_scale-retail.tsv
 python3 tests/physics/compare.py
 ```
 
@@ -134,6 +157,12 @@ GC-iterator probe checks iterator-held entities through collection, removal,
 and reuse after collection.
 Process probes compare creation, deferred init, queued termination, pause
 state, callback order, and registry counts with retail.
+
+Advanced lifecycle probes create a joint and entities, then tag both contact
+participants for deletion; stress collection with 96 entities; replace a
+process list while it owns an entity; and combine simulation-speed changes
+with pause-process dispatch. Run `python3 tests/physics/compare.py` for paired
+headless checks.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
 called on an active pair in this probe. That call is excluded from the paired

@@ -1,0 +1,21 @@
+global DeepSceneProcess=function(p) {
+    return table(Process=p,frame=0,init=function() {
+        DeepTransitionState.newInitialized+=1;
+        return true;
+    },update=function(dt) {
+        if (this.frame==0) {
+            Probe("sceneTransition.oldDestroyed",DeepTransitionState.oldDestroyed);
+            Probe("sceneTransition.oldUpdates",DeepTransitionState.oldUpdates);
+            Probe("sceneTransition.oldProcessGone",
+                !GameSystem.isProcessRunning("DeepOldProcess"));
+            Probe("sceneTransition.newProcessRunning",
+                GameSystem.isProcessRunning("DeepSceneProcess"));
+            Probe("sceneTransition.entitySurvived",
+                EntityManager.isEntityIDValid(DeepTransitionState.entityID));
+            Probe("sceneTransition.newInitialized",DeepTransitionState.newInitialized);
+            Probe("sceneTransition.processCount",GameSystem.getProcessCount());
+            GameSystem.setSimulationSpeed(1);
+        }
+        this.frame+=1;
+    });
+};

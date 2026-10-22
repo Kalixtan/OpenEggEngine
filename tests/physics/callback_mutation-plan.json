@@ -1,0 +1,20 @@
+{
+  "prefix": "callbackMutation",
+  "frames": 0,
+  "extra": [
+    "callbackMutation.trace",
+    "callbackMutation.fired",
+    "callbackMutation.otherValidBefore",
+    "callbackMutation.countBefore",
+    "callbackMutation.addedValidPending",
+    "callbackMutation.countAfterCreate",
+    "callbackMutation.jointType",
+    "callbackMutation.otherTagged",
+    "callbackMutation.otherValidTagged",
+    "callbackMutation.selfTagged",
+    "callbackMutation.otherValidAfterFlush",
+    "callbackMutation.selfValidAfterFlush",
+    "callbackMutation.addedValidAfterFlush",
+    "callbackMutation.finalCount"
+  ]
+}
