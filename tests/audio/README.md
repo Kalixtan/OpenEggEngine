@@ -55,8 +55,8 @@ python3 tests/audio/waveform.py --suite controls --game-data /path/to/game_data 
 python3 tests/audio/waveform.py --suite controls --game-data /path/to/game_data
 ```
 
-`waveform_looping.gm` compares loop counts 0 through 3, plus an indefinite loop
-with a timed stop. It writes a separate report:
+`waveform_looping.gm` compares loop counts 0 through 3, an indefinite loop with
+a timed stop, and a loop started from a mid-sample position. It writes a report:
 
 ```sh
 python3 tests/audio/waveform.py --suite looping --game-data /path/to/game_data \

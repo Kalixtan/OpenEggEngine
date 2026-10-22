@@ -34,7 +34,12 @@ global Main=function(p) {
             if (this.frame==280) {
                 Audio.stopVoice(this.foreverVoice,100);
             }
-            if (this.frame==340) {
+            if (this.frame==320) {
+                local voice=Audio.playSound(path);
+                Audio.setVoicePosition(voice,25);
+                Audio.setVoiceLoopCount(voice,1);
+            }
+            if (this.frame==380) {
                 GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
             }
             this.frame+=1;

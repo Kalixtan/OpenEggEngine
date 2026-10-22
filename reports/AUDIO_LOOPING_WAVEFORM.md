@@ -12,5 +12,6 @@ Alignment allows up to 30 ms; RMS ratio is OpenEgg divided by retail.
 | loop_count_2 | -0.0 | 0.993 | 1.006 | 1.006 | 1.006 | PASS |
 | loop_count_3 | -0.0 | 0.995 | 1.002 | 1.002 | 1.002 | PASS |
 | loop_forever_timed_stop | -0.0 | 0.996 | 0.999 | 0.999 | 0.999 | PASS |
+| offset_loop_1 | -0.1 | 0.999 | 0.992 | 0.992 | 0.992 | PASS |
 
-Matched: **4/5**. Thresholds: correlation ≥0.99, RMS within 2%, alignment within 30 ms. This checks a few short sounds, not full audio parity.
+Matched: **5/6**. Thresholds: correlation ≥0.99, RMS within 2%, alignment within 30 ms. This checks a few short sounds, not full audio parity.

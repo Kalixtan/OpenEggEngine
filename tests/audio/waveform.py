@@ -31,7 +31,8 @@ SUITES = {
                  (GATE_SOUND,)),
     "looping": ("waveform_looping.gm", ("no_loop", "loop_count_1",
                                   "loop_count_2", "loop_count_3",
-                                  "loop_forever_timed_stop"), (), RATE // 2),
+                                  "loop_forever_timed_stop", "offset_loop_1"),
+                 (), RATE // 2),
 }
 MAX_ALIGNMENT_MS = 30.0
 RESULTS = ROOT / "tests/_results/audio/waveforms"
