@@ -99,6 +99,7 @@ struct PhysicsBodyData {
     int32_t collisionGroup = 0;
     bool ownerEntityDeleted = false;
     bool retailCrashWarningReported = false;
+    bool shapeMaskGetterCrashWarningReported = false;
     bool shapeMaskCrashWarningReported = false;
     bool isSensor = false;
     bool isCollidable = true;
@@ -1232,7 +1233,11 @@ int GM_CDECL gmf_pb_setShapeDensity(gmThread* a_thread) {
     GM_INT_PARAM(shapeIndex, 0, 0);
     GM_FLOAT_OR_INT_PARAM(d, 1, 1.0f);
     b2Fixture* selected = FixtureAtShapeIndex(b->body, shapeIndex);
-    if (!selected) return GM_OK;
+    if (!selected) {
+        std::fprintf(stderr,
+            "ASSERT FAILED: PHYSICSBODY::setShapeDensity could not find shape\n");
+        return GM_OK;
+    }
     selected->SetDensity(d);
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
@@ -1244,7 +1249,8 @@ int GM_CDECL gmf_pb_setIsShapeSensor(gmThread* a_thread) {
     GM_INT_PARAM(isSensor, 1, 0);
     b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex < 0 ? 0 : shapeIndex);
     if (fx) fx->SetSensor(isSensor != 0);
-    else std::fprintf(stderr, "PHYSICSBODY::setIsShapeSensor: unknown shape\n");
+    else std::fprintf(stderr,
+        "ASSERT FAILED: PHYSICSBODY::setIsShapeSensor: unknown shape\n");
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setShapeCategoriesToCollideWith(gmThread* a_thread) {
@@ -1275,6 +1281,13 @@ int GM_CDECL gmf_pb_getShapeCategoriesToCollideWith(gmThread* a_thread) {
     GM_INT_PARAM(shapeIndex, 0, 0);
     b2Fixture* fx = FixtureAtShapeIndex(b->body, shapeIndex);
     if (fx) { a_thread->PushInt((int)DesiredFixtureFilter(b, fx).maskBits); return GM_OK; }
+    if (!b->shapeMaskGetterCrashWarningReported) {
+        std::fprintf(stderr,
+            "WARNING: PhysicsBody.getShapeCategoriesToCollideWith(%d) would fault "
+            "retail (observed RPCS3 PPU access violation at 0x00091320 reading "
+            "0x3e); OpenEgg returns -1.\n", shapeIndex);
+        b->shapeMaskGetterCrashWarningReported = true;
+    }
     a_thread->PushInt(-1);
     return GM_OK;
 }

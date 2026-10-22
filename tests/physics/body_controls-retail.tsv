@@ -1,4 +1,4 @@
-# probe-sha256 806d09579837b2d490d2374d094f6fe35a9ba5a29d05488259043edaad5c644a
+# probe-sha256 8340339b75524c294f7605018becf5bfe13365837644257c0be363d84106acf6
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
 bodyApi.physicsBody.doesRotationResponse	1
 bodyApi.physicsBody.getAngularVel	0.500000
@@ -144,7 +144,12 @@ bodyCtl.shapeDensityBefore	1
 bodyCtl.shapeDensityInvalidMass	6.283185
 bodyCtl.shapeDensityValidMass	6.283185
 bodyCtl.shapeIDPositive	1
+bodyCtl.shapeMaskGetterInvalidReached	1
 bodyCtl.shapeMaskValid	5
+bodyCtl.shapeSensorInvalidContinues	1
+bodyCtl.shapeSensorInvalidReached	1
+bodyCtl.shapeSensorOff	0
+bodyCtl.shapeSensorOn	1
 bodyCtl.sleeping	0.000000
 bodyCtl.speed	5.000000
 bodyCtl.updateEntitiesOff	0

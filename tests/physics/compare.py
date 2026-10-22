@@ -262,6 +262,12 @@ ASSOCIATED = {
     "bodyCtl.shapeDensityInvalidMass": ("physicsBody.setShapeDensity",),
     "bodyCtl.shapeMaskValid": ("physicsBody.setShapeCategoriesToCollideWith",),
     "bodyCtl.shapeMaskInvalid": ("physicsBody.setShapeCategoriesToCollideWith",),
+    "bodyCtl.shapeSensorOff": ("physicsBody.setIsShapeSensor",),
+    "bodyCtl.shapeSensorOn": ("physicsBody.setIsShapeSensor",),
+    "bodyCtl.shapeSensorInvalidReached": ("physicsBody.setIsShapeSensor",),
+    "bodyCtl.shapeSensorInvalidContinues": ("physicsBody.setIsShapeSensor",),
+    "bodyCtl.shapeMaskGetterInvalidReached": ("physicsBody.getShapeCategoriesToCollideWith",),
+    "bodyCtl.shapeMaskGetterInvalid": ("physicsBody.getShapeCategoriesToCollideWith",),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -652,6 +658,12 @@ BODY_CONTROL_FIELDS = {
     "shapeDensityInvalidMass": "physicsBody.setShapeDensity",
     "shapeMaskValid": "physicsBody.setShapeCategoriesToCollideWith",
     "shapeMaskInvalid": "physicsBody.setShapeCategoriesToCollideWith",
+    "shapeSensorOff": "physicsBody.setIsShapeSensor",
+    "shapeSensorOn": "physicsBody.setIsShapeSensor",
+    "shapeSensorInvalidReached": "physicsBody.setIsShapeSensor",
+    "shapeSensorInvalidContinues": "physicsBody.setIsShapeSensor",
+    "shapeMaskGetterInvalidReached": "physicsBody.getShapeCategoriesToCollideWith",
+    "shapeMaskGetterInvalid": "physicsBody.getShapeCategoriesToCollideWith",
 }
 BODY_COMMAND_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -1042,6 +1054,17 @@ def main():
             problems.append("body_controls.gm: unexpected retail-crash warning for a "
                             "live PhysicsBody")
         if probe == BODY_CONTROLS:
+            for diagnostic in (
+                    "ASSERT FAILED: PHYSICSBODY::setShapeDensity could not find shape",
+                    "ASSERT FAILED: PHYSICSBODY::setIsShapeSensor: unknown shape"):
+                if output.count(diagnostic) != 1:
+                    problems.append("body_controls.gm: expected one retail-matched "
+                                    f"diagnostic: {diagnostic}")
+            getter_warning = ("WARNING: PhysicsBody.getShapeCategoriesToCollideWith(10) "
+                              "would fault retail")
+            if output.count(getter_warning) != 1:
+                problems.append("body_controls.gm: expected one warning for the "
+                                "confirmed invalid shape-mask getter crash")
             warning = ("WARNING: PhysicsBody.setShapeCategoriesToCollideWith(10) "
                        "would fault retail")
             if output.count(warning) != 1:

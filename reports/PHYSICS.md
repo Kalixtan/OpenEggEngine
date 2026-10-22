@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 18:33 UTC
+Generated: 2026-10-22 18:46 UTC
 
-Matched: **6470/6470 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 4 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6475/6475 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **340/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **341/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -239,6 +239,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.shapeDensityValidMass | 1 | 1 |
 | bodyCtl.shapeDensityInvalidMass | 1 | 1 |
 | bodyCtl.shapeMaskValid | 1 | 1 |
+| bodyCtl.shapeSensorOff | 1 | 1 |
+| bodyCtl.shapeSensorOn | 1 | 1 |
+| bodyCtl.shapeSensorInvalidReached | 1 | 1 |
+| bodyCtl.shapeSensorInvalidContinues | 1 | 1 |
+| bodyCtl.shapeMaskGetterInvalidReached | 1 | 1 |
 | bodyCmd.thrust | 288 | 288 |
 | bodyCmd.brake | 288 | 288 |
 | bodyCmd.turn | 288 | 288 |
@@ -625,7 +630,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getRotateAcc` | 1 | 1 | PASS |
 | `physicsBody.getRotateVel` | 162 | 162 | PASS |
 | `physicsBody.getShape` | 0 | 0 | untested |
-| `physicsBody.getShapeCategoriesToCollideWith` | 1 | 1 | PASS |
+| `physicsBody.getShapeCategoriesToCollideWith` | 3 | 5 | AWAITING RETAIL |
 | `physicsBody.getShapeHeight` | 2 | 2 | PASS |
 | `physicsBody.getShapeIndex` | 1 | 1 | PASS |
 | `physicsBody.getShapeObjectID` | 2 | 2 | PASS |
@@ -679,7 +684,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setIsBullet` | 1 | 1 | PASS |
 | `physicsBody.setIsCollidable` | 1 | 1 | PASS |
 | `physicsBody.setIsSensor` | 1 | 1 | PASS |
-| `physicsBody.setIsShapeSensor` | 0 | 0 | untested |
+| `physicsBody.setIsShapeSensor` | 8 | 8 | PASS |
 | `physicsBody.setIsUsingContinuousPhysics` | 0 | 0 | untested |
 | `physicsBody.setMass` | 1 | 1 | PASS |
 | `physicsBody.setMaxRotateSpeed` | 289 | 289 | PASS |
@@ -880,7 +885,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
-| `physicsBody.setShapeCategoriesToCollideWith` | bodyCtl.shapeMaskInvalid | `5` | Invalid shape index faults at 0x00091c40 while reading 0x28. |
+| `physicsBody.setShapeCategoriesToCollideWith` | bodyCtl.shapeMaskInvalid | `5` | A separate retail capture faults at 0x00091c40 while reading 0x28; this combined probe stops earlier at the getter fault. |
+| `physicsBody.getShapeCategoriesToCollideWith` | bodyCtl.shapeMaskGetterInvalid | `-1` | Invalid shape index faults at 0x00091320 while reading 0x3e. |
 
 ## Readings
 
@@ -5827,6 +5833,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.setShapeDensity` | bodyCtl.shapeDensityValidMass | `6.283185` | `6.283185` | PASS |
 | `physicsBody.setShapeDensity` | bodyCtl.shapeDensityInvalidMass | `6.283185` | `6.283185` | PASS |
 | `physicsBody.setShapeCategoriesToCollideWith` | bodyCtl.shapeMaskValid | `5` | `5` | PASS |
+| `physicsBody.setIsShapeSensor` | bodyCtl.shapeSensorOff | `0` | `0` | PASS |
+| `physicsBody.setIsShapeSensor` | bodyCtl.shapeSensorOn | `1` | `1` | PASS |
+| `physicsBody.setIsShapeSensor` | bodyCtl.shapeSensorInvalidReached | `1` | `1` | PASS |
+| `physicsBody.setIsShapeSensor` | bodyCtl.shapeSensorInvalidContinues | `1` | `1` | PASS |
+| `physicsBody.getShapeCategoriesToCollideWith` | bodyCtl.shapeMaskGetterInvalidReached | `1` | `1` | PASS |
 | `physicsBody.doesRotationResponse` | bodyApi.physicsBody.doesRotationResponse | `1` | `1` | PASS |
 | `physicsBody.getAngularVel` | bodyApi.physicsBody.getAngularVel | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getBrakeAcc` | bodyApi.physicsBody.getBrakeAcc | `999.000000` | `999.000000` | PASS |

@@ -18,6 +18,12 @@ global Main=function(p) {
                 Probe("bodyCtl.updateInterval",GameSystem.getUpdateInterval());
                 this.ran=3;
                 GameSystem.setIsShouldUpdateEntities(1);
+                Probe("bodyCtl.shapeSensorInvalidReached",1);
+                this.body.setIsShapeSensor(10,1);
+                Probe("bodyCtl.shapeSensorInvalidContinues",this.body.isShapeSensor(0));
+                Probe("bodyCtl.shapeMaskGetterInvalidReached",1);
+                Probe("bodyCtl.shapeMaskGetterInvalid",
+                    this.body.getShapeCategoriesToCollideWith(10));
                 this.body.setShapeCategoriesToCollideWith(10,3);
                 Probe("bodyCtl.shapeMaskInvalid",this.body.getShapeCategoriesToCollideWith(0));
                 return;
@@ -280,5 +286,9 @@ global Main=function(p) {
             Probe("bodyCtl.shapeDensityInvalidMass",body.getMass());
             body.setShapeCategoriesToCollideWith(0,5);
             Probe("bodyCtl.shapeMaskValid",body.getShapeCategoriesToCollideWith(0));
+            body.setIsShapeSensor(0,0);
+            Probe("bodyCtl.shapeSensorOff",body.isShapeSensor(0));
+            body.setIsShapeSensor(0,1);
+            Probe("bodyCtl.shapeSensorOn",body.isShapeSensor(0));
         });
 };

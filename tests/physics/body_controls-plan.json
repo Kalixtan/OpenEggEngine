@@ -31,6 +31,11 @@
     "bodyCtl.shapeDensityBefore", "bodyCtl.shapeDensityAfter",
     "bodyCtl.shapeDensityValidMass", "bodyCtl.shapeDensityInvalidMass",
     "bodyCtl.shapeMaskValid", "bodyCtl.shapeMaskInvalid",
+    "bodyCtl.shapeSensorOff", "bodyCtl.shapeSensorOn",
+    "bodyCtl.shapeSensorInvalidReached",
+    "bodyCtl.shapeSensorInvalidContinues",
+    "bodyCtl.shapeMaskGetterInvalidReached",
+    "bodyCtl.shapeMaskGetterInvalid",
     "bodyApi.physicsBody.doesRotationResponse",
     "bodyApi.physicsBody.getAngularVel", "bodyApi.physicsBody.getBrakeAcc",
     "bodyApi.physicsBody.getCategoriesToCollideWith",
@@ -85,9 +90,11 @@
     "bodyApi.shapeDef.addPolygon", "bodyApi.shapeDef.addEdges"
   ],
   "awaitingRetail": [
+    "bodyCtl.shapeMaskGetterInvalid",
     "bodyCtl.shapeMaskInvalid"
   ],
   "retailCrash": {
-    "bodyCtl.shapeMaskInvalid": "Invalid shape index faults at 0x00091c40 while reading 0x28."
+    "bodyCtl.shapeMaskGetterInvalid": "Invalid shape index faults at 0x00091320 while reading 0x3e.",
+    "bodyCtl.shapeMaskInvalid": "A separate retail capture faults at 0x00091c40 while reading 0x28; this combined probe stops earlier at the getter fault."
   }
 }
