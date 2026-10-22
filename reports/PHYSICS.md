@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 18:46 UTC
+Generated: 2026-10-22 18:53 UTC
 
-Matched: **6475/6475 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6478/6478 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **341/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **342/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -197,6 +197,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | bodyCtl.mask | 1 | 1 |
 | bodyCtl.group | 1 | 1 |
 | bodyCtl.angularVelocity | 1 | 1 |
+| bodyCtl.computeAngularVelBefore | 1 | 1 |
+| bodyCtl.computeAngularVelAfter | 1 | 1 |
+| bodyCtl.computeAngularVelRotate | 1 | 1 |
 | bodyCtl.shapeCount | 1 | 1 |
 | bodyCtl.pointInside | 1 | 1 |
 | bodyCtl.pointOutside | 1 | 1 |
@@ -596,7 +599,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.appendShapes` | 2 | 2 | PASS |
 | `physicsBody.applyForce` | 8 | 8 | PASS |
 | `physicsBody.brake` | 288 | 288 | PASS |
-| `physicsBody.computeAngularVel` | 0 | 0 | untested |
+| `physicsBody.computeAngularVel` | 3 | 3 | PASS |
 | `physicsBody.disableRestitutionThisFrame` | 0 | 0 | untested |
 | `physicsBody.doesRotationResponse` | 1 | 1 | PASS |
 | `physicsBody.dummy` | 0 | 0 | untested |
@@ -5791,6 +5794,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.setCategoriesToCollideWith` | bodyCtl.mask | `7` | `7` | PASS |
 | `physicsBody.setCollisionGroup` | bodyCtl.group | `-2` | `-2` | PASS |
 | `physicsBody.setAngularVel` | bodyCtl.angularVelocity | `0.500000` | `0.500000` | PASS |
+| `physicsBody.computeAngularVel` | bodyCtl.computeAngularVelBefore | `0.500000` | `0.500000` | PASS |
+| `physicsBody.computeAngularVel` | bodyCtl.computeAngularVelAfter | `0.500000` | `0.500000` | PASS |
+| `physicsBody.computeAngularVel` | bodyCtl.computeAngularVelRotate | `0.500000` | `0.500000` | PASS |
 | `physicsBody.getNumShapes` | bodyCtl.shapeCount | `1` | `1` | PASS |
 | `physicsBody.isPointWithin` | bodyCtl.pointInside | `1` | `1` | PASS |
 | `physicsBody.isPointWithin` | bodyCtl.pointOutside | `0` | `0` | PASS |

@@ -1,4 +1,4 @@
-# probe-sha256 8340339b75524c294f7605018becf5bfe13365837644257c0be363d84106acf6
+# probe-sha256 7e6e4f02d997949f62a3e9f512df1f096ab06abf8fb3ad3a56d8dff5efa1fe64
 # support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
 bodyApi.physicsBody.doesRotationResponse	1
 bodyApi.physicsBody.getAngularVel	0.500000
@@ -101,6 +101,9 @@ bodyCtl.bodyIDPositive	1
 bodyCtl.bullet	1.000000
 bodyCtl.category	4
 bodyCtl.collidable	0
+bodyCtl.computeAngularVelAfter	0.500000
+bodyCtl.computeAngularVelBefore	0.500000
+bodyCtl.computeAngularVelRotate	0.500000
 bodyCtl.dataAppendFirst	0
 bodyCtl.dataAppendSecond	1
 bodyCtl.dataAppendShapeCount	2

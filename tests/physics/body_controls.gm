@@ -78,6 +78,10 @@ global Main=function(p) {
             Probe("bodyCtl.group",body.getCollisionGroup());
             body.setAngularVel(0.5);
             Probe("bodyCtl.angularVelocity",body.getAngularVel());
+            Probe("bodyCtl.computeAngularVelBefore",body.getAngularVel());
+            body.computeAngularVel(0.75,0.5);
+            Probe("bodyCtl.computeAngularVelAfter",body.getAngularVel());
+            Probe("bodyCtl.computeAngularVelRotate",body.getRotateVel());
             Probe("bodyCtl.shapeCount",body.getNumShapes());
             Probe("bodyCtl.pointInside",body.isPointWithin(vector2D(4,5)));
             Probe("bodyCtl.pointOutside",body.isPointWithin(vector2D(8,8)));
