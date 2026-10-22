@@ -123,6 +123,8 @@ DATA_COMMANDS_PLAN = HERE / "data_commands-plan.json"
 DATA_SETTINGS = HERE / "data_settings.gm"
 DATA_SETTINGS_BASELINE = HERE / "data_settings-retail.tsv"
 DATA_SETTINGS_PLAN = HERE / "data_settings-plan.json"
+MATH_PROBE = HERE / "math.gm"
+MATH_BASELINE = HERE / "math-retail.tsv"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "reports" / "PHYSICS.md"
@@ -130,7 +132,7 @@ PREFIXES = ("physicsBody.", "physicsData.", "physicsShape.", "shapeDef.",
             "collisionInfo.", "shapeCollisionInfo.", "intIter.",
             "jointType.", "jointIter.", "Physics.", "Entity.",
             "EntityManager.", "EntityListRef.", "GameSystem.", "Process.",
-            "ALARM.", "LFO.")
+            "ALARM.", "LFO.", "Global.MATH", "vector2D.")
 SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "Global.PHYSICSSHAPECOLLECTIONDEF", "Entity.isEnabled",
            "EntityManager.isEntityIDValid", "EntityManager.getNumEntities",
@@ -1070,7 +1072,8 @@ def main():
                                             (ENTITY_QUERIES_SUPPORT,)),
                                            (DATA_SETTINGS, DATA_SETTINGS_BASELINE,
                                             DATA_SETTINGS_PLAN,
-                                            (ENTITY_QUERIES_SUPPORT,))):
+                                            (ENTITY_QUERIES_SUPPORT,)),
+                                           (MATH_PROBE, MATH_BASELINE, None, ())):
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
         awaiting_retail = set(plan_data.get("awaitingRetail", []))

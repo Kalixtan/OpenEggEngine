@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 23:56 UTC
+Generated: 2026-10-22 23:59 UTC
 
-Matched: **8005/8127 comparable readings (98.50%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8080/8211 comparable readings (98.40%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **375/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **437/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -467,6 +467,55 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `GameSystem.setSimulationSpeed` | 4 | 4 | PASS |
 | `GameSystem.startNewProcessList` | 2 | 2 | PASS |
 | `GameSystem.trace` | 0 | 0 | untested |
+| `Global.MATHUTIL_CalculateExponentialDecay` | 1 | 1 | PASS |
+| `Global.MATHUTIL_CalculateExponentialDecayReversed` | 1 | 1 | PASS |
+| `Global.MATHUTIL_CalculateExponentialGrowth` | 1 | 1 | PASS |
+| `Global.MATHUTIL_DEGTORAD` | 1 | 1 | PASS |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | 1 | 4 | FAIL |
+| `Global.MATHUTIL_FindClosestPointOnLine` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GETINRANGE` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GETINRANGEI` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetAngleDistance` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetAngleDistanceNegative` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetAngleDistancePositive` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetAngleRad` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetAngleRad360` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetCentroid` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetClosestDistanceFromLineToPoint` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GetMinutes` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetPercentageInRange` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GetRadiansBetween` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetSeconds` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetSignedAngleDistance` | 1 | 1 | PASS |
+| `Global.MATHUTIL_GetTrianglePercentage` | 2 | 2 | PASS |
+| `Global.MATHUTIL_Rotate` | 2 | 2 | PASS |
+| `Global.MATHUTIL_distance` | 0 | 1 | FAIL |
+| `Global.MATH_ABS` | 1 | 1 | PASS |
+| `Global.MATH_ACOS` | 0 | 1 | FAIL |
+| `Global.MATH_ASIN` | 0 | 1 | FAIL |
+| `Global.MATH_ATAN2` | 1 | 1 | PASS |
+| `Global.MATH_COS` | 2 | 2 | PASS |
+| `Global.MATH_COS_POW` | 1 | 1 | PASS |
+| `Global.MATH_EXP` | 1 | 1 | PASS |
+| `Global.MATH_FLOOR` | 1 | 1 | PASS |
+| `Global.MATH_INT` | 1 | 1 | PASS |
+| `Global.MATH_LN` | 1 | 1 | PASS |
+| `Global.MATH_LOG` | 1 | 1 | PASS |
+| `Global.MATH_MAX` | 1 | 1 | PASS |
+| `Global.MATH_MAXI` | 1 | 1 | PASS |
+| `Global.MATH_MIN` | 1 | 1 | PASS |
+| `Global.MATH_MINI` | 1 | 1 | PASS |
+| `Global.MATH_MOD` | 1 | 1 | PASS |
+| `Global.MATH_POW` | 1 | 1 | PASS |
+| `Global.MATH_REAL` | 1 | 1 | PASS |
+| `Global.MATH_ROUND` | 1 | 1 | PASS |
+| `Global.MATH_SIGN` | 1 | 1 | PASS |
+| `Global.MATH_SIN` | 2 | 2 | PASS |
+| `Global.MATH_SIN_POW` | 1 | 1 | PASS |
+| `Global.MATH_SQRT` | 0 | 1 | FAIL |
+| `Global.MATH_TAN` | 1 | 1 | PASS |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
 | `LFO.getValue` | 2 | 2 | PASS |
@@ -822,6 +871,20 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `shapeDef.setIsSensor` | 1 | 1 | PASS |
 | `shapeDef.setMass` | 1 | 1 | PASS |
 | `shapeDef.setRestitution` | 1 | 1 | PASS |
+| `vector2D.distance` | 1 | 1 | PASS |
+| `vector2D.getLeftNormal` | 2 | 2 | PASS |
+| `vector2D.getNormalized` | 3 | 3 | PASS |
+| `vector2D.getRightNormal` | 2 | 2 | PASS |
+| `vector2D.getVectorToPoint` | 2 | 2 | PASS |
+| `vector2D.getVectorToPointNormalized` | 3 | 3 | PASS |
+| `vector2D.isPrettyMuchEqual` | 2 | 2 | PASS |
+| `vector2D.isZeroVector` | 1 | 1 | PASS |
+| `vector2D.isvector2D` | 0 | 2 | FAIL |
+| `vector2D.length` | 1 | 1 | PASS |
+| `vector2D.lengthSquared` | 1 | 1 | PASS |
+| `vector2D.normalize` | 0 | 0 | untested |
+| `vector2D.scalarProjectOnto` | 1 | 1 | PASS |
+| `vector2D.vectorProjectOnto` | 2 | 2 | PASS |
 
 ## Contact callbacks
 
@@ -9028,3 +9091,87 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setIsCollidable` | physicsData.setIsCollidable.enabled | `1` | `1` | PASS |
 | `physicsData.setMass` | physicsData.setMass.value | `25.132742` | `4.000000` | FAIL |
 | `physicsData.setRestitution` | physicsData.setRestitution.value | `0.000000` | `0.600000` | FAIL |
+| `Global.MATH_ABS` | Global.MATH_ABS.negative | `3.500000` | `3.500000` | PASS |
+| `Global.MATH_ACOS` | Global.MATH_ACOS.clampedHigh | `nan` | `0.000000` | FAIL |
+| `Global.MATH_ASIN` | Global.MATH_ASIN.clampedLow | `nan` | `-1.570796` | FAIL |
+| `Global.MATH_ATAN2` | Global.MATH_ATAN2.quadrantTwo | `2.356194` | `2.356194` | PASS |
+| `Global.MATH_COS` | Global.MATH_COS.zero | `1.000000` | `1.000000` | PASS |
+| `Global.MATH_COS` | Global.MATH_COS.twoArg | `1.000000` | `1.000000` | PASS |
+| `Global.MATH_COS_POW` | Global.MATH_COS_POW.negativeCurve | `1.307459` | `1.307459` | PASS |
+| `Global.MATH_EXP` | Global.MATH_EXP.zero | `1.000000` | `1.000000` | PASS |
+| `Global.MATH_FLOOR` | Global.MATH_FLOOR.negative | `-2.000000` | `-2.000000` | PASS |
+| `Global.MATH_INT` | Global.MATH_INT.negative | `-1` | `-1` | PASS |
+| `Global.MATH_MAX` | Global.MATH_MAX.mixed | `3.000000` | `3.000000` | PASS |
+| `Global.MATH_MAXI` | Global.MATH_MAXI.integer | `3` | `3` | PASS |
+| `Global.MATH_MIN` | Global.MATH_MIN.mixed | `-2.000000` | `-2.000000` | PASS |
+| `Global.MATH_MINI` | Global.MATH_MINI.integer | `-2` | `-2` | PASS |
+| `Global.MATH_MOD` | Global.MATH_MOD.negative | `-1.000000` | `-1.000000` | PASS |
+| `Global.MATH_POW` | Global.MATH_POW.negativeInteger | `-8.000000` | `-8.000000` | PASS |
+| `Global.MATH_REAL` | Global.MATH_REAL.integer | `4.000000` | `4.000000` | PASS |
+| `Global.MATH_ROUND` | Global.MATH_ROUND.negative | `-1` | `-1` | PASS |
+| `Global.MATH_SIGN` | Global.MATH_SIGN.zero | `0` | `0` | PASS |
+| `Global.MATH_SIN` | Global.MATH_SIN.quarterTurn | `1.000000` | `1.000000` | PASS |
+| `Global.MATH_SIN` | Global.MATH_SIN.twoArg | `0.415016` | `0.415016` | PASS |
+| `Global.MATH_SIN_POW` | Global.MATH_SIN_POW.negativeCurve | `1.552270` | `1.552270` | PASS |
+| `Global.MATH_SQRT` | Global.MATH_SQRT.negative | `-nan` | `0.000000` | FAIL |
+| `Global.MATH_TAN` | Global.MATH_TAN.zero | `0.000000` | `0.000000` | PASS |
+| `Global.MATH_LN` | Global.MATH_LN.one | `0.000000` | `0.000000` | PASS |
+| `Global.MATH_LOG` | Global.MATH_LOG.one | `0.000000` | `0.000000` | PASS |
+| `Global.MATHUTIL_GETINRANGE` | Global.MATHUTIL_GETINRANGE.low | `0.000000` | `0.000000` | PASS |
+| `Global.MATHUTIL_GETINRANGE` | Global.MATHUTIL_GETINRANGE.reversed | `4.000000` | `4.000000` | PASS |
+| `Global.MATHUTIL_GETINRANGEI` | Global.MATHUTIL_GETINRANGEI.truncate | `4` | `4` | PASS |
+| `Global.MATHUTIL_DEGTORAD` | Global.MATHUTIL_DEGTORAD.halfTurn | `3.141593` | `3.141593` | PASS |
+| `Global.MATHUTIL_GetPercentageInRange` | Global.MATHUTIL_GetPercentageInRange.mid | `0.500000` | `0.500000` | PASS |
+| `Global.MATHUTIL_GetPercentageInRange` | Global.MATHUTIL_GetPercentageInRange.zeroSpan | `0.000000` | `0.000000` | PASS |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.peak | `1.000000` | `1.000000` | PASS |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.rising | `0.500000` | `0.500000` | PASS |
+| `Global.MATHUTIL_GetAngleRad` | Global.MATHUTIL_GetAngleRad.quadrantTwo | `2.356194` | `2.356194` | PASS |
+| `Global.MATHUTIL_GetAngleRad360` | Global.MATHUTIL_GetAngleRad360.negative | `4.712389` | `4.712389` | PASS |
+| `Global.MATHUTIL_Rotate` | Global.MATHUTIL_Rotate.x | `-0.000000` | `-0.000000` | PASS |
+| `Global.MATHUTIL_Rotate` | Global.MATHUTIL_Rotate.y | `2.000000` | `2.000000` | PASS |
+| `Global.MATHUTIL_GetRadiansBetween` | Global.MATHUTIL_GetRadiansBetween.wrap | `0.020000` | `0.020000` | PASS |
+| `Global.MATHUTIL_GetSignedAngleDistance` | Global.MATHUTIL_GetSignedAngleDistance.wrap | `0.083186` | `0.083186` | PASS |
+| `Global.MATHUTIL_GetAngleDistance` | Global.MATHUTIL_GetAngleDistance.wrap | `0.083186` | `0.083186` | PASS |
+| `Global.MATHUTIL_GetAngleDistancePositive` | Global.MATHUTIL_GetAngleDistancePositive.wrap | `0.083186` | `0.083186` | PASS |
+| `Global.MATHUTIL_GetAngleDistanceNegative` | Global.MATHUTIL_GetAngleDistanceNegative.wrap | `6.200000` | `6.200000` | PASS |
+| `Global.MATHUTIL_distance` | Global.MATHUTIL_distance.diagonal | `null` | `5.000000` | FAIL |
+| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.x | `3.000000` | `3.000000` | PASS |
+| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.y | `1.500000` | `1.500000` | PASS |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.found | `0` | `1` | FAIL |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.firstX | `0.000000` | `3.000000` | FAIL |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.secondY | `-8715681792.000000` | `4.000000` | FAIL |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.noHit | `0` | `0` | PASS |
+| `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.x | `3.000000` | `3.000000` | PASS |
+| `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.y | `0.000000` | `0.000000` | PASS |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.x | `2.000000` | `2.000000` | PASS |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.y | `0.000000` | `0.000000` | PASS |
+| `Global.MATHUTIL_GetClosestDistanceFromLineToPoint` | Global.MATHUTIL_GetClosestDistanceFromLineToPoint.distance | `4.000000` | `4.000000` | PASS |
+| `Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint` | Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint.distance | `4.123106` | `4.123106` | PASS |
+| `Global.MATHUTIL_GetSeconds` | Global.MATHUTIL_GetSeconds.millis | `1.500000` | `1.500000` | PASS |
+| `Global.MATHUTIL_GetMinutes` | Global.MATHUTIL_GetMinutes.millis | `1.500000` | `1.500000` | PASS |
+| `Global.MATHUTIL_CalculateExponentialDecay` | Global.MATHUTIL_CalculateExponentialDecay.halfLife | `0.367879` | `0.367879` | PASS |
+| `Global.MATHUTIL_CalculateExponentialDecayReversed` | Global.MATHUTIL_CalculateExponentialDecayReversed.halfLife | `0.632121` | `0.632121` | PASS |
+| `Global.MATHUTIL_CalculateExponentialGrowth` | Global.MATHUTIL_CalculateExponentialGrowth.called | `1` | `1` | PASS |
+| `vector2D.length` | vector2D.length.pythagorean | `5.000000` | `5.000000` | PASS |
+| `vector2D.lengthSquared` | vector2D.lengthSquared.pythagorean | `25.000000` | `25.000000` | PASS |
+| `vector2D.getNormalized` | vector2D.getNormalized.x | `0.600000` | `0.600000` | PASS |
+| `vector2D.getNormalized` | vector2D.getNormalized.y | `0.800000` | `0.800000` | PASS |
+| `vector2D.getLeftNormal` | vector2D.getLeftNormal.x | `-4.000000` | `-4.000000` | PASS |
+| `vector2D.getLeftNormal` | vector2D.getLeftNormal.y | `3.000000` | `3.000000` | PASS |
+| `vector2D.getRightNormal` | vector2D.getRightNormal.x | `4.000000` | `4.000000` | PASS |
+| `vector2D.getRightNormal` | vector2D.getRightNormal.y | `-3.000000` | `-3.000000` | PASS |
+| `vector2D.getVectorToPoint` | vector2D.getVectorToPoint.x | `3.000000` | `3.000000` | PASS |
+| `vector2D.getVectorToPoint` | vector2D.getVectorToPoint.y | `4.000000` | `4.000000` | PASS |
+| `vector2D.getVectorToPointNormalized` | vector2D.getVectorToPointNormalized.x | `0.600000` | `0.600000` | PASS |
+| `vector2D.getVectorToPointNormalized` | vector2D.getVectorToPointNormalized.y | `0.800000` | `0.800000` | PASS |
+| `vector2D.distance` | vector2D.distance.euclidean | `5.000000` | `5.000000` | PASS |
+| `vector2D.isPrettyMuchEqual` | vector2D.isPrettyMuchEqual.inside | `1` | `1` | PASS |
+| `vector2D.isPrettyMuchEqual` | vector2D.isPrettyMuchEqual.outside | `0` | `0` | PASS |
+| `vector2D.isZeroVector` | vector2D.isZeroVector.nonzero | `0` | `0` | PASS |
+| `vector2D.isvector2D` | vector2D.isvector2D.true | `null` | `1` | FAIL |
+| `vector2D.isvector2D` | vector2D.isvector2D.false | `null` | `0` | FAIL |
+| `vector2D.scalarProjectOnto` | vector2D.scalarProjectOnto.xAxis | `3.000000` | `3.000000` | PASS |
+| `vector2D.vectorProjectOnto` | vector2D.vectorProjectOnto.x | `3.000000` | `3.000000` | PASS |
+| `vector2D.vectorProjectOnto` | vector2D.vectorProjectOnto.y | `0.000000` | `0.000000` | PASS |
+| `vector2D.getNormalized` | vector2D.getNormalized.zeroX | `0.000000` | `0.000000` | PASS |
+| `vector2D.getVectorToPointNormalized` | vector2D.getVectorToPointNormalized.sameX | `0.000000` | `0.000000` | PASS |
