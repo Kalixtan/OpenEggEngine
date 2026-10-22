@@ -201,6 +201,12 @@ ASSOCIATED = {
                                 "jointType.setPrismaticWorldAxis"),
     "joint.relative.t0.type": ("Physics.createJoint", "jointType.setupRelativeJoint",
                                "jointType.setRelativeVel"),
+    "joint.control.rtSpeed": ("jointType.setRTMotorSpeed",),
+    "joint.control.motorReset": ("jointType.setRevoluteMotor",),
+    "joint.control.motorSet": ("jointType.setRevoluteMotor",),
+    "joint.control.genericMotor": ("jointType.setMotor",),
+    "joint.control.collidableOn": ("jointType.setIsBodiesCollidable",),
+    "joint.control.collidableOff": ("jointType.setIsBodiesCollidable",),
 }
 SCENE_FIELDS = {
     "x": "physicsBody.getPos", "y": "physicsBody.getPos",
@@ -270,6 +276,7 @@ JOINT_FIELDS = {
     "deleted": "Physics.deleteJoint", "cleared": "Physics.deleteAllJoints",
     "idDistinct": "jointType.getObjectID", "rtSpeed": "jointType.getRTMotorSpeed",
     "motorReset": "jointType.getRTMotorSpeed", "motorSet": "jointType.getRTMotorSpeed",
+    "genericMotor": "jointType.getRTMotorSpeed",
     "collidableOn": "jointType.isBodiesCollidable",
     "motorAfterRebuild": "jointType.getRTMotorSpeed",
     "collidableOff": "jointType.isBodiesCollidable",

@@ -17,6 +17,7 @@
     "joint.control.rtSpeed",
     "joint.control.motorReset",
     "joint.control.motorSet",
+    "joint.control.genericMotor",
     "joint.control.collidableOn",
     "joint.control.motorAfterRebuild",
     "joint.control.collidableOff"

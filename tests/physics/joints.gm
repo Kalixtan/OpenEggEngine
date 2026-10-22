@@ -88,6 +88,8 @@ global Main=function(p) {
                 Probe("joint.control.motorReset",this.revolute.getRTMotorSpeed());
                 this.revolute.setRevoluteMotor(1,0.375,2);
                 Probe("joint.control.motorSet",this.revolute.getRTMotorSpeed());
+                this.revolute.setMotor(1,0.25,3);
+                Probe("joint.control.genericMotor",this.revolute.getRTMotorSpeed());
                 this.revolute.setIsBodiesCollidable(1);
                 Probe("joint.control.collidableOn",this.revolute.isBodiesCollidable());
                 Probe("joint.control.motorAfterRebuild",this.revolute.getRTMotorSpeed());

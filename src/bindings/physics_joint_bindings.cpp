@@ -318,20 +318,9 @@ int GM_CDECL gmf_setMotor(gmThread* a_thread) {
     GM_FLOAT_OR_INT_PARAM(speed, 1, 0.0f);
     GM_FLOAT_OR_INT_PARAM(maximum, 2, 0.0f);
     if (j->type != kRevolute && j->type != kPrismatic && j->type != kPin) return GM_OK;
+    // Retail stores setMotor values in the type-specific setup record. The
+    // live constraint is changed only by the RT setters.
     j->motorEnabled = enabled != 0; j->motorSpeed = speed; j->motorMax = maximum;
-    if (j->type == kRevolute || j->type == kPin) {
-        if (b2RevoluteJoint* r = dynamic_cast<b2RevoluteJoint*>(j->joint)) {
-            r->EnableMotor(j->motorEnabled);
-            r->SetMotorSpeed(speed);
-            r->SetMaxMotorTorque(maximum);
-        }
-    } else if (j->type == kPrismatic) {
-        if (b2PrismaticJoint* p = dynamic_cast<b2PrismaticJoint*>(j->joint)) {
-            p->EnableMotor(j->motorEnabled);
-            p->SetMotorSpeed(speed);
-            p->SetMaxMotorForce(maximum);
-        }
-    }
     return GM_OK;
 }
 
@@ -348,11 +337,6 @@ int GM_CDECL gmf_setRevoluteMotor(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(enabled, 0, 0);
     j->motorEnabled = enabled != 0; j->motorSpeed = 0.0f; j->motorMax = 0.0f;
-    if (b2RevoluteJoint* r = dynamic_cast<b2RevoluteJoint*>(j->joint)) {
-        r->EnableMotor(j->motorEnabled);
-        r->SetMotorSpeed(0.0f);
-        r->SetMaxMotorTorque(0.0f);
-    }
     return GM_OK;
 }
 
@@ -361,7 +345,6 @@ int GM_CDECL gmf_setRTMotorSpeed(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(speed, 0, 0.0f);
     // Retail's helper has implementations for revolute, prismatic and pin.
     if (j->type != kRevolute && j->type != kPrismatic && j->type != kPin) return GM_EXCEPTION;
-    j->motorSpeed = speed;
     if (b2RevoluteJoint* r = dynamic_cast<b2RevoluteJoint*>(j->joint)) r->SetMotorSpeed(speed);
     else if (b2PrismaticJoint* p = dynamic_cast<b2PrismaticJoint*>(j->joint)) p->SetMotorSpeed(speed);
     return GM_OK;
@@ -372,7 +355,6 @@ int GM_CDECL gmf_setRTMaxMotorTorque(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(maximum, 0, 0.0f);
     // The retail helper only supports revolute and pin motors.
     if (j->type != kRevolute && j->type != kPin) return GM_EXCEPTION;
-    j->motorMax = maximum;
     if (b2RevoluteJoint* r = dynamic_cast<b2RevoluteJoint*>(j->joint)) r->SetMaxMotorTorque(maximum);
     // Retail's RT torque setter handles revolute and pin joints only.
     return GM_OK;
@@ -380,7 +362,9 @@ int GM_CDECL gmf_setRTMaxMotorTorque(gmThread* a_thread) {
 
 int GM_CDECL gmf_getRTMotorSpeed(gmThread* a_thread) {
     JointData* j = ThisJoint(a_thread);
-    a_thread->PushFloat(j && j->type == kRevolute ? j->motorSpeed : 0.0f);
+    b2RevoluteJoint* joint = j && j->type == kRevolute
+        ? dynamic_cast<b2RevoluteJoint*>(j->joint) : nullptr;
+    a_thread->PushFloat(joint ? joint->GetMotorSpeed() : 0.0f);
     return GM_OK;
 }
 

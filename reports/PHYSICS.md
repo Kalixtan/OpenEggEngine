@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-22 15:39 UTC
+Generated: 2026-10-22 15:59 UTC
 
-Matched: **6412/6415 comparable readings (99.95%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **6416/6416 comparable readings (100.00%)**. 29 inconclusive, 3 local-only, and 3 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **311/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **315/561**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -37,7 +37,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | joint.prismatic | 156 | 156 |
 | joint.relative | 156 | 156 |
 | joint.registry | 5 | 5 |
-| joint.control | 3 | 6 |
+| joint.control | 7 | 7 |
 | raymove.solid | 96 | 96 |
 | raymove.sensor | 96 | 96 |
 | raymove.inside | 96 | 96 |
@@ -526,25 +526,25 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getEntity1` | 60 | 60 | PASS |
 | `jointType.getEntity2` | 48 | 48 | PASS |
 | `jointType.getObjectID` | 1 | 1 | PASS |
-| `jointType.getRTMotorSpeed` | 1 | 4 | FAIL |
+| `jointType.getRTMotorSpeed` | 5 | 5 | PASS |
 | `jointType.getReactionForce` | 120 | 120 | PASS |
 | `jointType.getReactionTorque` | 60 | 60 | PASS |
 | `jointType.getType` | 60 | 60 | PASS |
 | `jointType.isBodiesCollidable` | 62 | 62 | PASS |
 | `jointType.setAngularSpring` | 0 | 0 | untested |
-| `jointType.setIsBodiesCollidable` | 0 | 0 | untested |
+| `jointType.setIsBodiesCollidable` | 2 | 2 | PASS |
 | `jointType.setIsNeedsHighAccuracy` | 0 | 0 | untested |
 | `jointType.setLinearSpring` | 0 | 0 | untested |
-| `jointType.setMotor` | 0 | 0 | untested |
+| `jointType.setMotor` | 1 | 1 | PASS |
 | `jointType.setPinAngularConstraint` | 0 | 0 | untested |
 | `jointType.setPinMotor` | 0 | 0 | untested |
 | `jointType.setPrismaticTranslation` | 0 | 0 | untested |
 | `jointType.setPrismaticWorldAxis` | 1 | 1 | PASS |
 | `jointType.setRTMaxMotorTorque` | 0 | 0 | untested |
-| `jointType.setRTMotorSpeed` | 0 | 0 | untested |
+| `jointType.setRTMotorSpeed` | 1 | 1 | PASS |
 | `jointType.setRelativeVel` | 1 | 1 | PASS |
 | `jointType.setRevoluteAngularConstraint` | 0 | 0 | untested |
-| `jointType.setRevoluteMotor` | 0 | 0 | untested |
+| `jointType.setRevoluteMotor` | 2 | 2 | PASS |
 | `jointType.setupDistanceJoint` | 1 | 1 | PASS |
 | `jointType.setupJoint` | 2 | 2 | PASS |
 | `jointType.setupPinJoint` | 1 | 1 | PASS |
@@ -4869,10 +4869,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Physics.deleteJoint` | joint.registry.deleted | `1` | `1` | PASS |
 | `Physics.deleteAllJoints` | joint.registry.cleared | `1` | `1` | PASS |
 | `jointType.getRTMotorSpeed` | joint.control.rtSpeed | `0.625000` | `0.625000` | PASS |
-| `jointType.getRTMotorSpeed` | joint.control.motorReset | `0.625000` | `0.000000` | FAIL |
-| `jointType.getRTMotorSpeed` | joint.control.motorSet | `0.625000` | `0.375000` | FAIL |
+| `jointType.getRTMotorSpeed` | joint.control.motorReset | `0.625000` | `0.625000` | PASS |
+| `jointType.getRTMotorSpeed` | joint.control.motorSet | `0.625000` | `0.625000` | PASS |
+| `jointType.getRTMotorSpeed` | joint.control.genericMotor | `0.625000` | `0.625000` | PASS |
 | `jointType.isBodiesCollidable` | joint.control.collidableOn | `1` | `1` | PASS |
-| `jointType.getRTMotorSpeed` | joint.control.motorAfterRebuild | `0.625000` | `0.375000` | FAIL |
+| `jointType.getRTMotorSpeed` | joint.control.motorAfterRebuild | `0.625000` | `0.625000` | PASS |
 | `jointType.isBodiesCollidable` | joint.control.collidableOff | `0` | `0` | PASS |
 | `Physics.raycast` | raymove.solid.t0.count | `2` | `2` | PASS |
 | `Physics.raycast` | raymove.solid.t0.trace | `AC` | `AC` | PASS |
