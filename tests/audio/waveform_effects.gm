@@ -1,0 +1,40 @@
+global Main=function(p) {
+    return table(
+        Process=p,
+        frame=0,
+        effectChain=null,
+        effect=null,
+        constructor=function(){},
+        init=function() {
+            Audio.stopAllVoices();
+            Audio.setMusicVolume(0);
+            this.effectChain=Audio.createEffectChain("waveform_lowpass");
+            this.effect=this.effectChain.addEffect(
+                SOUNDEFFECTTYPE_LOWPASS,FILTER_CUTOFF,400,FILTER_RES,3.3);
+            return true;
+        },
+        update=function() {
+            local path="Platformer/sounds/fx/button-high.wav";
+            if (this.frame==20) {
+                Audio.playSound(path);
+            }
+            if (this.frame==80) {
+                Audio.playSound(path,96,0,0,1,128,this.effectChain,0);
+            }
+            if (this.frame==140) {
+                this.effect.setBypass(true);
+                Audio.playSound(path,96,0,0,1,128,this.effectChain,0);
+            }
+            if (this.frame==200) {
+                this.effect.setBypass(false);
+                this.effect.setParam(FILTER_CUTOFF,4000);
+                Audio.playSound(path,96,0,0,1,128,this.effectChain,0);
+            }
+            if (this.frame==260) {
+                Audio.freeEffectChain(this.effectChain);
+                GameMonkeyScript.loadScript("OEP__wave_done__1.gm");
+            }
+            this.frame+=1;
+        }
+    );
+};

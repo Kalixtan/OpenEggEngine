@@ -68,6 +68,9 @@ python3 tests/audio/waveform.py --suite looping --game-data /path/to/game_data
 `waveform_speed.gm` compares immediate 2× speed with changes delayed by one,
 two, and three updates. It uses the same capture commands with `--suite speed`.
 
+`waveform_effects.gm` compares a low-pass chain at two cutoff settings with
+the effect bypassed. Capture and compare it with `--suite effects`.
+
 Needs RPCS3, `pactl`, `parec`, NumPy, SciPy, and SoundFile. The capture uses a
 temporary RPCS3 config and virtual sink. It briefly appends the probe to the
 installed `Main.gm`, then restores it. Retail and OpenEgg audio stays under

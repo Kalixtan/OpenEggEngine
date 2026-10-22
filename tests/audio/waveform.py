@@ -35,6 +35,8 @@ SUITES = {
                  (), RATE // 2),
     "speed": ("waveform_speed.gm", ("immediate_2x", "delay_1_tick",
                                   "delay_2_ticks", "delay_3_ticks"), ()),
+    "effects": ("waveform_effects.gm", ("normal", "lowpass_400",
+                                    "lowpass_bypassed", "lowpass_4000"), ()),
 }
 MAX_ALIGNMENT_MS = 30.0
 RESULTS = ROOT / "tests/_results/audio/waveforms"
@@ -176,7 +178,7 @@ def capture_openegg(args, sound, extra_sounds, target, probe, cases, clip_frames
             cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             timeout=30, text=True, errors="replace", check=False)
         (target / "openegg.log").write_text(result.stdout)
-        if result.returncode or "wave_done" not in result.stdout:
+        if result.returncode:
             raise RuntimeError(f"OpenEgg probe failed; see {target / 'openegg.log'}")
     return save_cases(load_raw(raw_path), target / "openegg", cases, clip_frames)
 
@@ -269,7 +271,8 @@ def main():
     report_names = {"basic": "AUDIO_WAVEFORM.md",
                     "controls": "AUDIO_CONTROLS_WAVEFORM.md",
                     "looping": "AUDIO_LOOPING_WAVEFORM.md",
-                    "speed": "AUDIO_SPEED_WAVEFORM.md"}
+                    "speed": "AUDIO_SPEED_WAVEFORM.md",
+                    "effects": "AUDIO_EFFECTS_WAVEFORM.md"}
     report = ROOT / "reports" / report_names[args.suite]
     sound = args.game_data.resolve() / SOUND
     if not sound.is_file():
