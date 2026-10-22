@@ -1,6 +1,15 @@
-# probe-sha256 27f9ebfddb4428f13e7950926a2797ee2ac60ec84072e0d0665c7c1127535eb3
+# probe-sha256 b8d0e7503e3c1e7c708f94ce19427378c01f1d3dcdfa0314ad30087063352be9
 Audio.createEffectChain.child	1
+Audio.createEffectChain.childCapacity	17
+Audio.createEffectChain.childReuse	1
 Audio.createEffectChain.effectControls	1
 Audio.freeEffectChain.released	1
 Audio.freeSoundEffect.slotReused	1
 Audio.getMasterEffectChain.clear	1
+EffectChain.addEffect.capacity	8
+EffectChain.addEffect.full	1
+EffectChain.freeAllChildEffectChains.reuse	1
+EffectChain.freeAllChildEffects.reuse	1
+SoundEffect.getType.lowpass	3
+SoundEffect.setBypass.accepted	1
+SoundEffect.setParam.accepted	1

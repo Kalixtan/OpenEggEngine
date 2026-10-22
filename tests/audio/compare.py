@@ -73,7 +73,8 @@ def retail_setup_skips(baseline):
 def inventory():
     with (ROOT / "docs/api/function_notes.tsv").open() as source:
         return sorted(row["name"] for row in csv.DictReader(source, delimiter="\t")
-                      if row["name"].startswith("Audio."))
+                      if row["name"].startswith(("Audio.", "EffectChain.",
+                                                  "SoundEffect.")))
 
 
 def compare_section(engine, probe, baseline, root, log_dir, names, support=()):

@@ -1,10 +1,10 @@
 # Audio test report
 
-Generated: 2026-10-22 11:43 UTC
+Generated: 2026-10-22 13:55 UTC
 
-Matched: **139/139 (100%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
+Matched: **148/148 (100%)** comparable script readings; 4 skipped after retail setup failures; 24 clock-dependent readings excluded. Effect-chain calls without a getter only check completion. This does not test emitted audio or DSP parity.
 
-Asset probes: tested with user supplied sound. Functions with readings: **63/68**.
+Asset probes: tested with user supplied sound. Functions with readings: **69/76**.
 
 ## Retail setup warnings
 
@@ -16,7 +16,7 @@ Asset probes: tested with user supplied sound. Functions with readings: **63/68*
 | Function | Matched | Compared | Setup skip | Clock | Status |
 | --- | ---: | ---: | ---: | ---: | --- |
 | `Audio.checkDiracPoolIntegrity` | 2 | 2 | 0 | 0 | PASS |
-| `Audio.createEffectChain` | 2 | 2 | 0 | 0 | PASS |
+| `Audio.createEffectChain` | 4 | 4 | 0 | 0 | PASS |
 | `Audio.fadeOutVoice` | 3 | 3 | 0 | 0 | PASS |
 | `Audio.freeEffectChain` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.freeSoundEffect` | 1 | 1 | 0 | 0 | PASS |
@@ -83,6 +83,14 @@ Asset probes: tested with user supplied sound. Functions with readings: **63/68*
 | `Audio.stopVoice` | 7 | 7 | 0 | 0 | PASS |
 | `Audio.unloadAllSounds` | 1 | 1 | 0 | 0 | PASS |
 | `Audio.unloadSound` | 3 | 3 | 0 | 0 | PASS |
+| `EffectChain.addEffect` | 2 | 2 | 0 | 0 | PASS |
+| `EffectChain.addEffectChain` | 0 | 0 | 0 | 0 | untested |
+| `EffectChain.addVoice` | 0 | 0 | 0 | 0 | untested |
+| `EffectChain.freeAllChildEffectChains` | 1 | 1 | 0 | 0 | PASS |
+| `EffectChain.freeAllChildEffects` | 1 | 1 | 0 | 0 | PASS |
+| `SoundEffect.getType` | 1 | 1 | 0 | 0 | PASS |
+| `SoundEffect.setBypass` | 1 | 1 | 0 | 0 | PASS |
+| `SoundEffect.setParam` | 1 | 1 | 0 | 0 | PASS |
 
 ## Readings
 
@@ -137,8 +145,17 @@ Asset probes: tested with user supplied sound. Functions with readings: **63/68*
 | `Audio.hack_setEnabled` | Audio.hack_setEnabled.disabled | `0` | `0` | PASS |
 | `Audio.getMasterEffectChain` | Audio.getMasterEffectChain.clear | `1` | `1` | PASS |
 | `Audio.createEffectChain` | Audio.createEffectChain.child | `1` | `1` | PASS |
+| `SoundEffect.setParam` | SoundEffect.setParam.accepted | `1` | `1` | PASS |
+| `SoundEffect.setBypass` | SoundEffect.setBypass.accepted | `1` | `1` | PASS |
 | `Audio.createEffectChain` | Audio.createEffectChain.effectControls | `1` | `1` | PASS |
 | `Audio.freeSoundEffect` | Audio.freeSoundEffect.slotReused | `1` | `1` | PASS |
+| `SoundEffect.getType` | SoundEffect.getType.lowpass | `3` | `3` | PASS |
+| `EffectChain.addEffect` | EffectChain.addEffect.capacity | `8` | `8` | PASS |
+| `EffectChain.addEffect` | EffectChain.addEffect.full | `1` | `1` | PASS |
+| `EffectChain.freeAllChildEffects` | EffectChain.freeAllChildEffects.reuse | `1` | `1` | PASS |
+| `Audio.createEffectChain` | Audio.createEffectChain.childCapacity | `17` | `17` | PASS |
+| `Audio.createEffectChain` | Audio.createEffectChain.childReuse | `1` | `1` | PASS |
+| `EffectChain.freeAllChildEffectChains` | EffectChain.freeAllChildEffectChains.reuse | `1` | `1` | PASS |
 | `Audio.freeEffectChain` | Audio.freeEffectChain.released | `1` | `1` | PASS |
 | `Audio.startPlayingScript` | Audio.startPlayingScript.active | `1` | `1` | PASS |
 | `Audio.stopPlayingScript` | Audio.stopPlayingScript.inactive | `0` | `0` | PASS |

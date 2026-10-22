@@ -11,12 +11,66 @@ child.freeAllChildEffects();
 Probe("Audio.createEffectChain.child",1);
 local effect=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS,FILTER_CUTOFF,400);
 effect.setParam(FILTER_CUTOFF,800);
+Probe("SoundEffect.setParam.accepted",1);
 effect.setBypass(true);
+Probe("SoundEffect.setBypass.accepted",1);
 Probe("Audio.createEffectChain.effectControls",1);
 Audio.freeSoundEffect(effect);
 local replacement=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
 replacement.setParam(FILTER_CUTOFF,600);
 Probe("Audio.freeSoundEffect.slotReused",1);
+Probe("SoundEffect.getType.lowpass",replacement.getType());
+local effectsAdded=1;
+local slotTwo=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+local slotThree=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+local slotFour=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+local slotFive=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+local slotSix=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+local slotSeven=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+local slotEight=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+if (!?slotTwo || !?slotThree || !?slotFour || !?slotFive ||
+    !?slotSix || !?slotSeven || !?slotEight) {
+    effectsAdded=1;
+} else {
+    effectsAdded=8;
+}
+Probe("EffectChain.addEffect.capacity",effectsAdded);
+local overflowEffect=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+Probe("EffectChain.addEffect.full",!?overflowEffect);
+chain.freeAllChildEffects();
+local afterFree=chain.addEffect(SOUNDEFFECTTYPE_LOWPASS);
+local effectReused=1;
+if (!?afterFree) { effectReused=0; }
+Probe("EffectChain.freeAllChildEffects.reuse",effectReused);
+
+local parent=Audio.createEffectChain("parent");
+local childCount=0;
+local lastChild=null;
+local childIndex=0;
+while (childIndex<17) {
+    local child=Audio.createEffectChain("child",parent);
+    if (?child) {
+        childCount+=1;
+        lastChild=child;
+    }
+    childIndex+=1;
+}
+Probe("Audio.createEffectChain.childCapacity",childCount);
+local childSlotReused=0;
+if (?lastChild) {
+    Audio.freeEffectChain(lastChild);
+    local reusedChild=Audio.createEffectChain("reused",parent);
+    childSlotReused=1;
+    if (!?reusedChild) { childSlotReused=0; }
+}
+Probe("Audio.createEffectChain.childReuse",childSlotReused);
+parent.freeAllChildEffectChains();
+local childAfterClear=Audio.createEffectChain("afterClear",parent);
+local childAfterClearCreated=1;
+if (!?childAfterClear) { childAfterClearCreated=0; }
+Probe("EffectChain.freeAllChildEffectChains.reuse",childAfterClearCreated);
+Audio.freeEffectChain(parent);
+
 Audio.freeEffectChain(chain);
 Probe("Audio.freeEffectChain.released",1);
 
