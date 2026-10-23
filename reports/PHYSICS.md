@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-23 00:11 UTC
+Generated: 2026-10-23 00:15 UTC
 
-Matched: **8199/8377 comparable readings (97.88%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8343/8521 comparable readings (97.91%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **456/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **457/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -16,8 +16,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | scene.fast | 240 | 240 |
 | scene.solid | 360 | 360 |
 | scene.sensor | 300 | 300 |
-| contact.solid | 108 | 108 |
-| contact.sensor | 108 | 108 |
+| contact.solid | 180 | 180 |
+| contact.sensor | 180 | 180 |
 | removal.body | 98 | 98 |
 | query.solidA | 406 | 406 |
 | query.solidB | 406 | 406 |
@@ -769,7 +769,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getBody` | 1 | 1 | PASS |
 | `physicsData.getBrakeAcc` | 1 | 1 | PASS |
 | `physicsData.getCategoriesToCollideWith` | 1 | 1 | PASS |
-| `physicsData.getCollidingEntities` | 0 | 0 | untested |
+| `physicsData.getCollidingEntities` | 72 | 72 | PASS |
 | `physicsData.getCollisionCategory` | 1 | 1 | PASS |
 | `physicsData.getCollisionGroup` | 1 | 1 | PASS |
 | `physicsData.getCollisionInfo` | 56 | 56 | PASS |
@@ -898,8 +898,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.onEntitySeparate` | 64 | 64 |
 | `Entity.onEntityTouch` | 64 | 64 |
 | `EntityListRef.get` | 7 | 7 |
-| `EntityListRef.goToNext` | 5 | 5 |
-| `EntityListRef.isValid` | 1 | 1 |
+| `EntityListRef.goToNext` | 41 | 41 |
+| `EntityListRef.isValid` | 37 | 37 |
 | `EntityListRef.size` | 8 | 8 |
 | `Vector2D operators` | 17 | 17 |
 
@@ -2172,6 +2172,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t0.aArg | `0` | `0` | PASS |
 | `Contact callback argument` | contact.solid.t0.bArg | `0` | `0` | PASS |
 | `physicsData.isColliding` | contact.solid.t0.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t0.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t0.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t0.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t0.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t0.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t0.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t0.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t0.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t0.trace | `` | `` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t0.aP | `0` | `0` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t0.aC | `0` | `0` | PASS |
@@ -2184,6 +2192,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t0.aArg | `0` | `0` | PASS |
 | `Contact callback argument` | contact.sensor.t0.bArg | `0` | `0` | PASS |
 | `physicsData.isColliding` | contact.sensor.t0.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t0.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t0.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t0.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t0.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t0.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t0.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t0.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t0.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t1.trace | `` | `` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t1.aP | `0` | `0` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t1.aC | `0` | `0` | PASS |
@@ -2196,6 +2212,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t1.aArg | `0` | `0` | PASS |
 | `Contact callback argument` | contact.solid.t1.bArg | `0` | `0` | PASS |
 | `physicsData.isColliding` | contact.solid.t1.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t1.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t1.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t1.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t1.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t1.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t1.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t1.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t1.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t1.trace | `` | `` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t1.aP | `0` | `0` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t1.aC | `0` | `0` | PASS |
@@ -2208,6 +2232,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t1.aArg | `0` | `0` | PASS |
 | `Contact callback argument` | contact.sensor.t1.bArg | `0` | `0` | PASS |
 | `physicsData.isColliding` | contact.sensor.t1.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t1.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t1.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t1.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t1.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t1.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t1.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t1.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t1.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t2.trace | `aPbPaCbC` | `aPbPaCbC` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t2.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t2.aC | `1` | `1` | PASS |
@@ -2220,6 +2252,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t2.aArg | `2` | `2` | PASS |
 | `Contact callback argument` | contact.solid.t2.bArg | `2` | `2` | PASS |
 | `physicsData.isColliding` | contact.solid.t2.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t2.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t2.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t2.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t2.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t2.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t2.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t2.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t2.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t2.trace | `aPbPaCbC` | `aPbPaCbC` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t2.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t2.aC | `1` | `1` | PASS |
@@ -2232,6 +2272,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t2.aArg | `2` | `2` | PASS |
 | `Contact callback argument` | contact.sensor.t2.bArg | `2` | `2` | PASS |
 | `physicsData.isColliding` | contact.sensor.t2.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t2.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t2.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t2.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t2.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t2.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t2.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t2.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t2.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t3.trace | `aPbPaCbCaTbT` | `aPbPaCbCaTbT` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t3.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t3.aC | `1` | `1` | PASS |
@@ -2244,6 +2292,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t3.aArg | `3` | `3` | PASS |
 | `Contact callback argument` | contact.solid.t3.bArg | `3` | `3` | PASS |
 | `physicsData.isColliding` | contact.solid.t3.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t3.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t3.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t3.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t3.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t3.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t3.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t3.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t3.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t3.trace | `aPbPaCbCaTbT` | `aPbPaCbCaTbT` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t3.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t3.aC | `1` | `1` | PASS |
@@ -2256,6 +2312,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t3.aArg | `3` | `3` | PASS |
 | `Contact callback argument` | contact.sensor.t3.bArg | `3` | `3` | PASS |
 | `physicsData.isColliding` | contact.sensor.t3.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t3.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t3.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t3.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t3.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t3.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t3.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t3.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t3.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t4.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t4.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t4.aC | `1` | `1` | PASS |
@@ -2268,6 +2332,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t4.aArg | `4` | `4` | PASS |
 | `Contact callback argument` | contact.solid.t4.bArg | `4` | `4` | PASS |
 | `physicsData.isColliding` | contact.solid.t4.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t4.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t4.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t4.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t4.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t4.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t4.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t4.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t4.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t4.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t4.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t4.aC | `1` | `1` | PASS |
@@ -2280,6 +2352,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t4.aArg | `4` | `4` | PASS |
 | `Contact callback argument` | contact.sensor.t4.bArg | `4` | `4` | PASS |
 | `physicsData.isColliding` | contact.sensor.t4.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t4.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t4.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t4.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t4.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t4.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t4.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t4.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t4.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t5.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t5.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t5.aC | `1` | `1` | PASS |
@@ -2292,6 +2372,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t5.aArg | `4` | `4` | PASS |
 | `Contact callback argument` | contact.solid.t5.bArg | `4` | `4` | PASS |
 | `physicsData.isColliding` | contact.solid.t5.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t5.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t5.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t5.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t5.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t5.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t5.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t5.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t5.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t5.trace | `aPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbS` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t5.aP | `1` | `1` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t5.aC | `1` | `1` | PASS |
@@ -2304,6 +2392,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t5.aArg | `4` | `4` | PASS |
 | `Contact callback argument` | contact.sensor.t5.bArg | `4` | `4` | PASS |
 | `physicsData.isColliding` | contact.sensor.t5.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t5.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t5.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t5.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t5.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t5.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t5.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t5.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t5.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t6.trace | `aPbPaCbCaTbTaSbSaPbPaCbC` | `aPbPaCbCaTbTaSbSaPbPaCbC` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t6.aP | `2` | `2` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t6.aC | `2` | `2` | PASS |
@@ -2316,6 +2412,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t6.aArg | `6` | `6` | PASS |
 | `Contact callback argument` | contact.solid.t6.bArg | `6` | `6` | PASS |
 | `physicsData.isColliding` | contact.solid.t6.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t6.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t6.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t6.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t6.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t6.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t6.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t6.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t6.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t6.trace | `aPbPaCbCaTbTaSbSaPbPaCbC` | `aPbPaCbCaTbTaSbSaPbPaCbC` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t6.aP | `2` | `2` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t6.aC | `2` | `2` | PASS |
@@ -2328,6 +2432,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t6.aArg | `6` | `6` | PASS |
 | `Contact callback argument` | contact.sensor.t6.bArg | `6` | `6` | PASS |
 | `physicsData.isColliding` | contact.sensor.t6.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t6.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t6.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t6.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t6.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t6.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t6.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t6.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t6.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t7.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t7.aP | `2` | `2` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t7.aC | `2` | `2` | PASS |
@@ -2340,6 +2452,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t7.aArg | `7` | `7` | PASS |
 | `Contact callback argument` | contact.solid.t7.bArg | `7` | `7` | PASS |
 | `physicsData.isColliding` | contact.solid.t7.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t7.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t7.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t7.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t7.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t7.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.solid.t7.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t7.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t7.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t7.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbT` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t7.aP | `2` | `2` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t7.aC | `2` | `2` | PASS |
@@ -2352,6 +2472,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t7.aArg | `7` | `7` | PASS |
 | `Contact callback argument` | contact.sensor.t7.bArg | `7` | `7` | PASS |
 | `physicsData.isColliding` | contact.sensor.t7.colliding | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t7.listCountA | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t7.listValidA | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t7.listHasOtherA | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t7.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t7.listCountB | `1` | `1` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t7.listValidB | `1` | `1` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t7.listHasOtherB | `1` | `1` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t7.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.solid.t8.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.solid.t8.aP | `2` | `2` | PASS |
 | `Entity.onEntityCollide` | contact.solid.t8.aC | `2` | `2` | PASS |
@@ -2364,6 +2492,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.solid.t8.aArg | `8` | `8` | PASS |
 | `Contact callback argument` | contact.solid.t8.bArg | `8` | `8` | PASS |
 | `physicsData.isColliding` | contact.solid.t8.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t8.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t8.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t8.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t8.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t8.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.solid.t8.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.solid.t8.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.solid.t8.listAfterNextB | `0` | `0` | PASS |
 | `Contact callback order` | contact.sensor.t8.trace | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | `aPbPaCbCaTbTaSbSaPbPaCbCaTbTaSbS` | PASS |
 | `Entity.onEntityCollidePreSolve` | contact.sensor.t8.aP | `2` | `2` | PASS |
 | `Entity.onEntityCollide` | contact.sensor.t8.aC | `2` | `2` | PASS |
@@ -2376,6 +2512,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Contact callback argument` | contact.sensor.t8.aArg | `8` | `8` | PASS |
 | `Contact callback argument` | contact.sensor.t8.bArg | `8` | `8` | PASS |
 | `physicsData.isColliding` | contact.sensor.t8.colliding | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t8.listCountA | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t8.listValidA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t8.listHasOtherA | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t8.listAfterNextA | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t8.listCountB | `0` | `0` | PASS |
+| `EntityListRef.isValid` | contact.sensor.t8.listValidB | `0` | `0` | PASS |
+| `physicsData.getCollidingEntities` | contact.sensor.t8.listHasOtherB | `0` | `0` | PASS |
+| `EntityListRef.goToNext` | contact.sensor.t8.listAfterNextB | `0` | `0` | PASS |
 | `physicsData.isColliding` | filter.mutualMaskBlocked | `0` | `0` | PASS |
 | `physicsData.isColliding` | filter.mutualMaskAllowed | `1` | `1` | PASS |
 | `physicsData.isColliding` | filter.positiveGroupOverridesMasks | `1` | `1` | PASS |

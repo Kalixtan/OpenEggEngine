@@ -174,8 +174,9 @@ The comparison runs OpenEgg headlessly and writes `reports/PHYSICS.md`.
 `python3 tests/compare_all.py` runs this and the sequencer suite together.
 
 The static probe covers body and shape setup. Scenes sample motion. Contacts
-cover solids, sensors, repeated entry/separation, and callback order. Removal
-checks body destruction inside a collision callback. Queries cover collision
+cover solids, sensors, repeated entry/separation, callback order, and the
+PhysicsData colliding-entity iterator. Removal checks body destruction inside
+a collision callback. Queries cover collision
 info and filter changes; rays cover global, body, and PhysicsData calls. Filter
 reentry checks a restored mask through small movement and full separation.
 Body command probe follows thrust, braking, target rotation, and sleep/wake state

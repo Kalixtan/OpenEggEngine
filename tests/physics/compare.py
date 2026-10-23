@@ -306,6 +306,14 @@ CONTACT_FIELDS = {
     "aArg": "Contact callback argument", "bArg": "Contact callback argument",
     "aBodies": "physicsData.getNumBodies", "bBodies": "physicsData.getNumBodies",
     "colliding": "physicsData.isColliding",
+    "listCountA": "physicsData.getCollidingEntities",
+    "listCountB": "physicsData.getCollidingEntities",
+    "listHasOtherA": "physicsData.getCollidingEntities",
+    "listHasOtherB": "physicsData.getCollidingEntities",
+    "listValidA": "EntityListRef.isValid",
+    "listValidB": "EntityListRef.isValid",
+    "listAfterNextA": "EntityListRef.goToNext",
+    "listAfterNextB": "EntityListRef.goToNext",
 }
 QUERY_FIELDS = {
     "colliding": "physicsData.isColliding", "anyColliding": "physicsData.isColliding",
@@ -981,7 +989,8 @@ def owner(name, names):
     if name.startswith(("contact.", "removal.")):
         field = name.rsplit(".", 1)[1]
         function = CONTACT_FIELDS[field]
-        if function not in names and not function.startswith(("Entity.", "Contact ")):
+        if function not in names and not function.startswith(
+                ("Entity.", "EntityListRef.", "Contact ")):
             raise ValueError(f"unknown contact function: {function}")
         return function
     if name.startswith("scene."):

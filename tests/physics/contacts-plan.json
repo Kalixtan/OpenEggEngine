@@ -2,7 +2,49 @@
   "prefix": "contact",
   "frames": 9,
   "scenes": {
-    "solid": ["trace", "aP", "aC", "aT", "aS", "bP", "bC", "bT", "bS", "aArg", "bArg", "colliding"],
-    "sensor": ["trace", "aP", "aC", "aT", "aS", "bP", "bC", "bT", "bS", "aArg", "bArg", "colliding"]
+    "solid": [
+      "trace",
+      "aP",
+      "aC",
+      "aT",
+      "aS",
+      "bP",
+      "bC",
+      "bT",
+      "bS",
+      "aArg",
+      "bArg",
+      "colliding",
+      "listCountA",
+      "listValidA",
+      "listHasOtherA",
+      "listAfterNextA",
+      "listCountB",
+      "listValidB",
+      "listHasOtherB",
+      "listAfterNextB"
+    ],
+    "sensor": [
+      "trace",
+      "aP",
+      "aC",
+      "aT",
+      "aS",
+      "bP",
+      "bC",
+      "bT",
+      "bS",
+      "aArg",
+      "bArg",
+      "colliding",
+      "listCountA",
+      "listValidA",
+      "listHasOtherA",
+      "listAfterNextA",
+      "listCountB",
+      "listValidB",
+      "listHasOtherB",
+      "listAfterNextB"
+    ]
   }
 }

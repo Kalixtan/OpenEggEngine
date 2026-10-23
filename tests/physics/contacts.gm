@@ -55,6 +55,22 @@ global SampleContact=function(name,tick,a,b,state) {
     Probe(key+"aArg",state.aArg);
     Probe(key+"bArg",state.bArg);
     Probe(key+"colliding",a.pd.isColliding(b.e));
+    local listA=a.pd.getCollidingEntities();
+    Probe(key+"listCountA",listA.size());
+    Probe(key+"listValidA",listA.isValid());
+    local firstA=-1;
+    if (listA.isValid()) { firstA=listA.get().getObjectID(); }
+    Probe(key+"listHasOtherA",firstA==b.e.getObjectID());
+    listA.goToNext();
+    Probe(key+"listAfterNextA",listA.isValid());
+    local listB=b.pd.getCollidingEntities();
+    Probe(key+"listCountB",listB.size());
+    Probe(key+"listValidB",listB.isValid());
+    local firstB=-1;
+    if (listB.isValid()) { firstB=listB.get().getObjectID(); }
+    Probe(key+"listHasOtherB",firstB==a.e.getObjectID());
+    listB.goToNext();
+    Probe(key+"listAfterNextB",listB.isValid());
 };
 
 global Main=function(p) {
