@@ -46,6 +46,10 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/math.gm \
   --baseline tests/physics/math-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/math_edges.gm \
+  --expected tests/physics/math_edges-plan.json \
+  --baseline tests/physics/math_edges-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/contacts.gm \
   --support-file tests/physics/ProbeContactEntity.gm \
   --expected tests/physics/contacts-plan.json \
@@ -179,6 +183,8 @@ PhysicsData settings probe checks forwarded pose, shape, filter, material, and
 movement settings by reading the resulting body state.
 Math probe covers script math functions, geometry helpers, and vector methods
 with boundary and wraparound inputs.
+Math edge probe adds vector operators, zero-length inputs, circle tangencies,
+and range boundaries.
 Entity lifecycle checks enable/disable, contact callbacks, re-enable, and
 delete/flush while bodies overlap. Entity manager probes cover pending versus
 committed entities, iterator snapshots, live-iterator deletion/appends,

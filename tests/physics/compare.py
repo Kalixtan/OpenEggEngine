@@ -125,6 +125,9 @@ DATA_SETTINGS_BASELINE = HERE / "data_settings-retail.tsv"
 DATA_SETTINGS_PLAN = HERE / "data_settings-plan.json"
 MATH_PROBE = HERE / "math.gm"
 MATH_BASELINE = HERE / "math-retail.tsv"
+MATH_EDGES_PROBE = HERE / "math_edges.gm"
+MATH_EDGES_BASELINE = HERE / "math_edges-retail.tsv"
+MATH_EDGES_PLAN = HERE / "math_edges-plan.json"
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "reports" / "PHYSICS.md"
@@ -147,7 +150,7 @@ SPECIAL = {"EntityManager.createEntity", "Entity.getPhysicsData",
            "EntityManager.getRandomPlayer", "EntityManager.getEntitiesNear",
            "EntityManager.getEntitiesRoughlyWithin", "ALARM.setIntervalAndHardReset",
            "Global.TRIANGLELFO", "GameMonkeyScript.clean",
-           "GameMonkeyScript.isCollectingGarbage"}
+           "GameMonkeyScript.isCollectingGarbage", "Vector2D operators"}
 ALIASES = {"PhysicsBody.": "physicsBody.", "PhysicsData.": "physicsData.",
            "ShapeDef.": "shapeDef."}
 ASSOCIATED = {
@@ -728,6 +731,8 @@ def inventory():
 
 
 def owner(name, names):
+    if name.startswith("vectorOps."):
+        return "Vector2D operators"
     if name.startswith("callbackMutation."):
         field = name[len("callbackMutation."):]
         function = {
@@ -1073,7 +1078,9 @@ def main():
                                            (DATA_SETTINGS, DATA_SETTINGS_BASELINE,
                                             DATA_SETTINGS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,)),
-                                           (MATH_PROBE, MATH_BASELINE, None, ())):
+                                           (MATH_PROBE, MATH_BASELINE, None, ()),
+                                           (MATH_EDGES_PROBE, MATH_EDGES_BASELINE,
+                                            MATH_EDGES_PLAN, ())):
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
         awaiting_retail = set(plan_data.get("awaitingRetail", []))
