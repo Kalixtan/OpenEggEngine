@@ -1,0 +1,4 @@
+global ContactPlainEntity=function(handle) {
+    return table(Entity=handle,PhysicsData=handle.getPhysicsData(),
+        constructor=function(){},configure=function(){return true;});
+};

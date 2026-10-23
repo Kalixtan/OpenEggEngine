@@ -1,0 +1,18 @@
+{
+  "prefix": "",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "collisionInfo.getNumCollidingShapes.entered",
+    "collisionInfo.getNumCollidingShapes.count",
+    "collisionInfo.getNumCollidingShapes.after"
+  ],
+  "awaitingRetail": [
+    "collisionInfo.getNumCollidingShapes.count",
+    "collisionInfo.getNumCollidingShapes.after"
+  ],
+  "retailCrash": {
+    "collisionInfo.getNumCollidingShapes.count": "Retail faults at 0x00097420 on an active collision pair.",
+    "collisionInfo.getNumCollidingShapes.after": "Retail faults at 0x00097420 before this reading."
+  }
+}

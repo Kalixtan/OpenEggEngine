@@ -1,0 +1,50 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global Shapes=PHYSICSSHAPECOLLECTIONDEF();
+global MakeBody=function(x,rate,maxDecay,maxSpeed) {
+    local e=EntityManager.createEntity();
+    local data=e.getPhysicsData();
+    local body=data.getBody(data.createBody());
+    body.setPos(vector2D(x,500));
+    Shapes.reset();
+    Shapes.setMass(1);
+    Shapes.addCircle(1,0,0);
+    body.appendShapes(Shapes);
+    body.setMaxSpeed(maxSpeed);
+    body.setVel(vector2D(10,0));
+    body.setVelocityDecayRate(rate);
+    body.setMaxVelocityDecayRate(maxDecay);
+    e.setIsEnabled(1);
+    return body;
+};
+global Sample=function(name,tick,body) {
+    local prefix="physicsBody."+name+".t"+tick+".";
+    local pos=body.getPos();
+    local vel=body.getVel();
+    Probe(prefix+"x",pos.x);
+    Probe(prefix+"vx",vel.x);
+    Probe(prefix+"vy",vel.y);
+    Probe(prefix+"speed",body.getSpeed());
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                this.none=MakeBody(0,0,0,100);
+                this.decay=MakeBody(100,0.01,0,100);
+                this.negative=MakeBody(200,-0.01,0,100);
+                this.cap=MakeBody(300,0,0.5,5);
+                this.capAll=MakeBody(400,0,1,5);
+                EntityManager.flush();
+            }
+            if (this.frame<4) {
+                Sample("setVelocityDecayRate.none",this.frame,this.none);
+                Sample("setVelocityDecayRate.normal",this.frame,this.decay);
+                Sample("setVelocityDecayRate.negative",this.frame,this.negative);
+                Sample("setMaxVelocityDecayRate.half",this.frame,this.cap);
+                Sample("setMaxVelocityDecayRate.one",this.frame,this.capAll);
+                this.frame+=1;
+            }
+        });
+};

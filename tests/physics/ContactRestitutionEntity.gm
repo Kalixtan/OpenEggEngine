@@ -1,0 +1,7 @@
+global ContactRestitutionEntity=function(handle) {
+    return table(Entity=handle,PhysicsData=handle.getPhysicsData(),
+        constructor=function(){},configure=function(){return true;},
+        onEntityCollidePreSolve=function(other) {
+            this.PhysicsData.getBody(0).disableRestitutionThisFrame();
+        });
+};

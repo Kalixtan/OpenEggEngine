@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-23 00:19 UTC
+Generated: 2026-10-23 00:46 UTC
 
-Matched: **8371/8582 comparable readings (97.54%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8518/8775 comparable readings (97.07%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **463/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -262,8 +262,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | Function | Matched | Cases | Status |
 | --- | ---: | ---: | --- |
 | `ALARM.getAlarmPercentage` | 3 | 3 | PASS |
-| `ALARM.getInterval` | 1 | 1 | PASS |
-| `ALARM.getMSElapsed` | 4 | 4 | PASS |
+| `ALARM.getInterval` | 1 | 2 | INCONCLUSIVE |
+| `ALARM.getMSElapsed` | 4 | 5 | INCONCLUSIVE |
 | `ALARM.getTimeTillAlarm` | 1 | 1 | PASS |
 | `ALARM.hardReset` | 1 | 1 | PASS |
 | `ALARM.isAlarming` | 2 | 2 | PASS |
@@ -275,10 +275,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `ALARM.setIntervalAndHardReset` | 1 | 1 | PASS |
 | `ALARM.setIsEnabled` | 1 | 1 | PASS |
 | `ALARM.update` | 5 | 5 | PASS |
-| `Entity.addAlarm` | 0 | 0 | untested |
-| `Entity.addLFO` | 0 | 0 | untested |
+| `Entity.addAlarm` | 0 | 2 | INCONCLUSIVE |
+| `Entity.addLFO` | 0 | 3 | INCONCLUSIVE |
 | `Entity.addTelescope` | 1 | 1 | PASS |
-| `Entity.callMethod` | 1 | 1 | PASS |
+| `Entity.callMethod` | 1 | 5 | INCONCLUSIVE |
 | `Entity.clearTelescopes` | 1 | 1 | PASS |
 | `Entity.configure` | 0 | 0 | untested |
 | `Entity.constructorSetIsManual` | 0 | 0 | untested |
@@ -288,23 +288,23 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.constructorSetNoPhysicsUpdate` | 0 | 0 | untested |
 | `Entity.constructorSetNoUpdate` | 0 | 0 | untested |
 | `Entity.createParticle` | 1 | 1 | PASS |
-| `Entity.deleteAlarm` | 0 | 0 | untested |
+| `Entity.deleteAlarm` | 0 | 1 | INCONCLUSIVE |
 | `Entity.deleteAllParticles` | 0 | 0 | untested |
-| `Entity.deleteLFO` | 1 | 1 | PASS |
+| `Entity.deleteLFO` | 1 | 2 | INCONCLUSIVE |
 | `Entity.die` | 1 | 1 | PASS |
 | `Entity.disownVoice` | 1 | 1 | PASS |
 | `Entity.drawExplosionIfGot` | 0 | 0 | untested |
 | `Entity.forceAudibilityRecalc` | 1 | 1 | PASS |
-| `Entity.getAlarm` | 0 | 0 | untested |
+| `Entity.getAlarm` | 0 | 1 | INCONCLUSIVE |
 | `Entity.getAllParticles` | 1 | 1 | PASS |
 | `Entity.getAudibilityPerc` | 0 | 0 | untested |
 | `Entity.getCurrentScreenX` | 0 | 0 | untested |
 | `Entity.getCurrentScreenY` | 0 | 0 | untested |
 | `Entity.getDescriptionBits` | 1 | 1 | PASS |
 | `Entity.getDistanceTo` | 1 | 1 | PASS |
-| `Entity.getEntityCreationPos` | 0 | 0 | untested |
+| `Entity.getEntityCreationPos` | 0 | 3 | INCONCLUSIVE |
 | `Entity.getLimitVolPerc` | 1 | 1 | PASS |
-| `Entity.getMainBody` | 0 | 0 | untested |
+| `Entity.getMainBody` | 0 | 1 | INCONCLUSIVE |
 | `Entity.getMaxCX` | 1 | 1 | PASS |
 | `Entity.getMaxCY` | 1 | 1 | PASS |
 | `Entity.getMinCX` | 1 | 1 | PASS |
@@ -319,17 +319,17 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getStyle` | 0 | 0 | untested |
 | `Entity.getType` | 1 | 1 | PASS |
 | `Entity.getTypeName` | 1 | 1 | PASS |
-| `Entity.getUID` | 0 | 0 | untested |
+| `Entity.getUID` | 0 | 1 | INCONCLUSIVE |
 | `Entity.getUniqueAlarmID` | 0 | 0 | untested |
-| `Entity.getUniqueLFOID` | 0 | 0 | untested |
+| `Entity.getUniqueLFOID` | 0 | 1 | INCONCLUSIVE |
 | `Entity.getVectorTo` | 2 | 2 | PASS |
 | `Entity.getVectorToNormalized` | 2 | 2 | PASS |
 | `Entity.getVertexShaderParamIndex` | 0 | 0 | untested |
-| `Entity.getWhichSide` | 0 | 0 | untested |
+| `Entity.getWhichSide` | 0 | 4 | INCONCLUSIVE |
 | `Entity.giveBackToBulletCache` | 0 | 0 | untested |
 | `Entity.initializeScreenExtents` | 4 | 4 | PASS |
 | `Entity.isAlwaysMusicTriggered` | 0 | 0 | untested |
-| `Entity.isAlwaysProcessed` | 0 | 0 | untested |
+| `Entity.isAlwaysProcessed` | 0 | 2 | INCONCLUSIVE |
 | `Entity.isBeingEdited` | 1 | 1 | PASS |
 | `Entity.isBoundedToGameBoard` | 0 | 0 | untested |
 | `Entity.isEditable` | 1 | 1 | PASS |
@@ -518,13 +518,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Global.MATH_TAN` | 1 | 1 | PASS |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
-| `LFO.getValue` | 2 | 2 | PASS |
+| `LFO.getValue` | 2 | 3 | INCONCLUSIVE |
 | `LFO.setContour` | 2 | 2 | PASS |
 | `LFO.setPhase` | 8 | 8 | PASS |
 | `LFO.setRandomPhase` | 0 | 0 | untested |
 | `LFO.setRange` | 1 | 1 | PASS |
 | `LFO.setRate` | 7 | 7 | PASS |
-| `LFO.update` | 7 | 7 | PASS |
+| `LFO.update` | 7 | 9 | INCONCLUSIVE |
 | `Physics.createJoint` | 6 | 6 | PASS |
 | `Physics.deleteAllJoints` | 1 | 1 | PASS |
 | `Physics.deleteJoint` | 1 | 1 | PASS |
@@ -603,7 +603,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `collisionInfo.getContactNormalOfMyCollidingShape` | 112 | 112 | PASS |
 | `collisionInfo.getEntity` | 56 | 56 | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | 56 | 56 | PASS |
-| `collisionInfo.getNumCollidingShapes` | 0 | 0 | untested |
+| `collisionInfo.getNumCollidingShapes` | 1 | 3 | AWAITING RETAIL |
 | `collisionInfo.getShapeCollisionInfo` | 112 | 112 | PASS |
 | `collisionInfo.isAllSensors` | 56 | 56 | PASS |
 | `collisionInfo.isBodyColliding` | 56 | 56 | PASS |
@@ -611,11 +611,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `collisionInfo.isBodyCollidingWithShape` | 56 | 56 | PASS |
 | `collisionInfo.isMyShapeCollidingWithSensorsOnly` | 56 | 56 | PASS |
 | `collisionInfo.isShapeColliding` | 56 | 56 | PASS |
-| `intIter.get` | 56 | 56 | PASS |
-| `intIter.goToNext` | 0 | 0 | untested |
-| `intIter.isValid` | 0 | 0 | untested |
-| `intIter.reset` | 0 | 0 | untested |
-| `intIter.size` | 56 | 56 | PASS |
+| `intIter.get` | 60 | 60 | PASS |
+| `intIter.goToNext` | 2 | 2 | PASS |
+| `intIter.isValid` | 5 | 5 | PASS |
+| `intIter.reset` | 1 | 1 | PASS |
+| `intIter.size` | 58 | 58 | PASS |
 | `jointIter.get` | 5 | 5 | PASS |
 | `jointIter.goToNext` | 5 | 5 | PASS |
 | `jointIter.isValid` | 1 | 1 | PASS |
@@ -653,9 +653,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.applyForce` | 8 | 8 | PASS |
 | `physicsBody.brake` | 288 | 288 | PASS |
 | `physicsBody.computeAngularVel` | 3 | 3 | PASS |
-| `physicsBody.disableRestitutionThisFrame` | 0 | 0 | untested |
+| `physicsBody.disableRestitutionThisFrame` | 63 | 64 | FAIL |
 | `physicsBody.doesRotationResponse` | 4 | 5 | FAIL |
-| `physicsBody.dummy` | 0 | 0 | untested |
+| `physicsBody.dummy` | 1 | 1 | PASS |
 | `physicsBody.getAABB` | 8 | 8 | PASS |
 | `physicsBody.getAngularVel` | 1 | 1 | PASS |
 | `physicsBody.getBBox` | 1 | 1 | PASS |
@@ -727,8 +727,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.rotateTo` | 288 | 288 | PASS |
 | `physicsBody.setAllowSleeping` | 288 | 288 | PASS |
 | `physicsBody.setAngularVel` | 290 | 290 | PASS |
-| `physicsBody.setAsCircle` | 0 | 0 | untested |
-| `physicsBody.setAsRect` | 0 | 0 | untested |
+| `physicsBody.setAsCircle` | 0 | 2 | LOCAL-ONLY |
+| `physicsBody.setAsRect` | 0 | 3 | LOCAL-ONLY |
 | `physicsBody.setBrakeAcc` | 288 | 288 | PASS |
 | `physicsBody.setCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsBody.setCollisionCategory` | 1 | 1 | PASS |
@@ -746,7 +746,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setMaxRotateSpeed` | 1672 | 1729 | FAIL |
 | `physicsBody.setMaxRotationDecayRate` | 288 | 288 | PASS |
 | `physicsBody.setMaxSpeed` | 289 | 289 | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | 0 | 0 | untested |
+| `physicsBody.setMaxVelocityDecayRate` | 14 | 32 | FAIL |
 | `physicsBody.setPolygonShapeVertices` | 2 | 2 | PASS |
 | `physicsBody.setPos` | 1 | 1 | PASS |
 | `physicsBody.setRestitution` | 1 | 1 | PASS |
@@ -758,7 +758,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setSpeed` | 1 | 1 | PASS |
 | `physicsBody.setThrustAcc` | 288 | 288 | PASS |
 | `physicsBody.setVel` | 292 | 292 | PASS |
-| `physicsBody.setVelocityDecayRate` | 0 | 0 | untested |
+| `physicsBody.setVelocityDecayRate` | 21 | 48 | FAIL |
 | `physicsBody.stopRotatingTo` | 288 | 288 | PASS |
 | `physicsBody.thrust` | 288 | 288 | PASS |
 | `physicsData.appendShapes` | 7 | 7 | PASS |
@@ -837,7 +837,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.stopRotatingTo` | 1 | 5 | FAIL |
 | `physicsData.thrust` | 10 | 20 | FAIL |
 | `physicsData.wakeUp` | 288 | 288 | PASS |
-| `physicsShape.dummy` | 0 | 0 | untested |
+| `physicsShape.dummy` | 1 | 1 | PASS |
 | `physicsShape.getIsSensor` | 0 | 1 | LOCAL-ONLY |
 | `physicsShape.getType` | 1 | 1 | PASS |
 | `physicsShape.getVertexCount` | 1 | 1 | PASS |
@@ -847,7 +847,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsShape.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsShape.setFrictionForPlayer` | 1 | 1 | PASS |
 | `physicsShape.setIsSensor` | 1 | 1 | PASS |
-| `shapeCollisionInfo.disableContact` | 0 | 0 | untested |
+| `shapeCollisionInfo.disableContact` | 32 | 32 | PASS |
 | `shapeCollisionInfo.getContactNormal` | 112 | 112 | PASS |
 | `shapeCollisionInfo.getContactPos` | 112 | 112 | PASS |
 | `shapeCollisionInfo.getMyContactShapeID` | 112 | 112 | PASS |
@@ -882,7 +882,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `vector2D.isvector2D` | 0 | 2 | FAIL |
 | `vector2D.length` | 1 | 1 | PASS |
 | `vector2D.lengthSquared` | 1 | 1 | PASS |
-| `vector2D.normalize` | 0 | 0 | untested |
+| `vector2D.normalize` | 0 | 1 | INCONCLUSIVE |
 | `vector2D.scalarProjectOnto` | 2 | 2 | PASS |
 | `vector2D.vectorProjectOnto` | 4 | 4 | PASS |
 
@@ -936,6 +936,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.getWhichSide` | entityState.whichSide | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
 | `Entity.getWhichSide` | entityState.whichSideBehind | `null` | `1` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
 | `Entity.getWhichSide` | entityState.whichSideNegative | `null` | `0` | Retail returns null for this synthetic entity pair; native call setup remains unresolved. |
+| `vector2D.normalize` | vector2D.normalize.invoked | `1` | `1` | The marker confirms the call starts; the local method raises an unavailable error before it can return a value. |
 
 ## OpenEgg-only functions
 
@@ -948,6 +949,11 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
 | `physicsBody.isCircle` | physicsBody.isCircle.circle | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | physicsBody.isRect.rect | `null` | `1` | OpenEgg convenience method; no retail method exists |
+| `physicsBody.setAsCircle` | physicsBody.setAsCircle.count | `None` | `1` | OpenEgg convenience method; no same-named retail method exists |
+| `physicsBody.setAsCircle` | physicsBody.setAsCircle.radius | `None` | `3.000000` | OpenEgg convenience method; no same-named retail method exists |
+| `physicsBody.setAsRect` | physicsBody.setAsRect.count | `None` | `1` | OpenEgg convenience method; no same-named retail method exists |
+| `physicsBody.setAsRect` | physicsBody.setAsRect.width | `None` | `8.000000` | OpenEgg convenience method; no same-named retail method exists |
+| `physicsBody.setAsRect` | physicsBody.setAsRect.height | `None` | `4.000000` | OpenEgg convenience method; no same-named retail method exists |
 
 ## Awaiting retail capture
 
@@ -960,6 +966,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
 | `physicsBody.setShapeCategoriesToCollideWith` | bodyCtl.shapeMaskInvalid | `5` | A separate retail capture faults at 0x00091c40 while reading 0x28; this combined probe stops earlier at the getter fault. |
 | `physicsBody.getShapeCategoriesToCollideWith` | bodyCtl.shapeMaskGetterInvalid | `-1` | Invalid shape index faults at 0x00091320 while reading 0x3e. |
+| `collisionInfo.getNumCollidingShapes` | collisionInfo.getNumCollidingShapes.count | `1` | Retail faults at 0x00097420 on an active collision pair. |
+| `collisionInfo.getNumCollidingShapes` | collisionInfo.getNumCollidingShapes.after | `1` | Retail faults at 0x00097420 before this reading. |
 
 ## Readings
 
@@ -9547,3 +9555,196 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.removeShape` | physicsBody.removeShape.invalidCount | `2` | `2` | PASS |
 | `physicsBody.putToSleep` | physicsBody.putToSleep.sleeping | `0.000000` | `1.000000` | FAIL |
 | `physicsBody.putToSleep` | physicsBody.putToSleep.velocityX | `2.000000` | `0.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t0.x | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t0.vx | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t0.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t0.x | `100.000000` | `100.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t0.vx | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t0.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t0.x | `200.000000` | `200.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t0.vx | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t0.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t0.x | `300.000000` | `300.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t0.vx | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t0.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t0.x | `400.000000` | `400.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t0.vx | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t0.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t0.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.x | `166.666656` | `100.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.x | `241.080276` | `200.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.vx | `8.464817` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.speed | `8.464817` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.x | `366.666656` | `300.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.x | `383.333344` | `400.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.speed | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.x | `483.333344` | `500.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.speed | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.x | `333.333313` | `200.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.x | `360.502167` | `284.648163` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.vx | `7.165313` | `5.078890` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.speed | `7.165313` | `5.078890` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.x | `533.333313` | `400.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.x | `466.666687` | `491.666656` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.vx | `5.000000` | `5.500000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.speed | `5.000000` | `5.500000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.x | `566.666687` | `600.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.speed | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.x | `499.999969` | `300.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.x | `461.590607` | `356.301300` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.vx | `6.065307` | `4.299188` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.speed | `6.065307` | `4.299188` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.x | `700.000000` | `500.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.x | `550.000000` | `579.166626` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.vx | `5.000000` | `5.250000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.speed | `5.000000` | `5.250000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.x | `650.000000` | `700.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.speed | `5.000000` | `6.000000` | FAIL |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t0.aX | `0.000000` | `0.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t0.bX | `4.000000` | `4.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t0.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t0.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t0.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t0.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t0.aVX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t0.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t0.aX | `2000.000000` | `2000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t0.bX | `2004.000000` | `2004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t0.aVX | `1.000000` | `1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t0.bVX | `-1.000000` | `-1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t1.aX | `16.666666` | `16.666666` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t1.bX | `-12.666666` | `-12.666666` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t1.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t1.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t1.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t1.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t1.aVX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t1.bVX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t1.aX | `1983.333374` | `1983.333374` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t1.bX | `2020.666626` | `2020.666626` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t1.aVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t1.bVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t2.aX | `33.333332` | `33.333332` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t2.bX | `-29.333332` | `-29.333332` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t2.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t2.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t2.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t2.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t2.aVX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t2.bVX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t2.aX | `1966.666748` | `1966.666748` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t2.bX | `2037.333252` | `2037.333252` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t2.aVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t2.bVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t3.aX | `50.000000` | `50.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t3.bX | `-46.000000` | `-46.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t3.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t3.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t3.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t3.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t3.aVX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t3.bVX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t3.aX | `1950.000122` | `1950.000122` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t3.bX | `2054.000000` | `2054.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t3.aVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t3.bVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t4.aX | `66.666664` | `66.666664` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t4.bX | `-62.666664` | `-62.666664` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t4.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t4.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t4.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t4.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t4.aVX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t4.bVX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t4.aX | `1933.333496` | `1933.333496` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t4.bX | `2070.666748` | `2070.666748` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t4.aVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t4.bVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t5.aX | `83.333328` | `83.333328` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t5.bX | `-79.333328` | `-79.333328` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t5.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t5.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t5.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t5.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t5.aVX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t5.bVX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t5.aX | `1916.666870` | `1916.666870` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t5.bX | `2087.333496` | `2087.333496` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t5.aVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t5.bVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t6.aX | `99.999992` | `99.999992` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t6.bX | `-95.999992` | `-95.999992` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t6.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t6.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t6.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t6.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t6.aVX | `-0.000000` | `-0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t6.bVX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t6.aX | `1900.000244` | `1900.000244` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t6.bX | `2104.000244` | `2104.000244` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t6.aVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t6.bVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t7.aX | `116.666656` | `116.666656` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t7.bX | `-112.666656` | `-112.666656` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t7.aVX | `1.000000` | `1.000000` | PASS |
+| `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t7.bVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t7.aX | `1000.000000` | `1000.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t7.bX | `1004.000000` | `1004.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t7.aVX | `0.000000` | `-0.000000` | FAIL |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.t7.bVX | `0.000000` | `0.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t7.aX | `1883.333618` | `1883.333618` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t7.bX | `2120.666992` | `2120.666992` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t7.aVX | `-1.000000` | `-1.000000` | PASS |
+| `physicsBody.disableRestitutionThisFrame` | physicsBody.disableRestitutionThisFrame.control.t7.bVX | `1.000000` | `1.000000` | PASS |
+| `intIter.size` | intIter.size.active | `2` | `2` | PASS |
+| `intIter.isValid` | intIter.isValid.start | `1` | `1` | PASS |
+| `intIter.get` | intIter.get.firstKnown | `1` | `1` | PASS |
+| `intIter.goToNext` | intIter.goToNext.second | `1` | `1` | PASS |
+| `intIter.isValid` | intIter.isValid.second | `1` | `1` | PASS |
+| `intIter.get` | intIter.get.secondKnown | `1` | `1` | PASS |
+| `intIter.get` | intIter.get.distinct | `1` | `1` | PASS |
+| `intIter.goToNext` | intIter.goToNext.end | `1` | `1` | PASS |
+| `intIter.isValid` | intIter.isValid.end | `0` | `0` | PASS |
+| `intIter.reset` | intIter.reset.afterEnd | `1` | `1` | PASS |
+| `intIter.isValid` | intIter.isValid.reset | `1` | `1` | PASS |
+| `intIter.get` | intIter.get.resetFirst | `1` | `1` | PASS |
+| `intIter.size` | intIter.size.empty | `-1` | `-1` | PASS |
+| `intIter.isValid` | intIter.isValid.empty | `0` | `0` | PASS |
+| `collisionInfo.getNumCollidingShapes` | collisionInfo.getNumCollidingShapes.entered | `1` | `1` | PASS |
+| `physicsBody.dummy` | physicsBody.dummy.called | `1` | `1` | PASS |
+| `physicsShape.dummy` | physicsShape.dummy.called | `1` | `1` | PASS |

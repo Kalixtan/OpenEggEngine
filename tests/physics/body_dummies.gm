@@ -1,0 +1,25 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+global Shapes=PHYSICSSHAPECOLLECTIONDEF();
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            local entity=EntityManager.createEntity();
+            local data=entity.getPhysicsData();
+            local body=data.getBody(data.createBody());
+            Shapes.reset();
+            Shapes.setMass(1);
+            Shapes.addCircle(2,0,0);
+            body.appendShapes(Shapes);
+            entity.setIsEnabled(1);
+            EntityManager.flush();
+            body.dummy();
+            Probe("physicsBody.dummy.called",1);
+            local shape=data.getShapeByID(body.getShapeObjectID(0));
+            shape.dummy();
+            Probe("physicsShape.dummy.called",1);
+        });
+};

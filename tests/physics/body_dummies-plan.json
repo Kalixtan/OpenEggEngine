@@ -1,0 +1,9 @@
+{
+  "prefix": "",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "physicsBody.dummy.called",
+    "physicsShape.dummy.called"
+  ]
+}

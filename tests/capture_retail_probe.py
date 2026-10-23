@@ -39,6 +39,10 @@ def main():
     expected = set(expected_readings(args.probe.resolve(), args.expected))
     plan = json.loads(args.expected.read_text()) if args.expected else {}
     awaiting_retail = set(plan.get("awaitingRetail", []))
+    awaiting_retail.update(
+        case for case in expected
+        if any(case.startswith(prefix)
+               for prefix in plan.get("awaitingRetailPrefixes", [])))
     retail_crash = plan.get("retailCrash", {})
     if not set(retail_crash) <= awaiting_retail <= expected:
         parser.error("retailCrash readings must be declared in awaitingRetail")

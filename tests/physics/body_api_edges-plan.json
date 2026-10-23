@@ -1,0 +1,12 @@
+{
+  "prefix": "",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "physicsBody.setAsCircle.count",
+    "physicsBody.setAsCircle.radius",
+    "physicsBody.setAsRect.count",
+    "physicsBody.setAsRect.width",
+    "physicsBody.setAsRect.height"
+  ]
+}

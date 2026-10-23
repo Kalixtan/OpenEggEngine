@@ -1,0 +1,54 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("ContactDisableEntity.gm");
+GameMonkeyScript.loadScript("ContactRestitutionEntity.gm");
+GameMonkeyScript.loadScript("ContactPlainEntity.gm");
+global Shapes=PHYSICSSHAPECOLLECTIONDEF();
+global MakePair=function(x,firstType,velocity) {
+    local a=EntityManager.createEntity(firstType);
+    local b=EntityManager.createEntity("ContactPlainEntity");
+    local aData=a.getPhysicsData();
+    local bData=b.getPhysicsData();
+    local aBody=aData.getBody(aData.createBody());
+    local bBody=bData.getBody(bData.createBody());
+    aBody.setPos(vector2D(x,500));
+    bBody.setPos(vector2D(x+4,500));
+    Shapes.reset();
+    Shapes.setMass(1);
+    Shapes.setRestitution(1);
+    Shapes.addCircle(2,0,0);
+    aBody.appendShapes(Shapes);
+    bBody.appendShapes(Shapes);
+    aBody.setVel(vector2D(velocity,0));
+    bBody.setVel(vector2D(-velocity,0));
+    a.setIsEnabled(1);
+    b.setIsEnabled(1);
+    return table(a=a,b=b,aBody=aBody,bBody=bBody);
+};
+global Sample=function(name,tick,pair) {
+    local prefix=name+".t"+tick+".";
+    Probe(prefix+"aX",pair.aBody.getPos().x);
+    Probe(prefix+"bX",pair.bBody.getPos().x);
+    Probe(prefix+"aVX",pair.aBody.getVel().x);
+    Probe(prefix+"bVX",pair.bBody.getVel().x);
+};
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                this.disabled=MakePair(0,"ContactDisableEntity",1);
+                this.noRestitution=MakePair(1000,"ContactRestitutionEntity",1);
+                this.normal=MakePair(2000,"ContactPlainEntity",1);
+                EntityManager.flush();
+            }
+            if (this.frame<8) {
+                Sample("shapeCollisionInfo.disableContact",this.frame,this.disabled);
+                Sample("physicsBody.disableRestitutionThisFrame",this.frame,
+                    this.noRestitution);
+                Sample("physicsBody.disableRestitutionThisFrame.control",this.frame,
+                    this.normal);
+                this.frame+=1;
+            }
+        });
+};

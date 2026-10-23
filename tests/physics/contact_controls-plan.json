@@ -1,0 +1,15 @@
+{
+  "prefix": "",
+  "frames": 8,
+  "scenes": {
+    "shapeCollisionInfo.disableContact": [
+      "aX", "bX", "aVX", "bVX"
+    ],
+    "physicsBody.disableRestitutionThisFrame": [
+      "aX", "bX", "aVX", "bVX"
+    ],
+    "physicsBody.disableRestitutionThisFrame.control": [
+      "aX", "bX", "aVX", "bVX"
+    ]
+  }
+}

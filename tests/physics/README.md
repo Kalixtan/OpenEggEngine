@@ -193,6 +193,9 @@ PhysicsData settings probe checks forwarded pose, shape, filter, material, and
 movement settings by reading the resulting body state.
 PhysicsData dynamics probe follows velocity and rotation decay, speed limits,
 and sleep controls over several updates.
+Body decay probes add PhysicsBody velocity decay and max-speed decay cases.
+Contact controls compare disabled contacts and restitution against normal
+bounces; iterator probes cover empty, end, and reset states.
 Math probe covers script math functions, geometry helpers, and vector methods
 with boundary and wraparound inputs.
 Math edge probe adds vector operators, zero-length inputs, circle tangencies,
@@ -226,5 +229,6 @@ owns an entity, and combine simulation-speed changes with pause dispatch. Run
 `python3 tests/physics/compare.py` for paired headless checks.
 
 Retail faults at `0x97420` when `CollisionInfo.getNumCollidingShapes()` is
-called on an active pair in this probe. That call is excluded from the paired
-score. The fault came from a separate headless RPCS3 run of the same pair.
+called on an active pair. `collision_count.gm` captures the last reading before
+the fault; OpenEgg continues and records its result. The retail result remains
+excluded from the paired score.

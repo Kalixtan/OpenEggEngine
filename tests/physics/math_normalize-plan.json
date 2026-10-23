@@ -1,0 +1,10 @@
+{
+  "prefix": "",
+  "frames": 0,
+  "scenes": {},
+  "extra": ["vector2D.normalize.invoked"],
+  "inconclusive": {
+    "vector2D.normalize.invoked": "The marker confirms the call starts; the local method raises an unavailable error before it can return a value."
+  },
+  "expectedLocalErrors": ["normalize: unavailable"]
+}

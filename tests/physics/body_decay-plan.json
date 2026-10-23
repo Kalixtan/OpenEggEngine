@@ -1,0 +1,11 @@
+{
+  "prefix": "physicsBody",
+  "frames": 4,
+  "scenes": {
+    "setVelocityDecayRate.none": ["x", "vx", "vy", "speed"],
+    "setVelocityDecayRate.normal": ["x", "vx", "vy", "speed"],
+    "setVelocityDecayRate.negative": ["x", "vx", "vy", "speed"],
+    "setMaxVelocityDecayRate.half": ["x", "vx", "vy", "speed"],
+    "setMaxVelocityDecayRate.one": ["x", "vx", "vy", "speed"]
+  }
+}

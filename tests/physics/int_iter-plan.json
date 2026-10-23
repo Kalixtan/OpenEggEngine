@@ -1,0 +1,21 @@
+{
+  "prefix": "",
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "intIter.size.active",
+    "intIter.isValid.start",
+    "intIter.get.firstKnown",
+    "intIter.goToNext.second",
+    "intIter.isValid.second",
+    "intIter.get.secondKnown",
+    "intIter.get.distinct",
+    "intIter.goToNext.end",
+    "intIter.isValid.end",
+    "intIter.reset.afterEnd",
+    "intIter.isValid.reset",
+    "intIter.get.resetFirst",
+    "intIter.size.empty",
+    "intIter.isValid.empty"
+  ]
+}

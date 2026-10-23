@@ -1,0 +1,13 @@
+global ContactDisableEntity=function(handle) {
+    return table(Entity=handle,PhysicsData=handle.getPhysicsData(),
+        constructor=function(){},configure=function(){return true;},
+        onEntityCollidePreSolve=function(other) {
+            local info=this.PhysicsData.getCollisionInfo(other);
+            local shapes=info.getCollidingShapeIDList();
+            while (shapes.isValid()) {
+                local shapeID=shapes.get();
+                info.getShapeCollisionInfo(shapeID).disableContact(shapeID);
+                shapes.goToNext();
+            }
+        });
+};

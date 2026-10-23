@@ -126,6 +126,30 @@ DATA_SETTINGS_PLAN = HERE / "data_settings-plan.json"
 DATA_DYNAMICS = HERE / "data_dynamics.gm"
 DATA_DYNAMICS_BASELINE = HERE / "data_dynamics-retail.tsv"
 DATA_DYNAMICS_PLAN = HERE / "data_dynamics-plan.json"
+BODY_DECAY = HERE / "body_decay.gm"
+BODY_DECAY_BASELINE = HERE / "body_decay-retail.tsv"
+BODY_DECAY_PLAN = HERE / "body_decay-plan.json"
+CONTACT_CONTROLS = HERE / "contact_controls.gm"
+CONTACT_CONTROLS_BASELINE = HERE / "contact_controls-retail.tsv"
+CONTACT_CONTROLS_PLAN = HERE / "contact_controls-plan.json"
+CONTACT_CONTROLS_SUPPORT = (HERE / "ContactDisableEntity.gm",
+                            HERE / "ContactRestitutionEntity.gm",
+                            HERE / "ContactPlainEntity.gm")
+BODY_API_EDGES = HERE / "body_api_edges.gm"
+BODY_API_EDGES_BASELINE = HERE / "body_api_edges-retail.tsv"
+BODY_API_EDGES_PLAN = HERE / "body_api_edges-plan.json"
+MATH_NORMALIZE = HERE / "math_normalize.gm"
+MATH_NORMALIZE_BASELINE = HERE / "math_normalize-retail.tsv"
+MATH_NORMALIZE_PLAN = HERE / "math_normalize-plan.json"
+INT_ITER = HERE / "int_iter.gm"
+INT_ITER_BASELINE = HERE / "int_iter-retail.tsv"
+INT_ITER_PLAN = HERE / "int_iter-plan.json"
+COLLISION_COUNT = HERE / "collision_count.gm"
+COLLISION_COUNT_BASELINE = HERE / "collision_count-retail.tsv"
+COLLISION_COUNT_PLAN = HERE / "collision_count-plan.json"
+BODY_DUMMIES = HERE / "body_dummies.gm"
+BODY_DUMMIES_BASELINE = HERE / "body_dummies-retail.tsv"
+BODY_DUMMIES_PLAN = HERE / "body_dummies-plan.json"
 MATH_PROBE = HERE / "math.gm"
 MATH_BASELINE = HERE / "math-retail.tsv"
 MATH_EDGES_PROBE = HERE / "math_edges.gm"
@@ -733,6 +757,8 @@ BODY_COMMAND_EFFECTS = {
 LOCAL_ONLY = {
     "physicsBody.isCircle": "OpenEgg convenience method; no retail method exists",
     "physicsBody.isRect": "OpenEgg convenience method; no retail method exists",
+    "physicsBody.setAsCircle": "OpenEgg convenience method; no same-named retail method exists",
+    "physicsBody.setAsRect": "OpenEgg convenience method; no same-named retail method exists",
     "physicsShape.getIsSensor": "OpenEgg alias; retail exposes isSensor",
 }
 
@@ -1025,6 +1051,7 @@ def main():
     awaiting_retail_rows = []
     local_only_counts = defaultdict(int)
     awaiting_retail_counts = defaultdict(int)
+    inconclusive_counts = defaultdict(int)
     grouped = defaultdict(list)
     scenes = defaultdict(list)
     for probe, baseline, plan, support in ((PROBE, BASELINE, None, ()),
@@ -1101,12 +1128,38 @@ def main():
                                            (MATH_EDGES_PROBE, MATH_EDGES_BASELINE,
                                             MATH_EDGES_PLAN, ()),
                                            (BODY_SURFACE, BODY_SURFACE_BASELINE, None,
-                                            BODY_SURFACE_SUPPORT)):
+                                            BODY_SURFACE_SUPPORT),
+                                           (BODY_DECAY, BODY_DECAY_BASELINE,
+                                            BODY_DECAY_PLAN, ()),
+                                           (CONTACT_CONTROLS,
+                                            CONTACT_CONTROLS_BASELINE,
+                                            CONTACT_CONTROLS_PLAN,
+                                            CONTACT_CONTROLS_SUPPORT),
+                                           (BODY_API_EDGES,
+                                            BODY_API_EDGES_BASELINE,
+                                            BODY_API_EDGES_PLAN, ()),
+                                           (MATH_NORMALIZE,
+                                            MATH_NORMALIZE_BASELINE,
+                                            MATH_NORMALIZE_PLAN, ()),
+                                           (INT_ITER, INT_ITER_BASELINE,
+                                            INT_ITER_PLAN, ()),
+                                           (COLLISION_COUNT,
+                                            COLLISION_COUNT_BASELINE,
+                                            COLLISION_COUNT_PLAN, ()),
+                                           (BODY_DUMMIES, BODY_DUMMIES_BASELINE,
+                                            BODY_DUMMIES_PLAN, ())):
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
         awaiting_retail = set(plan_data.get("awaitingRetail", []))
+        awaiting_retail.update(
+            case for case in declared
+            if any(case.startswith(prefix)
+                   for prefix in plan_data.get("awaitingRetailPrefixes", [])))
+        local_only_cases = {case for case in declared
+                            if owner(case, names) in LOCAL_ONLY}
         retail_crash = plan_data.get("retailCrash", {})
-        if not awaiting_retail:
+        paired_cases = set(declared) - awaiting_retail - local_only_cases
+        if paired_cases:
             check_baseline_source(baseline, probe, support)
         inconclusive = plan_data.get("inconclusive", {})
         if len(declared) != len(set(declared)):
@@ -1114,6 +1167,10 @@ def main():
         _, error, log_path, output = run_script(args.engine.resolve(), HERE, probe.name,
                                                 HERE / "smoke.harness", 20, log_dir,
                                                 strict="survey")
+        for expected_error in plan_data.get("expectedLocalErrors", []):
+            if expected_error not in output:
+                problems.append(f"{probe.name}: expected local error not found: "
+                                f"{expected_error}")
         if probe == ENTITY_GC:
             warning = ("WARNING: PhysicsBody.isSleeping() after owner entity deletion "
                        "faults retail")
@@ -1140,7 +1197,7 @@ def main():
             if output.count(warning) != 1:
                 problems.append("body_controls.gm: expected one warning for the "
                                 "confirmed invalid shape-index crash")
-        if set(declared) <= awaiting_retail:
+        if set(declared) <= awaiting_retail | local_only_cases:
             retail, retail_dupes = {}, set()
         else:
             retail, retail_dupes = read_readings(baseline)
@@ -1149,7 +1206,8 @@ def main():
             problems.append(f"{probe.name}: {error}")
         for label, values, dupes in (("retail", retail, retail_dupes),
                                      ("OpenEgg", local, local_dupes)):
-            required = set(declared) - awaiting_retail if label == "retail" else declared
+            required = (set(declared) - awaiting_retail - local_only_cases
+                        if label == "retail" else declared)
             problems += [f"{probe.name} {label}: missing {key}"
                          for key in required if key not in values]
             problems += [f"{probe.name} {label}: unexpected {key}"
@@ -1172,6 +1230,7 @@ def main():
             if case in inconclusive:
                 inconclusive_rows.append((case, function, retail.get(case),
                                           local.get(case), inconclusive[case]))
+                inconclusive_counts[function] += 1
                 continue
             if function in LOCAL_ONLY:
                 local_only_rows.append((case, function, retail.get(case),
@@ -1202,7 +1261,8 @@ def main():
                     grouped[extra].append(passed)
     count = sum(row[4] for row in rows)
     tested = sum(bool(grouped[name]) or bool(local_only_counts[name]) or
-                 bool(awaiting_retail_counts[name]) for name in names)
+                 bool(awaiting_retail_counts[name]) or bool(inconclusive_counts[name])
+                 for name in names)
     lines = ["# Physics test report", "",
              f"Generated: {datetime.now(timezone.utc):%Y-%m-%d %H:%M UTC}", "",
              f"Matched: **{count}/{len(rows)} comparable readings ({percent(count, len(rows))})**. "
@@ -1224,10 +1284,12 @@ def main():
         matched = sum(checks)
         local_count = local_only_counts[function]
         pending_count = awaiting_retail_counts[function]
+        inconclusive_count = inconclusive_counts[function]
         status = ("FAIL" if checks and matched != len(checks) else
                   "LOCAL-ONLY" if local_count else "AWAITING RETAIL" if pending_count else
+                  "INCONCLUSIVE" if inconclusive_count else
                   "untested" if not checks else "PASS")
-        lines.append(f"| `{function}` | {matched} | {len(checks) + local_count + pending_count} | {status} |")
+        lines.append(f"| `{function}` | {matched} | {len(checks) + local_count + pending_count + inconclusive_count} | {status} |")
     lines += ["", "## Contact callbacks", "",
               "| Hook | Matched | Cases |", "| --- | ---: | ---: |"]
     for function in sorted(set(grouped) - set(names)):
