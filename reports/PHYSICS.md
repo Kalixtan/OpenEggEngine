@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 10:39 UTC
+Generated: 2026-10-23 20:46 UTC
 
-Matched: **8625/8781 comparable readings (98.22%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8636/8781 comparable readings (98.35%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -32,7 +32,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | ray.bodyMiss | 11 | 11 |
 | reentry.sensor | 45 | 45 |
 | joint.distance | 156 | 156 |
-| joint.revolute | 123 | 156 |
+| joint.revolute | 134 | 156 |
 | joint.pin | 132 | 132 |
 | joint.prismatic | 156 | 156 |
 | joint.relative | 156 | 156 |
@@ -628,7 +628,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `jointType.getObjectID` | 1 | 1 | PASS |
 | `jointType.getRTMotorSpeed` | 13 | 13 | PASS |
 | `jointType.getReactionForce` | 120 | 120 | PASS |
-| `jointType.getReactionTorque` | 49 | 60 | FAIL |
+| `jointType.getReactionTorque` | 60 | 60 | PASS |
 | `jointType.getType` | 60 | 60 | PASS |
 | `jointType.isBodiesCollidable` | 62 | 62 | PASS |
 | `jointType.setAngularSpring` | 1 | 1 | PASS |
@@ -4521,7 +4521,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t1.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t1.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t1.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t1.torque | `0.000000` | `-4.413013` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t1.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t1.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t1.bX | `33.331329` | `33.785435` | FAIL |
 | `jointType.getType` | joint.pin.t1.type | `9` | `9` | PASS |
@@ -4584,7 +4584,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t2.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t2.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t2.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t2.torque | `0.000000` | `-16.807030` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t2.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t2.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t2.bX | `30.570898` | `31.756416` | FAIL |
 | `jointType.getType` | joint.pin.t2.type | `9` | `9` | PASS |
@@ -4647,7 +4647,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t3.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t3.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t3.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t3.torque | `0.000000` | `63.597221` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t3.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t3.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t3.bX | `28.045357` | `28.756531` | FAIL |
 | `jointType.getType` | joint.pin.t3.type | `9` | `9` | PASS |
@@ -4710,7 +4710,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t4.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t4.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t4.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t4.torque | `0.000000` | `71.504120` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t4.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t4.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t4.bX | `26.220781` | `25.969826` | FAIL |
 | `jointType.getType` | joint.pin.t4.type | `9` | `9` | PASS |
@@ -4773,7 +4773,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t5.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t5.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t5.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t5.torque | `0.000000` | `96.083969` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t5.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t5.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t5.bX | `25.225103` | `25.030926` | FAIL |
 | `jointType.getType` | joint.pin.t5.type | `9` | `9` | PASS |
@@ -4836,7 +4836,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t6.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t6.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t6.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t6.torque | `0.000000` | `130.015945` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t6.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t6.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t6.bX | `25.015690` | `27.231216` | FAIL |
 | `jointType.getType` | joint.pin.t6.type | `9` | `9` | PASS |
@@ -4899,7 +4899,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t7.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t7.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t7.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t7.torque | `0.000000` | `175.786621` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t7.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t7.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t7.bX | `25.463972` | `31.744888` | FAIL |
 | `jointType.getType` | joint.pin.t7.type | `9` | `9` | PASS |
@@ -4962,7 +4962,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t8.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t8.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t8.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t8.torque | `0.000000` | `234.239624` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t8.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t8.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t8.bX | `26.404593` | `34.899418` | FAIL |
 | `jointType.getType` | joint.pin.t8.type | `9` | `9` | PASS |
@@ -5025,7 +5025,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t9.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t9.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t9.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t9.torque | `0.000000` | `305.746399` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t9.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t9.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t9.bX | `27.665192` | `33.487904` | FAIL |
 | `jointType.getType` | joint.pin.t9.type | `9` | `9` | PASS |
@@ -5088,7 +5088,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t10.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t10.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t10.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t10.torque | `0.000000` | `388.612335` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t10.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t10.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t10.bX | `29.084349` | `28.633680` | FAIL |
 | `jointType.getType` | joint.pin.t10.type | `9` | `9` | PASS |
@@ -5151,7 +5151,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `jointType.getAnchorPos` | joint.revolute.t11.anchorY | `200.000000` | `200.000000` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t11.forceX | `null` | `null` | PASS |
 | `jointType.getReactionForce` | joint.revolute.t11.forceY | `null` | `null` | PASS |
-| `jointType.getReactionTorque` | joint.revolute.t11.torque | `0.000000` | `482.108002` | FAIL |
+| `jointType.getReactionTorque` | joint.revolute.t11.torque | `0.000000` | `0.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t11.aX | `30.000000` | `30.000000` | PASS |
 | `physicsBody.getPos` | joint.revolute.t11.bX | `30.521730` | `25.105452` | FAIL |
 | `jointType.getType` | joint.pin.t11.type | `9` | `9` | PASS |

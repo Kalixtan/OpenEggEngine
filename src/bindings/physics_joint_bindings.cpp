@@ -380,7 +380,16 @@ int GM_CDECL gmf_getReactionForce(gmThread* a_thread) {
 int GM_CDECL gmf_getReactionTorque(gmThread* a_thread) {
     JointData* j = ThisJoint(a_thread);
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(invDt, 0, 0.0f);
-    a_thread->PushFloat(j && j->joint ? j->joint->GetReactionTorque(invDt) : 0.0f);
+    float torque = 0.0f;
+    if (j && j->joint) {
+        if (b2RevoluteJoint* revolute = dynamic_cast<b2RevoluteJoint*>(j->joint)) {
+            // Retail reports motor torque here; limit impulses are not included.
+            torque = revolute->GetMotorTorque(invDt);
+        } else {
+            torque = j->joint->GetReactionTorque(invDt);
+        }
+    }
+    a_thread->PushFloat(torque);
     return GM_OK;
 }
 
