@@ -3652,10 +3652,7 @@ int GM_CDECL gmf_pd_doesRotationResponse(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_setVelocityDecayRate(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) b->velocityDecayRate = ComputeDecayFactor(v);
+    // Retail registers this setter on PHYSICSBODY, not PhysicsData.
     return GM_OK;
 }
 int GM_CDECL gmf_pd_reverseThrust(gmThread* a_thread) {
@@ -3899,10 +3896,7 @@ int GM_CDECL gmf_pd_getMaxRotateSpeed(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_setRotationDecayRate(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(v, 0, 0.0f);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) b->rotationDecayRate = ComputeDecayFactor(v);
+    // Retail registers this setter on PHYSICSBODY, not PhysicsData.
     return GM_OK;
 }
 int GM_CDECL gmf_pd_setMaxVelocityDecayRate(gmThread* a_thread) {

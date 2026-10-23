@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 20:55 UTC
+Generated: 2026-10-23 21:30 UTC
 
-Matched: **8639/8781 comparable readings (98.38%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8650/8781 comparable readings (98.51%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -828,11 +828,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.setPos` | 2 | 2 | PASS |
 | `physicsData.setRestitution` | 0 | 1 | FAIL |
 | `physicsData.setRotateAcc` | 1 | 1 | PASS |
-| `physicsData.setRotationDecayRate` | 22 | 25 | FAIL |
+| `physicsData.setRotationDecayRate` | 25 | 25 | PASS |
 | `physicsData.setSpeed` | 1 | 1 | PASS |
 | `physicsData.setThrustAcc` | 0 | 1 | FAIL |
 | `physicsData.setVel` | 3 | 3 | PASS |
-| `physicsData.setVelocityDecayRate` | 17 | 25 | FAIL |
+| `physicsData.setVelocityDecayRate` | 25 | 25 | PASS |
 | `physicsData.setVisibilityAABBScale` | 1 | 1 | PASS |
 | `physicsData.stopRotatingTo` | 1 | 5 | FAIL |
 | `physicsData.thrust` | 10 | 20 | FAIL |
@@ -9326,9 +9326,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t0.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t0.rotateVel | `3.000000` | `3.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t0.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.vx | `10.000000` | `8.464817` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.vx | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.speed | `10.000000` | `8.464817` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.speed | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.vx | `10.000000` | `10.000000` | PASS |
@@ -9346,9 +9346,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t1.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t1.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t1.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.vx | `10.000000` | `7.165313` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.vx | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.speed | `10.000000` | `7.165313` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.speed | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.vx | `10.000000` | `10.000000` | PASS |
@@ -9359,16 +9359,16 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.speed | `0.000000` | `0.000000` | PASS |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.rotateVel | `0.094248` | `0.079779` | FAIL |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.vx | `10.000000` | `6.065307` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.vx | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.speed | `10.000000` | `6.065307` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.speed | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.vx | `10.000000` | `10.000000` | PASS |
@@ -9379,16 +9379,16 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.speed | `0.000000` | `0.000000` | PASS |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.rotateVel | `0.094248` | `0.067531` | FAIL |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.vx | `10.000000` | `5.134171` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.vx | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.speed | `10.000000` | `5.134171` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.speed | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.vx | `10.000000` | `10.000000` | PASS |
@@ -9399,7 +9399,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.speed | `0.000000` | `0.000000` | PASS |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.rotateVel | `0.094248` | `0.057164` | FAIL |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t4.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t4.vy | `0.000000` | `0.000000` | PASS |
