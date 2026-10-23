@@ -2,11 +2,79 @@
   "prefix": "joint",
   "frames": 12,
   "scenes": {
-    "distance": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
-    "revolute": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
-    "pin": ["type", "body1X", "entity1Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
-    "prismatic": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"],
-    "relative": ["type", "body1X", "body2X", "entity1Same", "entity2Same", "collidable", "anchorX", "anchorY", "forceX", "forceY", "torque", "aX", "bX"]
+    "distance": [
+      "type",
+      "body1X",
+      "body2X",
+      "entity1Same",
+      "entity2Same",
+      "collidable",
+      "anchorX",
+      "anchorY",
+      "forceX",
+      "forceY",
+      "torque",
+      "aX",
+      "bX"
+    ],
+    "revolute": [
+      "type",
+      "body1X",
+      "body2X",
+      "entity1Same",
+      "entity2Same",
+      "collidable",
+      "anchorX",
+      "anchorY",
+      "forceX",
+      "forceY",
+      "torque",
+      "aX",
+      "bX"
+    ],
+    "pin": [
+      "type",
+      "body1X",
+      "entity1Same",
+      "collidable",
+      "anchorX",
+      "anchorY",
+      "forceX",
+      "forceY",
+      "torque",
+      "aX",
+      "bX"
+    ],
+    "prismatic": [
+      "type",
+      "body1X",
+      "body2X",
+      "entity1Same",
+      "entity2Same",
+      "collidable",
+      "anchorX",
+      "anchorY",
+      "forceX",
+      "forceY",
+      "torque",
+      "aX",
+      "bX"
+    ],
+    "relative": [
+      "type",
+      "body1X",
+      "body2X",
+      "entity1Same",
+      "entity2Same",
+      "collidable",
+      "anchorX",
+      "anchorY",
+      "forceX",
+      "forceY",
+      "torque",
+      "aX",
+      "bX"
+    ]
   },
   "extra": [
     "joint.registry.idDistinct",
@@ -36,6 +104,11 @@
     "joint.config.prismaticTranslation",
     "joint.config.prismaticMotor",
     "joint.control.pinRtSpeed",
-    "joint.control.prismaticRtSpeed"
+    "joint.control.prismaticRtSpeed",
+    "jointType.setLinearSpring.result",
+    "jointType.setIsNeedsHighAccuracy.result",
+    "jointType.setRevoluteAngularConstraint.result",
+    "jointType.setPinAngularConstraint.result",
+    "jointType.setAngularSpring.result"
   ]
 }

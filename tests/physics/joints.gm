@@ -44,17 +44,25 @@ global Main=function(p) {
                     this.distance=Physics.createJoint(PHYSICSJOINTTYPE_DISTANCE);
                     this.distance.setupDistanceJoint(this.da.b,this.db.b,
                         this.da.b.getPos(),this.db.b.getPos());
+                    Probe("jointType.setLinearSpring.result",
+                        this.distance.setLinearSpring(2,0.5));
+                    Probe("jointType.setIsNeedsHighAccuracy.result",
+                        this.distance.setIsNeedsHighAccuracy(1));
                     this.db.b.setVel(vector2D(0.5,0));
 
                     this.ra=JointBody(30,200,0);
                     this.rb=JointBody(35,200,1);
                     this.revolute=Physics.createJoint(PHYSICSJOINTTYPE_REVOLUTE);
                     this.revolute.setupJoint(this.ra.b,this.rb.b,vector2D(30,200));
+                    Probe("jointType.setRevoluteAngularConstraint.result",
+                        this.revolute.setRevoluteAngularConstraint(1,-0.2,0.2));
                     this.rb.b.setVel(vector2D(0,0.3));
 
                     this.pa=JointBody(60,300,1);
                     this.pin=Physics.createJoint(PHYSICSJOINTTYPE_PIN);
                     this.pin.setupPinJoint(this.pa.b,vector2D(60,300));
+                    Probe("jointType.setPinAngularConstraint.result",
+                        this.pin.setPinAngularConstraint(1,-0.25,0.25));
                     this.pa.b.setVel(vector2D(0.2,0));
 
                     this.sa=JointBody(90,400,0);
@@ -68,6 +76,8 @@ global Main=function(p) {
                     this.lb=JointBody(125,500,1);
                     this.relative=Physics.createJoint(PHYSICSJOINTTYPE_RELATIVE);
                     this.relative.setupRelativeJoint(this.la.b,this.lb.b);
+                    Probe("jointType.setAngularSpring.result",
+                        this.relative.setAngularSpring(3,0.75));
                     this.relative.setRelativeVel(vector2D(0.1,0));
                 }
                 JointSample("distance",this.frame,this.distance,this.da,this.db);

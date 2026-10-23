@@ -1,4 +1,4 @@
-# probe-sha256 73bca3f49a9656455dc3c01da6ef198de77573711c7bc9f06f64e79ea3da9614
+# probe-sha256 312c2426a6061783bcaa8034c4b2e9e9f4e93d2c3afdc172d7dea78981b089bf
 joint.config.genericMotor	0.250000
 joint.config.pinMotor	0.000000
 joint.config.prismaticMotor	0.000000
@@ -783,3 +783,8 @@ jointIter.attachedValid	1
 jointIter.firstIsOriginal	1
 jointIter.multipleSize	2
 jointIter.secondIsExtra	1
+jointType.setAngularSpring.result	null
+jointType.setIsNeedsHighAccuracy.result	null
+jointType.setLinearSpring.result	null
+jointType.setPinAngularConstraint.result	null
+jointType.setRevoluteAngularConstraint.result	null
