@@ -155,6 +155,9 @@ MATH_BASELINE = HERE / "math-retail.tsv"
 MATH_EDGES_PROBE = HERE / "math_edges.gm"
 MATH_EDGES_BASELINE = HERE / "math_edges-retail.tsv"
 MATH_EDGES_PLAN = HERE / "math_edges-plan.json"
+MATH_EXTENDED_PROBE = HERE / "math_extended.gm"
+MATH_EXTENDED_BASELINE = HERE / "math_extended-retail.tsv"
+MATH_EXTENDED_PLAN = HERE / "math_extended-plan.json"
 BODY_SURFACE = HERE / "body_surface.gm"
 BODY_SURFACE_BASELINE = HERE / "body_surface-retail.tsv"
 BODY_SURFACE_SUPPORT = (HERE / "EntityQueryProbeEntity.gm",)
@@ -1128,6 +1131,9 @@ def main():
                                            (MATH_PROBE, MATH_BASELINE, None, ()),
                                            (MATH_EDGES_PROBE, MATH_EDGES_BASELINE,
                                             MATH_EDGES_PLAN, ()),
+                                           (MATH_EXTENDED_PROBE,
+                                            MATH_EXTENDED_BASELINE,
+                                            MATH_EXTENDED_PLAN, ()),
                                            (BODY_SURFACE, BODY_SURFACE_BASELINE, None,
                                             BODY_SURFACE_SUPPORT),
                                            (BODY_DECAY, BODY_DECAY_BASELINE,

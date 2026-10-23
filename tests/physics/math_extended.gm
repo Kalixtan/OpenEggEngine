@@ -1,0 +1,65 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+
+local v=vector2D(-3,-4);
+local unit=v.getNormalized();
+Probe("vector2D.getNormalized.ext.negativeX",unit.x);
+Probe("vector2D.getNormalized.ext.negativeY",unit.y);
+local tiny=vector2D(0.000001,0.000002).getNormalized();
+Probe("vector2D.getNormalized.ext.tinyX",tiny.x);
+Probe("vector2D.getNormalized.ext.tinyY",tiny.y);
+Probe("vector2D.length.ext.tiny",vector2D(0.000001,0.000002).length());
+Probe("vector2D.isPrettyMuchEqual.ext.xBoundary",vector2D(0,0).isPrettyMuchEqual(vector2D(0.03125,0)));
+Probe("vector2D.isPrettyMuchEqual.ext.yBoundary",vector2D(0,0).isPrettyMuchEqual(vector2D(0,0.03125)));
+Probe("vector2D.isPrettyMuchEqual.ext.bothOutside",vector2D(0,0).isPrettyMuchEqual(vector2D(0.03126,0.03126)));
+Probe("vector2D.isZeroVector.ext.negativeZero",vector2D(-0.0,0.0).isZeroVector());
+
+Probe("Global.MATHUTIL_GetRadiansBetween.ext.same",MATHUTIL_GetRadiansBetween(vector2D(2,3),vector2D(4,6)));
+Probe("Global.MATHUTIL_GetRadiansBetween.ext.opposite",MATHUTIL_GetRadiansBetween(vector2D(1,0),vector2D(-1,0)));
+Probe("Global.MATHUTIL_GetRadiansBetween.ext.zeroPair",MATHUTIL_GetRadiansBetween(vector2D(0,0),vector2D(0,0)));
+Probe("Global.MATHUTIL_GetAngleDistancePositive.ext.fullTurn",MATHUTIL_GetAngleDistancePositive(0,6.28318530718));
+Probe("Global.MATHUTIL_GetAngleDistanceNegative.ext.fullTurn",MATHUTIL_GetAngleDistanceNegative(0,-6.28318530718));
+Probe("Global.MATHUTIL_GetSignedAngleDistance.ext.negativeHalfTurn",MATHUTIL_GetSignedAngleDistance(0,-3.14159265359));
+Probe("Global.MATHUTIL_GetSignedAngleDistance.ext.multiTurn",MATHUTIL_GetSignedAngleDistance(-7,7));
+local quarter=MATHUTIL_Rotate(vector2D(-2,0),1.57079632679);
+Probe("Global.MATHUTIL_Rotate.ext.negativeX",quarter.x);
+Probe("Global.MATHUTIL_Rotate.ext.negativeY",quarter.y);
+
+Probe("Global.MATHUTIL_GetTrianglePercentage.ext.peakAtZero",MATHUTIL_GetTrianglePercentage(0.25,0));
+Probe("Global.MATHUTIL_GetTrianglePercentage.ext.peakAtOne",MATHUTIL_GetTrianglePercentage(0.75,1));
+Probe("Global.MATHUTIL_GetTrianglePercentage.ext.leftBoundary",MATHUTIL_GetTrianglePercentage(0,0.25));
+Probe("Global.MATHUTIL_GetTrianglePercentage.ext.rightBoundary",MATHUTIL_GetTrianglePercentage(1,0.75));
+Probe("Global.MATHUTIL_GetTrianglePercentage.ext.peakOutside",MATHUTIL_GetTrianglePercentage(0.5,1.5));
+
+local linePoint=MATHUTIL_FindClosestPointOnLine(vector2D(1,2),vector2D(0,3),vector2D(5,7));
+Probe("Global.MATHUTIL_FindClosestPointOnLine.ext.verticalX",linePoint.x);
+Probe("Global.MATHUTIL_FindClosestPointOnLine.ext.verticalY",linePoint.y);
+local beforeSegment=MATHUTIL_GetClosestPointOnLineSegment(vector2D(0,0),vector2D(2,0),vector2D(-3,2));
+Probe("Global.MATHUTIL_GetClosestPointOnLineSegment.ext.beforeX",beforeSegment.x);
+Probe("Global.MATHUTIL_GetClosestPointOnLineSegment.ext.beforeY",beforeSegment.y);
+local afterSegment=MATHUTIL_GetClosestPointOnLineSegment(vector2D(0,0),vector2D(2,0),vector2D(5,2));
+Probe("Global.MATHUTIL_GetClosestPointOnLineSegment.ext.afterX",afterSegment.x);
+Probe("Global.MATHUTIL_GetClosestPointOnLineSegment.ext.afterY",afterSegment.y);
+Probe("Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint.ext.before",MATHUTIL_GetClosestDistanceFromLineSegmentToPoint(vector2D(0,0),vector2D(2,0),vector2D(-3,2)));
+Probe("Global.MATHUTIL_GetClosestDistanceFromLineToPoint.ext.beyond",MATHUTIL_GetClosestDistanceFromLineToPoint(vector2D(0,0),vector2D(2,0),vector2D(5,2)));
+
+local points=table();
+points[0]=vector2D(-3,6); points[1]=vector2D(0,0); points[2]=vector2D(9,3);
+local center=MATHUTIL_GetCentroid(points,3);
+Probe("Global.MATHUTIL_GetCentroid.ext.threeX",center.x);
+Probe("Global.MATHUTIL_GetCentroid.ext.threeY",center.y);
+
+local internalTangent=table();
+MATHUTIL_FindCircleCircleIntersection(vector2D(0,0),5,vector2D(4,0),1,internalTangent);
+Probe("Global.MATHUTIL_FindCircleCircleIntersection.ext.internalTangent",internalTangent.found);
+local nearMiss=table();
+MATHUTIL_FindCircleCircleIntersection(vector2D(0,0),5,vector2D(10.001,0),5,nearMiss);
+Probe("Global.MATHUTIL_FindCircleCircleIntersection.ext.nearMiss",nearMiss.found);
+local nearHit=table();
+MATHUTIL_FindCircleCircleIntersection(vector2D(0,0),5,vector2D(9.999,0),5,nearHit);
+Probe("Global.MATHUTIL_FindCircleCircleIntersection.ext.nearHit",nearHit.found);
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

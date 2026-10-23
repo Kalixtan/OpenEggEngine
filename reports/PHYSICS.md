@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 21:30 UTC
+Generated: 2026-10-23 22:49 UTC
 
-Matched: **8650/8781 comparable readings (98.51%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8650/8781 comparable readings (98.51%)**. 30 inconclusive, 11 local-only, and 43 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -471,26 +471,26 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Global.MATHUTIL_CalculateExponentialDecayReversed` | 1 | 1 | PASS |
 | `Global.MATHUTIL_CalculateExponentialGrowth` | 1 | 1 | PASS |
 | `Global.MATHUTIL_DEGTORAD` | 1 | 1 | PASS |
-| `Global.MATHUTIL_FindCircleCircleIntersection` | 16 | 16 | PASS |
-| `Global.MATHUTIL_FindClosestPointOnLine` | 4 | 4 | PASS |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | 16 | 19 | AWAITING RETAIL |
+| `Global.MATHUTIL_FindClosestPointOnLine` | 4 | 6 | AWAITING RETAIL |
 | `Global.MATHUTIL_GETINRANGE` | 2 | 2 | PASS |
 | `Global.MATHUTIL_GETINRANGEI` | 1 | 1 | PASS |
 | `Global.MATHUTIL_GetAngleDistance` | 1 | 1 | PASS |
-| `Global.MATHUTIL_GetAngleDistanceNegative` | 1 | 1 | PASS |
-| `Global.MATHUTIL_GetAngleDistancePositive` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GetAngleDistanceNegative` | 1 | 2 | AWAITING RETAIL |
+| `Global.MATHUTIL_GetAngleDistancePositive` | 2 | 3 | AWAITING RETAIL |
 | `Global.MATHUTIL_GetAngleRad` | 1 | 1 | PASS |
 | `Global.MATHUTIL_GetAngleRad360` | 1 | 1 | PASS |
-| `Global.MATHUTIL_GetCentroid` | 4 | 4 | PASS |
-| `Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint` | 1 | 1 | PASS |
-| `Global.MATHUTIL_GetClosestDistanceFromLineToPoint` | 1 | 1 | PASS |
-| `Global.MATHUTIL_GetClosestPointOnLineSegment` | 4 | 4 | PASS |
+| `Global.MATHUTIL_GetCentroid` | 4 | 6 | AWAITING RETAIL |
+| `Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint` | 1 | 2 | AWAITING RETAIL |
+| `Global.MATHUTIL_GetClosestDistanceFromLineToPoint` | 1 | 2 | AWAITING RETAIL |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | 4 | 8 | AWAITING RETAIL |
 | `Global.MATHUTIL_GetMinutes` | 1 | 1 | PASS |
 | `Global.MATHUTIL_GetPercentageInRange` | 2 | 2 | PASS |
-| `Global.MATHUTIL_GetRadiansBetween` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GetRadiansBetween` | 2 | 5 | AWAITING RETAIL |
 | `Global.MATHUTIL_GetSeconds` | 1 | 1 | PASS |
-| `Global.MATHUTIL_GetSignedAngleDistance` | 2 | 2 | PASS |
-| `Global.MATHUTIL_GetTrianglePercentage` | 5 | 5 | PASS |
-| `Global.MATHUTIL_Rotate` | 2 | 2 | PASS |
+| `Global.MATHUTIL_GetSignedAngleDistance` | 2 | 4 | AWAITING RETAIL |
+| `Global.MATHUTIL_GetTrianglePercentage` | 5 | 10 | AWAITING RETAIL |
+| `Global.MATHUTIL_Rotate` | 2 | 4 | AWAITING RETAIL |
 | `Global.MATHUTIL_distance` | 0 | 1 | LOCAL-ONLY |
 | `Global.MATH_ABS` | 1 | 1 | PASS |
 | `Global.MATH_ACOS` | 1 | 1 | PASS |
@@ -873,14 +873,14 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `shapeDef.setRestitution` | 1 | 1 | PASS |
 | `vector2D.distance` | 2 | 2 | PASS |
 | `vector2D.getLeftNormal` | 2 | 2 | PASS |
-| `vector2D.getNormalized` | 3 | 3 | PASS |
+| `vector2D.getNormalized` | 3 | 7 | AWAITING RETAIL |
 | `vector2D.getRightNormal` | 2 | 2 | PASS |
 | `vector2D.getVectorToPoint` | 2 | 2 | PASS |
 | `vector2D.getVectorToPointNormalized` | 3 | 3 | PASS |
-| `vector2D.isPrettyMuchEqual` | 4 | 4 | PASS |
-| `vector2D.isZeroVector` | 1 | 1 | PASS |
+| `vector2D.isPrettyMuchEqual` | 4 | 7 | AWAITING RETAIL |
+| `vector2D.isZeroVector` | 1 | 2 | AWAITING RETAIL |
 | `vector2D.isvector2D` | 0 | 2 | FAIL |
-| `vector2D.length` | 1 | 1 | PASS |
+| `vector2D.length` | 1 | 2 | AWAITING RETAIL |
 | `vector2D.lengthSquared` | 1 | 1 | PASS |
 | `vector2D.normalize` | 0 | 1 | INCONCLUSIVE |
 | `vector2D.scalarProjectOnto` | 2 | 2 | PASS |
@@ -967,6 +967,42 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |
 | `physicsBody.setShapeCategoriesToCollideWith` | bodyCtl.shapeMaskInvalid | `5` | A separate retail capture faults at 0x00091c40 while reading 0x28; this combined probe stops earlier at the getter fault. |
 | `physicsBody.getShapeCategoriesToCollideWith` | bodyCtl.shapeMaskGetterInvalid | `-1` | Invalid shape index faults at 0x00091320 while reading 0x3e. |
+| `vector2D.getNormalized` | vector2D.getNormalized.ext.negativeX | `-0.600000` | No retail reading captured. |
+| `vector2D.getNormalized` | vector2D.getNormalized.ext.negativeY | `-0.800000` | No retail reading captured. |
+| `vector2D.getNormalized` | vector2D.getNormalized.ext.tinyX | `0.447214` | No retail reading captured. |
+| `vector2D.getNormalized` | vector2D.getNormalized.ext.tinyY | `0.894427` | No retail reading captured. |
+| `vector2D.length` | vector2D.length.ext.tiny | `0.000002` | No retail reading captured. |
+| `vector2D.isPrettyMuchEqual` | vector2D.isPrettyMuchEqual.ext.xBoundary | `1` | No retail reading captured. |
+| `vector2D.isPrettyMuchEqual` | vector2D.isPrettyMuchEqual.ext.yBoundary | `1` | No retail reading captured. |
+| `vector2D.isPrettyMuchEqual` | vector2D.isPrettyMuchEqual.ext.bothOutside | `0` | No retail reading captured. |
+| `vector2D.isZeroVector` | vector2D.isZeroVector.ext.negativeZero | `1` | No retail reading captured. |
+| `Global.MATHUTIL_GetRadiansBetween` | Global.MATHUTIL_GetRadiansBetween.ext.same | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetRadiansBetween` | Global.MATHUTIL_GetRadiansBetween.ext.opposite | `3.141593` | No retail reading captured. |
+| `Global.MATHUTIL_GetRadiansBetween` | Global.MATHUTIL_GetRadiansBetween.ext.zeroPair | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetAngleDistancePositive` | Global.MATHUTIL_GetAngleDistancePositive.ext.fullTurn | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetAngleDistanceNegative` | Global.MATHUTIL_GetAngleDistanceNegative.ext.fullTurn | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetSignedAngleDistance` | Global.MATHUTIL_GetSignedAngleDistance.ext.negativeHalfTurn | `3.141593` | No retail reading captured. |
+| `Global.MATHUTIL_GetSignedAngleDistance` | Global.MATHUTIL_GetSignedAngleDistance.ext.multiTurn | `1.433629` | No retail reading captured. |
+| `Global.MATHUTIL_Rotate` | Global.MATHUTIL_Rotate.ext.negativeX | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_Rotate` | Global.MATHUTIL_Rotate.ext.negativeY | `-2.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.ext.peakAtZero | `0.750000` | No retail reading captured. |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.ext.peakAtOne | `0.750000` | No retail reading captured. |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.ext.leftBoundary | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.ext.rightBoundary | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.ext.peakOutside | `0.333333` | No retail reading captured. |
+| `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.ext.verticalX | `1.000000` | No retail reading captured. |
+| `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.ext.verticalY | `7.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.ext.beforeX | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.ext.beforeY | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.ext.afterX | `2.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.ext.afterY | `0.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint` | Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint.ext.before | `3.605551` | No retail reading captured. |
+| `Global.MATHUTIL_GetClosestDistanceFromLineToPoint` | Global.MATHUTIL_GetClosestDistanceFromLineToPoint.ext.beyond | `2.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.ext.threeX | `2.000000` | No retail reading captured. |
+| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.ext.threeY | `3.000000` | No retail reading captured. |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.ext.internalTangent | `1` | No retail reading captured. |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.ext.nearMiss | `0` | No retail reading captured. |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.ext.nearHit | `1` | No retail reading captured. |
 | `collisionInfo.getNumCollidingShapes` | collisionInfo.getNumCollidingShapes.count | `1` | Retail faults at 0x00097420 on an active collision pair. |
 | `collisionInfo.getNumCollidingShapes` | collisionInfo.getNumCollidingShapes.after | `1` | Retail faults at 0x00097420 before this reading. |
 

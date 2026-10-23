@@ -55,6 +55,10 @@ python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --expected tests/physics/math_edges-plan.json \
   --baseline tests/physics/math_edges-retail.tsv
 python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
+  --eboot /path/to/EBOOT.BIN --probe tests/physics/math_extended.gm \
+  --expected tests/physics/math_extended-plan.json \
+  --baseline tests/physics/math_extended-retail.tsv
+python3 tests/capture_retail_probe.py --main /path/to/game_data/Main.gm \
   --eboot /path/to/EBOOT.BIN --probe tests/physics/body_surface.gm \
   --support-file tests/physics/EntityQueryProbeEntity.gm \
   --baseline tests/physics/body_surface-retail.tsv
