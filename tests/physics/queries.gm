@@ -33,6 +33,7 @@ global SampleSide=function(name,tick,a,b) {
         local otherID=b.b.getShapeObjectID(0);
         local myID=a.b.getShapeObjectID(0);
         local ids=ci.getCollidingShapeIDList();
+        Probe(key+"listReturned",?ids);
         local sid=-1;
         if (ids.isValid()) { sid=ids.get(); }
         local sci=ci.getShapeCollisionInfo(sid);
@@ -65,6 +66,7 @@ global SampleSide=function(name,tick,a,b) {
         Probe(key+"contactY",contactPos.y);
     } else {
         Probe(key+"listSize",-1);
+        Probe(key+"listReturned",-1);
         Probe(key+"idMatches",-1);
         Probe(key+"firstExists",-1);
         Probe(key+"shapeExists",-1);

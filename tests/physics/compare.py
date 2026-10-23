@@ -323,6 +323,7 @@ QUERY_FIELDS = {
     "group": "physicsBody.getCollisionGroup",
     "enabled": "physicsBody.isCollidable",
     "listSize": "intIter.size", "idMatches": "intIter.get",
+    "listReturned": "collisionInfo.getCollidingShapeIDList",
     "firstExists": "collisionInfo.getFirstShapeCollisionInfo",
     "shapeExists": "collisionInfo.getShapeCollisionInfo",
     "entityMatches": "collisionInfo.getEntity",

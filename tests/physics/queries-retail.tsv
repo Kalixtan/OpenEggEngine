@@ -1,4 +1,4 @@
-# probe-sha256 39a30f0a4330214d936f68cbedc9a45a04b8ff460108c919d67b6dfa97361e23
+# probe-sha256 477a685caa5a8bf0266474960d506d3c7f2c14547a5ab43542293a8f80cba221
 # support-sha256 ProbeContactEntity.gm cd1a7153214d54377cfcf2d869ec9cacf38090065bd3f517316bd784cdd5c486
 query.sensorA.t0.allSensors	-1
 query.sensorA.t0.anyColliding	0
@@ -19,6 +19,7 @@ query.sensorA.t0.exists	0
 query.sensorA.t0.firstExists	-1
 query.sensorA.t0.group	0
 query.sensorA.t0.idMatches	-1
+query.sensorA.t0.listReturned	-1
 query.sensorA.t0.listSize	-1
 query.sensorA.t0.mask	65535
 query.sensorA.t0.missingShape	-1
@@ -48,6 +49,7 @@ query.sensorA.t1.exists	0
 query.sensorA.t1.firstExists	-1
 query.sensorA.t1.group	0
 query.sensorA.t1.idMatches	-1
+query.sensorA.t1.listReturned	-1
 query.sensorA.t1.listSize	-1
 query.sensorA.t1.mask	65535
 query.sensorA.t1.missingShape	-1
@@ -77,6 +79,7 @@ query.sensorA.t10.exists	0
 query.sensorA.t10.firstExists	-1
 query.sensorA.t10.group	0
 query.sensorA.t10.idMatches	-1
+query.sensorA.t10.listReturned	-1
 query.sensorA.t10.listSize	-1
 query.sensorA.t10.mask	65535
 query.sensorA.t10.missingShape	-1
@@ -106,6 +109,7 @@ query.sensorA.t11.exists	0
 query.sensorA.t11.firstExists	-1
 query.sensorA.t11.group	0
 query.sensorA.t11.idMatches	-1
+query.sensorA.t11.listReturned	-1
 query.sensorA.t11.listSize	-1
 query.sensorA.t11.mask	65535
 query.sensorA.t11.missingShape	-1
@@ -135,6 +139,7 @@ query.sensorA.t12.exists	0
 query.sensorA.t12.firstExists	-1
 query.sensorA.t12.group	0
 query.sensorA.t12.idMatches	-1
+query.sensorA.t12.listReturned	-1
 query.sensorA.t12.listSize	-1
 query.sensorA.t12.mask	65535
 query.sensorA.t12.missingShape	-1
@@ -164,6 +169,7 @@ query.sensorA.t13.exists	0
 query.sensorA.t13.firstExists	-1
 query.sensorA.t13.group	0
 query.sensorA.t13.idMatches	-1
+query.sensorA.t13.listReturned	-1
 query.sensorA.t13.listSize	-1
 query.sensorA.t13.mask	65535
 query.sensorA.t13.missingShape	-1
@@ -193,6 +199,7 @@ query.sensorA.t2.exists	1
 query.sensorA.t2.firstExists	1
 query.sensorA.t2.group	0
 query.sensorA.t2.idMatches	1
+query.sensorA.t2.listReturned	1
 query.sensorA.t2.listSize	1
 query.sensorA.t2.mask	65535
 query.sensorA.t2.missingShape	1
@@ -222,6 +229,7 @@ query.sensorA.t3.exists	1
 query.sensorA.t3.firstExists	1
 query.sensorA.t3.group	0
 query.sensorA.t3.idMatches	1
+query.sensorA.t3.listReturned	1
 query.sensorA.t3.listSize	1
 query.sensorA.t3.mask	65535
 query.sensorA.t3.missingShape	1
@@ -251,6 +259,7 @@ query.sensorA.t4.exists	1
 query.sensorA.t4.firstExists	1
 query.sensorA.t4.group	0
 query.sensorA.t4.idMatches	1
+query.sensorA.t4.listReturned	1
 query.sensorA.t4.listSize	1
 query.sensorA.t4.mask	65535
 query.sensorA.t4.missingShape	1
@@ -280,6 +289,7 @@ query.sensorA.t5.exists	1
 query.sensorA.t5.firstExists	1
 query.sensorA.t5.group	0
 query.sensorA.t5.idMatches	1
+query.sensorA.t5.listReturned	1
 query.sensorA.t5.listSize	1
 query.sensorA.t5.mask	65535
 query.sensorA.t5.missingShape	1
@@ -309,6 +319,7 @@ query.sensorA.t6.exists	1
 query.sensorA.t6.firstExists	1
 query.sensorA.t6.group	0
 query.sensorA.t6.idMatches	1
+query.sensorA.t6.listReturned	1
 query.sensorA.t6.listSize	1
 query.sensorA.t6.mask	65535
 query.sensorA.t6.missingShape	1
@@ -338,6 +349,7 @@ query.sensorA.t7.exists	1
 query.sensorA.t7.firstExists	1
 query.sensorA.t7.group	0
 query.sensorA.t7.idMatches	1
+query.sensorA.t7.listReturned	1
 query.sensorA.t7.listSize	1
 query.sensorA.t7.mask	65535
 query.sensorA.t7.missingShape	1
@@ -367,6 +379,7 @@ query.sensorA.t8.exists	0
 query.sensorA.t8.firstExists	-1
 query.sensorA.t8.group	0
 query.sensorA.t8.idMatches	-1
+query.sensorA.t8.listReturned	-1
 query.sensorA.t8.listSize	-1
 query.sensorA.t8.mask	65535
 query.sensorA.t8.missingShape	-1
@@ -396,6 +409,7 @@ query.sensorA.t9.exists	0
 query.sensorA.t9.firstExists	-1
 query.sensorA.t9.group	0
 query.sensorA.t9.idMatches	-1
+query.sensorA.t9.listReturned	-1
 query.sensorA.t9.listSize	-1
 query.sensorA.t9.mask	65535
 query.sensorA.t9.missingShape	-1
@@ -425,6 +439,7 @@ query.sensorB.t0.exists	0
 query.sensorB.t0.firstExists	-1
 query.sensorB.t0.group	0
 query.sensorB.t0.idMatches	-1
+query.sensorB.t0.listReturned	-1
 query.sensorB.t0.listSize	-1
 query.sensorB.t0.mask	65535
 query.sensorB.t0.missingShape	-1
@@ -454,6 +469,7 @@ query.sensorB.t1.exists	0
 query.sensorB.t1.firstExists	-1
 query.sensorB.t1.group	0
 query.sensorB.t1.idMatches	-1
+query.sensorB.t1.listReturned	-1
 query.sensorB.t1.listSize	-1
 query.sensorB.t1.mask	65535
 query.sensorB.t1.missingShape	-1
@@ -483,6 +499,7 @@ query.sensorB.t10.exists	0
 query.sensorB.t10.firstExists	-1
 query.sensorB.t10.group	0
 query.sensorB.t10.idMatches	-1
+query.sensorB.t10.listReturned	-1
 query.sensorB.t10.listSize	-1
 query.sensorB.t10.mask	65535
 query.sensorB.t10.missingShape	-1
@@ -512,6 +529,7 @@ query.sensorB.t11.exists	0
 query.sensorB.t11.firstExists	-1
 query.sensorB.t11.group	0
 query.sensorB.t11.idMatches	-1
+query.sensorB.t11.listReturned	-1
 query.sensorB.t11.listSize	-1
 query.sensorB.t11.mask	65535
 query.sensorB.t11.missingShape	-1
@@ -541,6 +559,7 @@ query.sensorB.t12.exists	0
 query.sensorB.t12.firstExists	-1
 query.sensorB.t12.group	0
 query.sensorB.t12.idMatches	-1
+query.sensorB.t12.listReturned	-1
 query.sensorB.t12.listSize	-1
 query.sensorB.t12.mask	65535
 query.sensorB.t12.missingShape	-1
@@ -570,6 +589,7 @@ query.sensorB.t13.exists	0
 query.sensorB.t13.firstExists	-1
 query.sensorB.t13.group	0
 query.sensorB.t13.idMatches	-1
+query.sensorB.t13.listReturned	-1
 query.sensorB.t13.listSize	-1
 query.sensorB.t13.mask	65535
 query.sensorB.t13.missingShape	-1
@@ -599,6 +619,7 @@ query.sensorB.t2.exists	1
 query.sensorB.t2.firstExists	1
 query.sensorB.t2.group	0
 query.sensorB.t2.idMatches	1
+query.sensorB.t2.listReturned	1
 query.sensorB.t2.listSize	1
 query.sensorB.t2.mask	65535
 query.sensorB.t2.missingShape	1
@@ -628,6 +649,7 @@ query.sensorB.t3.exists	1
 query.sensorB.t3.firstExists	1
 query.sensorB.t3.group	0
 query.sensorB.t3.idMatches	1
+query.sensorB.t3.listReturned	1
 query.sensorB.t3.listSize	1
 query.sensorB.t3.mask	65535
 query.sensorB.t3.missingShape	1
@@ -657,6 +679,7 @@ query.sensorB.t4.exists	1
 query.sensorB.t4.firstExists	1
 query.sensorB.t4.group	0
 query.sensorB.t4.idMatches	1
+query.sensorB.t4.listReturned	1
 query.sensorB.t4.listSize	1
 query.sensorB.t4.mask	65535
 query.sensorB.t4.missingShape	1
@@ -686,6 +709,7 @@ query.sensorB.t5.exists	1
 query.sensorB.t5.firstExists	1
 query.sensorB.t5.group	0
 query.sensorB.t5.idMatches	1
+query.sensorB.t5.listReturned	1
 query.sensorB.t5.listSize	1
 query.sensorB.t5.mask	65535
 query.sensorB.t5.missingShape	1
@@ -715,6 +739,7 @@ query.sensorB.t6.exists	1
 query.sensorB.t6.firstExists	1
 query.sensorB.t6.group	0
 query.sensorB.t6.idMatches	1
+query.sensorB.t6.listReturned	1
 query.sensorB.t6.listSize	1
 query.sensorB.t6.mask	65535
 query.sensorB.t6.missingShape	1
@@ -744,6 +769,7 @@ query.sensorB.t7.exists	1
 query.sensorB.t7.firstExists	1
 query.sensorB.t7.group	0
 query.sensorB.t7.idMatches	1
+query.sensorB.t7.listReturned	1
 query.sensorB.t7.listSize	1
 query.sensorB.t7.mask	0
 query.sensorB.t7.missingShape	1
@@ -773,6 +799,7 @@ query.sensorB.t8.exists	0
 query.sensorB.t8.firstExists	-1
 query.sensorB.t8.group	0
 query.sensorB.t8.idMatches	-1
+query.sensorB.t8.listReturned	-1
 query.sensorB.t8.listSize	-1
 query.sensorB.t8.mask	0
 query.sensorB.t8.missingShape	-1
@@ -802,6 +829,7 @@ query.sensorB.t9.exists	0
 query.sensorB.t9.firstExists	-1
 query.sensorB.t9.group	0
 query.sensorB.t9.idMatches	-1
+query.sensorB.t9.listReturned	-1
 query.sensorB.t9.listSize	-1
 query.sensorB.t9.mask	65535
 query.sensorB.t9.missingShape	-1
@@ -831,6 +859,7 @@ query.solidA.t0.exists	0
 query.solidA.t0.firstExists	-1
 query.solidA.t0.group	0
 query.solidA.t0.idMatches	-1
+query.solidA.t0.listReturned	-1
 query.solidA.t0.listSize	-1
 query.solidA.t0.mask	65535
 query.solidA.t0.missingShape	-1
@@ -860,6 +889,7 @@ query.solidA.t1.exists	0
 query.solidA.t1.firstExists	-1
 query.solidA.t1.group	0
 query.solidA.t1.idMatches	-1
+query.solidA.t1.listReturned	-1
 query.solidA.t1.listSize	-1
 query.solidA.t1.mask	65535
 query.solidA.t1.missingShape	-1
@@ -889,6 +919,7 @@ query.solidA.t10.exists	0
 query.solidA.t10.firstExists	-1
 query.solidA.t10.group	0
 query.solidA.t10.idMatches	-1
+query.solidA.t10.listReturned	-1
 query.solidA.t10.listSize	-1
 query.solidA.t10.mask	65535
 query.solidA.t10.missingShape	-1
@@ -918,6 +949,7 @@ query.solidA.t11.exists	0
 query.solidA.t11.firstExists	-1
 query.solidA.t11.group	-1
 query.solidA.t11.idMatches	-1
+query.solidA.t11.listReturned	-1
 query.solidA.t11.listSize	-1
 query.solidA.t11.mask	65535
 query.solidA.t11.missingShape	-1
@@ -947,6 +979,7 @@ query.solidA.t12.exists	0
 query.solidA.t12.firstExists	-1
 query.solidA.t12.group	0
 query.solidA.t12.idMatches	-1
+query.solidA.t12.listReturned	-1
 query.solidA.t12.listSize	-1
 query.solidA.t12.mask	65535
 query.solidA.t12.missingShape	-1
@@ -976,6 +1009,7 @@ query.solidA.t13.exists	0
 query.solidA.t13.firstExists	-1
 query.solidA.t13.group	0
 query.solidA.t13.idMatches	-1
+query.solidA.t13.listReturned	-1
 query.solidA.t13.listSize	-1
 query.solidA.t13.mask	65535
 query.solidA.t13.missingShape	-1
@@ -1005,6 +1039,7 @@ query.solidA.t2.exists	1
 query.solidA.t2.firstExists	1
 query.solidA.t2.group	0
 query.solidA.t2.idMatches	1
+query.solidA.t2.listReturned	1
 query.solidA.t2.listSize	1
 query.solidA.t2.mask	65535
 query.solidA.t2.missingShape	1
@@ -1034,6 +1069,7 @@ query.solidA.t3.exists	1
 query.solidA.t3.firstExists	1
 query.solidA.t3.group	0
 query.solidA.t3.idMatches	1
+query.solidA.t3.listReturned	1
 query.solidA.t3.listSize	1
 query.solidA.t3.mask	0
 query.solidA.t3.missingShape	1
@@ -1063,6 +1099,7 @@ query.solidA.t4.exists	0
 query.solidA.t4.firstExists	-1
 query.solidA.t4.group	0
 query.solidA.t4.idMatches	-1
+query.solidA.t4.listReturned	-1
 query.solidA.t4.listSize	-1
 query.solidA.t4.mask	0
 query.solidA.t4.missingShape	-1
@@ -1092,6 +1129,7 @@ query.solidA.t5.exists	0
 query.solidA.t5.firstExists	-1
 query.solidA.t5.group	0
 query.solidA.t5.idMatches	-1
+query.solidA.t5.listReturned	-1
 query.solidA.t5.listSize	-1
 query.solidA.t5.mask	65535
 query.solidA.t5.missingShape	-1
@@ -1121,6 +1159,7 @@ query.solidA.t6.exists	0
 query.solidA.t6.firstExists	-1
 query.solidA.t6.group	0
 query.solidA.t6.idMatches	-1
+query.solidA.t6.listReturned	-1
 query.solidA.t6.listSize	-1
 query.solidA.t6.mask	65535
 query.solidA.t6.missingShape	-1
@@ -1150,6 +1189,7 @@ query.solidA.t7.exists	0
 query.solidA.t7.firstExists	-1
 query.solidA.t7.group	0
 query.solidA.t7.idMatches	-1
+query.solidA.t7.listReturned	-1
 query.solidA.t7.listSize	-1
 query.solidA.t7.mask	65535
 query.solidA.t7.missingShape	-1
@@ -1179,6 +1219,7 @@ query.solidA.t8.exists	0
 query.solidA.t8.firstExists	-1
 query.solidA.t8.group	0
 query.solidA.t8.idMatches	-1
+query.solidA.t8.listReturned	-1
 query.solidA.t8.listSize	-1
 query.solidA.t8.mask	65535
 query.solidA.t8.missingShape	-1
@@ -1208,6 +1249,7 @@ query.solidA.t9.exists	0
 query.solidA.t9.firstExists	-1
 query.solidA.t9.group	0
 query.solidA.t9.idMatches	-1
+query.solidA.t9.listReturned	-1
 query.solidA.t9.listSize	-1
 query.solidA.t9.mask	65535
 query.solidA.t9.missingShape	-1
@@ -1237,6 +1279,7 @@ query.solidB.t0.exists	0
 query.solidB.t0.firstExists	-1
 query.solidB.t0.group	0
 query.solidB.t0.idMatches	-1
+query.solidB.t0.listReturned	-1
 query.solidB.t0.listSize	-1
 query.solidB.t0.mask	65535
 query.solidB.t0.missingShape	-1
@@ -1266,6 +1309,7 @@ query.solidB.t1.exists	0
 query.solidB.t1.firstExists	-1
 query.solidB.t1.group	0
 query.solidB.t1.idMatches	-1
+query.solidB.t1.listReturned	-1
 query.solidB.t1.listSize	-1
 query.solidB.t1.mask	65535
 query.solidB.t1.missingShape	-1
@@ -1295,6 +1339,7 @@ query.solidB.t10.exists	0
 query.solidB.t10.firstExists	-1
 query.solidB.t10.group	0
 query.solidB.t10.idMatches	-1
+query.solidB.t10.listReturned	-1
 query.solidB.t10.listSize	-1
 query.solidB.t10.mask	65535
 query.solidB.t10.missingShape	-1
@@ -1324,6 +1369,7 @@ query.solidB.t11.exists	0
 query.solidB.t11.firstExists	-1
 query.solidB.t11.group	-1
 query.solidB.t11.idMatches	-1
+query.solidB.t11.listReturned	-1
 query.solidB.t11.listSize	-1
 query.solidB.t11.mask	65535
 query.solidB.t11.missingShape	-1
@@ -1353,6 +1399,7 @@ query.solidB.t12.exists	0
 query.solidB.t12.firstExists	-1
 query.solidB.t12.group	0
 query.solidB.t12.idMatches	-1
+query.solidB.t12.listReturned	-1
 query.solidB.t12.listSize	-1
 query.solidB.t12.mask	65535
 query.solidB.t12.missingShape	-1
@@ -1382,6 +1429,7 @@ query.solidB.t13.exists	0
 query.solidB.t13.firstExists	-1
 query.solidB.t13.group	0
 query.solidB.t13.idMatches	-1
+query.solidB.t13.listReturned	-1
 query.solidB.t13.listSize	-1
 query.solidB.t13.mask	65535
 query.solidB.t13.missingShape	-1
@@ -1411,6 +1459,7 @@ query.solidB.t2.exists	1
 query.solidB.t2.firstExists	1
 query.solidB.t2.group	0
 query.solidB.t2.idMatches	1
+query.solidB.t2.listReturned	1
 query.solidB.t2.listSize	1
 query.solidB.t2.mask	65535
 query.solidB.t2.missingShape	1
@@ -1440,6 +1489,7 @@ query.solidB.t3.exists	1
 query.solidB.t3.firstExists	1
 query.solidB.t3.group	0
 query.solidB.t3.idMatches	1
+query.solidB.t3.listReturned	1
 query.solidB.t3.listSize	1
 query.solidB.t3.mask	65535
 query.solidB.t3.missingShape	1
@@ -1469,6 +1519,7 @@ query.solidB.t4.exists	0
 query.solidB.t4.firstExists	-1
 query.solidB.t4.group	0
 query.solidB.t4.idMatches	-1
+query.solidB.t4.listReturned	-1
 query.solidB.t4.listSize	-1
 query.solidB.t4.mask	65535
 query.solidB.t4.missingShape	-1
@@ -1498,6 +1549,7 @@ query.solidB.t5.exists	0
 query.solidB.t5.firstExists	-1
 query.solidB.t5.group	0
 query.solidB.t5.idMatches	-1
+query.solidB.t5.listReturned	-1
 query.solidB.t5.listSize	-1
 query.solidB.t5.mask	65535
 query.solidB.t5.missingShape	-1
@@ -1527,6 +1579,7 @@ query.solidB.t6.exists	0
 query.solidB.t6.firstExists	-1
 query.solidB.t6.group	0
 query.solidB.t6.idMatches	-1
+query.solidB.t6.listReturned	-1
 query.solidB.t6.listSize	-1
 query.solidB.t6.mask	65535
 query.solidB.t6.missingShape	-1
@@ -1556,6 +1609,7 @@ query.solidB.t7.exists	0
 query.solidB.t7.firstExists	-1
 query.solidB.t7.group	0
 query.solidB.t7.idMatches	-1
+query.solidB.t7.listReturned	-1
 query.solidB.t7.listSize	-1
 query.solidB.t7.mask	65535
 query.solidB.t7.missingShape	-1
@@ -1585,6 +1639,7 @@ query.solidB.t8.exists	0
 query.solidB.t8.firstExists	-1
 query.solidB.t8.group	0
 query.solidB.t8.idMatches	-1
+query.solidB.t8.listReturned	-1
 query.solidB.t8.listSize	-1
 query.solidB.t8.mask	65535
 query.solidB.t8.missingShape	-1
@@ -1614,6 +1669,7 @@ query.solidB.t9.exists	0
 query.solidB.t9.firstExists	-1
 query.solidB.t9.group	0
 query.solidB.t9.idMatches	-1
+query.solidB.t9.listReturned	-1
 query.solidB.t9.listSize	-1
 query.solidB.t9.mask	65535
 query.solidB.t9.missingShape	-1

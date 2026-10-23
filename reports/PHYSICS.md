@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-23 00:15 UTC
+Generated: 2026-10-23 00:17 UTC
 
-Matched: **8343/8521 comparable readings (97.91%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8399/8577 comparable readings (97.92%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **457/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **458/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -19,10 +19,10 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | contact.solid | 180 | 180 |
 | contact.sensor | 180 | 180 |
 | removal.body | 98 | 98 |
-| query.solidA | 406 | 406 |
-| query.solidB | 406 | 406 |
-| query.sensorA | 406 | 406 |
-| query.sensorB | 406 | 406 |
+| query.solidA | 420 | 420 |
+| query.solidB | 420 | 420 |
+| query.sensorA | 420 | 420 |
+| query.sensorB | 420 | 420 |
 | ray.solid | 9 | 9 |
 | ray.sensors | 9 | 9 |
 | ray.inside | 9 | 9 |
@@ -599,7 +599,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Process.setupPreDrawList` | 0 | 0 | untested |
 | `Process.terminate` | 5 | 5 | PASS |
 | `Process.unregisterEntity` | 0 | 0 | untested |
-| `collisionInfo.getCollidingShapeIDList` | 0 | 0 | untested |
+| `collisionInfo.getCollidingShapeIDList` | 56 | 56 | PASS |
 | `collisionInfo.getContactNormalOfMyCollidingShape` | 112 | 112 | PASS |
 | `collisionInfo.getEntity` | 56 | 56 | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | 56 | 56 | PASS |
@@ -2639,6 +2639,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t0.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t0.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t0.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t0.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t0.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t0.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t0.firstExists | `-1` | `-1` | PASS |
@@ -2668,6 +2669,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t0.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t0.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t0.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t0.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t0.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t0.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t0.firstExists | `-1` | `-1` | PASS |
@@ -2697,6 +2699,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t0.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t0.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t0.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t0.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t0.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t0.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t0.firstExists | `-1` | `-1` | PASS |
@@ -2726,6 +2729,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t0.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t0.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t0.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t0.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t0.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t0.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t0.firstExists | `-1` | `-1` | PASS |
@@ -2755,6 +2759,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t1.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t1.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t1.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t1.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t1.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t1.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t1.firstExists | `-1` | `-1` | PASS |
@@ -2784,6 +2789,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t1.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t1.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t1.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t1.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t1.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t1.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t1.firstExists | `-1` | `-1` | PASS |
@@ -2813,6 +2819,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t1.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t1.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t1.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t1.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t1.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t1.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t1.firstExists | `-1` | `-1` | PASS |
@@ -2842,6 +2849,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t1.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t1.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t1.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t1.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t1.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t1.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t1.firstExists | `-1` | `-1` | PASS |
@@ -2871,6 +2879,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t2.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t2.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t2.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t2.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.solidA.t2.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.solidA.t2.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t2.firstExists | `1` | `1` | PASS |
@@ -2900,6 +2909,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t2.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t2.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t2.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t2.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.solidB.t2.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.solidB.t2.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t2.firstExists | `1` | `1` | PASS |
@@ -2929,6 +2939,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t2.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t2.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t2.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t2.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorA.t2.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorA.t2.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t2.firstExists | `1` | `1` | PASS |
@@ -2958,6 +2969,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t2.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t2.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t2.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t2.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorB.t2.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorB.t2.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t2.firstExists | `1` | `1` | PASS |
@@ -2987,6 +2999,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t3.mask | `0` | `0` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t3.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t3.enabled | `0` | `0` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t3.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.solidA.t3.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.solidA.t3.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t3.firstExists | `1` | `1` | PASS |
@@ -3016,6 +3029,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t3.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t3.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t3.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t3.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.solidB.t3.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.solidB.t3.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t3.firstExists | `1` | `1` | PASS |
@@ -3045,6 +3059,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t3.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t3.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t3.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t3.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorA.t3.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorA.t3.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t3.firstExists | `1` | `1` | PASS |
@@ -3074,6 +3089,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t3.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t3.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t3.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t3.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorB.t3.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorB.t3.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t3.firstExists | `1` | `1` | PASS |
@@ -3103,6 +3119,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t4.mask | `0` | `0` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t4.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t4.enabled | `0` | `0` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t4.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t4.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t4.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t4.firstExists | `-1` | `-1` | PASS |
@@ -3132,6 +3149,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t4.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t4.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t4.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t4.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t4.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t4.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t4.firstExists | `-1` | `-1` | PASS |
@@ -3161,6 +3179,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t4.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t4.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t4.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t4.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorA.t4.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorA.t4.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t4.firstExists | `1` | `1` | PASS |
@@ -3190,6 +3209,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t4.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t4.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t4.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t4.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorB.t4.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorB.t4.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t4.firstExists | `1` | `1` | PASS |
@@ -3219,6 +3239,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t5.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t5.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t5.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t5.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t5.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t5.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t5.firstExists | `-1` | `-1` | PASS |
@@ -3248,6 +3269,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t5.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t5.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t5.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t5.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t5.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t5.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t5.firstExists | `-1` | `-1` | PASS |
@@ -3277,6 +3299,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t5.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t5.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t5.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t5.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorA.t5.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorA.t5.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t5.firstExists | `1` | `1` | PASS |
@@ -3306,6 +3329,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t5.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t5.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t5.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t5.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorB.t5.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorB.t5.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t5.firstExists | `1` | `1` | PASS |
@@ -3335,6 +3359,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t6.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t6.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t6.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t6.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t6.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t6.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t6.firstExists | `-1` | `-1` | PASS |
@@ -3364,6 +3389,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t6.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t6.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t6.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t6.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t6.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t6.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t6.firstExists | `-1` | `-1` | PASS |
@@ -3393,6 +3419,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t6.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t6.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t6.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t6.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorA.t6.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorA.t6.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t6.firstExists | `1` | `1` | PASS |
@@ -3422,6 +3449,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t6.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t6.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t6.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t6.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorB.t6.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorB.t6.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t6.firstExists | `1` | `1` | PASS |
@@ -3451,6 +3479,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t7.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t7.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t7.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t7.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t7.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t7.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t7.firstExists | `-1` | `-1` | PASS |
@@ -3480,6 +3509,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t7.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t7.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t7.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t7.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t7.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t7.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t7.firstExists | `-1` | `-1` | PASS |
@@ -3509,6 +3539,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t7.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t7.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t7.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t7.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorA.t7.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorA.t7.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t7.firstExists | `1` | `1` | PASS |
@@ -3538,6 +3569,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t7.mask | `0` | `0` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t7.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t7.enabled | `0` | `0` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t7.listReturned | `1` | `1` | PASS |
 | `intIter.size` | query.sensorB.t7.listSize | `1` | `1` | PASS |
 | `intIter.get` | query.sensorB.t7.idMatches | `1` | `1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t7.firstExists | `1` | `1` | PASS |
@@ -3567,6 +3599,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t8.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t8.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t8.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t8.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t8.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t8.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t8.firstExists | `-1` | `-1` | PASS |
@@ -3596,6 +3629,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t8.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t8.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t8.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t8.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t8.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t8.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t8.firstExists | `-1` | `-1` | PASS |
@@ -3625,6 +3659,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t8.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t8.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t8.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t8.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t8.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t8.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t8.firstExists | `-1` | `-1` | PASS |
@@ -3654,6 +3689,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t8.mask | `0` | `0` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t8.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t8.enabled | `0` | `0` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t8.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t8.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t8.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t8.firstExists | `-1` | `-1` | PASS |
@@ -3683,6 +3719,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t9.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t9.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t9.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t9.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t9.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t9.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t9.firstExists | `-1` | `-1` | PASS |
@@ -3712,6 +3749,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t9.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t9.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t9.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t9.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t9.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t9.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t9.firstExists | `-1` | `-1` | PASS |
@@ -3741,6 +3779,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t9.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t9.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t9.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t9.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t9.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t9.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t9.firstExists | `-1` | `-1` | PASS |
@@ -3770,6 +3809,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t9.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t9.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t9.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t9.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t9.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t9.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t9.firstExists | `-1` | `-1` | PASS |
@@ -3799,6 +3839,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t10.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t10.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t10.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t10.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t10.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t10.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t10.firstExists | `-1` | `-1` | PASS |
@@ -3828,6 +3869,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t10.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t10.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t10.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t10.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t10.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t10.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t10.firstExists | `-1` | `-1` | PASS |
@@ -3857,6 +3899,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t10.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t10.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t10.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t10.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t10.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t10.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t10.firstExists | `-1` | `-1` | PASS |
@@ -3886,6 +3929,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t10.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t10.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t10.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t10.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t10.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t10.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t10.firstExists | `-1` | `-1` | PASS |
@@ -3915,6 +3959,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t11.group | `-1` | `-1` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t11.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t11.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t11.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t11.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t11.firstExists | `-1` | `-1` | PASS |
@@ -3944,6 +3989,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t11.group | `-1` | `-1` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t11.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t11.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t11.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t11.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t11.firstExists | `-1` | `-1` | PASS |
@@ -3973,6 +4019,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t11.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t11.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t11.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t11.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t11.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t11.firstExists | `-1` | `-1` | PASS |
@@ -4002,6 +4049,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t11.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t11.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t11.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t11.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t11.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t11.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t11.firstExists | `-1` | `-1` | PASS |
@@ -4031,6 +4079,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t12.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t12.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t12.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t12.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t12.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t12.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t12.firstExists | `-1` | `-1` | PASS |
@@ -4060,6 +4109,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t12.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t12.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t12.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t12.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t12.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t12.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t12.firstExists | `-1` | `-1` | PASS |
@@ -4089,6 +4139,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t12.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t12.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t12.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t12.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t12.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t12.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t12.firstExists | `-1` | `-1` | PASS |
@@ -4118,6 +4169,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t12.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t12.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t12.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t12.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t12.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t12.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t12.firstExists | `-1` | `-1` | PASS |
@@ -4147,6 +4199,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidA.t13.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidA.t13.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidA.t13.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidA.t13.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidA.t13.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidA.t13.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidA.t13.firstExists | `-1` | `-1` | PASS |
@@ -4176,6 +4229,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.solidB.t13.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.solidB.t13.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.solidB.t13.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.solidB.t13.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.solidB.t13.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.solidB.t13.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.solidB.t13.firstExists | `-1` | `-1` | PASS |
@@ -4205,6 +4259,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorA.t13.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorA.t13.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorA.t13.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorA.t13.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorA.t13.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorA.t13.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorA.t13.firstExists | `-1` | `-1` | PASS |
@@ -4234,6 +4289,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | query.sensorB.t13.mask | `65535` | `65535` | PASS |
 | `physicsBody.getCollisionGroup` | query.sensorB.t13.group | `0` | `0` | PASS |
 | `physicsBody.isCollidable` | query.sensorB.t13.enabled | `1` | `1` | PASS |
+| `collisionInfo.getCollidingShapeIDList` | query.sensorB.t13.listReturned | `-1` | `-1` | PASS |
 | `intIter.size` | query.sensorB.t13.listSize | `-1` | `-1` | PASS |
 | `intIter.get` | query.sensorB.t13.idMatches | `-1` | `-1` | PASS |
 | `collisionInfo.getFirstShapeCollisionInfo` | query.sensorB.t13.firstExists | `-1` | `-1` | PASS |
