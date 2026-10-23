@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 09:53 UTC
+Generated: 2026-10-23 09:55 UTC
 
-Matched: **8539/8775 comparable readings (97.31%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8542/8775 comparable readings (97.34%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -654,7 +654,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.brake` | 288 | 288 | PASS |
 | `physicsBody.computeAngularVel` | 3 | 3 | PASS |
 | `physicsBody.disableRestitutionThisFrame` | 63 | 64 | FAIL |
-| `physicsBody.doesRotationResponse` | 4 | 5 | FAIL |
+| `physicsBody.doesRotationResponse` | 5 | 5 | PASS |
 | `physicsBody.dummy` | 1 | 1 | PASS |
 | `physicsBody.getAABB` | 8 | 8 | PASS |
 | `physicsBody.getAngularVel` | 1 | 1 | PASS |
@@ -734,7 +734,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsBody.setCollisionGroup` | 1 | 1 | PASS |
 | `physicsBody.setDir` | 2 | 2 | PASS |
-| `physicsBody.setDoesRotationResponse` | 1 | 2 | FAIL |
+| `physicsBody.setDoesRotationResponse` | 2 | 2 | PASS |
 | `physicsBody.setEdgeShapeVertex` | 1 | 1 | PASS |
 | `physicsBody.setFriction` | 1 | 1 | PASS |
 | `physicsBody.setIsBullet` | 1 | 1 | PASS |
@@ -817,7 +817,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsData.setCollisionGroup` | 1 | 1 | PASS |
 | `physicsData.setDir` | 2 | 2 | PASS |
-| `physicsData.setDoesRotationResponse` | 1 | 2 | FAIL |
+| `physicsData.setDoesRotationResponse` | 2 | 2 | PASS |
 | `physicsData.setIsCollidable` | 2 | 2 | PASS |
 | `physicsData.setIsSensor` | 2 | 2 | PASS |
 | `physicsData.setMass` | 0 | 1 | FAIL |
@@ -9154,7 +9154,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getCategoriesToCollideWith` | physicsBody.getCategoriesToCollideWith.second | `5` | `65535` | FAIL |
 | `physicsBody.getMaxSpeed` | physicsBody.getMaxSpeed.first | `9999999.000000` | `7.000000` | FAIL |
 | `physicsBody.getMaxSpeed` | physicsBody.getMaxSpeed.second | `9999999.000000` | `9999999.000000` | PASS |
-| `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.disabledFirst | `1` | `0` | FAIL |
+| `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.disabledFirst | `1` | `1` | PASS |
 | `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.disabledSecond | `1` | `1` | PASS |
 | `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.enabledFirst | `1` | `1` | PASS |
 | `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.enabledSecond | `1` | `1` | PASS |
@@ -9299,7 +9299,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setRotateAcc` | physicsData.setRotateAcc.value | `0.120000` | `0.120000` | PASS |
 | `physicsData.setBrakeAcc` | physicsData.setBrakeAcc.value | `999.000000` | `0.250000` | FAIL |
 | `physicsData.setThrustAcc` | physicsData.setThrustAcc.value | `999.000000` | `0.180000` | FAIL |
-| `physicsData.setDoesRotationResponse` | physicsData.setDoesRotationResponse.disabled | `1` | `0` | FAIL |
+| `physicsData.setDoesRotationResponse` | physicsData.setDoesRotationResponse.disabled | `1` | `1` | PASS |
 | `physicsData.setDoesRotationResponse` | physicsData.setDoesRotationResponse.enabled | `1` | `1` | PASS |
 | `physicsData.setIsCollidable` | physicsData.setIsCollidable.disabled | `0` | `0` | PASS |
 | `physicsData.setIsCollidable` | physicsData.setIsCollidable.enabled | `1` | `1` | PASS |
@@ -9542,7 +9542,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getDirty` | physicsBody.getDirty.aabbAfterMove | `516.989990` | `516.989990` | PASS |
 | `physicsBody.getDirRef` | physicsBody.getDirRef.x | `1.000000` | `1.000000` | PASS |
 | `physicsBody.getDirRef` | physicsBody.getDirRef.y | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setDoesRotationResponse` | physicsBody.setDoesRotationResponse.off | `1` | `0` | FAIL |
+| `physicsBody.setDoesRotationResponse` | physicsBody.setDoesRotationResponse.off | `1` | `1` | PASS |
 | `physicsBody.setDoesRotationResponse` | physicsBody.setDoesRotationResponse.on | `1` | `1` | PASS |
 | `physicsBody.setIsUsingContinuousPhysics` | physicsBody.setIsUsingContinuousPhysics.on | `0.000000` | `1.000000` | FAIL |
 | `physicsBody.setIsUsingContinuousPhysics` | physicsBody.setIsUsingContinuousPhysics.off | `0.000000` | `0.000000` | PASS |

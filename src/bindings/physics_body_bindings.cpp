@@ -1788,6 +1788,8 @@ int GM_CDECL gmf_pb_setDoesRotationResponse(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(v, 0, 1);
+    auto* owner = (PhysicsDataObj*)(uintptr_t)b->body->GetUserData().pointer;
+    if (PhysicsDataOwnerIsEnabled(*a_thread->GetMachine(), owner)) return GM_OK;
     b->body->SetFixedRotation(v == 0);
     return GM_OK;
 }
@@ -3943,6 +3945,7 @@ int GM_CDECL gmf_pd_setDoesRotationResponse(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(v, 0, 1);
+    if (PhysicsDataOwnerIsEnabled(*a_thread->GetMachine(), d)) return GM_OK;
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (b) b->body->SetFixedRotation(v == 0);
     return GM_OK;
