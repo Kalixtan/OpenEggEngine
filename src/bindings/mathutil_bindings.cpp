@@ -53,14 +53,10 @@ int GM_CDECL gmf_GetTrianglePercentage(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(percent, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(peak, 1, 0.5f);
-    float result;
-    if (percent <= peak) {
-        result = (peak > 0.0f) ? (percent / peak) : 1.0f;
-    } else {
-        float falling = 1.0f - peak;
-        result = (falling > 0.0f) ? ((1.0f - percent) / falling) : 0.0f;
-    }
-    a_thread->PushFloat(std::min(1.0f, std::max(0.0f, result)));
+    // Retail scales each side independently and does not clamp out-of-range input.
+    const float rising = peak != 0.0f ? percent / peak : 0.0f;
+    const float falling = peak != 1.0f ? (percent - peak) / (1.0f - peak) : 0.0f;
+    a_thread->PushFloat(percent < peak ? rising : 1.0f - falling);
     return GM_OK;
 }
 
@@ -183,8 +179,8 @@ int GM_CDECL gmf_FindCircleCircleIntersection(gmThread* a_thread) {
         float h2 = r1 * r1 - a * a;
         float h = h2 > 0.0f ? std::sqrt(h2) : 0.0f;
         float mx = c1x + a * dx / d, my = c1y + a * dy / d;
-        p1x = mx + h * dy / d; p1y = my - h * dx / d;
-        p2x = mx - h * dy / d; p2y = my + h * dx / d;
+        p1x = mx - h * dy / d; p1y = my + h * dx / d;
+        p2x = mx + h * dy / d; p2y = my - h * dx / d;
         found = true;
     } else {
         p1x = p2x = (c1x + c2x) * 0.5f;
@@ -202,12 +198,17 @@ int GM_CDECL gmf_GetCentroid(gmThread* a_thread) {
     GM_CHECK_TABLE_PARAM(list, 0);
     GM_INT_PARAM(n, 1, 0);
     float sx = 0.0f, sy = 0.0f;
-    int counted = 0;
     for (int i = 0; i < n; ++i) {
         float x, y;
-        if (GetVector2D(*a_thread->GetMachine(), list->Get(i), x, y)) { sx += x; sy += y; ++counted; }
+        if (!GetVector2D(*a_thread->GetMachine(), list->Get(i), x, y)) {
+            GM_EXCEPTION_MSG("MATHUTIL_GetCentroid: expecting each element to be a REALPOINT");
+            return GM_EXCEPTION;
+        }
+        sx = static_cast<float>(sx + x);
+        sy = static_cast<float>(sy + y);
     }
-    if (counted > 0) { sx /= counted; sy /= counted; }
+    sx /= static_cast<float>(n);
+    sy /= static_cast<float>(n);
     a_thread->Push(MakeVector2D(*a_thread->GetMachine(), sx, sy));
     return GM_OK;
 }

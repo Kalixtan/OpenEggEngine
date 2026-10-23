@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 00:46 UTC
+Generated: 2026-10-23 09:41 UTC
 
-Matched: **8518/8775 comparable readings (97.07%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8524/8775 comparable readings (97.14%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -480,7 +480,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Global.MATHUTIL_GetAngleDistancePositive` | 2 | 2 | PASS |
 | `Global.MATHUTIL_GetAngleRad` | 1 | 1 | PASS |
 | `Global.MATHUTIL_GetAngleRad360` | 1 | 1 | PASS |
-| `Global.MATHUTIL_GetCentroid` | 2 | 4 | FAIL |
+| `Global.MATHUTIL_GetCentroid` | 4 | 4 | PASS |
 | `Global.MATHUTIL_GetClosestDistanceFromLineSegmentToPoint` | 1 | 1 | PASS |
 | `Global.MATHUTIL_GetClosestDistanceFromLineToPoint` | 1 | 1 | PASS |
 | `Global.MATHUTIL_GetClosestPointOnLineSegment` | 4 | 4 | PASS |
@@ -489,12 +489,12 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Global.MATHUTIL_GetRadiansBetween` | 2 | 2 | PASS |
 | `Global.MATHUTIL_GetSeconds` | 1 | 1 | PASS |
 | `Global.MATHUTIL_GetSignedAngleDistance` | 2 | 2 | PASS |
-| `Global.MATHUTIL_GetTrianglePercentage` | 4 | 5 | FAIL |
+| `Global.MATHUTIL_GetTrianglePercentage` | 5 | 5 | PASS |
 | `Global.MATHUTIL_Rotate` | 2 | 2 | PASS |
 | `Global.MATHUTIL_distance` | 0 | 1 | FAIL |
 | `Global.MATH_ABS` | 1 | 1 | PASS |
-| `Global.MATH_ACOS` | 0 | 1 | FAIL |
-| `Global.MATH_ASIN` | 0 | 1 | FAIL |
+| `Global.MATH_ACOS` | 1 | 1 | PASS |
+| `Global.MATH_ASIN` | 1 | 1 | PASS |
 | `Global.MATH_ATAN2` | 1 | 1 | PASS |
 | `Global.MATH_COS` | 2 | 2 | PASS |
 | `Global.MATH_COS_POW` | 1 | 1 | PASS |
@@ -514,7 +514,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Global.MATH_SIGN` | 1 | 1 | PASS |
 | `Global.MATH_SIN` | 2 | 2 | PASS |
 | `Global.MATH_SIN_POW` | 1 | 1 | PASS |
-| `Global.MATH_SQRT` | 0 | 1 | FAIL |
+| `Global.MATH_SQRT` | 1 | 1 | PASS |
 | `Global.MATH_TAN` | 1 | 1 | PASS |
 | `Global.PHYSICSSHAPECOLLECTIONDEF` | 1 | 1 | PASS |
 | `Global.TRIANGLELFO` | 1 | 1 | PASS |
@@ -9412,8 +9412,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.getDir` | physicsData.getDir.x | `-0.000000` | `-0.000000` | PASS |
 | `physicsData.getDir` | physicsData.getDir.y | `1.000000` | `1.000000` | PASS |
 | `Global.MATH_ABS` | Global.MATH_ABS.negative | `3.500000` | `3.500000` | PASS |
-| `Global.MATH_ACOS` | Global.MATH_ACOS.clampedHigh | `nan` | `0.000000` | FAIL |
-| `Global.MATH_ASIN` | Global.MATH_ASIN.clampedLow | `nan` | `-1.570796` | FAIL |
+| `Global.MATH_ACOS` | Global.MATH_ACOS.clampedHigh | `nan` | `nan` | PASS |
+| `Global.MATH_ASIN` | Global.MATH_ASIN.clampedLow | `nan` | `nan` | PASS |
 | `Global.MATH_ATAN2` | Global.MATH_ATAN2.quadrantTwo | `2.356194` | `2.356194` | PASS |
 | `Global.MATH_COS` | Global.MATH_COS.zero | `1.000000` | `1.000000` | PASS |
 | `Global.MATH_COS` | Global.MATH_COS.twoArg | `1.000000` | `1.000000` | PASS |
@@ -9433,7 +9433,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Global.MATH_SIN` | Global.MATH_SIN.quarterTurn | `1.000000` | `1.000000` | PASS |
 | `Global.MATH_SIN` | Global.MATH_SIN.twoArg | `0.415016` | `0.415016` | PASS |
 | `Global.MATH_SIN_POW` | Global.MATH_SIN_POW.negativeCurve | `1.552270` | `1.552270` | PASS |
-| `Global.MATH_SQRT` | Global.MATH_SQRT.negative | `-nan` | `0.000000` | FAIL |
+| `Global.MATH_SQRT` | Global.MATH_SQRT.negative | `-nan` | `-nan` | PASS |
 | `Global.MATH_TAN` | Global.MATH_TAN.zero | `0.000000` | `0.000000` | PASS |
 | `Global.MATH_LN` | Global.MATH_LN.one | `0.000000` | `0.000000` | PASS |
 | `Global.MATH_LOG` | Global.MATH_LOG.one | `0.000000` | `0.000000` | PASS |
@@ -9459,7 +9459,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.y | `1.500000` | `1.500000` | PASS |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.found | `0` | `1` | FAIL |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.firstX | `0.000000` | `3.000000` | FAIL |
-| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.secondY | `-8715681792.000000` | `4.000000` | FAIL |
+| `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.secondY | `-8715681792.000000` | `-4.000000` | FAIL |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.noHit | `0` | `0` | PASS |
 | `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.x | `3.000000` | `3.000000` | PASS |
 | `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.y | `0.000000` | `0.000000` | PASS |
@@ -9515,15 +9515,15 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Global.MATHUTIL_GetRadiansBetween` | Global.MATHUTIL_GetRadiansBetween.zero | `1.570796` | `1.570796` | PASS |
 | `Global.MATHUTIL_GetSignedAngleDistance` | Global.MATHUTIL_GetSignedAngleDistance.halfTurn | `3.141593` | `3.141593` | PASS |
 | `Global.MATHUTIL_GetAngleDistancePositive` | Global.MATHUTIL_GetAngleDistancePositive.negativeWrap | `5.283185` | `5.283185` | PASS |
-| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.outside | `-1.000000` | `0.000000` | FAIL |
+| `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.outside | `-1.000000` | `-1.000000` | PASS |
 | `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.peakZero | `1.000000` | `1.000000` | PASS |
 | `Global.MATHUTIL_GetTrianglePercentage` | Global.MATHUTIL_GetTrianglePercentage.peakOne | `1.000000` | `1.000000` | PASS |
 | `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.zeroDirectionX | `2.000000` | `2.000000` | PASS |
 | `Global.MATHUTIL_FindClosestPointOnLine` | Global.MATHUTIL_FindClosestPointOnLine.zeroDirectionY | `3.000000` | `3.000000` | PASS |
 | `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.zeroDirectionX | `2.000000` | `2.000000` | PASS |
 | `Global.MATHUTIL_GetClosestPointOnLineSegment` | Global.MATHUTIL_GetClosestPointOnLineSegment.zeroDirectionY | `3.000000` | `3.000000` | PASS |
-| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.emptyX | `-nan` | `0.000000` | FAIL |
-| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.emptyY | `-nan` | `0.000000` | FAIL |
+| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.emptyX | `-nan` | `-nan` | PASS |
+| `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.emptyY | `-nan` | `-nan` | PASS |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.tangentFound | `0` | `1` | FAIL |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.tangentX | `0.000000` | `5.000000` | FAIL |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.tangentY | `0.000000` | `0.000000` | PASS |

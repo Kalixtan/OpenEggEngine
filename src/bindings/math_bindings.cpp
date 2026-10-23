@@ -27,7 +27,7 @@ int GM_CDECL gmf_MATH_ABS(gmThread* a_thread) {
 }
 int GM_CDECL gmf_MATH_ACOS(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-    a_thread->PushFloat(std::acos(std::clamp(x, -1.0f, 1.0f)));
+    a_thread->PushFloat(std::acos(x));
     return GM_OK;
 }
 float CosPow(float ang, float curve) {
@@ -134,7 +134,7 @@ int GM_CDECL gmf_MATH_SIN_POW(gmThread* a_thread) {
 }
 int GM_CDECL gmf_MATH_SQRT(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-    a_thread->PushFloat(std::sqrt(std::max(x, 0.0f)));
+    a_thread->PushFloat(std::sqrt(x));
     return GM_OK;
 }
 int GM_CDECL gmf_MATH_TAN(gmThread* a_thread) {
@@ -144,7 +144,7 @@ int GM_CDECL gmf_MATH_TAN(gmThread* a_thread) {
 }
 int GM_CDECL gmf_MATH_ASIN(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); GM_FLOAT_OR_INT_PARAM(x, 0, 0.0f);
-    a_thread->PushFloat(std::asin(std::clamp(x, -1.0f, 1.0f)));
+    a_thread->PushFloat(std::asin(x));
     return GM_OK;
 }
 int GM_CDECL gmf_MATH_ATAN2(gmThread* a_thread) {
