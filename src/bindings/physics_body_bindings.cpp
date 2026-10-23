@@ -3534,6 +3534,12 @@ int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(radius, 0, 0.0f);
+    if (d->ownerEntity.m_type == GM_TABLE) {
+        gmMachine& machine = *a_thread->GetMachine();
+        gmTableObject* owner = (gmTableObject*)machine.GetObject(d->ownerEntity.m_value.m_ref);
+        const gmVariable enabled = owner ? owner->Get(&machine, "__enabled") : gmVariable::s_null;
+        if (enabled.m_type == GM_INT && enabled.m_value.m_int != 0) return GM_OK;
+    }
     float r = std::max(radius, 0.001f);
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (!b) return GM_OK;
@@ -3568,19 +3574,18 @@ int GM_CDECL gmf_pd_isRect(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     return GM_OK;
 }
+bool ComputePhysicsDataAABB(gmThread* a_thread, PhysicsDataObj* d, b2AABB& a_out);
 int GM_CDECL gmf_pd_getWidth(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
     b2AABB aabb;
-    if (!b || !GetBodyLocalBounds(b->body, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
+    if (!ComputePhysicsDataAABB(a_thread, d, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
     a_thread->PushFloat(aabb.upperBound.x - aabb.lowerBound.x);
     return GM_OK;
 }
 int GM_CDECL gmf_pd_getHeight(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
     b2AABB aabb;
-    if (!b || !GetBodyLocalBounds(b->body, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
+    if (!ComputePhysicsDataAABB(a_thread, d, aabb)) { a_thread->PushFloat(0.0f); return GM_OK; }
     a_thread->PushFloat(aabb.upperBound.y - aabb.lowerBound.y);
     return GM_OK;
 }
@@ -3677,6 +3682,12 @@ int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(width, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(height, 1, 0.0f);
+    if (d->ownerEntity.m_type == GM_TABLE) {
+        gmMachine& machine = *a_thread->GetMachine();
+        gmTableObject* owner = (gmTableObject*)machine.GetObject(d->ownerEntity.m_value.m_ref);
+        const gmVariable enabled = owner ? owner->Get(&machine, "__enabled") : gmVariable::s_null;
+        if (enabled.m_type == GM_INT && enabled.m_value.m_int != 0) return GM_OK;
+    }
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (!b) return GM_OK;
     float hx = std::max(width * 0.5f, 0.001f), hy = std::max(height * 0.5f, 0.001f);
@@ -3984,18 +3995,25 @@ int GM_CDECL gmf_pd_setMass(gmThread* a_thread) {
 // computation, single-point fallback (bare position, no fixtures) when
 // the body has none.
 bool ComputePhysicsDataAABB(gmThread* a_thread, PhysicsDataObj* d, b2AABB& a_out) {
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (!b) return false;
     bool first = true;
-    for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) {
-        for (int i = 0; i < fx->GetShape()->GetChildCount(); ++i) {
-            b2AABB shapeAabb;
-            fx->GetShape()->ComputeAABB(&shapeAabb, b->body->GetTransform(), i);
-            if (first) { a_out = shapeAabb; first = false; }
-            else a_out.Combine(shapeAabb);
-        }
+    gmMachine& machine = *a_thread->GetMachine();
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* body = GetBodyData(machine, bodyVar);
+        if (!body || !body->body) continue;
+        b2AABB localBounds;
+        if (!GetBodyLocalBounds(body->body, localBounds)) continue;
+        const b2Vec2 pos = body->body->GetPosition();
+        localBounds.lowerBound += pos;
+        localBounds.upperBound += pos;
+        if (first) { a_out = localBounds; first = false; }
+        else a_out.Combine(localBounds);
     }
-    if (first) { b2Vec2 p = b->body->GetPosition(); a_out.lowerBound = p; a_out.upperBound = p; }
+    if (!first) return true;
+    PhysicsBodyData* body = MainBody(a_thread, d);
+    if (!body || !body->body) return false;
+    const b2Vec2 pos = body->body->GetPosition();
+    a_out.lowerBound = pos;
+    a_out.upperBound = pos;
     return true;
 }
 

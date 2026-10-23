@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 09:47 UTC
+Generated: 2026-10-23 09:51 UTC
 
-Matched: **8527/8775 comparable readings (97.17%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8535/8775 comparable readings (97.26%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -691,7 +691,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getShapeIndex` | 1 | 1 | PASS |
 | `physicsBody.getShapeObjectID` | 2 | 2 | PASS |
 | `physicsBody.getShapeOffset` | 1 | 1 | PASS |
-| `physicsBody.getShapeRadius` | 2 | 4 | FAIL |
+| `physicsBody.getShapeRadius` | 3 | 4 | FAIL |
 | `physicsBody.getShapeType` | 11 | 11 | PASS |
 | `physicsBody.getShapeVert` | 2 | 2 | PASS |
 | `physicsBody.getShapeVerts` | 3 | 3 | PASS |
@@ -774,7 +774,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getCollisionGroup` | 1 | 1 | PASS |
 | `physicsData.getCollisionInfo` | 56 | 56 | PASS |
 | `physicsData.getDir` | 2 | 2 | PASS |
-| `physicsData.getHeight` | 1 | 3 | FAIL |
+| `physicsData.getHeight` | 3 | 3 | PASS |
 | `physicsData.getJointsOnMe` | 5 | 5 | PASS |
 | `physicsData.getMass` | 1 | 1 | PASS |
 | `physicsData.getMaxPos` | 1 | 1 | PASS |
@@ -792,7 +792,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.getThrustAcc` | 1 | 1 | PASS |
 | `physicsData.getType` | 1 | 1 | PASS |
 | `physicsData.getVel` | 1 | 1 | PASS |
-| `physicsData.getWidth` | 1 | 3 | FAIL |
+| `physicsData.getWidth` | 3 | 3 | PASS |
 | `physicsData.isCircle` | 1 | 1 | PASS |
 | `physicsData.isCollidable` | 1 | 1 | PASS |
 | `physicsData.isColliding` | 290 | 290 | PASS |
@@ -810,8 +810,8 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.rotateRight` | 8 | 15 | FAIL |
 | `physicsData.rotateTo` | 2 | 5 | FAIL |
 | `physicsData.setAllowSleeping` | 0 | 1 | FAIL |
-| `physicsData.setAsCircle` | 0 | 1 | FAIL |
-| `physicsData.setAsRect` | 0 | 2 | FAIL |
+| `physicsData.setAsCircle` | 1 | 1 | PASS |
+| `physicsData.setAsRect` | 2 | 2 | PASS |
 | `physicsData.setBrakeAcc` | 0 | 1 | FAIL |
 | `physicsData.setCategoriesToCollideWith` | 1 | 1 | PASS |
 | `physicsData.setCollisionCategory` | 1 | 1 | PASS |
@@ -9134,13 +9134,13 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.appendShapes` | physicsData.appendShapes.second | `0` | `0` | PASS |
 | `physicsData.getNumBodies` | physicsData.getNumBodies.afterCircle | `2` | `2` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.dataCircle | `0` | `0` | PASS |
-| `physicsBody.getShapeRadius` | physicsBody.getShapeRadius.dataCircle | `2.000000` | `5.000000` | FAIL |
-| `physicsData.getWidth` | physicsData.getWidth.dataCircle | `67.000000` | `10.000000` | FAIL |
-| `physicsData.getHeight` | physicsData.getHeight.dataCircle | `64.000000` | `10.000000` | FAIL |
+| `physicsBody.getShapeRadius` | physicsBody.getShapeRadius.dataCircle | `2.000000` | `2.000000` | PASS |
+| `physicsData.getWidth` | physicsData.getWidth.dataCircle | `67.000000` | `67.000000` | PASS |
+| `physicsData.getHeight` | physicsData.getHeight.dataCircle | `64.000000` | `64.000000` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.secondAfterCircle | `1` | `1` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.dataRect | `0` | `0` | PASS |
-| `physicsData.getWidth` | physicsData.getWidth.dataRect | `67.000000` | `12.000000` | FAIL |
-| `physicsData.getHeight` | physicsData.getHeight.dataRect | `64.000000` | `6.000000` | FAIL |
+| `physicsData.getWidth` | physicsData.getWidth.dataRect | `67.000000` | `67.000000` | PASS |
+| `physicsData.getHeight` | physicsData.getHeight.dataRect | `64.000000` | `64.000000` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.secondAfterRect | `1` | `1` | PASS |
 | `physicsBody.getWidth` | physicsBody.getWidth.secondAfterRect | `10.000000` | `10.000000` | PASS |
 | `physicsBody.getHeight` | physicsBody.getHeight.secondAfterRect | `4.000000` | `4.000000` | PASS |
@@ -9286,9 +9286,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setSpeed` | physicsData.setSpeed.speed | `7.000000` | `7.000000` | PASS |
 | `physicsData.setDir` | physicsData.setDir.x | `-0.000000` | `-0.000000` | PASS |
 | `physicsData.setDir` | physicsData.setDir.y | `1.000000` | `1.000000` | PASS |
-| `physicsData.setAsCircle` | physicsData.setAsCircle.radius | `2.000000` | `5.000000` | FAIL |
-| `physicsData.setAsRect` | physicsData.setAsRect.width | `4.000000` | `12.000000` | FAIL |
-| `physicsData.setAsRect` | physicsData.setAsRect.height | `4.000000` | `6.000000` | FAIL |
+| `physicsData.setAsCircle` | physicsData.setAsCircle.radius | `2.000000` | `2.000000` | PASS |
+| `physicsData.setAsRect` | physicsData.setAsRect.width | `4.000000` | `4.000000` | PASS |
+| `physicsData.setAsRect` | physicsData.setAsRect.height | `4.000000` | `4.000000` | PASS |
 | `physicsData.setIsSensor` | physicsData.setIsSensor.sensor | `1` | `1` | PASS |
 | `physicsData.setIsSensor` | physicsData.setIsSensor.reset | `0` | `0` | PASS |
 | `physicsData.setCollisionCategory` | physicsData.setCollisionCategory.value | `16` | `16` | PASS |
