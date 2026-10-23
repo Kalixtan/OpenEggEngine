@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 09:51 UTC
+Generated: 2026-10-23 09:53 UTC
 
-Matched: **8535/8775 comparable readings (97.26%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8539/8775 comparable readings (97.31%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -669,7 +669,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getDirty` | 3 | 3 | PASS |
 | `physicsBody.getEntity` | 2 | 2 | PASS |
 | `physicsBody.getFriction` | 1 | 1 | PASS |
-| `physicsBody.getHeight` | 5 | 6 | FAIL |
+| `physicsBody.getHeight` | 6 | 6 | PASS |
 | `physicsBody.getMass` | 3 | 3 | PASS |
 | `physicsBody.getMaxPos` | 1 | 1 | PASS |
 | `physicsBody.getMaxRotateSpeed` | 1 | 1 | PASS |
@@ -691,7 +691,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getShapeIndex` | 1 | 1 | PASS |
 | `physicsBody.getShapeObjectID` | 2 | 2 | PASS |
 | `physicsBody.getShapeOffset` | 1 | 1 | PASS |
-| `physicsBody.getShapeRadius` | 3 | 4 | FAIL |
+| `physicsBody.getShapeRadius` | 4 | 4 | PASS |
 | `physicsBody.getShapeType` | 11 | 11 | PASS |
 | `physicsBody.getShapeVert` | 2 | 2 | PASS |
 | `physicsBody.getShapeVerts` | 3 | 3 | PASS |
@@ -702,7 +702,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getThrustAcc` | 1 | 1 | PASS |
 | `physicsBody.getVel` | 1058 | 1058 | PASS |
 | `physicsBody.getVelRef` | 1 | 1 | PASS |
-| `physicsBody.getWidth` | 5 | 7 | FAIL |
+| `physicsBody.getWidth` | 7 | 7 | PASS |
 | `physicsBody.getWorldDir` | 1 | 1 | PASS |
 | `physicsBody.getWorldPos` | 1 | 1 | PASS |
 | `physicsBody.isBullet` | 61 | 61 | PASS |
@@ -947,12 +947,12 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsBody.isCircle` | bodyApi.physicsBody.isCircle | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | bodyApi.physicsBody.isRect | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
-| `physicsBody.isCircle` | physicsBody.isCircle.circle | `null` | `1` | OpenEgg convenience method; no retail method exists |
+| `physicsBody.isCircle` | physicsBody.isCircle.circle | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | physicsBody.isRect.rect | `null` | `1` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.setAsCircle` | physicsBody.setAsCircle.count | `None` | `1` | OpenEgg convenience method; no same-named retail method exists |
-| `physicsBody.setAsCircle` | physicsBody.setAsCircle.radius | `None` | `3.000000` | OpenEgg convenience method; no same-named retail method exists |
+| `physicsBody.setAsCircle` | physicsBody.setAsCircle.radius | `None` | `2.000000` | OpenEgg convenience method; no same-named retail method exists |
 | `physicsBody.setAsRect` | physicsBody.setAsRect.count | `None` | `1` | OpenEgg convenience method; no same-named retail method exists |
-| `physicsBody.setAsRect` | physicsBody.setAsRect.width | `None` | `8.000000` | OpenEgg convenience method; no same-named retail method exists |
+| `physicsBody.setAsRect` | physicsBody.setAsRect.width | `None` | `4.000000` | OpenEgg convenience method; no same-named retail method exists |
 | `physicsBody.setAsRect` | physicsBody.setAsRect.height | `None` | `4.000000` | OpenEgg convenience method; no same-named retail method exists |
 
 ## Awaiting retail capture
@@ -9113,8 +9113,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getMass` | physicsBody.getMass.afterRebuild | `48.000000` | `48.000000` | PASS |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.circle | `1` | `1` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.circle | `1` | `1` | PASS |
-| `physicsBody.getShapeRadius` | physicsBody.getShapeRadius.circle | `8.000000` | `3.000000` | FAIL |
-| `physicsBody.getWidth` | physicsBody.getWidth.circle | `8.000000` | `6.000000` | FAIL |
+| `physicsBody.getShapeRadius` | physicsBody.getShapeRadius.circle | `8.000000` | `8.000000` | PASS |
+| `physicsBody.getWidth` | physicsBody.getWidth.circle | `8.000000` | `8.000000` | PASS |
 | `physicsBody.getHeight` | physicsBody.getHeight.circle | `6.000000` | `6.000000` | PASS |
 | `physicsBody.isShapeSensor` | physicsBody.isShapeSensor.circle | `1` | `1` | PASS |
 | `physicsBody.getCollisionCategory` | physicsBody.getCollisionCategory.circle | `32` | `32` | PASS |
@@ -9122,12 +9122,12 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.rect | `1` | `1` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.rect | `1` | `1` | PASS |
 | `physicsBody.getWidth` | physicsBody.getWidth.rect | `8.000000` | `8.000000` | PASS |
-| `physicsBody.getHeight` | physicsBody.getHeight.rect | `6.000000` | `4.000000` | FAIL |
+| `physicsBody.getHeight` | physicsBody.getHeight.rect | `6.000000` | `6.000000` | PASS |
 | `physicsBody.isShapeSensor` | physicsBody.isShapeSensor.rect | `1` | `1` | PASS |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.edges | `3` | `3` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.edge | `1` | `1` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.edgeMiddle | `1` | `1` | PASS |
-| `physicsBody.getWidth` | physicsBody.getWidth.edgeEdited | `12.666667` | `12.000000` | FAIL |
+| `physicsBody.getWidth` | physicsBody.getWidth.edgeEdited | `12.666667` | `12.666667` | PASS |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.removed | `2` | `2` | PASS |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.invalidRemove | `2` | `2` | PASS |
 | `physicsData.appendShapes` | physicsData.appendShapes.first | `0` | `0` | PASS |

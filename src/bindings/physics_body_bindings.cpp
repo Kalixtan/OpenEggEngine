@@ -282,6 +282,7 @@ std::vector<gmVariable> g_bodiesByObjectId; // index 0 reserved/invalid
 std::vector<PhysicsBodyData*> g_allPhysicsBodies;
 std::unordered_map<b2Body*, PhysicsBodyData*> g_bodyDataByB2Body;
 struct PhysicsDataObj;
+bool PhysicsDataOwnerIsEnabled(gmMachine& a_machine, PhysicsDataObj* a_data);
 std::vector<PhysicsDataObj*> g_allPhysicsData;
 std::vector<PhysicsDataObj*> g_orderedPhysicsMovementData;
 bool g_physicsMovementMembershipDirty = true;
@@ -1017,6 +1018,8 @@ int GM_CDECL gmf_pb_setAsCircle(gmThread* a_thread) {
     PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(radius, 0, 0.0f);
+    auto* owner = (PhysicsDataObj*)(uintptr_t)b->body->GetUserData().pointer;
+    if (PhysicsDataOwnerIsEnabled(*a_thread->GetMachine(), owner)) return GM_OK;
     float r = std::max(radius, 0.001f); // same degenerate-shape guard as gmf_addCircle
 
     b2Filter filter;
@@ -1737,6 +1740,8 @@ int GM_CDECL gmf_pb_setAsRect(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(width, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(height, 1, 0.0f);
+    auto* owner = (PhysicsDataObj*)(uintptr_t)b->body->GetUserData().pointer;
+    if (PhysicsDataOwnerIsEnabled(*a_thread->GetMachine(), owner)) return GM_OK;
     float hx = std::max(width * 0.5f, 0.001f), hy = std::max(height * 0.5f, 0.001f);
     b2Filter filter;
     bool haveFilter = false;
@@ -2139,6 +2144,15 @@ struct PhysicsDataObj {
     // preserves that identity until physics_world invalidates the pair.
     std::unordered_map<uint32_t, gmVariable> collisionInfoViews;
 };
+
+bool PhysicsDataOwnerIsEnabled(gmMachine& a_machine, PhysicsDataObj* a_data) {
+    if (!a_data || a_data->ownerEntity.m_type != GM_TABLE) return false;
+    gmTableObject* owner = (gmTableObject*)a_machine.GetObject(
+        a_data->ownerEntity.m_value.m_ref);
+    const gmVariable enabled = owner
+        ? owner->Get(&a_machine, "__enabled") : gmVariable::s_null;
+    return enabled.m_type == GM_INT && enabled.m_value.m_int != 0;
+}
 
 PhysicsDataObj* ThisData(gmThread* a_thread) {
     return (PhysicsDataObj*)a_thread->ThisUserCheckType(g_physicsDataType);
@@ -3534,12 +3548,7 @@ int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_FLOAT_OR_INT_PARAM(radius, 0, 0.0f);
-    if (d->ownerEntity.m_type == GM_TABLE) {
-        gmMachine& machine = *a_thread->GetMachine();
-        gmTableObject* owner = (gmTableObject*)machine.GetObject(d->ownerEntity.m_value.m_ref);
-        const gmVariable enabled = owner ? owner->Get(&machine, "__enabled") : gmVariable::s_null;
-        if (enabled.m_type == GM_INT && enabled.m_value.m_int != 0) return GM_OK;
-    }
+    if (PhysicsDataOwnerIsEnabled(*a_thread->GetMachine(), d)) return GM_OK;
     float r = std::max(radius, 0.001f);
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (!b) return GM_OK;
@@ -3682,12 +3691,7 @@ int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_FLOAT_OR_INT_PARAM(width, 0, 0.0f);
     GM_FLOAT_OR_INT_PARAM(height, 1, 0.0f);
-    if (d->ownerEntity.m_type == GM_TABLE) {
-        gmMachine& machine = *a_thread->GetMachine();
-        gmTableObject* owner = (gmTableObject*)machine.GetObject(d->ownerEntity.m_value.m_ref);
-        const gmVariable enabled = owner ? owner->Get(&machine, "__enabled") : gmVariable::s_null;
-        if (enabled.m_type == GM_INT && enabled.m_value.m_int != 0) return GM_OK;
-    }
+    if (PhysicsDataOwnerIsEnabled(*a_thread->GetMachine(), d)) return GM_OK;
     PhysicsBodyData* b = MainBody(a_thread, d);
     if (!b) return GM_OK;
     float hx = std::max(width * 0.5f, 0.001f), hy = std::max(height * 0.5f, 0.001f);
