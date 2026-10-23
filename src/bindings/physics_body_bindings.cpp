@@ -104,6 +104,7 @@ struct PhysicsBodyData {
     bool shapeMaskCrashWarningReported = false;
     bool isSensor = false;
     bool isCollidable = true;
+    bool continuousPhysics = false;
     bool geometryDirty = false;
     // A non-collidable body must not keep generating sensor overlap events.
     // Keep each fixture's authored filter while masking it out, then restore
@@ -1163,9 +1164,8 @@ int GM_CDECL gmf_pb_isSleeping(gmThread* a_thread) {
     a_thread->PushFloat(b->body->IsAwake() ? 0.0f : 1.0f);
     return GM_OK;
 }
-int GM_CDECL gmf_pb_putToSleep(gmThread* a_thread) {
-    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
-    SetBodySleeping(b, true);
+int GM_CDECL gmf_pb_putToSleep(gmThread*) {
+    // Retail exposes putToSleep on MULTIBODYPHYSICSDATA, not on PHYSICSBODY.
     return GM_OK;
 }
 int GM_CDECL gmf_pb_setIsSensor(gmThread* a_thread) {
@@ -1312,6 +1312,13 @@ int GM_CDECL gmf_pb_setIsBullet(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(v, 0, 0);
     b->body->SetBullet(v != 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_pb_setIsUsingContinuousPhysics(gmThread* a_thread) {
+    PhysicsBodyData* b = ThisBody(a_thread); if (!b) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(v, 0, 0);
+    b->continuousPhysics = v != 0;
     return GM_OK;
 }
 // These names are present in the retail PhysicsShape table. Unlike
@@ -2031,7 +2038,7 @@ gmFunctionEntry s_physicsBodyLib[] = {
     {"setIsSensor", gmf_pb_setIsSensor, nullptr},
     {"isSensor", gmf_pb_isSensor, nullptr},
     {"setIsBullet", gmf_pb_setIsBullet, nullptr},
-    {"setIsUsingContinuousPhysics", gmf_pb_setIsBullet, nullptr},
+    {"setIsUsingContinuousPhysics", gmf_pb_setIsUsingContinuousPhysics, nullptr},
     {"getAngularVel", gmf_pb_getAngularVel, nullptr},
     {"setAngularVel", gmf_pb_setAngularVel, nullptr},
     {"setIsCollidable", gmf_pb_setIsCollidable, nullptr},
