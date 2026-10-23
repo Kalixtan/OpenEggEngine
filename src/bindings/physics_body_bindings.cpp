@@ -32,6 +32,7 @@ gmType g_physicsBodyType = -1;
 gmType g_physicsDataType = -1;
 gmType g_physicsShapeType = -1;
 gmType g_collisionInfoType = -1;
+std::unordered_map<b2Fixture*, int> g_retailShapeTypes;
 // GM's incremental collector destroys user objects in arbitrary order during
 // machine teardown. Keep shared-root bookkeeping outside CollisionInfoData so
 // a ShapeCollisionInfo destructor never touches an already-destroyed parent.
@@ -223,8 +224,15 @@ void SetBodyCollidable(PhysicsBodyData* body, bool collidable) {
     }
 }
 
-void TrackNewFixture(PhysicsBodyData* body, b2Fixture* fixture) {
+int DefaultRetailShapeType(const b2Shape* shape) {
+    return shape && shape->GetType() == b2Shape::e_circle ? 0 : 1;
+}
+
+void TrackNewFixture(PhysicsBodyData* body, b2Fixture* fixture,
+                     int retailShapeType = -1) {
     if (!body || !fixture) return;
+    g_retailShapeTypes[fixture] = retailShapeType >= 0
+        ? retailShapeType : DefaultRetailShapeType(fixture->GetShape());
     b2Filter desired = fixture->GetFilterData();
     desired.groupIndex = static_cast<int16>(body->collisionGroup);
     fixture->SetFilterData(desired);
@@ -517,6 +525,7 @@ gmFunctionEntry s_physicsShapeLib[] = {
 // in this table lets a later shape-id lookup dereference freed Box2D storage.
 void UnregisterShapeGlobalId(b2Fixture* a_fixture) {
     if (!a_fixture) return;
+    g_retailShapeTypes.erase(a_fixture);
     const int id = (int)a_fixture->GetUserData().pointer;
     if (id > 0 && id < (int)g_shapesByGlobalId.size() &&
         g_shapesByGlobalId[(size_t)id] == a_fixture) {
@@ -1028,7 +1037,7 @@ int GM_CDECL gmf_pb_setAsCircle(gmThread* a_thread) {
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
     fx->SetSensor(b->isSensor);
-    TrackNewFixture(b, fx);
+    TrackNewFixture(b, fx, 1);
     RegisterShapeGlobalId(fx);
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
@@ -1468,14 +1477,9 @@ int GM_CDECL gmf_pb_getShapeType(gmThread* a_thread) {
     GM_INT_PARAM(index, 0, 0);
     b2Fixture* fixture = FixtureAtShapeIndex(b->body, index);
     if (!fixture) { a_thread->PushInt(-1); return GM_OK; }
-    const b2Shape::Type type = fixture->GetShape()->GetType();
-    // Retail's polygon proxy type is 1 (the getNumShapeVerts helper checks
-    // that exact value before dispatching to the vertex-count method).
-    // Circle is the other explicitly named retail type, zero. Edge and chain
-    // are grouped as the remaining non-polygon type for this API.
-    const int retailType = type == b2Shape::e_circle ? 0
-                         : type == b2Shape::e_polygon ? 1 : 2;
-    a_thread->PushInt(retailType);
+    auto type = g_retailShapeTypes.find(fixture);
+    a_thread->PushInt(type == g_retailShapeTypes.end()
+        ? DefaultRetailShapeType(fixture->GetShape()) : type->second);
     return GM_OK;
 }
 int GM_CDECL gmf_pb_getNumShapeVerts(gmThread* a_thread) {
@@ -1752,7 +1756,7 @@ int GM_CDECL gmf_pb_setAsRect(gmThread* a_thread) {
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
     fx->SetSensor(b->isSensor);
-    TrackNewFixture(b, fx);
+    TrackNewFixture(b, fx, 1);
     RegisterShapeGlobalId(fx);
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
@@ -3551,7 +3555,7 @@ int GM_CDECL gmf_pd_setAsCircle(gmThread* a_thread) {
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
     fx->SetSensor(b->isSensor);
-    TrackNewFixture(b, fx);
+    TrackNewFixture(b, fx, 0);
     RegisterShapeGlobalId(fx);
     SyncBodyTypeFromMass(b->body);
     return GM_OK;
@@ -3694,7 +3698,7 @@ int GM_CDECL gmf_pd_setAsRect(gmThread* a_thread) {
     def.filter = filter;
     b2Fixture* fx = b->body->CreateFixture(&def);
     fx->SetSensor(b->isSensor);
-    TrackNewFixture(b, fx);
+    TrackNewFixture(b, fx, 0);
     RegisterShapeGlobalId(fx);
     SyncBodyTypeFromMass(b->body);
     return GM_OK;

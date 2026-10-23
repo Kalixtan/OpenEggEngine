@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 09:41 UTC
+Generated: 2026-10-23 09:47 UTC
 
-Matched: **8524/8775 comparable readings (97.14%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8527/8775 comparable readings (97.17%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -692,7 +692,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getShapeObjectID` | 2 | 2 | PASS |
 | `physicsBody.getShapeOffset` | 1 | 1 | PASS |
 | `physicsBody.getShapeRadius` | 2 | 4 | FAIL |
-| `physicsBody.getShapeType` | 8 | 11 | FAIL |
+| `physicsBody.getShapeType` | 11 | 11 | PASS |
 | `physicsBody.getShapeVert` | 2 | 2 | PASS |
 | `physicsBody.getShapeVerts` | 3 | 3 | PASS |
 | `physicsBody.getShapeWidth` | 2 | 2 | PASS |
@@ -9112,7 +9112,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.getMass` | physicsBody.getMass.beforeRebuild | `48.000000` | `48.000000` | PASS |
 | `physicsBody.getMass` | physicsBody.getMass.afterRebuild | `48.000000` | `48.000000` | PASS |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.circle | `1` | `1` | PASS |
-| `physicsBody.getShapeType` | physicsBody.getShapeType.circle | `1` | `0` | FAIL |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.circle | `1` | `1` | PASS |
 | `physicsBody.getShapeRadius` | physicsBody.getShapeRadius.circle | `8.000000` | `3.000000` | FAIL |
 | `physicsBody.getWidth` | physicsBody.getWidth.circle | `8.000000` | `6.000000` | FAIL |
 | `physicsBody.getHeight` | physicsBody.getHeight.circle | `6.000000` | `6.000000` | PASS |
@@ -9126,7 +9126,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.isShapeSensor` | physicsBody.isShapeSensor.rect | `1` | `1` | PASS |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.edges | `3` | `3` | PASS |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.edge | `1` | `1` | PASS |
-| `physicsBody.getShapeType` | physicsBody.getShapeType.edgeMiddle | `1` | `2` | FAIL |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.edgeMiddle | `1` | `1` | PASS |
 | `physicsBody.getWidth` | physicsBody.getWidth.edgeEdited | `12.666667` | `12.000000` | FAIL |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.removed | `2` | `2` | PASS |
 | `physicsBody.getNumShapes` | physicsBody.getNumShapes.invalidRemove | `2` | `2` | PASS |
@@ -9138,7 +9138,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.getWidth` | physicsData.getWidth.dataCircle | `67.000000` | `10.000000` | FAIL |
 | `physicsData.getHeight` | physicsData.getHeight.dataCircle | `64.000000` | `10.000000` | FAIL |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.secondAfterCircle | `1` | `1` | PASS |
-| `physicsBody.getShapeType` | physicsBody.getShapeType.dataRect | `0` | `1` | FAIL |
+| `physicsBody.getShapeType` | physicsBody.getShapeType.dataRect | `0` | `0` | PASS |
 | `physicsData.getWidth` | physicsData.getWidth.dataRect | `67.000000` | `12.000000` | FAIL |
 | `physicsData.getHeight` | physicsData.getHeight.dataRect | `64.000000` | `6.000000` | FAIL |
 | `physicsBody.getShapeType` | physicsBody.getShapeType.secondAfterRect | `1` | `1` | PASS |
