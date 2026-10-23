@@ -179,10 +179,11 @@ int GM_CDECL gmf_FindCircleCircleIntersection(gmThread* a_thread) {
         r2 = radius2;
         out = output;
     } else {
+        // Retail scalar overload orders the second center X before radius 1.
         GM_FLOAT_OR_INT_PARAM(center1X, 0, 0.0f);
         GM_FLOAT_OR_INT_PARAM(center1Y, 1, 0.0f);
-        GM_FLOAT_OR_INT_PARAM(radius1, 2, 0.0f);
-        GM_FLOAT_OR_INT_PARAM(center2X, 3, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(center2X, 2, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(radius1, 3, 0.0f);
         GM_FLOAT_OR_INT_PARAM(center2Y, 4, 0.0f);
         GM_FLOAT_OR_INT_PARAM(radius2, 5, 0.0f);
         GM_CHECK_TABLE_PARAM(output, 6);

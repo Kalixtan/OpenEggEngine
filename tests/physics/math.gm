@@ -61,7 +61,7 @@ Probe("Global.MATHUTIL_FindCircleCircleIntersection.firstY",intersections.p1.y);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.secondX",intersections.p2.x);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.secondY",intersections.p2.y);
 local scalarIntersections=table();
-MATHUTIL_FindCircleCircleIntersection(0,0,5,6,0,5,scalarIntersections);
+MATHUTIL_FindCircleCircleIntersection(0,0,6,5,0,5,scalarIntersections);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.found",scalarIntersections.found);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.firstX",scalarIntersections.p1.x);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.firstY",scalarIntersections.p1.y);
