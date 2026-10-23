@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 10:36 UTC
+Generated: 2026-10-23 10:39 UTC
 
-Matched: **8625/8782 comparable readings (98.21%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8625/8781 comparable readings (98.22%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -491,7 +491,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Global.MATHUTIL_GetSignedAngleDistance` | 2 | 2 | PASS |
 | `Global.MATHUTIL_GetTrianglePercentage` | 5 | 5 | PASS |
 | `Global.MATHUTIL_Rotate` | 2 | 2 | PASS |
-| `Global.MATHUTIL_distance` | 0 | 1 | FAIL |
+| `Global.MATHUTIL_distance` | 0 | 1 | LOCAL-ONLY |
 | `Global.MATH_ABS` | 1 | 1 | PASS |
 | `Global.MATH_ACOS` | 1 | 1 | PASS |
 | `Global.MATH_ASIN` | 1 | 1 | PASS |
@@ -949,6 +949,7 @@ These extensions have no corresponding retail method and are excluded from the p
 | `physicsShape.getIsSensor` | bodyApi.physicsShape.getIsSensor | `null` | `1` | OpenEgg alias; retail exposes isSensor |
 | `physicsBody.isCircle` | physicsBody.isCircle.circle | `null` | `0` | OpenEgg convenience method; no retail method exists |
 | `physicsBody.isRect` | physicsBody.isRect.rect | `null` | `1` | OpenEgg convenience method; no retail method exists |
+| `Global.MATHUTIL_distance` | Global.MATHUTIL_distance.diagonal | `null` | `5.000000` | OpenEgg helper; no retail MathUtil symbol exists |
 | `physicsBody.setAsCircle` | physicsBody.setAsCircle.count | `None` | `1` | OpenEgg convenience method; no same-named retail method exists |
 | `physicsBody.setAsCircle` | physicsBody.setAsCircle.radius | `None` | `2.000000` | OpenEgg convenience method; no same-named retail method exists |
 | `physicsBody.setAsRect` | physicsBody.setAsRect.count | `None` | `1` | OpenEgg convenience method; no same-named retail method exists |
@@ -9454,7 +9455,6 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Global.MATHUTIL_GetAngleDistance` | Global.MATHUTIL_GetAngleDistance.wrap | `0.083186` | `0.083186` | PASS |
 | `Global.MATHUTIL_GetAngleDistancePositive` | Global.MATHUTIL_GetAngleDistancePositive.wrap | `0.083186` | `0.083186` | PASS |
 | `Global.MATHUTIL_GetAngleDistanceNegative` | Global.MATHUTIL_GetAngleDistanceNegative.wrap | `6.200000` | `6.200000` | PASS |
-| `Global.MATHUTIL_distance` | Global.MATHUTIL_distance.diagonal | `null` | `5.000000` | FAIL |
 | `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.x | `3.000000` | `3.000000` | PASS |
 | `Global.MATHUTIL_GetCentroid` | Global.MATHUTIL_GetCentroid.y | `1.500000` | `1.500000` | PASS |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.found | `1` | `1` | PASS |

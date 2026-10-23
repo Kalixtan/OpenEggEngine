@@ -755,6 +755,7 @@ BODY_COMMAND_EFFECTS = {
     "idle": (),
 }
 LOCAL_ONLY = {
+    "Global.MATHUTIL_distance": "OpenEgg helper; no retail MathUtil symbol exists",
     "physicsBody.isCircle": "OpenEgg convenience method; no retail method exists",
     "physicsBody.isRect": "OpenEgg convenience method; no retail method exists",
     "physicsBody.setAsCircle": "OpenEgg convenience method; no same-named retail method exists",
