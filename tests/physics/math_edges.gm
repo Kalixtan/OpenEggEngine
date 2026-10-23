@@ -47,15 +47,15 @@ Probe("Global.MATHUTIL_GetCentroid.emptyX",emptyCentroid.x);
 Probe("Global.MATHUTIL_GetCentroid.emptyY",emptyCentroid.y);
 
 local tangent=table();
-MATHUTIL_FindCircleCircleIntersection(vector2D(0,0),5,vector2D(10,0),5,tangent);
+MATHUTIL_FindCircleCircleIntersection(vector2D(0.0,0.0),5.0,vector2D(10.0,0.0),5.0,tangent);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.tangentFound",tangent.found);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.tangentX",tangent.p1.x);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.tangentY",tangent.p1.y);
 local concentric=table();
-MATHUTIL_FindCircleCircleIntersection(vector2D(0,0),5,vector2D(0,0),5,concentric);
+MATHUTIL_FindCircleCircleIntersection(vector2D(0.0,0.0),5.0,vector2D(0.0,0.0),5.0,concentric);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.concentricFound",concentric.found);
 local contained=table();
-MATHUTIL_FindCircleCircleIntersection(vector2D(0,0),5,vector2D(1,0),1,contained);
+MATHUTIL_FindCircleCircleIntersection(vector2D(0.0,0.0),5.0,vector2D(1.0,0.0),1.0,contained);
 Probe("Global.MATHUTIL_FindCircleCircleIntersection.containedFound",contained.found);
 
 local nearA=vector2D(0,0);

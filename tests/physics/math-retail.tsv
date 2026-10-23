@@ -1,19 +1,19 @@
-# probe-sha256 ff3386d9018903619674287e8a63d704c3db2d64c62aec9dca873d98044dec5e
+# probe-sha256 43ff6668256175dceea43b373981ee474f61ef54ed3100ed3bdbf685fed711a8
 Global.MATHUTIL_CalculateExponentialDecay.halfLife	0.367879
 Global.MATHUTIL_CalculateExponentialDecayReversed.halfLife	0.632121
 Global.MATHUTIL_CalculateExponentialGrowth.called	1
 Global.MATHUTIL_DEGTORAD.halfTurn	3.141593
-Global.MATHUTIL_FindCircleCircleIntersection.firstX	0.000000
-Global.MATHUTIL_FindCircleCircleIntersection.firstY	0.000000
-Global.MATHUTIL_FindCircleCircleIntersection.found	0
+Global.MATHUTIL_FindCircleCircleIntersection.firstX	3.000000
+Global.MATHUTIL_FindCircleCircleIntersection.firstY	4.000000
+Global.MATHUTIL_FindCircleCircleIntersection.found	1
 Global.MATHUTIL_FindCircleCircleIntersection.noHit	0
-Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.firstX	0.000000
-Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.firstY	1.000000
-Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.found	0
-Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.secondX	0.000000
-Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.secondY	3.000000
-Global.MATHUTIL_FindCircleCircleIntersection.secondX	0.000000
-Global.MATHUTIL_FindCircleCircleIntersection.secondY	-8715681792.000000
+Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.firstX	3.600000
+Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.firstY	4.800000
+Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.found	1
+Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.secondX	3.600000
+Global.MATHUTIL_FindCircleCircleIntersection.scalarArgs.secondY	-4.800000
+Global.MATHUTIL_FindCircleCircleIntersection.secondX	3.000000
+Global.MATHUTIL_FindCircleCircleIntersection.secondY	-4.000000
 Global.MATHUTIL_FindClosestPointOnLine.x	3.000000
 Global.MATHUTIL_FindClosestPointOnLine.y	0.000000
 Global.MATHUTIL_GETINRANGE.low	0.000000
