@@ -1572,7 +1572,16 @@ int GM_CDECL gmf_pb_setPolygonShapeVertices(gmThread* a_thread) {
     if (!fixture || fixture->GetShape()->GetType() != b2Shape::e_polygon)
         return GM_EXCEPTION;
     auto* polygon = static_cast<b2PolygonShape*>(fixture->GetShape());
+    b2MassData oldGeometryMass;
+    polygon->ComputeMass(&oldGeometryMass, fixture->GetDensity());
+    const float fixtureMass = oldGeometryMass.mass;
     SetRetailPolygonGeometry(polygon, vertices);
+    if (fixtureMass > 0.0f) {
+        b2MassData unitDensityMass;
+        polygon->ComputeMass(&unitDensityMass, 1.0f);
+        if (unitDensityMass.mass > 0.0f)
+            fixture->SetDensity(fixtureMass / unitDensityMass.mass);
+    }
     RefreshShapeAfterRetailEdit(body);
     return GM_OK;
 }
@@ -3739,8 +3748,9 @@ int GM_CDECL gmf_pd_setCollisionCategory(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(category, 0, 1);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) {
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(*a_thread->GetMachine(), bodyVar);
+        if (!b || !b->body) continue;
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
             b2Filter filter = DesiredFixtureFilter(b, f);
             filter.categoryBits = (uint16)category;
@@ -3754,8 +3764,9 @@ int GM_CDECL gmf_pd_setCategoriesToCollideWith(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(mask, 0, -1);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) {
+    for (const gmVariable& bodyVar : d->bodies) {
+        PhysicsBodyData* b = GetBodyData(*a_thread->GetMachine(), bodyVar);
+        if (!b || !b->body) continue;
         for (b2Fixture* f = b->body->GetFixtureList(); f; f = f->GetNext()) {
             b2Filter filter = DesiredFixtureFilter(b, f);
             filter.maskBits = (uint16)mask;

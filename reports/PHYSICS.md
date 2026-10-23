@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 20:46 UTC
+Generated: 2026-10-23 20:55 UTC
 
-Matched: **8636/8781 comparable readings (98.35%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8639/8781 comparable readings (98.38%)**. 30 inconclusive, 11 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -660,9 +660,9 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getAngularVel` | 1 | 1 | PASS |
 | `physicsBody.getBBox` | 1 | 1 | PASS |
 | `physicsBody.getBrakeAcc` | 1 | 1 | PASS |
-| `physicsBody.getCategoriesToCollideWith` | 77 | 78 | FAIL |
+| `physicsBody.getCategoriesToCollideWith` | 78 | 78 | PASS |
 | `physicsBody.getCenterOfMass` | 1 | 1 | PASS |
-| `physicsBody.getCollisionCategory` | 62 | 63 | FAIL |
+| `physicsBody.getCollisionCategory` | 63 | 63 | PASS |
 | `physicsBody.getCollisionGroup` | 58 | 58 | PASS |
 | `physicsBody.getDir` | 714 | 771 | FAIL |
 | `physicsBody.getDirRef` | 2 | 2 | PASS |
@@ -718,7 +718,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.putToSleep` | 2 | 2 | PASS |
 | `physicsBody.raycast` | 12 | 12 | PASS |
 | `physicsBody.raycastShapesOne` | 9 | 9 | PASS |
-| `physicsBody.rebuildBodyMass` | 1 | 2 | FAIL |
+| `physicsBody.rebuildBodyMass` | 2 | 2 | PASS |
 | `physicsBody.removeShape` | 2 | 2 | PASS |
 | `physicsBody.reverseThrust` | 288 | 288 | PASS |
 | `physicsBody.rotate` | 365 | 384 | FAIL |
@@ -9150,9 +9150,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.isSensor` | physicsBody.isSensor.resetFirst | `0` | `0` | PASS |
 | `physicsBody.isSensor` | physicsBody.isSensor.resetSecond | `0` | `0` | PASS |
 | `physicsBody.getCollisionCategory` | physicsBody.getCollisionCategory.first | `16` | `16` | PASS |
-| `physicsBody.getCollisionCategory` | physicsBody.getCollisionCategory.second | `16` | `1` | FAIL |
+| `physicsBody.getCollisionCategory` | physicsBody.getCollisionCategory.second | `16` | `16` | PASS |
 | `physicsBody.getCategoriesToCollideWith` | physicsBody.getCategoriesToCollideWith.first | `5` | `5` | PASS |
-| `physicsBody.getCategoriesToCollideWith` | physicsBody.getCategoriesToCollideWith.second | `5` | `65535` | FAIL |
+| `physicsBody.getCategoriesToCollideWith` | physicsBody.getCategoriesToCollideWith.second | `5` | `5` | PASS |
 | `physicsBody.getMaxSpeed` | physicsBody.getMaxSpeed.first | `9999999.000000` | `7.000000` | FAIL |
 | `physicsBody.getMaxSpeed` | physicsBody.getMaxSpeed.second | `9999999.000000` | `9999999.000000` | PASS |
 | `physicsBody.doesRotationResponse` | physicsBody.doesRotationResponse.disabledFirst | `1` | `1` | PASS |
@@ -9557,7 +9557,7 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.setPolygonShapeVertices` | physicsBody.setPolygonShapeVertices.width | `9.000000` | `9.000000` | PASS |
 | `physicsBody.setEdgeShapeVertex` | physicsBody.setEdgeShapeVertex.width | `14.000000` | `14.000000` | PASS |
 | `physicsBody.rebuildBodyMass` | physicsBody.rebuildBodyMass.mass | `16.000000` | `16.000000` | PASS |
-| `physicsBody.rebuildBodyMass` | physicsBody.rebuildBodyMass.after | `16.000000` | `31.500000` | FAIL |
+| `physicsBody.rebuildBodyMass` | physicsBody.rebuildBodyMass.after | `16.000000` | `16.000000` | PASS |
 | `physicsBody.removeShape` | physicsBody.removeShape.count | `2` | `2` | PASS |
 | `physicsBody.removeShape` | physicsBody.removeShape.invalidCount | `2` | `2` | PASS |
 | `physicsBody.putToSleep` | physicsBody.putToSleep.sleeping | `0.000000` | `0.000000` | PASS |
