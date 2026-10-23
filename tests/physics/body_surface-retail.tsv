@@ -1,0 +1,22 @@
+# probe-sha256 064a1b4e841970a7df2449bd749f5d5c0636d2b15f875a5a46c209a7886362de
+# support-sha256 EntityQueryProbeEntity.gm 1eca8f2cad20bab59514371799dd60f29cfa6fb132b69852b6e5a56bfca23d7f
+physicsBody.getBBox.null	null
+physicsBody.getDirRef.x	1.000000
+physicsBody.getDirRef.y	0.000000
+physicsBody.getDirty.aabbAfterMove	516.989990
+physicsBody.getDirty.aabbBefore	496.989990
+physicsBody.getDirty.noResult	null
+physicsBody.getShape.noResult	null
+physicsBody.putToSleep.sleeping	0.000000
+physicsBody.putToSleep.velocityX	2.000000
+physicsBody.rebuildBodyMass.after	16.000000
+physicsBody.rebuildBodyMass.mass	16.000000
+physicsBody.removeShape.count	2
+physicsBody.removeShape.invalidCount	2
+physicsBody.setDoesRotationResponse.off	1
+physicsBody.setDoesRotationResponse.on	1
+physicsBody.setEdgeShapeVertex.width	14.000000
+physicsBody.setIsUsingContinuousPhysics.off	0.000000
+physicsBody.setIsUsingContinuousPhysics.on	0.000000
+physicsBody.setPolygonShapeVertices.count	3
+physicsBody.setPolygonShapeVertices.width	9.000000

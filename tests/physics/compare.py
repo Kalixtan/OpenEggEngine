@@ -128,6 +128,9 @@ MATH_BASELINE = HERE / "math-retail.tsv"
 MATH_EDGES_PROBE = HERE / "math_edges.gm"
 MATH_EDGES_BASELINE = HERE / "math_edges-retail.tsv"
 MATH_EDGES_PLAN = HERE / "math_edges-plan.json"
+BODY_SURFACE = HERE / "body_surface.gm"
+BODY_SURFACE_BASELINE = HERE / "body_surface-retail.tsv"
+BODY_SURFACE_SUPPORT = (HERE / "EntityQueryProbeEntity.gm",)
 CONTACT_SUPPORT = HERE / "ProbeContactEntity.gm"
 ENTITY_LIFECYCLE_SUPPORT = HERE / "LifecycleProbeEntity.gm"
 REPORT = ROOT / "reports" / "PHYSICS.md"
@@ -1080,7 +1083,9 @@ def main():
                                             (ENTITY_QUERIES_SUPPORT,)),
                                            (MATH_PROBE, MATH_BASELINE, None, ()),
                                            (MATH_EDGES_PROBE, MATH_EDGES_BASELINE,
-                                            MATH_EDGES_PLAN, ())):
+                                            MATH_EDGES_PLAN, ()),
+                                           (BODY_SURFACE, BODY_SURFACE_BASELINE, None,
+                                            BODY_SURFACE_SUPPORT)):
         declared = expected_readings(probe, plan)
         plan_data = json.loads(plan.read_text()) if plan else {}
         awaiting_retail = set(plan_data.get("awaitingRetail", []))

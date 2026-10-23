@@ -1,0 +1,72 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameSystem.setIsShouldUpdateEntities(0);
+GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+
+local entity=EntityManager.createEntity("EntityQueryProbeEntity");
+local data=entity.getPhysicsData();
+local body=data.getBody(data.createBody());
+body.setPos(vector2D(500,500));
+local shapes=PHYSICSSHAPECOLLECTIONDEF();
+shapes.setMass(1);
+local poly=table();
+poly[0]=vector2D(-2,-2); poly[1]=vector2D(2,-2);
+poly[2]=vector2D(2,2); poly[3]=vector2D(-2,2);
+shapes.addPolygon(poly,4);
+body.appendShapes(shapes);
+shapes.reset();
+local edge=table(); edge[0]=vector2D(-3,0); edge[1]=vector2D(3,0);
+shapes.addEdges(edge,2,0);
+body.appendShapes(shapes);
+entity.setIsEnabled(1);
+EntityManager.flush();
+
+Probe("physicsBody.getBBox.null",body.getBBox());
+Probe("physicsBody.getShape.noResult",body.getShape());
+Probe("physicsBody.getDirty.noResult",body.getDirty());
+local aabb=body.getAABB();
+Probe("physicsBody.getDirty.aabbBefore",aabb.minx);
+body.setPos(vector2D(520,500));
+body.getDirty();
+aabb=body.getAABB();
+Probe("physicsBody.getDirty.aabbAfterMove",aabb.minx);
+local dir=body.getDirRef();
+Probe("physicsBody.getDirRef.x",dir.x);
+Probe("physicsBody.getDirRef.y",dir.y);
+
+body.setDoesRotationResponse(0);
+Probe("physicsBody.setDoesRotationResponse.off",body.doesRotationResponse());
+body.setDoesRotationResponse(1);
+Probe("physicsBody.setDoesRotationResponse.on",body.doesRotationResponse());
+body.setIsUsingContinuousPhysics(1);
+Probe("physicsBody.setIsUsingContinuousPhysics.on",body.isBullet());
+body.setIsUsingContinuousPhysics(0);
+Probe("physicsBody.setIsUsingContinuousPhysics.off",body.isBullet());
+
+local edited=table();
+edited[0]=vector2D(-4,-1); edited[1]=vector2D(5,-1);
+edited[2]=vector2D(0,6);
+body.setPolygonShapeVertices(0,edited,3);
+Probe("physicsBody.setPolygonShapeVertices.count",body.getNumShapeVerts(0));
+Probe("physicsBody.setPolygonShapeVertices.width",body.getWidth());
+body.setEdgeShapeVertex(1,vector2D(-7,0),vector2D(7,0));
+Probe("physicsBody.setEdgeShapeVertex.width",body.getWidth());
+Probe("physicsBody.rebuildBodyMass.mass",body.getMass());
+body.rebuildBodyMass();
+Probe("physicsBody.rebuildBodyMass.after",body.getMass());
+body.removeShape(1);
+Probe("physicsBody.removeShape.count",body.getNumShapes());
+body.removeShape(100);
+Probe("physicsBody.removeShape.invalidCount",body.getNumShapes());
+
+body.setAllowSleeping(1);
+body.setVel(vector2D(2,0));
+body.putToSleep();
+Probe("physicsBody.putToSleep.sleeping",body.isSleeping());
+local sleepVel=body.getVel();
+Probe("physicsBody.putToSleep.velocityX",sleepVel.x);
+
+global Main=function(p) {
+    return table(Process=p,constructor=function(){},init=function(){return true;},update=function(){});
+};

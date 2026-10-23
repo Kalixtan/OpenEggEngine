@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-23 00:06 UTC
+Generated: 2026-10-23 00:08 UTC
 
-Matched: **8115/8251 comparable readings (98.35%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8130/8271 comparable readings (98.30%)**. 29 inconclusive, 5 local-only, and 5 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **437/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **448/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -658,15 +658,15 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.dummy` | 0 | 0 | untested |
 | `physicsBody.getAABB` | 8 | 8 | PASS |
 | `physicsBody.getAngularVel` | 1 | 1 | PASS |
-| `physicsBody.getBBox` | 0 | 0 | untested |
+| `physicsBody.getBBox` | 1 | 1 | PASS |
 | `physicsBody.getBrakeAcc` | 1 | 1 | PASS |
 | `physicsBody.getCategoriesToCollideWith` | 77 | 78 | FAIL |
 | `physicsBody.getCenterOfMass` | 1 | 1 | PASS |
 | `physicsBody.getCollisionCategory` | 62 | 63 | FAIL |
 | `physicsBody.getCollisionGroup` | 58 | 58 | PASS |
 | `physicsBody.getDir` | 714 | 771 | FAIL |
-| `physicsBody.getDirRef` | 0 | 0 | untested |
-| `physicsBody.getDirty` | 0 | 0 | untested |
+| `physicsBody.getDirRef` | 2 | 2 | PASS |
+| `physicsBody.getDirty` | 3 | 3 | PASS |
 | `physicsBody.getEntity` | 2 | 2 | PASS |
 | `physicsBody.getFriction` | 1 | 1 | PASS |
 | `physicsBody.getHeight` | 5 | 6 | FAIL |
@@ -685,7 +685,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.getRestitution` | 1 | 1 | PASS |
 | `physicsBody.getRotateAcc` | 1 | 1 | PASS |
 | `physicsBody.getRotateVel` | 386 | 386 | PASS |
-| `physicsBody.getShape` | 0 | 0 | untested |
+| `physicsBody.getShape` | 1 | 1 | PASS |
 | `physicsBody.getShapeCategoriesToCollideWith` | 3 | 5 | AWAITING RETAIL |
 | `physicsBody.getShapeHeight` | 2 | 2 | PASS |
 | `physicsBody.getShapeIndex` | 1 | 1 | PASS |
@@ -715,11 +715,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.isSensor` | 12 | 12 | PASS |
 | `physicsBody.isShapeSensor` | 3 | 3 | PASS |
 | `physicsBody.isSleeping` | 289 | 290 | AWAITING RETAIL |
-| `physicsBody.putToSleep` | 0 | 0 | untested |
+| `physicsBody.putToSleep` | 0 | 2 | FAIL |
 | `physicsBody.raycast` | 12 | 12 | PASS |
 | `physicsBody.raycastShapesOne` | 9 | 9 | PASS |
-| `physicsBody.rebuildBodyMass` | 0 | 0 | untested |
-| `physicsBody.removeShape` | 0 | 0 | untested |
+| `physicsBody.rebuildBodyMass` | 1 | 2 | FAIL |
+| `physicsBody.removeShape` | 2 | 2 | PASS |
 | `physicsBody.reverseThrust` | 288 | 288 | PASS |
 | `physicsBody.rotate` | 365 | 384 | FAIL |
 | `physicsBody.rotateLeft` | 365 | 384 | FAIL |
@@ -734,20 +734,20 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setCollisionCategory` | 1 | 1 | PASS |
 | `physicsBody.setCollisionGroup` | 1 | 1 | PASS |
 | `physicsBody.setDir` | 2 | 2 | PASS |
-| `physicsBody.setDoesRotationResponse` | 0 | 0 | untested |
-| `physicsBody.setEdgeShapeVertex` | 0 | 0 | untested |
+| `physicsBody.setDoesRotationResponse` | 1 | 2 | FAIL |
+| `physicsBody.setEdgeShapeVertex` | 1 | 1 | PASS |
 | `physicsBody.setFriction` | 1 | 1 | PASS |
 | `physicsBody.setIsBullet` | 1 | 1 | PASS |
 | `physicsBody.setIsCollidable` | 1 | 1 | PASS |
 | `physicsBody.setIsSensor` | 1 | 1 | PASS |
 | `physicsBody.setIsShapeSensor` | 8 | 8 | PASS |
-| `physicsBody.setIsUsingContinuousPhysics` | 0 | 0 | untested |
+| `physicsBody.setIsUsingContinuousPhysics` | 1 | 2 | FAIL |
 | `physicsBody.setMass` | 1 | 1 | PASS |
 | `physicsBody.setMaxRotateSpeed` | 1672 | 1729 | FAIL |
 | `physicsBody.setMaxRotationDecayRate` | 288 | 288 | PASS |
 | `physicsBody.setMaxSpeed` | 289 | 289 | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | 0 | 0 | untested |
-| `physicsBody.setPolygonShapeVertices` | 0 | 0 | untested |
+| `physicsBody.setPolygonShapeVertices` | 2 | 2 | PASS |
 | `physicsBody.setPos` | 1 | 1 | PASS |
 | `physicsBody.setRestitution` | 1 | 1 | PASS |
 | `physicsBody.setRotateAcc` | 1383 | 1440 | FAIL |
@@ -9216,3 +9216,23 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `vector2D.vectorProjectOnto` | vector2D.vectorProjectOnto.zeroX | `0.000000` | `0.000000` | PASS |
 | `vector2D.vectorProjectOnto` | vector2D.vectorProjectOnto.zeroY | `0.000000` | `0.000000` | PASS |
 | `vector2D.distance` | vector2D.distance.zero | `0.000000` | `0.000000` | PASS |
+| `physicsBody.getBBox` | physicsBody.getBBox.null | `null` | `null` | PASS |
+| `physicsBody.getShape` | physicsBody.getShape.noResult | `null` | `null` | PASS |
+| `physicsBody.getDirty` | physicsBody.getDirty.noResult | `null` | `null` | PASS |
+| `physicsBody.getDirty` | physicsBody.getDirty.aabbBefore | `496.989990` | `496.989990` | PASS |
+| `physicsBody.getDirty` | physicsBody.getDirty.aabbAfterMove | `516.989990` | `516.989990` | PASS |
+| `physicsBody.getDirRef` | physicsBody.getDirRef.x | `1.000000` | `1.000000` | PASS |
+| `physicsBody.getDirRef` | physicsBody.getDirRef.y | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setDoesRotationResponse` | physicsBody.setDoesRotationResponse.off | `1` | `0` | FAIL |
+| `physicsBody.setDoesRotationResponse` | physicsBody.setDoesRotationResponse.on | `1` | `1` | PASS |
+| `physicsBody.setIsUsingContinuousPhysics` | physicsBody.setIsUsingContinuousPhysics.on | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.setIsUsingContinuousPhysics` | physicsBody.setIsUsingContinuousPhysics.off | `0.000000` | `0.000000` | PASS |
+| `physicsBody.setPolygonShapeVertices` | physicsBody.setPolygonShapeVertices.count | `3` | `3` | PASS |
+| `physicsBody.setPolygonShapeVertices` | physicsBody.setPolygonShapeVertices.width | `9.000000` | `9.000000` | PASS |
+| `physicsBody.setEdgeShapeVertex` | physicsBody.setEdgeShapeVertex.width | `14.000000` | `14.000000` | PASS |
+| `physicsBody.rebuildBodyMass` | physicsBody.rebuildBodyMass.mass | `16.000000` | `16.000000` | PASS |
+| `physicsBody.rebuildBodyMass` | physicsBody.rebuildBodyMass.after | `16.000000` | `31.500000` | FAIL |
+| `physicsBody.removeShape` | physicsBody.removeShape.count | `2` | `2` | PASS |
+| `physicsBody.removeShape` | physicsBody.removeShape.invalidCount | `2` | `2` | PASS |
+| `physicsBody.putToSleep` | physicsBody.putToSleep.sleeping | `0.000000` | `1.000000` | FAIL |
+| `physicsBody.putToSleep` | physicsBody.putToSleep.velocityX | `2.000000` | `0.000000` | FAIL |
