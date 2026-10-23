@@ -92,9 +92,10 @@
 
 /// The maximum linear translation of a body per step. This limit is very large and is used
 /// to prevent numerical problems. You shouldn't need to adjust this. Meters.
-// Retail moves a body 33.333 units in one 60 Hz tick in the paired probe.
-// Stock Box2D's 2-unit guard would silently reduce its velocity.
-#define b2_maxTranslation			(100.0f * b2_lengthUnitsPerMeter)
+// GameEngine3 velocities use units per millisecond. A retail speed of 10
+// travels 166.7 units in one 60 Hz tick, so Box2D's stock 100-unit limit
+// would silently reduce it. Keep the guard above ordinary game movement.
+#define b2_maxTranslation			(10000.0f * b2_lengthUnitsPerMeter)
 #define b2_maxTranslationSquared	(b2_maxTranslation * b2_maxTranslation)
 
 /// The maximum angular velocity of a body. This limit is very large and is used

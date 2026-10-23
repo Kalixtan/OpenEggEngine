@@ -6,7 +6,8 @@ global MakeBody=function(x,rate,maxDecay,maxSpeed) {
     local e=EntityManager.createEntity();
     local data=e.getPhysicsData();
     local body=data.getBody(data.createBody());
-    body.setPos(vector2D(x,500));
+    // Keep independent movement cases apart so they cannot collide.
+    body.setPos(vector2D(x,500+x*2));
     Shapes.reset();
     Shapes.setMass(1);
     Shapes.addCircle(1,0,0);

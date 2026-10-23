@@ -4450,6 +4450,7 @@ void StepPhysicsBodyMovement(float a_dt) {
             if (b->brakeFlag)
                 adjustedSpeed = std::fma(-b->brakeAcc, a_dt, adjustedSpeed);
             adjustedSpeed = std::max(adjustedSpeed, 0.0f);
+            adjustedSpeed = std::min(adjustedSpeed, b->maxSpeed);
             if (speed == 0.0f) {
                 velocityX = 0.0f;
                 velocityY = 0.0f;

@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 09:57 UTC
+Generated: 2026-10-23 10:11 UTC
 
-Matched: **8545/8775 comparable readings (97.38%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8613/8775 comparable readings (98.15%)**. 30 inconclusive, 10 local-only, and 7 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -746,7 +746,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setMaxRotateSpeed` | 1672 | 1729 | FAIL |
 | `physicsBody.setMaxRotationDecayRate` | 288 | 288 | PASS |
 | `physicsBody.setMaxSpeed` | 289 | 289 | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | 14 | 32 | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | 32 | 32 | PASS |
 | `physicsBody.setPolygonShapeVertices` | 2 | 2 | PASS |
 | `physicsBody.setPos` | 1 | 1 | PASS |
 | `physicsBody.setRestitution` | 1 | 1 | PASS |
@@ -758,7 +758,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsBody.setSpeed` | 1 | 1 | PASS |
 | `physicsBody.setThrustAcc` | 288 | 288 | PASS |
 | `physicsBody.setVel` | 292 | 292 | PASS |
-| `physicsBody.setVelocityDecayRate` | 21 | 48 | FAIL |
+| `physicsBody.setVelocityDecayRate` | 48 | 48 | PASS |
 | `physicsBody.stopRotatingTo` | 288 | 288 | PASS |
 | `physicsBody.thrust` | 288 | 288 | PASS |
 | `physicsData.appendShapes` | 7 | 7 | PASS |
@@ -824,11 +824,11 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.setMaxRotateSpeed` | 1 | 1 | PASS |
 | `physicsData.setMaxRotationDecayRate` | 25 | 25 | PASS |
 | `physicsData.setMaxSpeed` | 0 | 1 | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | 11 | 25 | FAIL |
+| `physicsData.setMaxVelocityDecayRate` | 25 | 25 | PASS |
 | `physicsData.setPos` | 2 | 2 | PASS |
 | `physicsData.setRestitution` | 0 | 1 | FAIL |
 | `physicsData.setRotateAcc` | 1 | 1 | PASS |
-| `physicsData.setRotationDecayRate` | 13 | 25 | FAIL |
+| `physicsData.setRotationDecayRate` | 22 | 25 | FAIL |
 | `physicsData.setSpeed` | 1 | 1 | PASS |
 | `physicsData.setThrustAcc` | 0 | 1 | FAIL |
 | `physicsData.setVel` | 3 | 3 | PASS |
@@ -9325,14 +9325,14 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t0.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t0.rotateVel | `3.000000` | `3.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t0.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.vx | `10.000000` | `8.464817` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.speed | `10.000000` | `8.464817` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t1.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.vx | `10.000000` | `10.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.speed | `10.000000` | `6.000000` | FAIL |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.speed | `10.000000` | `10.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t1.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t1.vx | `0.000000` | `0.000000` | PASS |
@@ -9345,60 +9345,60 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t1.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t1.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t1.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.vx | `10.000000` | `5.078890` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.vx | `10.000000` | `7.165313` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.speed | `10.000000` | `5.078890` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.speed | `10.000000` | `7.165313` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t2.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.vx | `10.000000` | `3.000000` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.vy | `0.000000` | `-0.013307` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.speed | `10.000000` | `3.000030` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.rotateVel | `0.000000` | `-0.026549` | FAIL |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.vx | `10.000000` | `10.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.speed | `10.000000` | `10.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t2.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.vx | `0.000000` | `3.000000` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.vy | `0.000000` | `0.013307` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.speed | `0.000000` | `3.000030` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.rotateVel | `0.094248` | `0.053234` | FAIL |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.rotateVel | `0.094248` | `0.079779` | FAIL |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t2.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t2.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.vx | `10.000000` | `4.299188` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.vx | `10.000000` | `6.065307` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.speed | `10.000000` | `4.299188` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.speed | `10.000000` | `6.065307` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t3.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.vx | `10.000000` | `3.000000` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.vy | `0.000000` | `-0.013307` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.speed | `10.000000` | `3.000030` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.rotateVel | `0.000000` | `-0.026549` | FAIL |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.vx | `10.000000` | `10.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.speed | `10.000000` | `10.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t3.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.vx | `0.000000` | `3.000000` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.vy | `0.000000` | `0.013307` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.speed | `0.000000` | `3.000030` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.rotateVel | `0.094248` | `0.045061` | FAIL |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.rotateVel | `0.094248` | `0.067531` | FAIL |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t3.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.speed | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t3.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.vx | `10.000000` | `3.639184` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.vx | `10.000000` | `5.134171` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.vy | `0.000000` | `0.000000` | PASS |
-| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.speed | `10.000000` | `3.639184` | FAIL |
+| `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.speed | `10.000000` | `5.134171` | FAIL |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t4.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.vx | `10.000000` | `3.000000` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.vy | `0.000000` | `-0.013307` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.speed | `10.000000` | `3.000030` | FAIL |
-| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.rotateVel | `0.000000` | `-0.026549` | FAIL |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.vx | `10.000000` | `10.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.speed | `10.000000` | `10.000000` | PASS |
+| `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.rotateVel | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxVelocityDecayRate` | physicsData.setMaxVelocityDecayRate.t4.sleeping | `0.000000` | `0.000000` | PASS |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.vx | `0.000000` | `3.000000` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.vy | `0.000000` | `0.013307` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.speed | `0.000000` | `3.000030` | FAIL |
-| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.rotateVel | `0.094248` | `0.038144` | FAIL |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.vx | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.vy | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.speed | `0.000000` | `0.000000` | PASS |
+| `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.rotateVel | `0.094248` | `0.057164` | FAIL |
 | `physicsData.setRotationDecayRate` | physicsData.setRotationDecayRate.t4.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t4.vx | `0.000000` | `0.000000` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t4.vy | `0.000000` | `0.000000` | PASS |
@@ -9575,66 +9575,66 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t0.vx | `10.000000` | `10.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t0.vy | `0.000000` | `0.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t0.speed | `10.000000` | `10.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.x | `166.666656` | `100.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.x | `166.666656` | `166.666656` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.vx | `10.000000` | `10.000000` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.speed | `10.000000` | `6.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.x | `241.080276` | `200.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.vx | `8.464817` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t1.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.x | `241.080276` | `241.080276` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.vx | `8.464817` | `8.464817` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.speed | `8.464817` | `6.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.x | `366.666656` | `300.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t1.speed | `8.464817` | `8.464817` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.x | `366.666656` | `366.666656` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.vx | `10.000000` | `10.000000` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.speed | `10.000000` | `6.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.x | `383.333344` | `400.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t1.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.x | `383.333344` | `383.333344` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.vx | `5.000000` | `5.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.speed | `5.000000` | `6.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.x | `483.333344` | `500.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t1.speed | `5.000000` | `5.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.x | `483.333344` | `483.333344` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.vx | `5.000000` | `5.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.speed | `5.000000` | `6.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.x | `333.333313` | `200.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t1.speed | `5.000000` | `5.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.x | `333.333313` | `333.333313` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.vx | `10.000000` | `10.000000` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.speed | `10.000000` | `6.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.x | `360.502167` | `284.648163` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.vx | `7.165313` | `5.078890` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t2.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.x | `360.502167` | `360.502167` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.vx | `7.165313` | `7.165313` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.speed | `7.165313` | `5.078890` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.x | `533.333313` | `400.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t2.speed | `7.165313` | `7.165313` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.x | `533.333313` | `533.333313` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.vx | `10.000000` | `10.000000` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.speed | `10.000000` | `6.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.x | `466.666687` | `491.666656` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.vx | `5.000000` | `5.500000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t2.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.x | `466.666687` | `466.666687` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.vx | `5.000000` | `5.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.speed | `5.000000` | `5.500000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.x | `566.666687` | `600.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t2.speed | `5.000000` | `5.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.x | `566.666687` | `566.666687` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.vx | `5.000000` | `5.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.speed | `5.000000` | `6.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.x | `499.999969` | `300.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t2.speed | `5.000000` | `5.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.x | `499.999969` | `499.999969` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.vx | `10.000000` | `10.000000` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.speed | `10.000000` | `6.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.x | `461.590607` | `356.301300` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.vx | `6.065307` | `4.299188` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.none.t3.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.x | `461.590607` | `461.590607` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.vx | `6.065307` | `6.065307` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.speed | `6.065307` | `4.299188` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.x | `700.000000` | `500.000000` | FAIL |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.vx | `10.000000` | `6.000000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.normal.t3.speed | `6.065307` | `6.065307` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.x | `700.000000` | `700.000000` | PASS |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.vx | `10.000000` | `10.000000` | PASS |
 | `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.speed | `10.000000` | `6.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.x | `550.000000` | `579.166626` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.vx | `5.000000` | `5.250000` | FAIL |
+| `physicsBody.setVelocityDecayRate` | physicsBody.setVelocityDecayRate.negative.t3.speed | `10.000000` | `10.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.x | `550.000000` | `550.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.vx | `5.000000` | `5.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.speed | `5.000000` | `5.250000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.x | `650.000000` | `700.000000` | FAIL |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.vx | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.half.t3.speed | `5.000000` | `5.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.x | `650.000000` | `650.000000` | PASS |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.vx | `5.000000` | `5.000000` | PASS |
 | `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.vy | `0.000000` | `0.000000` | PASS |
-| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.speed | `5.000000` | `6.000000` | FAIL |
+| `physicsBody.setMaxVelocityDecayRate` | physicsBody.setMaxVelocityDecayRate.one.t3.speed | `5.000000` | `5.000000` | PASS |
 | `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t0.aX | `0.000000` | `0.000000` | PASS |
 | `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t0.bX | `4.000000` | `4.000000` | PASS |
 | `shapeCollisionInfo.disableContact` | shapeCollisionInfo.disableContact.t0.aVX | `1.000000` | `1.000000` | PASS |
