@@ -159,15 +159,41 @@ int GM_CDECL gmf_distance(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_FindCircleCircleIntersection(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(5);
-    float c1x, c1y, c2x, c2y;
-    if (!ReadVec2(a_thread, 0, c1x, c1y) || !ReadVec2(a_thread, 2, c2x, c2y)) {
-        GM_EXCEPTION_MSG("MATHUTIL_FindCircleCircleIntersection: expecting vector2D params");
+    const int paramCount = a_thread->GetNumParams();
+    if (paramCount != 5 && paramCount != 7) {
+        GM_EXCEPTION_MSG("MATHUTIL_FindCircleCircleIntersection: expecting 5 or 7 params");
         return GM_EXCEPTION;
     }
-    GM_FLOAT_OR_INT_PARAM(r1, 1, 0.0f);
-    GM_FLOAT_OR_INT_PARAM(r2, 3, 0.0f);
-    GM_CHECK_TABLE_PARAM(out, 4);
+    float c1x, c1y, c2x, c2y;
+    float r1, r2;
+    gmTableObject* out;
+    if (paramCount == 5) {
+        if (!ReadVec2(a_thread, 0, c1x, c1y) || !ReadVec2(a_thread, 2, c2x, c2y)) {
+            GM_EXCEPTION_MSG("MATHUTIL_FindCircleCircleIntersection: expecting vector2D params");
+            return GM_EXCEPTION;
+        }
+        GM_FLOAT_OR_INT_PARAM(radius1, 1, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(radius2, 3, 0.0f);
+        GM_CHECK_TABLE_PARAM(output, 4);
+        r1 = radius1;
+        r2 = radius2;
+        out = output;
+    } else {
+        GM_FLOAT_OR_INT_PARAM(center1X, 0, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(center1Y, 1, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(radius1, 2, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(center2X, 3, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(center2Y, 4, 0.0f);
+        GM_FLOAT_OR_INT_PARAM(radius2, 5, 0.0f);
+        GM_CHECK_TABLE_PARAM(output, 6);
+        c1x = center1X;
+        c1y = center1Y;
+        c2x = center2X;
+        c2y = center2Y;
+        r1 = radius1;
+        r2 = radius2;
+        out = output;
+    }
 
     float dx = c2x - c1x, dy = c2y - c1y;
     float d = std::sqrt(dx * dx + dy * dy);
