@@ -1,0 +1,42 @@
+{
+  "prefix": "physicsData",
+  "frames": 5,
+  "scenes": {
+    "setVelocityDecayRate": [
+      "vx",
+      "vy",
+      "speed",
+      "rotateVel",
+      "sleeping"
+    ],
+    "setMaxVelocityDecayRate": [
+      "vx",
+      "vy",
+      "speed",
+      "rotateVel",
+      "sleeping"
+    ],
+    "setRotationDecayRate": [
+      "vx",
+      "vy",
+      "speed",
+      "rotateVel",
+      "sleeping"
+    ],
+    "setMaxRotationDecayRate": [
+      "vx",
+      "vy",
+      "speed",
+      "rotateVel",
+      "sleeping"
+    ]
+  },
+  "extra": [
+    "physicsData.setVisibilityAABBScale.called",
+    "physicsData.setAllowSleeping.awake",
+    "physicsData.isSleeping.asleep",
+    "physicsData.isSleeping.awake",
+    "physicsData.getDir.x",
+    "physicsData.getDir.y"
+  ]
+}

@@ -1,0 +1,84 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("EntityQueryProbeEntity.gm");
+GameSystem.setIsShouldUpdateEntities(0);
+global Shapes=PHYSICSSHAPECOLLECTIONDEF();
+global MakeBody=function(x) {
+    local entity=EntityManager.createEntity("EntityQueryProbeEntity");
+    local data=entity.getPhysicsData();
+    local body=data.getBody(data.createBody());
+    body.setPos(vector2D(x,500));
+    Shapes.reset();
+    Shapes.setMass(1);
+    Shapes.addCircle(1,0,0);
+    data.appendShapes(0,Shapes);
+    entity.setIsEnabled(1);
+    return table(entity=entity,data=data,body=body);
+};
+global Sample=function(method,tick,body) {
+    local prefix="physicsData."+method+".t"+tick+".";
+    local velocity=body.getVel();
+    Probe(prefix+"vx",velocity.x);
+    Probe(prefix+"vy",velocity.y);
+    Probe(prefix+"speed",body.getSpeed());
+    Probe(prefix+"rotateVel",body.getRotateVel());
+    Probe(prefix+"sleeping",body.isSleeping());
+};
+
+global Main=function(p) {
+    return table(Process=p,frame=0,constructor=function(){},init=function(){return true;},
+        update=function() {
+            if (this.frame==0) {
+                this.decay=MakeBody(1000);
+                this.cap=MakeBody(1200);
+                this.rotation=MakeBody(1400);
+                this.maxRotation=MakeBody(1600);
+                this.sleep=MakeBody(1800);
+                EntityManager.flush();
+
+                this.decay.body.setMaxSpeed(100);
+                this.decay.body.setVel(vector2D(10,0));
+                this.decay.data.setVelocityDecayRate(0.01);
+
+                this.cap.body.setMaxSpeed(10);
+                this.cap.body.setVel(vector2D(20,0));
+                this.cap.data.setVelocityDecayRate(0);
+                this.cap.data.setMaxVelocityDecayRate(1);
+
+                this.rotation.body.setMaxRotateSpeed(100);
+                this.rotation.body.setRotateVel(2);
+                this.rotation.data.setRotationDecayRate(0.01);
+
+                this.maxRotation.body.setMaxRotateSpeed(1);
+                this.maxRotation.body.setRotateVel(3);
+                this.maxRotation.data.setRotationDecayRate(0);
+                this.maxRotation.data.setMaxRotationDecayRate(1);
+
+                this.sleep.body.setVel(vector2D(2,0));
+                this.sleep.data.setAllowSleeping(1);
+                this.sleep.data.putToSleep();
+
+                this.decay.data.setVisibilityAABBScale(2,3);
+                Probe("physicsData.setVisibilityAABBScale.called",1);
+                this.sleep.data.wakeUp();
+                Probe("physicsData.setAllowSleeping.awake",this.sleep.data.isSleeping());
+                this.sleep.data.putToSleep();
+                Probe("physicsData.isSleeping.asleep",this.sleep.data.isSleeping());
+                this.sleep.data.wakeUp();
+                Probe("physicsData.isSleeping.awake",this.sleep.data.isSleeping());
+
+                this.rotation.data.setDir(vector2D(0,1));
+                local dir=this.rotation.data.getDir();
+                Probe("physicsData.getDir.x",dir.x);
+                Probe("physicsData.getDir.y",dir.y);
+            }
+            if (this.frame<5) {
+                Sample("setVelocityDecayRate",this.frame,this.decay.body);
+                Sample("setMaxVelocityDecayRate",this.frame,this.cap.body);
+                Sample("setRotationDecayRate",this.frame,this.rotation.body);
+                Sample("setMaxRotationDecayRate",this.frame,this.maxRotation.body);
+            }
+            this.frame+=1;
+        });
+};

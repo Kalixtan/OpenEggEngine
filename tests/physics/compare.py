@@ -123,6 +123,9 @@ DATA_COMMANDS_PLAN = HERE / "data_commands-plan.json"
 DATA_SETTINGS = HERE / "data_settings.gm"
 DATA_SETTINGS_BASELINE = HERE / "data_settings-retail.tsv"
 DATA_SETTINGS_PLAN = HERE / "data_settings-plan.json"
+DATA_DYNAMICS = HERE / "data_dynamics.gm"
+DATA_DYNAMICS_BASELINE = HERE / "data_dynamics-retail.tsv"
+DATA_DYNAMICS_PLAN = HERE / "data_dynamics-plan.json"
 MATH_PROBE = HERE / "math.gm"
 MATH_BASELINE = HERE / "math-retail.tsv"
 MATH_EDGES_PROBE = HERE / "math_edges.gm"
@@ -1080,6 +1083,9 @@ def main():
                                             (ENTITY_QUERIES_SUPPORT,)),
                                            (DATA_SETTINGS, DATA_SETTINGS_BASELINE,
                                             DATA_SETTINGS_PLAN,
+                                            (ENTITY_QUERIES_SUPPORT,)),
+                                           (DATA_DYNAMICS, DATA_DYNAMICS_BASELINE,
+                                            DATA_DYNAMICS_PLAN,
                                             (ENTITY_QUERIES_SUPPORT,)),
                                            (MATH_PROBE, MATH_BASELINE, None, ()),
                                            (MATH_EDGES_PROBE, MATH_EDGES_BASELINE,
