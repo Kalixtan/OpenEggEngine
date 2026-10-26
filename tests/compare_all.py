@@ -13,6 +13,9 @@ def main():
         ("sequencer", [sys.executable, str(ROOT / "tests/compare_probe.py")]),
         ("physics", [sys.executable, str(ROOT / "tests/physics/compare.py")]),
         ("audio", [sys.executable, str(ROOT / "tests/audio/compare.py")]),
+        ("runtime", [sys.executable, str(ROOT / "tests/run.py"),
+                      "--suite", "runtime", "--report", str(ROOT / "reports/RUNTIME.md"),
+                      "--json", str(ROOT / "tests/_results/runtime.json")]),
     )
     failed = []
     for section, command in commands:

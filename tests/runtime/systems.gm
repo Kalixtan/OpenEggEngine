@@ -1,0 +1,185 @@
+global Check=function(name,ok) {
+    if (ok) { GameSystem.trace(name+" PASS"); }
+    else { GameSystem.trace(name+" FAIL"); }
+};
+
+global Main=function(p) {
+    return table(Process=p,constructor=function() {
+        Input.setJoystickDeadzone(0.17);
+        Input.setJoystickAsButtonThreshold(0.63);
+        Input.setTypeDelay(0.25);
+        Input.setTypeRate(7.5);
+        Check("Input settings roundtrip",
+            MATH_ABS(Input.getJoystickDeadzone()-0.17)<0.0001 &&
+            MATH_ABS(Input.getJoystickAsButtonThreshold()-0.63)<0.0001 &&
+            MATH_ABS(Input.getTypeDelay()-0.25)<0.0001 &&
+            MATH_ABS(Input.getTypeRate()-7.5)<0.0001);
+
+        Input.setIsInputEnabled(0);
+        local disabled=Input.isInputEnabled()==0;
+        Input.setIsInputEnabled(1);
+        Check("Input enable toggle",disabled && Input.isInputEnabled()==1);
+        Input.setIsDoingRealtimeUpdate(1);
+        local realtimeOn=Input.isDoingRealtimeUpdate()==1;
+        Input.setIsDoingRealtimeUpdate(0);
+        Check("Input realtime toggle",realtimeOn && Input.isDoingRealtimeUpdate()==0);
+
+        Check("Input float2Int rounding",
+            Input.float2Int(1.5)==2 && Input.float2Int(-1.8)==-1 &&
+            Input.float2Int(-0.5)==0);
+        local front=Input.getFrontTouchPos(0);
+        local back=Input.getBackTouchPos(0);
+        local initial=Input.getInitialTouchPos(0,0);
+        Check("Input touch stubs",
+            Input.getFrontTouchCount()==0 && Input.getBackTouchCount()==0 &&
+            front.x==0 && front.y==0 && back.x==0 && back.y==0 &&
+            initial.x==0 && initial.y==0 && Input.getTouchForce(0,0)==0 &&
+            Input.getTouchDuration(0,0)==0);
+        Check("Input touch flags",
+            Input.getIsTouchHold(0)==0 && Input.getIsTouchHold(0,0)==0 &&
+            Input.getIsTouchMoving(0,0)==0 && Input.getWasTouchTap(0)==0 &&
+            Input.getWasTouchTap(0,0)==0);
+        local mouse=Input.getMousePos();
+        local mouseVec=Input.getMousePosVec();
+        Check("Input mouse defaults",
+            mouse.x==0 && mouse.y==0 && mouseVec.x==0 && mouseVec.y==0 &&
+            Input.getMousePosX()==0 && Input.getMousePosY()==0);
+        Check("Input keyboard defaults",
+            Input.isKeyPressed(0)==0 && Input.isShiftPressed()==0 &&
+            Input.isControlPressed()==0 && Input.isAltPressed()==0);
+        Check("Input device defaults",
+            Input.isControllerPresent()==1 && Input.getIsShaking()==1 &&
+            Input.getJoystickAxis(99,99)==0);
+        Input.disableUntilAllKeysUp();
+        local disabledUntilRelease=Input.isDisabledUntilAllKeysUp();
+        Check("Input disable until release",disabledUntilRelease==0);
+        Check("Input platform stubs",
+            Input.getIMEResults()==0 && Input.getIMEStatus()==0 &&
+            Input.getStringIME()=="" && Input.getPadSpeakerVolume()==0);
+        Input.loadPadSpeakerSound("missing-test-tone");
+        Input.playPadSpeakerSound("missing-test-tone");
+        Input.setPadSpeakerVolume(0.5);
+        Check("Input speaker no-ops",Input.getPadSpeakerVolume()==0);
+        Input.disableShaking();
+        Input.enableShaking();
+        Input.enableBackPanel();
+        Input.disableBackPanel();
+        Input.suppressSharing();
+        Input.setSoftRumble(0,1);
+        Check("Input platform no-ops",1);
+
+        Video.setAspectRatio(1.5);
+        Video.setScreenViewScale(0.75);
+        Video.setGrayscalePerc(0.4);
+        Video.setTextShadowSize(2.5);
+        Check("Video scalar roundtrip",
+            MATH_ABS(Video.getAspectRatio()-1.5)<0.0001 &&
+            MATH_ABS(Video.getScreenViewScale()-0.75)<0.0001 &&
+            MATH_ABS(Video.getGrayscalePerc()-0.4)<0.0001 &&
+            MATH_ABS(Video.getTextShadowSize()-2.5)<0.0001);
+        Video.setGrayscalePerc(-1);
+        local lowClamp=Video.getGrayscalePerc()==0;
+        Video.setGrayscalePerc(2);
+        local highClamp=Video.getGrayscalePerc()==1;
+        Video.setGrayscalePerc(0);
+        Check("Video grayscale clamp",lowClamp && highClamp);
+
+        Video.setCameraRotation(1.25,0,1,0);
+        Check("Video camera rotation",
+            MATH_ABS(Video.getCameraRotationAngle()-1.25)<0.0001 &&
+            Video.getCameraRotationX()==0 && Video.getCameraRotationY()==1 &&
+            Video.getCameraRotationZ()==0);
+        Video.setCameraPos(12.5,-7.25,3);
+        local cameraSet= MATH_ABS(Video.getCameraPosX()-12.5)<0.0001 &&
+            MATH_ABS(Video.getCameraPosY()+7.25)<0.0001 &&
+            MATH_ABS(Video.getCameraPosZ()-3)<0.0001;
+        Video.setCameraPos(0,0,0);
+        Check("Video camera position",cameraSet);
+        Video.setIsDrawingPhysics(1);
+        local physicsOn=Video.isDrawingPhysics()==1;
+        Video.setIsDrawingPhysics(0);
+        Video.setIsShowingFPS(1);
+        local fpsOn=Video.isShowingFPS()==1;
+        Video.setIsShowingFPS(0);
+        Video.setIsShouldDrawEntities(0);
+        local entitiesOff=Video.isShouldDrawEntities()==0;
+        Video.setIsShouldDrawEntities(1);
+        Check("Video display flags",physicsOn && fpsOn && entitiesOff &&
+            Video.isShouldDrawEntities()==1);
+
+        Check("Video dimensions",
+            Video.getDeviceWidth()>=0 && Video.getDeviceHeight()>=0 &&
+            Video.getScreenWidth()>=0 && Video.getScreenHeight()>=0 &&
+            Video.getFPS()==Video.getFPS() &&
+            Video.getFrameTime()==Video.getFrameTime());
+        Check("Video unsupported buffers",
+            Video.getRenderBufferMode()==-1 &&
+            Video.getRenderBufferModeTextureID()==-1 &&
+            Video.getPostProcessTexture()==null);
+        Check("Video display state queries",
+            Video.getScreenBithDepth()>=0 &&
+            (Video.isNeedSetScreenViewScale()==0 || Video.isNeedSetScreenViewScale()==1));
+        Video.restartVideo(640,480,1,24);
+        local fullscreenOn=Video.isFullScreen()==1;
+        Video.restartVideo(640,480,0);
+        Check("Video restart mode",fullscreenOn && Video.isFullScreen()==0 &&
+            Video.getDeviceWidth()>0 && Video.getDeviceHeight()>0);
+        Check("Video renderer query",Video.getTextureMemFree()>=0);
+        Video.setRenderBufferMode(0);
+        Video.setRenderBufferMode(0,0);
+        Video.resetViewport();
+        Video.flushStaticSurface();
+        Video.destroyAllRenderBufferTextures();
+        Video.setScissorBox(0,0,1,1);
+        Video.enableScissorBox();
+        Video.disableScissorBox();
+        Video.traceFPSInfoNextFrame();
+        Check("Video no-op controls",1);
+        Video.clear();
+        Video.clear(1);
+        Video.clear(1,2,3,4);
+        Video.clearDepthBuffer();
+        Video.clearColourBuffer();
+        Video.clearStencilBuffer();
+        Video.beginRenderBufferTexture(0);
+        Video.endRenderBufferTexture();
+        Video.destroyRenderBufferTexture(0);
+        Video.useRenderBufferInShader(0);
+        Video.deactivateShaders();
+        Video.destroyAllShaders();
+        Video.appendToPostProcessDList(0);
+        Video.artTestUnloadTexturesFromFile("");
+        Video.purgeUnusedTexturesDelayed(1);
+        Check("Video renderer no-op contracts",1);
+        Video.setColour("white");
+        Video.setColour("white",1);
+        Video.setColour(1,0.5,0.25);
+        Video.setColour(1,0.5,0.25,1);
+        Video.setColourHSL(0.5,0.25,0.75);
+        Video.setColourHSL(0.5,0.25,0.75,1);
+        Video.setColourWithShade(0.1,"white");
+        Video.setColourWithShade(0.1,0.2,"white");
+        Video.setColourWithLightnessShift(0.1,"white");
+        Video.setColourWithLightnessShift(0.1,0.2,"white");
+        Check("Video colour overloads",1);
+        local textWidthA=Video.getTextWidth("OpenEgg",1);
+        local textWidthB=Video.getTextWidth("OpenEgg",1);
+        Video.setLineWidth(2);
+        Check("Video text and line queries",textWidthA>=0 && textWidthA==textWidthB);
+        Video.plotVertex(1);
+        Video.plotVertex(1,2);
+        Video.plotVertex(1,2,3);
+        Video.plotVertex(1,2,3,4);
+        Video.plotVertex(1,2,3,4,5);
+        Check("Video plotVertex arities",1);
+
+        local item=table(__objectID=42);
+        Video.addToDrawMap(item);
+        Video.removeFromDrawMap(item);
+        Check("Video draw map add/remove",1);
+        Video.debug_setWorldMarker(1,2,3,4,5,6,7,8,9,1);
+        Video.debug_setWorldLineMarker(1,2,3,4,5,6,7,8,9,1);
+        Video.debug_clearWorldMarkers();
+        Check("Video debug marker lifecycle",1);
+    },init=function(){return true;},update=function(){});
+};

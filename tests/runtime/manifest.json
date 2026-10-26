@@ -1,0 +1,285 @@
+{
+  "harness": "harness",
+  "sections": [
+    {
+      "name": "Input and Video",
+      "script": "systems.gm",
+      "cases": [
+        {
+          "name": "Input settings roundtrip",
+          "functions": [
+            "Input.setJoystickDeadzone",
+            "Input.getJoystickDeadzone",
+            "Input.setJoystickAsButtonThreshold",
+            "Input.getJoystickAsButtonThreshold",
+            "Input.setTypeDelay",
+            "Input.getTypeDelay",
+            "Input.setTypeRate",
+            "Input.getTypeRate"
+          ]
+        },
+        {
+          "name": "Input enable toggle",
+          "functions": [
+            "Input.setIsInputEnabled",
+            "Input.isInputEnabled"
+          ]
+        },
+        {
+          "name": "Input realtime toggle",
+          "functions": [
+            "Input.setIsDoingRealtimeUpdate",
+            "Input.isDoingRealtimeUpdate"
+          ]
+        },
+        {
+          "name": "Input float2Int rounding",
+          "functions": [
+            "Input.float2Int"
+          ]
+        },
+        {
+          "name": "Input touch stubs",
+          "functions": [
+            "Input.getFrontTouchCount",
+            "Input.getBackTouchCount",
+            "Input.getFrontTouchPos",
+            "Input.getBackTouchPos",
+            "Input.getInitialTouchPos",
+            "Input.getTouchForce",
+            "Input.getTouchDuration"
+          ]
+        },
+        {
+          "name": "Input touch flags",
+          "functions": [
+            "Input.getIsTouchHold",
+            "Input.getIsTouchMoving",
+            "Input.getWasTouchTap"
+          ]
+        },
+        {
+          "name": "Video scalar roundtrip",
+          "functions": [
+            "Video.setAspectRatio",
+            "Video.getAspectRatio",
+            "Video.setScreenViewScale",
+            "Video.getScreenViewScale",
+            "Video.setGrayscalePerc",
+            "Video.getGrayscalePerc",
+            "Video.setTextShadowSize",
+            "Video.getTextShadowSize"
+          ]
+        },
+        {
+          "name": "Video grayscale clamp",
+          "functions": [
+            "Video.setGrayscalePerc",
+            "Video.getGrayscalePerc"
+          ]
+        },
+        {
+          "name": "Video camera rotation",
+          "functions": [
+            "Video.setCameraRotation",
+            "Video.getCameraRotationAngle",
+            "Video.getCameraRotationX",
+            "Video.getCameraRotationY",
+            "Video.getCameraRotationZ"
+          ]
+        },
+        {
+          "name": "Video display flags",
+          "functions": [
+            "Video.setIsDrawingPhysics",
+            "Video.isDrawingPhysics",
+            "Video.setIsShowingFPS",
+            "Video.isShowingFPS",
+            "Video.setIsShouldDrawEntities",
+            "Video.isShouldDrawEntities"
+          ]
+        },
+        {
+          "name": "Video dimensions",
+          "functions": [
+            "Video.getDeviceWidth",
+            "Video.getDeviceHeight",
+            "Video.getScreenWidth",
+            "Video.getScreenHeight",
+            "Video.getFPS",
+            "Video.getFrameTime"
+          ]
+        },
+        {
+          "name": "Video unsupported buffers",
+          "functions": [
+            "Video.getRenderBufferMode",
+            "Video.getRenderBufferModeTextureID",
+            "Video.getPostProcessTexture"
+          ]
+        },
+        {
+          "name": "Video draw map add/remove",
+          "functions": [
+            "Video.addToDrawMap",
+            "Video.removeFromDrawMap"
+          ]
+        },
+        {
+          "name": "Input mouse defaults",
+          "functions": [
+            "Input.getMousePos",
+            "Input.getMousePosVec",
+            "Input.getMousePosX",
+            "Input.getMousePosY"
+          ]
+        },
+        {
+          "name": "Input keyboard defaults",
+          "functions": [
+            "Input.isKeyPressed",
+            "Input.isShiftPressed",
+            "Input.isControlPressed",
+            "Input.isAltPressed"
+          ]
+        },
+        {
+          "name": "Input device defaults",
+          "functions": [
+            "Input.isControllerPresent",
+            "Input.getIsShaking",
+            "Input.getJoystickAxis"
+          ]
+        },
+        {
+          "name": "Input platform stubs",
+          "functions": [
+            "Input.getIMEResults",
+            "Input.getIMEStatus",
+            "Input.getStringIME",
+            "Input.getPadSpeakerVolume"
+          ]
+        },
+        {
+          "name": "Input platform no-ops",
+          "functions": [
+            "Input.disableShaking",
+            "Input.enableShaking",
+            "Input.enableBackPanel",
+            "Input.disableBackPanel",
+            "Input.suppressSharing",
+            "Input.setSoftRumble"
+          ]
+        },
+        {
+          "name": "Video restart mode",
+          "functions": [
+            "Video.restartVideo",
+            "Video.isFullScreen",
+            "Video.getDeviceWidth",
+            "Video.getDeviceHeight"
+          ]
+        },
+        {
+          "name": "Video renderer query",
+          "functions": [
+            "Video.getTextureMemFree"
+          ]
+        },
+        {
+          "name": "Video no-op controls",
+          "functions": [
+            "Video.setRenderBufferMode",
+            "Video.resetViewport",
+            "Video.flushStaticSurface",
+            "Video.destroyAllRenderBufferTextures",
+            "Video.setScissorBox",
+            "Video.enableScissorBox",
+            "Video.disableScissorBox",
+            "Video.traceFPSInfoNextFrame"
+          ]
+        },
+        {
+          "name": "Video plotVertex arities",
+          "functions": [
+            "Video.plotVertex"
+          ]
+        },
+        {
+          "name": "Input disable until release",
+          "functions": [
+            "Input.disableUntilAllKeysUp",
+            "Input.isDisabledUntilAllKeysUp"
+          ]
+        },
+        {
+          "name": "Input speaker no-ops",
+          "functions": [
+            "Input.loadPadSpeakerSound",
+            "Input.playPadSpeakerSound",
+            "Input.setPadSpeakerVolume",
+            "Input.getPadSpeakerVolume"
+          ]
+        },
+        {
+          "name": "Video camera position",
+          "functions": [
+            "Video.setCameraPos",
+            "Video.getCameraPosX",
+            "Video.getCameraPosY",
+            "Video.getCameraPosZ"
+          ]
+        },
+        {
+          "name": "Video display state queries",
+          "functions": [
+            "Video.getScreenBithDepth",
+            "Video.isNeedSetScreenViewScale"
+          ]
+        },
+        {
+          "name": "Video debug marker lifecycle",
+          "functions": [
+            "Video.debug_setWorldMarker",
+            "Video.debug_setWorldLineMarker",
+            "Video.debug_clearWorldMarkers"
+          ]
+        },
+        {
+          "name": "Video renderer no-op contracts",
+          "functions": [
+            "Video.clear",
+            "Video.clearDepthBuffer",
+            "Video.clearColourBuffer",
+            "Video.clearStencilBuffer",
+            "Video.beginRenderBufferTexture",
+            "Video.endRenderBufferTexture",
+            "Video.destroyRenderBufferTexture",
+            "Video.useRenderBufferInShader",
+            "Video.deactivateShaders",
+            "Video.destroyAllShaders",
+            "Video.appendToPostProcessDList",
+            "Video.artTestUnloadTexturesFromFile",
+            "Video.purgeUnusedTexturesDelayed"
+          ]
+        },
+        {
+          "name": "Video colour overloads",
+          "functions": [
+            "Video.setColour",
+            "Video.setColourHSL",
+            "Video.setColourWithShade",
+            "Video.setColourWithLightnessShift"
+          ]
+        },
+        {
+          "name": "Video text and line queries",
+          "functions": [
+            "Video.getTextWidth",
+            "Video.setLineWidth"
+          ]
+        }
+      ]
+    }
+  ]
+}

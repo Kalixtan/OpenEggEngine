@@ -30,7 +30,13 @@ def percent(passed, total):
     return f"{passed * 100 / total:.0f}%" if total else "—"
 
 
-def api_inventory():
+def api_inventory(suite_dir=None):
+    inventory_file = suite_dir / "api_inventory.json" if suite_dir else None
+    if inventory_file and inventory_file.is_file():
+        functions = json.loads(inventory_file.read_text())
+        if not isinstance(functions, list) or not functions:
+            raise ValueError(f"invalid API inventory: {inventory_file}")
+        return sorted(set(functions))
     source = (ROOT / "src" / "bindings" / "sequencer_bindings.cpp").read_text()
     functions = set(GLOBAL.findall(source))
     for variable, body in LIBRARY.findall(source):
@@ -125,9 +131,10 @@ def make_report(suite, engine, entries, problems, inventory):
             lines.append(f"- **{entry['name']}**: {entry['reason']} (log: `{entry['log']}`)")
         for problem in problems:
             lines.append(f"- {problem}")
-    lines.extend(["", "Known safety differences: retail crashes when moving the final trigger; "
-                  "OpenEgg avoids that. After `clearTriggers()`, OpenEgg keeps a safe copy "
-                  "of the current trigger so existing cursors match retail.", ""])
+    if suite == "sequencer":
+        lines.extend(["", "Known safety differences: retail crashes when moving the final trigger; "
+                      "OpenEgg avoids that. After `clearTriggers()`, OpenEgg keeps a safe copy "
+                      "of the current trigger so existing cursors match retail.", ""])
     return "\n".join(lines)
 
 
@@ -153,7 +160,7 @@ def main():
     entries = []
     problems = []
     names = set()
-    inventory = api_inventory()
+    inventory = api_inventory(suite_dir)
 
     for section in manifest["sections"]:
         script = section["script"]
