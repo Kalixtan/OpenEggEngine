@@ -38,9 +38,18 @@
     "Global.MATHUTIL_GetCentroid.ext.threeY",
     "Global.MATHUTIL_FindCircleCircleIntersection.ext.internalTangent",
     "Global.MATHUTIL_FindCircleCircleIntersection.ext.nearMiss",
-    "Global.MATHUTIL_FindCircleCircleIntersection.ext.nearHit"
+    "Global.MATHUTIL_FindCircleCircleIntersection.ext.nearHit",
+    "vector2D.length.ext.zero",
+    "vector2D.distance.ext.same",
+    "vector2D.scalarProjectOnto.ext.zeroAxis",
+    "vector2D.vectorProjectOnto.ext.zeroAxisX",
+    "vector2D.vectorProjectOnto.ext.zeroAxisY",
+    "vector2D.getVectorToPointNormalized.ext.sameY"
   ],
-  "awaitingRetailPrefixes": ["Global.MATHUTIL_", "vector2D."],
+  "awaitingRetailPrefixes": [
+    "Global.MATHUTIL_",
+    "vector2D."
+  ],
   "awaitingRetailReason": {
     "Global.MATHUTIL_": "New edge cases need capture from the retail engine.",
     "vector2D.": "New edge cases need capture from the retail engine."

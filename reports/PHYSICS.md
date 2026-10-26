@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-26 13:40 UTC
+Generated: 2026-10-26 15:06 UTC
 
-Matched: **8655/8781 comparable readings (98.57%)**. 30 inconclusive, 11 local-only, and 43 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8655/8781 comparable readings (98.57%)**. 30 inconclusive, 11 local-only, and 49 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -871,20 +871,20 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `shapeDef.setIsSensor` | 1 | 1 | PASS |
 | `shapeDef.setMass` | 1 | 1 | PASS |
 | `shapeDef.setRestitution` | 1 | 1 | PASS |
-| `vector2D.distance` | 2 | 2 | PASS |
+| `vector2D.distance` | 2 | 3 | AWAITING RETAIL |
 | `vector2D.getLeftNormal` | 2 | 2 | PASS |
 | `vector2D.getNormalized` | 3 | 7 | AWAITING RETAIL |
 | `vector2D.getRightNormal` | 2 | 2 | PASS |
 | `vector2D.getVectorToPoint` | 2 | 2 | PASS |
-| `vector2D.getVectorToPointNormalized` | 3 | 3 | PASS |
+| `vector2D.getVectorToPointNormalized` | 3 | 4 | AWAITING RETAIL |
 | `vector2D.isPrettyMuchEqual` | 4 | 7 | AWAITING RETAIL |
 | `vector2D.isZeroVector` | 1 | 2 | AWAITING RETAIL |
 | `vector2D.isvector2D` | 0 | 2 | FAIL |
-| `vector2D.length` | 1 | 2 | AWAITING RETAIL |
+| `vector2D.length` | 1 | 3 | AWAITING RETAIL |
 | `vector2D.lengthSquared` | 1 | 1 | PASS |
 | `vector2D.normalize` | 0 | 1 | INCONCLUSIVE |
-| `vector2D.scalarProjectOnto` | 2 | 2 | PASS |
-| `vector2D.vectorProjectOnto` | 4 | 4 | PASS |
+| `vector2D.scalarProjectOnto` | 2 | 3 | AWAITING RETAIL |
+| `vector2D.vectorProjectOnto` | 4 | 6 | AWAITING RETAIL |
 
 ## Contact callbacks
 
@@ -1003,6 +1003,12 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.ext.internalTangent | `1` | No retail reading captured. |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.ext.nearMiss | `0` | No retail reading captured. |
 | `Global.MATHUTIL_FindCircleCircleIntersection` | Global.MATHUTIL_FindCircleCircleIntersection.ext.nearHit | `1` | No retail reading captured. |
+| `vector2D.length` | vector2D.length.ext.zero | `0.000000` | No retail reading captured. |
+| `vector2D.distance` | vector2D.distance.ext.same | `0.000000` | No retail reading captured. |
+| `vector2D.scalarProjectOnto` | vector2D.scalarProjectOnto.ext.zeroAxis | `0.000000` | No retail reading captured. |
+| `vector2D.vectorProjectOnto` | vector2D.vectorProjectOnto.ext.zeroAxisX | `0.000000` | No retail reading captured. |
+| `vector2D.vectorProjectOnto` | vector2D.vectorProjectOnto.ext.zeroAxisY | `0.000000` | No retail reading captured. |
+| `vector2D.getVectorToPointNormalized` | vector2D.getVectorToPointNormalized.ext.sameY | `0.000000` | No retail reading captured. |
 | `collisionInfo.getNumCollidingShapes` | collisionInfo.getNumCollidingShapes.count | `1` | Retail faults at 0x00097420 on an active collision pair. |
 | `collisionInfo.getNumCollidingShapes` | collisionInfo.getNumCollidingShapes.after | `1` | Retail faults at 0x00097420 before this reading. |
 
