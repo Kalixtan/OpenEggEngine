@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-26 12:59 UTC
+Generated: 2026-10-26 13:40 UTC
 
-Matched: **8653/8781 comparable readings (98.54%)**. 30 inconclusive, 11 local-only, and 43 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8655/8781 comparable readings (98.57%)**. 30 inconclusive, 11 local-only, and 43 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -820,13 +820,13 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.setDoesRotationResponse` | 2 | 2 | PASS |
 | `physicsData.setIsCollidable` | 2 | 2 | PASS |
 | `physicsData.setIsSensor` | 2 | 2 | PASS |
-| `physicsData.setMass` | 0 | 1 | FAIL |
+| `physicsData.setMass` | 1 | 1 | PASS |
 | `physicsData.setMaxRotateSpeed` | 1 | 1 | PASS |
 | `physicsData.setMaxRotationDecayRate` | 25 | 25 | PASS |
 | `physicsData.setMaxSpeed` | 0 | 1 | FAIL |
 | `physicsData.setMaxVelocityDecayRate` | 25 | 25 | PASS |
 | `physicsData.setPos` | 2 | 2 | PASS |
-| `physicsData.setRestitution` | 0 | 1 | FAIL |
+| `physicsData.setRestitution` | 1 | 1 | PASS |
 | `physicsData.setRotateAcc` | 1 | 1 | PASS |
 | `physicsData.setRotationDecayRate` | 25 | 25 | PASS |
 | `physicsData.setSpeed` | 1 | 1 | PASS |
@@ -9340,8 +9340,8 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setDoesRotationResponse` | physicsData.setDoesRotationResponse.enabled | `1` | `1` | PASS |
 | `physicsData.setIsCollidable` | physicsData.setIsCollidable.disabled | `0` | `0` | PASS |
 | `physicsData.setIsCollidable` | physicsData.setIsCollidable.enabled | `1` | `1` | PASS |
-| `physicsData.setMass` | physicsData.setMass.value | `25.132742` | `4.000000` | FAIL |
-| `physicsData.setRestitution` | physicsData.setRestitution.value | `0.000000` | `0.600000` | FAIL |
+| `physicsData.setMass` | physicsData.setMass.value | `25.132742` | `25.132742` | PASS |
+| `physicsData.setRestitution` | physicsData.setRestitution.value | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t0.vx | `10.000000` | `10.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t0.vy | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVelocityDecayRate` | physicsData.setVelocityDecayRate.t0.speed | `10.000000` | `10.000000` | PASS |

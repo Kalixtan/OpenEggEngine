@@ -3996,18 +3996,13 @@ int GM_CDECL gmf_pd_isCollidable(gmThread* a_thread) {
 int GM_CDECL gmf_pd_setRestitution(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(r, 0, 0.0f);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) for (b2Fixture* fx = b->body->GetFixtureList(); fx; fx = fx->GetNext()) fx->SetRestitution(r);
+    // Retail leaves existing body restitution unchanged through PhysicsData.
     return GM_OK;
 }
-// PhysicsData forwards setMass to its primary body.
 int GM_CDECL gmf_pd_setMass(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
     GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(mass, 0, 1.0f);
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    if (b) SetRetailBodyMass(b->body, mass);
+    // Retail leaves existing body mass unchanged through PhysicsData.
     return GM_OK;
 }
 // Shared by getAABB/getMinPos/getMaxPos -- same fixture-union AABB
