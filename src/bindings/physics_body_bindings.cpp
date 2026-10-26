@@ -3790,8 +3790,8 @@ int GM_CDECL gmf_pd_getCollisionGroup(gmThread* a_thread) {
 }
 int GM_CDECL gmf_pd_isSleeping(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread); if (!d) return GM_EXCEPTION;
-    PhysicsBodyData* b = MainBody(a_thread, d);
-    a_thread->PushInt((b && !b->body->IsAwake()) ? 1 : 0);
+    // Retail PhysicsData.isSleeping probes return null; the body-level query
+    // is the script-facing sleep status API.
     return GM_OK;
 }
 // Retail PhysicsData.putToSleep walks all owned bodies, zeros linear/angular

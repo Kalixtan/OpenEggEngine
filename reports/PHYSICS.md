@@ -1,8 +1,8 @@
 # Physics test report
 
-Generated: 2026-10-23 22:49 UTC
+Generated: 2026-10-26 12:59 UTC
 
-Matched: **8650/8781 comparable readings (98.51%)**. 30 inconclusive, 11 local-only, and 43 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8653/8781 comparable readings (98.54%)**. 30 inconclusive, 11 local-only, and 43 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
 Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
@@ -799,7 +799,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.isPointWithin` | 1 | 1 | PASS |
 | `physicsData.isRect` | 1 | 1 | PASS |
 | `physicsData.isSensor` | 8 | 8 | PASS |
-| `physicsData.isSleeping` | 0 | 2 | FAIL |
+| `physicsData.isSleeping` | 2 | 2 | PASS |
 | `physicsData.putToSleep` | 288 | 288 | PASS |
 | `physicsData.raycast` | 6 | 6 | PASS |
 | `physicsData.raycastShapesOne` | 6 | 6 | PASS |
@@ -809,7 +809,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `physicsData.rotateLeft` | 15 | 15 | PASS |
 | `physicsData.rotateRight` | 8 | 15 | FAIL |
 | `physicsData.rotateTo` | 2 | 5 | FAIL |
-| `physicsData.setAllowSleeping` | 0 | 1 | FAIL |
+| `physicsData.setAllowSleeping` | 1 | 1 | PASS |
 | `physicsData.setAsCircle` | 1 | 1 | PASS |
 | `physicsData.setAsRect` | 2 | 2 | PASS |
 | `physicsData.setBrakeAcc` | 0 | 1 | FAIL |
@@ -9443,9 +9443,9 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t4.rotateVel | `0.094248` | `0.094248` | PASS |
 | `physicsData.setMaxRotationDecayRate` | physicsData.setMaxRotationDecayRate.t4.sleeping | `0.000000` | `0.000000` | PASS |
 | `physicsData.setVisibilityAABBScale` | physicsData.setVisibilityAABBScale.called | `1` | `1` | PASS |
-| `physicsData.setAllowSleeping` | physicsData.setAllowSleeping.awake | `null` | `0` | FAIL |
-| `physicsData.isSleeping` | physicsData.isSleeping.asleep | `null` | `1` | FAIL |
-| `physicsData.isSleeping` | physicsData.isSleeping.awake | `null` | `0` | FAIL |
+| `physicsData.setAllowSleeping` | physicsData.setAllowSleeping.awake | `null` | `null` | PASS |
+| `physicsData.isSleeping` | physicsData.isSleeping.asleep | `null` | `null` | PASS |
+| `physicsData.isSleeping` | physicsData.isSleeping.awake | `null` | `null` | PASS |
 | `physicsData.getDir` | physicsData.getDir.x | `-0.000000` | `-0.000000` | PASS |
 | `physicsData.getDir` | physicsData.getDir.y | `1.000000` | `1.000000` | PASS |
 | `Global.MATH_ABS` | Global.MATH_ABS.negative | `3.500000` | `3.500000` | PASS |
