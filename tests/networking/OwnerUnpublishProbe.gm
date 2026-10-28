@@ -1,0 +1,29 @@
+global RemovedSnapshot = function(data, response, error) {
+    if (error == 404 && response == null) {
+        GameSystem.trace("owner unpublish readback PASS");
+    } else {
+        GameSystem.trace("owner unpublish readback FAIL");
+    }
+};
+
+global RemovedLevel = function(data, response, error) {
+    if (error == 0) {
+        GameSystem.trace("owner unpublish response PASS");
+        Watermelon_GetSnapshot(RemovedSnapshot, null, 2, data);
+    } else {
+        GameSystem.trace("owner unpublish response FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        init=function() { return true; },
+        constructor=function() {
+            if (Watermelon_UnpublishLevel(RemovedLevel, "__LEVEL_ID__", 1, "__LEVEL_ID__") == 1) {
+                GameSystem.trace("owner unpublish QUEUED");
+            }
+        },
+        update=function() {}
+    );
+};

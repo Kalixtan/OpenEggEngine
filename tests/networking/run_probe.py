@@ -79,6 +79,7 @@ def main():
     parser.add_argument("--user-id", default="test-user", help="Identity belonging to the session")
     parser.add_argument("--target-id", help="Fixture user ID for follow and unfollow checks")
     parser.add_argument("--level-id", help="Fixture level ID for heart and unheart checks")
+    parser.add_argument("--owner-unpublish", action="store_true", help="Remove the specified fixture level")
     args = parser.parse_args()
     if args.target_id:
         args.target_id = str(uuid.UUID(args.target_id))
@@ -86,6 +87,8 @@ def main():
             parser.error("--target-id requires --session-id")
     if args.level_id and (not args.session_id or not re.fullmatch(r"[A-Za-z0-9]{8}", args.level_id)):
         parser.error("--level-id requires a session and an eight-character level ID")
+    if args.owner_unpublish and (not args.session_id or not args.level_id or args.target_id):
+        parser.error("--owner-unpublish requires a session and level ID, without --target-id")
 
     engine = args.engine.resolve()
     if not engine.is_file():
@@ -123,10 +126,12 @@ def main():
             # Avoid selecting PSn00bSDK's cross assembler as host assembler.
             "PATH": "/usr/bin:/bin:" + env.get("PATH", ""),
         })
-        probe = "AuthenticatedNetworkProbe.gm" if args.session_id else "OpenEggNetworkProbe.gm"
+        probe = "OwnerUnpublishProbe.gm" if args.owner_unpublish else "AuthenticatedNetworkProbe.gm" if args.session_id else "OpenEggNetworkProbe.gm"
         markers = ("authenticated request QUEUED", "authenticated index response PASS",
                    "authenticated user pages QUEUED", "authenticated following response PASS",
                    "authenticated followers response PASS", "authenticated hearts response PASS") if args.session_id else MARKERS
+        if args.owner_unpublish:
+            markers = ("owner unpublish QUEUED", "owner unpublish response PASS", "owner unpublish readback PASS")
         script_dir = ROOT / "tests" / "networking"
         if args.session_id:
             script_dir = temp / "probe"
@@ -137,7 +142,7 @@ def main():
             if args.target_id:
                 markers += ("authenticated follow PASS", "authenticated follow read PASS", "authenticated unfollow PASS",
                             "authenticated unfollow readback PASS")
-            if args.level_id:
+            if args.level_id and not args.owner_unpublish:
                 markers += ("authenticated heart PASS", "authenticated heart read PASS", "authenticated unheart PASS",
                             "authenticated unheart readback PASS", "authenticated unpublish denied PASS",
                             "authenticated snapshot PASS", "authenticated versions response PASS",
