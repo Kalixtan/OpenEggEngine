@@ -1,0 +1,41 @@
+global CacheReply = function(step, result, error) {
+    if (error != 0 || result == null) { GameSystem.trace("cache callback FAIL"); return; }
+    if (step == 1 && result.bpm == 120) {
+        Watermelon_GetLevelData(CacheReply, 2, 201, "cache-level", "v1");
+    } else if (step == 2 && result.bpm == 120) {
+        GameSystem.trace("cache hit PASS");
+        Watermelon_ForceCachePurgeByFilter("##/~content:image/data");
+        Watermelon_GetLevelData(CacheReply, 3, 202, "cache-level", "v1");
+    } else if (step == 3 && result.bpm == 120) {
+        GameSystem.trace("cache filter PASS");
+        Watermelon_ForceCachePurgeByFilter("##/~content:level/data");
+        Watermelon_GetLevelData(CacheReply, 4, 203, "cache-level", "v1");
+    } else if (step == 4 && result.bpm == 121) {
+        GameSystem.trace("cache purge PASS");
+        Watermelon_GetLevelData(CacheMissingReply, 1, 204, "cache-level", "missing");
+    } else { GameSystem.trace("cache value FAIL"); }
+};
+
+global CacheMissingReply = function(step, result, error) {
+    if (step == 1 && error == 1 && result == null) {
+        Watermelon_GetLevelData(CacheMissingReply, 2, 205, "cache-level", "missing");
+    } else if (step == 2 && error == 1 && result == null) {
+        GameSystem.trace("cache error hit PASS");
+        Watermelon_ForceCachePurgeByFilter("##/~content:level/data");
+        Watermelon_GetLevelData(CacheMissingReply, 3, 206, "cache-level", "missing");
+    } else if (step == 3 && error == 0 && result != null && result.bpm == 140) {
+        GameSystem.trace("cache error purge PASS");
+    } else { GameSystem.trace("cache error FAIL"); }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            if (!this.started && Watermelon_IsOnline()) {
+                this.started = 1;
+                Watermelon_GetLevelData(CacheReply, 1, 200, "cache-level", "v1");
+            }
+        });
+};

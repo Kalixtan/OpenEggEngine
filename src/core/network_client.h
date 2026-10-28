@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <deque>
 #include <mutex>
+#include <map>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -65,6 +66,7 @@ public:
     gmTableObject* News() const { return m_news; }
     void UpdateCoordinator();
     void Purge(int a_bucket);
+    void PurgeCache(const std::string& a_pattern);
     void PumpCallbacks();
 
 private:
@@ -77,11 +79,15 @@ private:
         int bucket = 0;
         bool purged = false;
         bool sendSession = true;
+        std::string cacheKey;
     };
     struct Completion {
         int id = 0;
         long status = 0;
         std::string body;
+        std::string cacheKey;
+        bool identity = true;
+        bool cacheHit = false;
     };
     struct PendingRequest {
         int bucket;
@@ -93,6 +99,13 @@ private:
         int remaining = 3;
         std::array<int, 3> sizes{};
     };
+    struct CacheEntry {
+        long status;
+        std::string body;
+        int64_t inserted;
+    };
+    using Cache = std::map<std::string, CacheEntry>;
+    void StoreCache(const Completion& completion);
 
     void WorkerMain(bool a_identity);
     int Queue(const std::string& a_path, const gmVariable& a_callback,
@@ -114,6 +127,8 @@ private:
     std::deque<Request> m_globalRequests;
     std::deque<Completion> m_identityCompletions;
     std::deque<Completion> m_globalCompletions;
+    Cache m_identityCache;
+    Cache m_globalCache;
     std::unordered_map<int, PendingRequest> m_pending;
     std::unordered_map<int, AssetBundle> m_assetBundles;
     std::unordered_map<int, std::pair<int, int>> m_assetRequests;

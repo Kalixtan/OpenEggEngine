@@ -49,6 +49,8 @@ behavior.
       retail scripts count their entries with `tableCount`.
 - [x] Return an empty result table for scalar JSON roots, and preserve parsed
       fields on malformed level-description responses.
+- [x] Cache the default image, level and sound content paths and support
+      identity-cache filter purge. Local tests cover hits, errors and purge.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.
@@ -122,6 +124,8 @@ behavior.
       and the traced record-post header quirk where required for parity.
 - [ ] Match request buckets, purge/cancel behavior, FIFO ordering, retry
       admission, stale status handling, and shutdown draining.
+- [ ] Compare cache enable flags, wildcard edges, capacity and pool eviction
+      against retail. The default rule state is inferred from the PS3 trace.
 - [x] Bound identity and global worker queues to 32 pending requests each;
       waiting admission follows the retail enqueue retry path.
 - [ ] Verify request manager update ordering and shutdown draining against

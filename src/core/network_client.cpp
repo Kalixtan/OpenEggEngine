@@ -21,6 +21,7 @@
 #include "stb_image.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <limits>
 #include <utility>
@@ -31,6 +32,33 @@
 
 namespace {
 constexpr const char* kRootTableName = "__OpenEggNetworkRequestRoots";
+
+bool CachePatternMatches(const std::string& pattern, const std::string& key) {
+    size_t p = 0, k = 0, wildcard = std::string::npos, retry = 0;
+    while (k < key.size()) {
+        if (p < pattern.size() && pattern[p] == '#') {
+            wildcard = p++;
+            retry = k;
+        } else if (p < pattern.size() && pattern[p] == key[k]) {
+            ++p;
+            ++k;
+        } else if (wildcard != std::string::npos) {
+            p = wildcard + 1;
+            k = ++retry;
+        } else return false;
+    }
+    while (p < pattern.size() && pattern[p] == '#') ++p;
+    return p == pattern.size();
+}
+
+std::string ContentCacheKey(const std::string& path, bool post) {
+    if (post || path.rfind("/otg/", 0) != 0 || path.size() < 4 ||
+        path.compare(path.size() - 4, 4, ".get") != 0) return {};
+    std::string key = path.substr(5, path.size() - 9);
+    for (const char* pattern : {"##/~content:image/data", "##/~content:level/data", "##/~content:sound/data"})
+        if (CachePatternMatches(pattern, key)) return key;
+    return {};
+}
 
 bool AllowsAccountCredentials(const std::string& url) {
     if (url.rfind("https://", 0) == 0) return true;
@@ -470,7 +498,8 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
     m_pending.emplace(id, PendingRequest{bucket, false, a_sendSession});
-    requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false, a_sendSession});
+    requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType,
+                        a_post, bucket, false, a_sendSession, ContentCacheKey(a_path, a_post)});
     m_wake.notify_all();
     return id;
 }
@@ -481,6 +510,40 @@ void NetworkClient::Purge(int a_bucket) {
     for (auto& entry : m_pending) {
         if (entry.second.bucket == a_bucket) entry.second.purged = true;
     }
+}
+
+void NetworkClient::PurgeCache(const std::string& pattern) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    for (auto it = m_identityCache.begin(); it != m_identityCache.end();) {
+        if (CachePatternMatches(pattern, it->first)) it = m_identityCache.erase(it);
+        else ++it;
+    }
+}
+
+void NetworkClient::StoreCache(const Completion& completion) {
+    if (completion.cacheKey.empty() || completion.cacheHit || completion.status == 0) return;
+    Cache& cache = completion.identity ? m_identityCache : m_globalCache;
+    const std::string body = (completion.status == 200 || completion.status == 201)
+        ? completion.body : std::string();
+    constexpr size_t kPoolSize = 1024 * 1024;
+    if (body.size() > kPoolSize) return;
+    auto bytesUsed = [&] {
+        size_t bytes = 0;
+        for (const auto* entries : {&m_identityCache, &m_globalCache})
+            for (const auto& entry : *entries) bytes += entry.second.body.size();
+        return bytes;
+    };
+    while (cache.size() >= 300 || bytesUsed() + body.size() > kPoolSize) {
+        auto oldest = cache.end();
+        for (auto it = cache.begin(); it != cache.end(); ++it) {
+            if (!it->second.body.empty() && (oldest == cache.end() || it->second.inserted < oldest->second.inserted))
+                oldest = it;
+        }
+        if (oldest == cache.end()) return;
+        cache.erase(oldest);
+    }
+    cache[completion.cacheKey] = {completion.status, body,
+        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()};
 }
 
 void NetworkClient::PumpCallbacks() {
@@ -505,6 +568,7 @@ void NetworkClient::PumpCallbacks() {
                     completion.status = 0;
                     completion.body.clear();
                 }
+                StoreCache(completion);
                 m_pending.erase(pending);
             }
         }
@@ -884,10 +948,24 @@ void NetworkClient::WorkerMain(bool a_identity) {
 
         Completion completion;
         completion.id = request.id;
+        completion.cacheKey = request.cacheKey;
+        completion.identity = a_identity;
         if (request.purged) {
             std::lock_guard<std::mutex> lock(m_mutex);
             completions.push_back(std::move(completion));
             continue;
+        }
+        if (!request.cacheKey.empty()) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            const Cache& cache = a_identity ? m_identityCache : m_globalCache;
+            const auto found = cache.find(request.cacheKey);
+            if (found != cache.end()) {
+                completion.status = found->second.status;
+                completion.body = found->second.body;
+                completion.cacheHit = true;
+                completions.push_back(std::move(completion));
+                continue;
+            }
         }
         CURL* curl = curl_easy_init();
         if (curl) {

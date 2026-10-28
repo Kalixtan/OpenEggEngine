@@ -1113,7 +1113,13 @@ int GM_CDECL gmf_IsOnline(gmThread* a_thread) {
     return GM_OK;
 }
 
-int GM_CDECL gmf_NoOp(gmThread*) { return GM_OK; }
+int GM_CDECL gmf_ForceCachePurgeByFilter(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    std::string pattern;
+    if (g_networkClient && ReadOptionalString(a_thread, 0, pattern))
+        g_networkClient->PurgeCache(pattern);
+    return GM_OK;
+}
 
 int GM_CDECL gmf_Purge(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
@@ -1210,7 +1216,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_PostCloudSave", gmf_PostCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
     a_machine.RegisterLibraryFunction("Watermelon_Purge", gmf_Purge);
-    a_machine.RegisterLibraryFunction("Watermelon_ForceCachePurgeByFilter", gmf_NoOp);
+    a_machine.RegisterLibraryFunction("Watermelon_ForceCachePurgeByFilter", gmf_ForceCachePurgeByFilter);
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetFeaturedSearches", gmf_Globals_GetFeaturedSearches);
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetNews", gmf_Globals_GetNews);
     a_machine.RegisterLibraryFunction("Watermelon_Index_Page", gmf_IndexPage);
