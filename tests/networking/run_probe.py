@@ -19,6 +19,7 @@ MARKERS = (
     "album list route PASS",
     "album contents route PASS",
     "following page route PASS",
+    "following all response PASS",
     "followers page route PASS",
     "hearts page route PASS",
     "following get route PASS",

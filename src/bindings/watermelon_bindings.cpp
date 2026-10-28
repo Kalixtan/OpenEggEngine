@@ -354,6 +354,22 @@ int GM_CDECL gmf_FollowingPage(gmThread* a_thread) {
     return QueueUserPage(a_thread, "/~follow:*.page");
 }
 
+int GM_CDECL gmf_FollowingAll(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 3) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    if (!g_networkClient || g_networkClient->UserId().empty()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() + "/~follow:*.all";
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_FollowersPage(gmThread* a_thread) {
     return QueueUserPage(a_thread, "/~followers.page");
 }
@@ -782,6 +798,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Albums_Page", gmf_AlbumsPage);
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Page", gmf_FollowingPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Following_All", gmf_FollowingAll);
     a_machine.RegisterLibraryFunction("Watermelon_Followers_Page", gmf_FollowersPage);
     a_machine.RegisterLibraryFunction("Watermelon_LevelHearts_Page", gmf_LevelHeartsPage);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Get", gmf_FollowingGet);
@@ -818,7 +835,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_LevelHearts_Get",
         "Watermelon_LevelHearts_Delete",
         "Watermelon_Get_Friends",
-        "Watermelon_Following_All",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
         "Watermelon_GetCloudSave",
