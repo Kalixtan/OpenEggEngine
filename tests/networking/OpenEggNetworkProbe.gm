@@ -132,11 +132,15 @@ global Main = function(p) {
             local queuedGet = Watermelon_Queued_Get(QueuedActionReply, "queued_get", 15, "test-level");
             local queuedPut = Watermelon_Queued_Put(QueuedActionReply, "queued_put", 16, "test-level");
             local queuedDelete = Watermelon_Queued_Delete(QueuedActionReply, "queued_delete", 17, "test-level");
+            local noCallback = Watermelon_Queued_Put(null, null, 18, "test-level");
             local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
             if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");
+            }
+            if (noCallback == 1) {
+                GameSystem.trace("null callback request QUEUED");
             }
             if (selfFollow == 0) {
                 GameSystem.trace("self follow short circuit PASS");

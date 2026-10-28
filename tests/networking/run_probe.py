@@ -27,6 +27,7 @@ MARKERS = (
     "queued get route PASS",
     "queued put route PASS",
     "queued delete route PASS",
+    "null callback request QUEUED",
     "activity page route PASS",
     "featured unknown-user response PASS",
     "ticket POST route PASS",

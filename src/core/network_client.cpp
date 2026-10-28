@@ -128,7 +128,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     if (m_baseUrl.empty() || !m_worker.joinable() || a_path.empty() ||
         a_path.front() != '/' || a_path.size() > 1023 ||
         m_baseUrl.size() + a_path.size() > 1023 ||
-        a_callback.m_type != GM_FUNCTION || m_roots == nullptr) {
+        (a_callbackMode < 0 && a_callback.m_type != GM_FUNCTION) || m_roots == nullptr) {
         return 0;
     }
 
