@@ -14,6 +14,8 @@
 #include "../bindings/texture_bindings.h"
 #include "../bindings/audio_bindings.h"
 #include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 #include "stb_image.h"
 
 #include <algorithm>
@@ -27,6 +29,16 @@
 
 namespace {
 constexpr const char* kRootTableName = "__OpenEggNetworkRequestRoots";
+
+bool AllowsAccountCredentials(const std::string& url) {
+    if (url.rfind("https://", 0) == 0) return true;
+    if (url.rfind("http://", 0) != 0) return false;
+    const size_t end = url.find_first_of("/?#", 7);
+    const std::string authority = url.substr(7, end == std::string::npos ? std::string::npos : end - 7);
+    const size_t colon = authority.rfind(':');
+    const std::string host = colon == std::string::npos ? authority : authority.substr(0, colon);
+    return host == "127.0.0.1" || host == "localhost" || authority == "[::1]" || host == "[::1]";
+}
 
 // Desktop ticket files stand in for the PSN online-ID query. This reads only
 // the common identity fields from PS3/Vita ticket versions 2.1 and 3.0.
@@ -142,7 +154,8 @@ NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
     static const CURLcode curlInit = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curlInit == CURLE_OK && !m_baseUrl.empty())
         m_worker = std::thread(&NetworkClient::WorkerMain, this);
-    if (m_worker.joinable() && !m_manualSessionId.empty() && !m_manualUserId.empty())
+    if (m_worker.joinable() && ((!m_manualSessionId.empty() && !m_manualUserId.empty()) ||
+        (!SystemConfig::Get().networkAccountEmail.empty() && !SystemConfig::Get().networkAccountPassword.empty())))
         m_coordinatorState = 4;
 #else
     if (!m_baseUrl.empty())
@@ -229,9 +242,38 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
         m_sessionId.clear();
     }
     m_userId.clear();
+    m_accountLogin = false;
     m_loginRequestId = QueueRetailPost("/identity/login/token/psn", a_ticket,
         "application/octet-stream", gmVariable::s_null, gmVariable::s_null,
         gmVariable::s_null, 0, 0);
+    return m_loginRequestId != 0;
+}
+
+bool NetworkClient::BeginAccountLogin() {
+    const auto& config = SystemConfig::Get();
+    if (config.networkAccountEmail.empty() || config.networkAccountPassword.empty() || m_loginRequestId) return false;
+    if (!AllowsAccountCredentials(m_baseUrl)) {
+        std::fprintf(stderr, "network: account login requires HTTPS or localhost\n");
+        return false;
+    }
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    writer.StartObject();
+    writer.Key("email");
+    writer.String(config.networkAccountEmail.c_str());
+    writer.Key("password");
+    writer.String(config.networkAccountPassword.c_str());
+    writer.EndObject();
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        for (auto& entry : m_pending)
+            if (entry.second.identity) entry.second.purged = true;
+        m_sessionId.clear();
+    }
+    m_userId.clear();
+    m_accountLogin = true;
+    m_loginRequestId = QueueRetailPost("/identity/login/account", buffer.GetString(),
+        "application/json", gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
     return m_loginRequestId != 0;
 }
 
@@ -248,6 +290,10 @@ void NetworkClient::GoOnline() {
     m_coordinatorError = 0;
     if (!m_platformTicket.empty() && BeginTicketLogin(m_platformTicket)) {
         m_coordinatorState = 18;
+    } else if (m_platformTicket.empty() && !SystemConfig::Get().networkAccountEmail.empty() &&
+               !SystemConfig::Get().networkAccountPassword.empty()) {
+        if (BeginAccountLogin()) m_coordinatorState = 18;
+        else m_coordinatorError = -12;
     } else if (m_platformTicket.empty() && !m_manualSessionId.empty() && !m_manualUserId.empty()) {
         {
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -286,6 +332,7 @@ void NetworkClient::GoOffline() {
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
+    m_accountLogin = false;
     m_manualValidationRequestId = 0;
     m_helloRequestId = 0;
     m_eulaRequestId = 0;
@@ -426,6 +473,8 @@ void NetworkClient::PumpCallbacks() {
         }
         if (completion.id == m_loginRequestId) {
             m_loginRequestId = 0;
+            const bool accountLogin = m_accountLogin;
+            m_accountLogin = false;
             rapidjson::Document response;
             response.Parse(completion.body.data(), completion.body.size());
             if ((completion.status == 200 || completion.status == 201) &&
@@ -444,8 +493,11 @@ void NetworkClient::PumpCallbacks() {
                         m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                     }
                     m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
+                    if (accountLogin && session["person"].HasMember("display_name") &&
+                        session["person"]["display_name"].IsString())
+                        m_platformOnlineId = session["person"]["display_name"].GetString();
                     m_identityReady = true;
-                    std::fprintf(stderr, "network: ticket login succeeded\n");
+                    std::fprintf(stderr, "network: %s login succeeded\n", accountLogin ? "account" : "ticket");
                     m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                         gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
                     if (m_helloRequestId) {
@@ -455,11 +507,11 @@ void NetworkClient::PumpCallbacks() {
                     }
                 } else {
                     m_coordinatorError = -12;
-                    std::fprintf(stderr, "network: ticket login returned an incomplete session\n");
+                    std::fprintf(stderr, "network: %s login returned an incomplete session\n", accountLogin ? "account" : "ticket");
                 }
             } else {
                 m_coordinatorError = -12;
-                std::fprintf(stderr, "network: ticket login failed (HTTP %ld)\n", completion.status);
+                std::fprintf(stderr, "network: %s login failed (HTTP %ld)\n", accountLogin ? "account" : "ticket", completion.status);
             }
         }
         if (completion.id == m_helloRequestId) {

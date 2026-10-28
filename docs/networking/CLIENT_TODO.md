@@ -15,8 +15,8 @@ behavior.
 - [x] Configurable server URL, session ID, and user ID.
 - [x] Start the coordinator with a configured session after a server check.
       The check does not prove that the supplied identity owns the session.
-- [ ] Add account login; the INI session and user IDs are temporary test inputs,
-      not username/password credentials or a complete online flow.
+- [x] Sign in to a registered replacement-server account using INI credentials;
+      this desktop exchange is separate from retail PSN ticket login.
 - [x] `Watermelon_Index_Page`, album pages, user-list pages,
       `Watermelon_ActivityStream_Page`, and `Watermelon_FeaturedLevel_Get`.
 - [x] Following get/put/delete route construction and self-follow short

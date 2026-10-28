@@ -43,6 +43,12 @@ user_id =
 ; The server decides whether to accept the ticket.
 ticket_file =
 
+; Optional registered replacement-server account for desktop login.
+; Credentials require HTTPS, except for localhost. The password is stored as
+; plain text here; keep OpenEgg.ini private. Ticket login takes precedence.
+account_email =
+account_password =
+
 ; Desktop fallback for the PSN chat restriction check. Set false to disable
 ; community features. This does not change server-side permissions.
 community_allowed = true

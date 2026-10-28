@@ -36,6 +36,9 @@ struct SystemConfig {
     std::string networkUserId;
     // Optional binary platform ticket for the experimental login exchange.
     std::string networkTicketFile;
+    // Optional credentials for the replacement server's desktop login.
+    std::string networkAccountEmail;
+    std::string networkAccountPassword;
     // Desktop fallback for PSN's chat restriction query.
     bool networkCommunityAllowed = true;
 

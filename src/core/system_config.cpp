@@ -107,8 +107,13 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
     unsigned lineNumber = 0;
     while (std::getline(input, line)) {
         ++lineNumber;
-        const auto comment = line.find_first_of(";#");
-        if (comment != std::string::npos) line.erase(comment);
+        const auto rawEquals = line.find('=');
+        const bool password = section == "network" && rawEquals != std::string::npos &&
+            Lower(Trim(line.substr(0, rawEquals))) == "account_password";
+        if (!password) {
+            const auto comment = line.find_first_of(";#");
+            if (comment != std::string::npos) line.erase(comment);
+        }
         line = Trim(std::move(line));
         if (line.empty()) continue;
         if (line.front() == '[' && line.back() == ']') {
@@ -158,6 +163,12 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             valid = true;
         } else if (section == "network" && key == "ticket_file") {
             networkTicketFile = value;
+            valid = true;
+        } else if (section == "network" && key == "account_email") {
+            networkAccountEmail = value;
+            valid = true;
+        } else if (section == "network" && key == "account_password") {
+            networkAccountPassword = value;
             valid = true;
         } else if (section == "network" && key == "community_allowed") {
             bool parsed = networkCommunityAllowed;
