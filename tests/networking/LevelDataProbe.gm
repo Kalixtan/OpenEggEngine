@@ -24,6 +24,26 @@ global DescriptionReply = function(data, result, error) {
     }
 };
 
+global SoundReply = function(data, result, error) {
+    if (data == "compressed" && error == 0 && result == null && Audio.isPlayingScript()) {
+        GameSystem.trace("sound compressed PASS");
+        Watermelon_GetSoundData(SoundReply, "fun", 80, "level-1", "fun");
+    } else if (data == "fun" && error == 0 && result == null && !Audio.isPlayingScript()) {
+        GameSystem.trace("sound fun prefix PASS");
+        Audio.startPlayingScript();
+        Watermelon_GetSoundData(SoundReply, "invalid", 81, "level-1", "invalid");
+    } else if (data == "invalid" && error == 0 && result == null && !Audio.isPlayingScript()) {
+        GameSystem.trace("sound invalid PASS");
+        Audio.startPlayingScript();
+        Watermelon_GetSoundData(SoundReply, "missing", 82, "level-1", "missing");
+    } else if (data == "missing" && error == 1 && result == null && Audio.isPlayingScript()) {
+        GameSystem.trace("sound missing PASS");
+        Audio.stopPlayingScript();
+    } else {
+        GameSystem.trace("sound callback FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -33,6 +53,9 @@ global Main = function(p) {
         update=function() {
             if (this.started == 0 && Watermelon_IsOnline()) {
                 this.started = 1;
+                if (Watermelon_GetSoundData(SoundReply, "compressed", 79, "level-1", "compressed")) {
+                    GameSystem.trace("sound request queued PASS");
+                }
                 if (Watermelon_GetLevelDescription(DescriptionReply, "description", 75, "level-1", "good") &&
                     Watermelon_GetLevelDescription(DescriptionReply, "malformed", 76, "level-1", "invalid") &&
                     Watermelon_GetLevelDescription(DescriptionReply, "missing", 77, "level-1", "missing")) {

@@ -2435,18 +2435,12 @@ bool ParseAudioRecorderV4(const std::string& a_text,
     return true;
 }
 
-int GM_CDECL gmf_loadScriptFromFile(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(2);
-    GM_STRING_PARAM(path, 0, "");
-    const int area = a_thread->ParamInt(1, 0);
-    std::string text;
+void LoadAudioRecorderText(gmMachine& machine, const std::string& text) {
     std::set<std::string> resources;
     std::vector<RecordedPlaySoundEvent> events;
     float stopMs = 0.0f;
-    const bool ok = ReadAudioRecorderFile(path, area, text) &&
-        ParseAudioRecorderV4(text, resources, events, stopMs);
-    gmMachine* machine = a_thread->GetMachine();
-    ClearRecordedPlaySounds(*machine);
+    const bool ok = ParseAudioRecorderV4(text, resources, events, stopMs);
+    ClearRecordedPlaySounds(machine);
     State().recordedSoundResources.clear();
     State().playbackEventIndex = 0;
     State().playbackElapsedMs = 0.0f;
@@ -2455,14 +2449,23 @@ int GM_CDECL gmf_loadScriptFromFile(gmThread* a_thread) {
         for (auto& event : events) {
             if (!event.chainRoute) continue;
             event.effectChain = FindEffectChainByHandle(
-                *machine, event.effectChainHandle);
+                machine, event.effectChainHandle);
             if (event.effectChain.IsReference())
-                RetainAudioGMVariable(*machine, event.effectChain);
+                RetainAudioGMVariable(machine, event.effectChain);
         }
         State().recordedSoundResources = std::move(resources);
         State().recordedPlaySounds = std::move(events);
         State().recordingStopMs = stopMs;
     }
+}
+
+int GM_CDECL gmf_loadScriptFromFile(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(path, 0, "");
+    const int area = a_thread->ParamInt(1, 0);
+    std::string text;
+    if (!ReadAudioRecorderFile(path, area, text)) text.clear();
+    LoadAudioRecorderText(*a_thread->GetMachine(), text);
     return GM_OK;
 }
 
@@ -2603,6 +2606,26 @@ gmFunctionEntry s_audioLib[] = {
 };
 
 } // namespace
+
+void LoadNetworkAudioScript(gmMachine& machine, const std::string& payload) {
+    if (State().playingScript) {
+        State().playingScript = false;
+        StopRecordedPlaybackVoices();
+    }
+    ClearRecordedPlaySounds(machine);
+    State().recordedSoundResources.clear();
+    if (payload.compare(0, 3, "Fun") == 0 || payload.size() > UINT_MAX) return;
+    std::array<char, 100000> buffer{};
+    uLongf size = buffer.size() - 1;
+    if (uncompress(reinterpret_cast<Bytef*>(buffer.data()), &size,
+                   reinterpret_cast<const Bytef*>(payload.data()),
+                   static_cast<uLong>(payload.size())) != Z_OK || size == 0) return;
+    LoadAudioRecorderText(machine, std::string(buffer.data(), std::strlen(buffer.data())));
+    State().playbackEventIndex = 0;
+    State().playbackElapsedMs = 0.0f;
+    State().scriptPlaybackVoiceIds.clear();
+    State().playingScript = true;
+}
 
 void CleanupAudioManagerTrackedResources() {
     State().loadedSounds.clear();

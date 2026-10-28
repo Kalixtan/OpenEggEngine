@@ -86,8 +86,11 @@ behavior.
 - [x] Implement level-description callbacks and test success, malformed JSON
       and HTTP failure against a local fixture.
 - [x] Publish a level and fetch its upload description from the local server.
-- [ ] Verify the description URL and server response against retail; implement
-      sound loading and compare image cache ownership with retail.
+- [x] Fetch a sound resource and load supported compressed audio scripts;
+      exercise success and failure callbacks against a local fixture.
+- [ ] Verify the description URL and response against retail. Expand audio
+      script parsing to cover unsupported callback classes and compare network
+      playback and image cache ownership with retail.
 - [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated

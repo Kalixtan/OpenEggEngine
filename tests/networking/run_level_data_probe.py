@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import threading
 import zlib
+import re
 
 from run_ticket_probe import ticket
 
@@ -17,6 +18,7 @@ SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 seen = set()
 descriptions = set()
+sounds = set()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -45,6 +47,20 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, zlib.compress(xml))
             elif version == "invalid":
                 self.reply(200, b"invalid compressed data")
+            else:
+                self.reply(404)
+        elif self.path.startswith("/otg/~level:level-1/~version:") and self.path.endswith("/~content:sound/data.get"):
+            version = self.path[len("/otg/~level:level-1/~version:"):-len("/~content:sound/data.get")]
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                sounds.add(version)
+            if version == "compressed":
+                signatures = re.findall(r'^\s*"([^"]+)",?$', (ROOT / "src/bindings/audio_recorder_signatures.h").read_text(), re.MULTILINE)
+                text = "\n".join(["FunctionObjectRecorderV4", str(len(signatures)), *signatures, "0", "60000", "0", ""])
+                self.reply(200, zlib.compress(text.encode()))
+            elif version == "fun":
+                self.reply(200, b"Fun raw payload")
+            elif version == "invalid":
+                self.reply(200, b"not compressed")
             else:
                 self.reply(404)
         elif self.path.startswith("/otg/~level:level-1/~upload:") and self.path.endswith(".get"):
@@ -110,9 +126,9 @@ def main():
             result = subprocess.run([str(temp / engine.name), str(script_dir), probe, "Main"],
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            markers = (("server level data PASS",) if args.server_url else
-                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS"))
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+            markers = (("server level data PASS", "server sound data PASS") if args.server_url else
+                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS", "sound request queued PASS", "sound compressed PASS", "sound fun prefix PASS", "sound invalid PASS", "sound missing PASS"))
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

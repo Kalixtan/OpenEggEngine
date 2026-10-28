@@ -10,6 +10,8 @@ void RegisterAudioBindings(gmMachine& a_machine, PlatformFrontend& a_frontend);
 void AdvanceAudioVoices(float a_deltaMs);
 void InitializeAudioOutput();
 void ShutdownAudioOutput();
+// Load the retail network sound payload into the existing script scheduler.
+void LoadNetworkAudioScript(gmMachine& a_machine, const std::string& a_payload);
 // Mirror the manager-owned resource-list clear in retail
 // AudioManagerClearTrackedResources. Active voices keep their own sample refs.
 void CleanupAudioManagerTrackedResources();

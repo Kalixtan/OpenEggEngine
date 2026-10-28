@@ -12,6 +12,7 @@
 #include "save_data.h"
 #include "engine_context.h"
 #include "../bindings/texture_bindings.h"
+#include "../bindings/audio_bindings.h"
 #include <rapidjson/document.h>
 #include "stb_image.h"
 
@@ -540,6 +541,8 @@ void NetworkClient::PumpCallbacks() {
             const gmVariable callbackValue = context->Get(0);
             const gmVariable callbackData = context->Get(1);
             const int callbackMode = static_cast<int>(context->Get(2).m_value.m_int);
+            if (callbackMode == 8 && (completion.status == 200 || completion.status == 201))
+                LoadNetworkAudioScript(m_machine, completion.body);
             if (callbackValue.m_type == GM_FUNCTION) {
                 auto* callback = static_cast<gmFunctionObject*>(
                     m_machine.GetObject(callbackValue.m_value.m_ref));
@@ -574,7 +577,7 @@ void NetworkClient::PumpCallbacks() {
                     } else {
                         gmVariable result = gmVariable::s_null;
                         int error = completion.status == 0 ? 1 : static_cast<int>(completion.status);
-                        if (callbackMode == 3 || callbackMode == 4 || callbackMode == 7) error = 1;
+                        if (callbackMode == 3 || callbackMode == 4 || callbackMode == 7 || callbackMode == 8) error = 1;
                         if (completion.status == 200 || completion.status == 201) {
                             error = 0;
                             if (callbackMode == 4) {
@@ -605,7 +608,7 @@ void NetworkClient::PumpCallbacks() {
                             } else if (callbackMode == 1) {
                                 result = gmVariable(m_machine.AllocStringObject(
                                     completion.body.data(), static_cast<int>(completion.body.size())));
-                            } else if (!completion.body.empty()) {
+                            } else if (callbackMode != 8 && !completion.body.empty()) {
                                 result = ParseRetailJson(m_machine, completion.body, callbackMode == 7 ? 0 : callbackMode);
                             }
                         }

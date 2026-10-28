@@ -913,6 +913,21 @@ int GM_CDECL gmf_GetLevelDescription(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GetSoundData(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(5);
+    std::string level, version;
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
+        !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string path = "/otg/~level:" + level + "/~version:" + version + "/~content:sound/data.get";
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        a_thread->Param(2), 0, 8);
+    a_thread->PushInt(id != 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(5);
     std::string level, version;
@@ -1163,6 +1178,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetEulaVersion", gmf_GetEulaVersion);
     a_machine.RegisterLibraryFunction("Watermelon_Get_Friends", gmf_GetFriends);
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelData", gmf_GetLevelData);
+    a_machine.RegisterLibraryFunction("Watermelon_GetSoundData", gmf_GetSoundData);
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelDescription", gmf_GetLevelDescription);
     a_machine.RegisterLibraryFunction("Watermelon_SaveLevelAndAssetsToDisk", gmf_SaveLevelAndAssetsToDisk);
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelThumbnail", gmf_GetLevelThumbnail);
@@ -1221,7 +1237,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
 
     // Server-request family -- see the offline-stub block comment above.
     static const char* kOfflineRequests[] = {
-        "Watermelon_GetSoundData",
         "Watermelon_GetBetaParticipationAgreement",
     };
     for (const char* name : kOfflineRequests)

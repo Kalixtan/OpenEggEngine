@@ -6,6 +6,14 @@ global ServerLevelReply = function(data, result, error) {
     }
 };
 
+global ServerSoundReply = function(data, result, error) {
+    if (error == 0 && result == null && !Audio.isPlayingScript()) {
+        GameSystem.trace("server sound data PASS");
+    } else {
+        GameSystem.trace("server sound data FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -15,6 +23,8 @@ global Main = function(p) {
         update=function() {
             if (this.started == 0 && Watermelon_IsOnline()) {
                 this.started = 1;
+                Audio.startPlayingScript();
+                Watermelon_GetSoundData(ServerSoundReply, null, 2, "__LEVEL_ID__", "probe");
                 Watermelon_GetLevelData(ServerLevelReply, null, 1, "__LEVEL_ID__", "probe");
             }
         }
