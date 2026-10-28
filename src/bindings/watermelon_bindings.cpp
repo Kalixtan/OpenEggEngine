@@ -864,9 +864,10 @@ int GM_CDECL gmf_GetFriends(gmThread* a_thread) {
     return GM_OK;
 }
 
-// Watermelon_IsOnline() -> bool. Permanently offline, matching the
-// OnlineCoordinator_* stance.
-int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+int GM_CDECL gmf_IsOnline(gmThread* a_thread) {
+    a_thread->PushInt(g_networkClient && g_networkClient->IdentityReady());
+    return GM_OK;
+}
 
 int GM_CDECL gmf_NoOp(gmThread*) { return GM_OK; }
 

@@ -42,6 +42,7 @@ public:
     void GoOffline();
     int CoordinatorState() const { return m_coordinatorState; }
     int CoordinatorError() const { return m_coordinatorError; }
+    bool IdentityReady() const { return m_identityReady; }
     bool HasEula() const { return m_eulaReady; }
     const std::string& EulaText() const { return m_eulaText; }
     const std::string& EulaVersion() const { return m_eulaVersion; }
@@ -100,9 +101,11 @@ private:
     int m_friendsFetchRequestId = 0;
     int m_featuredRequestId = 0;
     int m_newsRequestId = 0;
+    int m_translationRequestId = 0;
     std::string m_platformTicket;
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;
+    bool m_identityReady = false;
     bool m_eulaReady = false;
     std::string m_eulaText;
     std::string m_eulaVersion;
@@ -112,4 +115,5 @@ private:
     gmTableObject* m_news = nullptr;
     bool m_featuredReady = false;
     bool m_newsReady = false;
+    bool m_translationReady = false;
 };

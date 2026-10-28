@@ -17,6 +17,9 @@ global Main = function(p) {
             } else if (this.checked == 1 && Watermelon_Get_Friends() != null) {
                 this.checked = 2;
                 GameSystem.trace("server friends PASS");
+            } else if (this.checked == 2 && OnlineCoordinator_IsOnline() && Watermelon_IsOnline()) {
+                this.checked = 3;
+                GameSystem.trace("server coordinator online PASS");
             }
         }
     );

@@ -39,6 +39,21 @@ global Main = function(p) {
                     this.checked = 4;
                     GameSystem.trace("community data PASS");
                 }
+            } else if (this.checked == 4) {
+                local featured = WatermelonGlobals_GetFeaturedSearches();
+                local news = WatermelonGlobals_GetNews();
+                if (featured.localized == "featured en" && news.localized == "news en" &&
+                    featured.test == "featured" && news.test == "news") {
+                    this.checked = 5;
+                    GameSystem.trace("localized community data PASS");
+                }
+            } else if (this.checked == 5 && OnlineCoordinator_IsOnline() && Watermelon_IsOnline()) {
+                this.checked = 6;
+                GameSystem.trace("coordinator online PASS");
+                OnlineCoordinator_GoOffline();
+                if (OnlineCoordinator_IsOffline() && !Watermelon_IsOnline()) {
+                    GameSystem.trace("coordinator offline PASS");
+                }
             }
             if (this.errorChecked == 0 && OnlineCoordinator_GetLastError() == -12) {
                 this.errorChecked = 1;

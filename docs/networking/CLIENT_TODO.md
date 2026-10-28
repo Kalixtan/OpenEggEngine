@@ -28,14 +28,16 @@ behavior.
       local replacement server configured to accept unsigned tickets.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       the in-flight transport may still finish, as in the PS3 trace.
-- [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`;
-      stop at the unimplemented post-login phases rather than reporting online.
+- [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`.
 - [x] Send the identity hello and PS3 SCEA EULA requests after login; cache
       EULA text and digest and poll script acceptance.
 - [x] Synchronize an empty desktop platform friend list and expose returned
       friend identities. A real platform friend provider is still needed.
-- [x] Fetch the initial featured and news data into rooted script tables.
-- [ ] Implement localized refresh, translations and final online transition.
+- [x] Fetch and refresh featured and news data into rooted script tables.
+- [x] Reach coordinator online state when translation is empty or its request
+      fails, after both community data callbacks have run.
+- [ ] Parse nonempty translation responses. Online transition currently waits
+      when such data arrives; platform sign-in and timing remain incomplete.
 - [ ] Implement other product regions and later coordinator phases. Match
       retail update timing and malformed EULA edge cases.
 - [ ] Match retail login reset, request purging, malformed responses and error

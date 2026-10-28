@@ -19,9 +19,13 @@ friends_uploaded = threading.Event()
 friends_fetched = threading.Event()
 featured_fetched = threading.Event()
 news_fetched = threading.Event()
+featured_localized = threading.Event()
+news_localized = threading.Event()
+translation_fetched = threading.Event()
 fail = False
 friends_fail = ""
 community_fail = False
+translation_body = False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -53,6 +57,16 @@ class Handler(BaseHTTPRequestHandler):
                 (featured_fetched if featured else news_fetched).set()
             self.reply(503 if community_fail else 200,
                        b'{"test":"featured"}' if featured else b'{"test":"news"}')
+        elif self.path in ("/otg/global/featured/en/~metadata:*.get", "/otg/global/news/en/~metadata:*.get"):
+            featured = "/featured/" in self.path
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                (featured_localized if featured else news_localized).set()
+            self.reply(503 if community_fail else 200,
+                       b'{"localized":"featured en"}' if featured else b'{"localized":"news en"}')
+        elif self.path == "/otg/ps3/SCEA/en/~translation.get":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                translation_fetched.set()
+            self.reply(200, b"untraced translation" if translation_body else b"")
         else:
             self.reply(404, b"")
 
@@ -67,16 +81,18 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global fail, friends_fail, community_fail
+    global fail, friends_fail, community_fail, translation_body
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fail", action="store_true", help="Return an HTTP error for EULA")
     parser.add_argument("--friends-fail", choices=("upload", "fetch"), help="Return an error during friends sync")
     parser.add_argument("--community-fail", action="store_true", help="Return errors for featured and news")
+    parser.add_argument("--translation-body", action="store_true", help="Send nonempty, unsupported translation data")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     args = parser.parse_args()
     fail = args.fail
     friends_fail = args.friends_fail or ""
     community_fail = args.community_fail
+    translation_body = args.translation_body
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -104,12 +120,16 @@ def main():
             print(result.stdout, end="")
             markers = (("EULA failure PASS",) if fail else ("friends failure PASS",) if friends_fail else
                        ("network: initial community data requests complete",) if community_fail else
-                       ("EULA text and digest PASS", "EULA acceptance PASS", "friends snapshot PASS", "community data PASS"))
+                       ("localized community data PASS", "network: translation data is not supported yet") if translation_body else
+                       ("EULA text and digest PASS", "EULA acceptance PASS", "friends snapshot PASS", "community data PASS",
+                        "localized community data PASS", "coordinator online PASS", "coordinator offline PASS"))
             requests_ok = fail or (friends_uploaded.is_set() and (friends_fail == "upload" or friends_fetched.is_set()))
             if not fail and not friends_fail:
                 requests_ok = requests_ok and featured_fetched.is_set() and news_fetched.is_set()
+                requests_ok = requests_ok and featured_localized.is_set() and news_localized.is_set() and translation_fetched.is_set()
             if (result.returncode or not received.is_set() or not requests_ok or
-                    any(x not in result.stdout for x in markers) or "EULA acceptance version FAIL" in result.stdout):
+                    any(x not in result.stdout for x in markers) or "EULA acceptance version FAIL" in result.stdout or
+                    (translation_body and "coordinator online PASS" in result.stdout)):
                 raise SystemExit("EULA probe failed")
     finally:
         server.shutdown()

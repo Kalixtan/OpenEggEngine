@@ -173,6 +173,8 @@ void NetworkClient::GoOffline() {
         if (pending != m_pending.end()) pending->second.purged = true;
         pending = m_pending.find(m_newsRequestId);
         if (pending != m_pending.end()) pending->second.purged = true;
+        pending = m_pending.find(m_translationRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
@@ -182,7 +184,9 @@ void NetworkClient::GoOffline() {
     m_friendsFetchRequestId = 0;
     m_featuredRequestId = 0;
     m_newsRequestId = 0;
+    m_translationRequestId = 0;
     m_userId.clear();
+    m_identityReady = false;
     m_coordinatorError = 0;
     m_coordinatorState = 4;
 }
@@ -263,6 +267,7 @@ void NetworkClient::PumpCallbacks() {
                         m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                     }
                     m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
+                    m_identityReady = true;
                     std::fprintf(stderr, "network: ticket login succeeded\n");
                     m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                         gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
@@ -375,6 +380,15 @@ void NetworkClient::PumpCallbacks() {
                              featured ? "featured" : "news", completion.status);
             }
         }
+        if (completion.id == m_translationRequestId) {
+            m_translationRequestId = 0;
+            // The retail parser for nonempty translation data is still being traced.
+            m_translationReady = completion.status != 200 && completion.status != 201;
+            if ((completion.status == 200 || completion.status == 201) && completion.body.empty())
+                m_translationReady = true;
+            if (!m_translationReady)
+                std::fprintf(stderr, "network: translation data is not supported yet\n");
+        }
         const gmVariable contextValue = m_roots->Get(completion.id);
         if (contextValue.m_type == GM_TABLE) {
             auto* context = static_cast<gmTableObject*>(
@@ -443,6 +457,28 @@ void NetworkClient::UpdateCoordinator() {
     if (m_coordinatorState == 27 && m_featuredReady && m_newsReady) {
         m_coordinatorState = 28;
         std::fprintf(stderr, "network: initial community data requests complete\n");
+        return;
+    }
+    if (m_coordinatorState == 28) {
+        static const char* locales[] = {"ja", "en", "fr", "es", "de", "it", "nl", "pt", "ru", "ko",
+                                        "zh_hant", "zh", "fi", "sv", "da", "no", "pl", "pt_br", "en_gb", "es_mx"};
+        const int code = SystemConfig::Get().languageCode;
+        const char* locale = code >= 0 && code < 20 ? locales[code] : "en";
+        m_featuredReady = false;
+        m_newsReady = false;
+        m_translationReady = false;
+        m_featuredRequestId = QueueRetailGet(std::string("/otg/global/featured/") + locale + "/~metadata:*.get",
+            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+        m_newsRequestId = QueueRetailGet(std::string("/otg/global/news/") + locale + "/~metadata:*.get",
+            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+        m_translationRequestId = QueueRetailGet(std::string("/otg/ps3/SCEA/") + locale + "/~translation.get",
+            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 1);
+        m_coordinatorState = 29;
+        return;
+    }
+    if (m_coordinatorState == 29 && m_featuredReady && m_newsReady && m_translationReady) {
+        m_coordinatorState = 30;
+        std::fprintf(stderr, "network: coordinator online\n");
         return;
     }
     if ((m_coordinatorState != 22 && m_coordinatorState != 23) || !m_eulaReady) return;
