@@ -44,6 +44,8 @@ behavior.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated
       server results. Record submission currently rejects unsupported values and
       oversized tables instead of reproducing the retail buffer edge cases.
+- [x] Submit a fixture record and read back a large leaderboard score through
+      the local server. Compare the same case with retail before claiming parity.
 - [ ] Implement publishing, grief reports, cloud saves, and multipart bodies.
 - [ ] Implement friend, identity, EULA, and online coordinator flows.
 - [ ] Review every currently offline request binding against the tracked
