@@ -38,6 +38,10 @@ behavior.
       state after all three localized callbacks have run.
 - [x] Cloud-save GET and multipart POST; tested with a disposable local server
       account and a byte-checking fixture.
+- [x] Fetch and inflate level data as XML or JSON, with request-state callback
+      status; exercised against a synthetic replacement-server level.
+- [ ] Compare level XML/JSON conversion and malformed input with retail;
+      desktop inflate currently caps output at 64 MiB.
 - [ ] Connect the separate network translation map to traced native string
       consumers; compare malformed catalogs and platform sign-in timing.
 - [ ] Replace the configurable desktop chat-permission fallback with platform
@@ -66,7 +70,7 @@ behavior.
 
 ## Watermelon APIs
 
-- [ ] Trace and implement level reads, snapshots, downloads, and save-to-disk.
+- [ ] Finish level description, thumbnail, sound and save-to-disk paths.
 - [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated

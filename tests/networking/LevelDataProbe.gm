@@ -1,0 +1,33 @@
+global LevelReply = function(data, result, error) {
+    if (data == "json" && error == 0 && result != null && result.bpm == 120 && result.screenData[0].screenX == 3 && result.screenData.size == 1 && result.entities.size == 0) {
+        GameSystem.trace("level JSON PASS");
+    } else if (data == "xml" && error == 0 && result != null && result.bpm == 120 && result.screenData[0].screenX == 3 && result.screenData.size == 1) {
+        GameSystem.trace("level XML PASS");
+    } else if (data == "invalid" && error == 0 && result == null) {
+        GameSystem.trace("level invalid data PASS");
+    } else if (data == "missing" && error == 1 && result == null) {
+        GameSystem.trace("level missing PASS");
+    } else {
+        GameSystem.trace("level callback FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        started=0,
+        init=function() { return true; },
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                if (Watermelon_GetLevelData(LevelReply, "json", 71, "level-1", "json") &&
+                    Watermelon_GetLevelData(LevelReply, "xml", 72, "level-1", "xml") &&
+                    Watermelon_GetLevelData(LevelReply, "invalid", 73, "level-1", "invalid") &&
+                    Watermelon_GetLevelData(LevelReply, "missing", 74, "level-1", "missing")) {
+                    GameSystem.trace("level requests queued PASS");
+                }
+            }
+        }
+    );
+};

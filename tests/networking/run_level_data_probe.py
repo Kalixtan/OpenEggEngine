@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Check compressed level callbacks against a local HTTP fixture."""
+import argparse
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import threading
+import zlib
+
+from run_ticket_probe import ticket
+
+ROOT = Path(__file__).resolve().parents[2]
+SESSION = "00000000-0000-0000-0000-000000000001"
+USER = "00000000-0000-0000-0000-000000000002"
+seen = set()
+
+
+class Handler(BaseHTTPRequestHandler):
+    def reply(self, status, body=b""):
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        data = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
+        self.reply(201, data)
+
+    def do_GET(self):
+        prefix = "/otg/~level:level-1/~version:"
+        suffix = "/~content:level/data.get"
+        if self.path.startswith(prefix) and self.path.endswith(suffix):
+            version = self.path[len(prefix):-len(suffix)]
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                seen.add(version)
+            if version == "json":
+                self.reply(200, zlib.compress(b'{"bpm":120,"screenData":[{"screenX":3}],"entities":[]}'))
+            elif version == "xml":
+                xml = b'<element key="bpm" value="120"/><tableElement key="screenData"><tableElement><element key="screenX" value="3"/></tableElement><indexSize/></tableElement>'
+                self.reply(200, zlib.compress(xml))
+            elif version == "invalid":
+                self.reply(200, b"invalid compressed data")
+            else:
+                self.reply(404)
+        elif self.path == "/otg/~identity:*.hello":
+            self.reply(200)
+        else:
+            self.reply(404)
+
+    def log_message(self, *args):
+        pass
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--server-url", help="Disposable local replacement server")
+    parser.add_argument("--level-id", help="Fixture level ID")
+    args = parser.parse_args()
+    server = None
+    if args.server_url:
+        if not args.server_url.startswith("http://127.0.0.1:") or not args.level_id or not args.level_id.isalnum():
+            parser.error("local server URL and fixture level ID required")
+        url = args.server_url.rstrip("/")
+    else:
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server.daemon_threads = True
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with tempfile.TemporaryDirectory(prefix="openegg-level-") as name:
+            temp = Path(name)
+            engine = ROOT / "build/OpenEgg"
+            shutil.copy2(engine, temp / engine.name)
+            for asset in engine.parent.glob("*.psarc"):
+                (temp / asset.name).symlink_to(asset)
+            data = engine.parent / "game_data"
+            if data.is_dir():
+                (temp / "game_data").symlink_to(data, target_is_directory=True)
+            (temp / "ticket.bin").write_bytes(ticket())
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nticket_file = ticket.bin\n")
+            harness = temp / "harness.txt"
+            harness.write_text("wait 240\nquit\n")
+            env = os.environ.copy()
+            env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
+                       SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
+            script_dir = ROOT / "tests/networking"
+            probe = "LevelDataProbe.gm"
+            if args.server_url:
+                probe = "ServerLevelDataProbe.gm"
+                script_dir = temp / "probe"
+                script_dir.mkdir()
+                source = (ROOT / "tests/networking" / probe).read_text().replace("__LEVEL_ID__", args.level_id)
+                (script_dir / probe).write_text(source)
+            result = subprocess.run([str(temp / engine.name), str(script_dir), probe, "Main"],
+                                    cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+            print(result.stdout, end="")
+            markers = (("server level data PASS",) if args.server_url else
+                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS"))
+            if result.returncode or (server and seen != {"json", "xml", "invalid", "missing"}) or any(m not in result.stdout for m in markers):
+                raise SystemExit("level data probe failed")
+    finally:
+        if server:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+
+if __name__ == "__main__":
+    main()

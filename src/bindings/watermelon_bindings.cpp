@@ -864,6 +864,21 @@ int GM_CDECL gmf_GetFriends(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(5);
+    std::string level, version;
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
+        !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string path = "/otg/~level:" + level + "/~version:" + version + "/~content:level/data.get";
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        a_thread->Param(2), 0, 3);
+    a_thread->PushInt(id != 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_GetCloudSave(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     if (!g_networkClient) { a_thread->PushInt(0); return GM_OK; }
@@ -992,6 +1007,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetEula", gmf_GetEula);
     a_machine.RegisterLibraryFunction("Watermelon_GetEulaVersion", gmf_GetEulaVersion);
     a_machine.RegisterLibraryFunction("Watermelon_Get_Friends", gmf_GetFriends);
+    a_machine.RegisterLibraryFunction("Watermelon_GetLevelData", gmf_GetLevelData);
     a_machine.RegisterLibraryFunction("Watermelon_GetCloudSave", gmf_GetCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_PostCloudSave", gmf_PostCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
@@ -1047,7 +1063,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_PublishLevel",
         "Watermelon_GetLevelDescription",
         "Watermelon_GetLevelThumbnail",
-        "Watermelon_GetLevelData",
         "Watermelon_SaveLevelAndAssetsToDisk",
         "Watermelon_GetSoundData",
         "Watermelon_Grief_Post",

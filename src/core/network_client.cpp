@@ -7,6 +7,7 @@
 #include "system_config.h"
 #include "sha1.h"
 #include "network_translation.h"
+#include "network_level_data.h"
 #include <rapidjson/document.h>
 
 #include <algorithm>
@@ -454,9 +455,12 @@ void NetworkClient::PumpCallbacks() {
                     } else {
                         gmVariable result = gmVariable::s_null;
                         int error = completion.status == 0 ? 1 : static_cast<int>(completion.status);
+                        if (callbackMode == 3) error = 1;
                         if (completion.status == 200 || completion.status == 201) {
                             error = 0;
-                            if (callbackMode == 1) {
+                            if (callbackMode == 3) {
+                                result = ParseNetworkLevelData(m_machine, completion.body);
+                            } else if (callbackMode == 1) {
                                 result = gmVariable(m_machine.AllocStringObject(
                                     completion.body.data(), static_cast<int>(completion.body.size())));
                             } else if (!completion.body.empty()) {

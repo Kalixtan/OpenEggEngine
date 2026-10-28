@@ -110,6 +110,7 @@ add_library(OpenEgg_backend STATIC
   src/core/save_data.cpp
   src/core/system_config.cpp
   src/core/network_client.cpp
+  src/core/network_level_data.cpp
   src/core/network_translation.cpp
   src/core/sha1.cpp
   src/core/file_helper.cpp
