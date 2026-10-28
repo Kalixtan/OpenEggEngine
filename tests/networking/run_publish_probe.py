@@ -91,9 +91,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", help="Disposable local replacement server")
     parser.add_argument("--entities-b", action="store_true", help="Publish a level using the newer entity field")
+    parser.add_argument("--level-file", type=Path, help="Use a local compressed JSON level fixture")
     args = parser.parse_args()
+    if args.entities_b and args.level_file:
+        parser.error("choose either --entities-b or --level-file")
     if args.entities_b:
         LEVEL = zlib.compress(b'{"bpm":120,"screenData":[],"entitiesB":[{"entType":"probe"}]}')
+    if args.level_file:
+        LEVEL = args.level_file.read_bytes()
+    level_bpm = json.loads(zlib.decompress(LEVEL)).get("bpm", 100)
+    if not isinstance(level_bpm, int):
+        parser.error("level BPM must be an integer")
     server = None
     if args.server_url:
         if not args.server_url.startswith("http://127.0.0.1:"):
@@ -124,7 +132,7 @@ def main():
             script_dir = temp / "probe"
             script_dir.mkdir()
             source = (ROOT / "tests/networking/PublishProbe.gm").read_text()
-            for key, value in (("__LEVEL_SIZE__", len(LEVEL)), ("__IMAGE_SIZE__", len(IMAGE)), ("__SOUND_SIZE__", len(SOUND))):
+            for key, value in (("__LEVEL_SIZE__", len(LEVEL)), ("__IMAGE_SIZE__", len(IMAGE)), ("__SOUND_SIZE__", len(SOUND)), ("__EXPECTED_BPM__", level_bpm)):
                 source = source.replace(key, str(value))
             (script_dir / "PublishProbe.gm").write_text(source)
             harness = temp / "harness.txt"

@@ -24,7 +24,7 @@ global PublishSnapshot = function(data, result, error) {
 };
 
 global PublishReadback = function(data, result, error) {
-    if (error == 0 && result != null && result.bpm == 120) {
+    if (error == 0 && result != null && result.bpm == __EXPECTED_BPM__) {
         GameSystem.trace("publish level readback PASS");
         Watermelon_GetSnapshot(PublishSnapshot, data, 47, data.levelId);
     } else { GameSystem.trace("publish level readback FAIL"); }

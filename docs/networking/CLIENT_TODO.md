@@ -57,6 +57,8 @@ behavior.
 - [x] Publish and update a synthetic level using saved resource tickets;
       read it back and remove it on a disposable local server.
 - [x] Read the snapshot upload ID before updating, as the retail script does.
+- [x] Publish, read back, update and remove a user-supplied retail JSON level
+      on a disposable server; the level is not included in the repository.
 - [x] Send a report for a synthetic level on a disposable local server.
 - [ ] Compare account country, language and console-ID reporting with retail;
       desktop currently uses the supplied ticket and configured language.
