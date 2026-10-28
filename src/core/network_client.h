@@ -47,6 +47,8 @@ public:
     const std::string& EulaVersion() const { return m_eulaVersion; }
     bool FriendsReady() const { return m_friendsReady; }
     const std::vector<Friend>& Friends() const { return m_friends; }
+    gmTableObject* Featured() const { return m_featured; }
+    gmTableObject* News() const { return m_news; }
     void UpdateCoordinator();
     void Purge(int a_bucket);
     void PumpCallbacks();
@@ -96,6 +98,8 @@ private:
     int m_eulaRequestId = 0;
     int m_friendsUploadRequestId = 0;
     int m_friendsFetchRequestId = 0;
+    int m_featuredRequestId = 0;
+    int m_newsRequestId = 0;
     std::string m_platformTicket;
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;
@@ -104,4 +108,8 @@ private:
     std::string m_eulaVersion;
     bool m_friendsReady = false;
     std::vector<Friend> m_friends;
+    gmTableObject* m_featured = nullptr;
+    gmTableObject* m_news = nullptr;
+    bool m_featuredReady = false;
+    bool m_newsReady = false;
 };

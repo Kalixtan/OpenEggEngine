@@ -34,6 +34,8 @@ behavior.
       EULA text and digest and poll script acceptance.
 - [x] Synchronize an empty desktop platform friend list and expose returned
       friend identities. A real platform friend provider is still needed.
+- [x] Fetch the initial featured and news data into rooted script tables.
+- [ ] Implement localized refresh, translations and final online transition.
 - [ ] Implement other product regions and later coordinator phases. Match
       retail update timing and malformed EULA edge cases.
 - [ ] Match retail login reset, request purging, malformed responses and error

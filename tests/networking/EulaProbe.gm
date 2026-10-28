@@ -32,6 +32,13 @@ global Main = function(p) {
                     this.checked = 3;
                     GameSystem.trace("friends snapshot PASS");
                 }
+            } else if (this.checked == 3) {
+                local featured = WatermelonGlobals_GetFeaturedSearches();
+                local news = WatermelonGlobals_GetNews();
+                if (featured.test == "featured" && news.test == "news") {
+                    this.checked = 4;
+                    GameSystem.trace("community data PASS");
+                }
             }
             if (this.errorChecked == 0 && OnlineCoordinator_GetLastError() == -12) {
                 this.errorChecked = 1;

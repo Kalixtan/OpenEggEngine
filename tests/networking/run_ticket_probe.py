@@ -66,7 +66,8 @@ def main():
         markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS")
         if args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
-                       "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS")
+                       "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS",
+                       "network: initial community data requests complete")
         elif args.invalid_ticket:
             markers += ("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS")
         elif args.expect_hello_failure:
@@ -76,7 +77,9 @@ def main():
             markers += ("network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
                         "ticket authenticated request PASS", "ticket coordinator logout PASS")
         missing = [marker for marker in markers if marker not in result.stdout]
-        if result.returncode or missing or (args.invalid_ticket and "ticket identity PASS" in result.stdout):
+        failed_community = args.eula and ("network: featured request failed" in result.stdout or
+                                          "network: news request failed" in result.stdout)
+        if result.returncode or missing or failed_community or (args.invalid_ticket and "ticket identity PASS" in result.stdout):
             raise SystemExit(f"ticket probe failed; missing markers: {missing}")
 
 

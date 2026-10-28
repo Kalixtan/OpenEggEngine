@@ -81,6 +81,10 @@ NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
     while (!m_baseUrl.empty() && m_baseUrl.back() == '/') m_baseUrl.pop_back();
     m_roots = m_machine.AllocTableObject();
     m_machine.GetGlobals()->Set(&m_machine, kRootTableName, gmVariable(m_roots));
+    m_featured = m_machine.AllocTableObject();
+    m_roots->Set(&m_machine, "featured", gmVariable(m_featured));
+    m_news = m_machine.AllocTableObject();
+    m_roots->Set(&m_machine, "news", gmVariable(m_news));
 
 #if defined(OPENEGG_HAS_CURL)
     static const CURLcode curlInit = curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -165,6 +169,10 @@ void NetworkClient::GoOffline() {
         if (pending != m_pending.end()) pending->second.purged = true;
         pending = m_pending.find(m_friendsFetchRequestId);
         if (pending != m_pending.end()) pending->second.purged = true;
+        pending = m_pending.find(m_featuredRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
+        pending = m_pending.find(m_newsRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
@@ -172,6 +180,8 @@ void NetworkClient::GoOffline() {
     m_eulaRequestId = 0;
     m_friendsUploadRequestId = 0;
     m_friendsFetchRequestId = 0;
+    m_featuredRequestId = 0;
+    m_newsRequestId = 0;
     m_userId.clear();
     m_coordinatorError = 0;
     m_coordinatorState = 4;
@@ -345,6 +355,26 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, "network: friends fetch failed (HTTP %ld)\n", completion.status);
             }
         }
+        if (completion.id == m_featuredRequestId || completion.id == m_newsRequestId) {
+            const bool featured = completion.id == m_featuredRequestId;
+            if (featured) { m_featuredRequestId = 0; m_featuredReady = true; }
+            else { m_newsRequestId = 0; m_newsReady = true; }
+            if (completion.status == 200 || completion.status == 201) {
+                rapidjson::Document response;
+                response.Parse(completion.body.data(), completion.body.size());
+                if (!response.HasParseError() && response.IsObject()) {
+                    gmTableObject* destination = featured ? m_featured : m_news;
+                    for (auto member = response.MemberBegin(); member != response.MemberEnd(); ++member) {
+                        gmVariable key(m_machine.AllocStringObject(member->name.GetString(),
+                            static_cast<int>(member->name.GetStringLength())));
+                        destination->Set(&m_machine, key, JsonToGm(m_machine, member->value, 0));
+                    }
+                }
+            } else {
+                std::fprintf(stderr, "network: %s request failed (HTTP %ld)\n",
+                             featured ? "featured" : "news", completion.status);
+            }
+        }
         const gmVariable contextValue = m_roots->Get(completion.id);
         if (contextValue.m_type == GM_TABLE) {
             auto* context = static_cast<gmTableObject*>(
@@ -398,6 +428,21 @@ void NetworkClient::UpdateCoordinator() {
     }
     if (m_coordinatorState == 25 && m_friendsReady) {
         m_coordinatorState = 26;
+        return;
+    }
+    if (m_coordinatorState == 26) {
+        m_featuredReady = false;
+        m_newsReady = false;
+        m_featuredRequestId = QueueRetailGet("/otg/global/featured/~metadata:*.get",
+            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+        m_newsRequestId = QueueRetailGet("/otg/global/news/~metadata:*.get",
+            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+        m_coordinatorState = 27;
+        return;
+    }
+    if (m_coordinatorState == 27 && m_featuredReady && m_newsReady) {
+        m_coordinatorState = 28;
+        std::fprintf(stderr, "network: initial community data requests complete\n");
         return;
     }
     if ((m_coordinatorState != 22 && m_coordinatorState != 23) || !m_eulaReady) return;

@@ -878,15 +878,14 @@ int GM_CDECL gmf_Purge(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_Globals_GetFeaturedSearches(gmThread* a_thread) {
-    a_thread->PushTable(a_thread->GetMachine()->AllocTableObject());
+    if (g_networkClient) a_thread->PushTable(g_networkClient->Featured());
+    else a_thread->PushNull();
     return GM_OK;
 }
 
 int GM_CDECL gmf_Globals_GetNews(gmThread* a_thread) {
-    gmMachine& m = *a_thread->GetMachine();
-    gmTableObject* arr = m.AllocTableObject();
-    arr->Set(&m, gmVariable((gmint)0), gmVariable(m.AllocTableObject()));
-    a_thread->PushTable(arr);
+    if (g_networkClient) a_thread->PushTable(g_networkClient->News());
+    else a_thread->PushNull();
     return GM_OK;
 }
 
