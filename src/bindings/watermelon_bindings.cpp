@@ -815,6 +815,16 @@ int GM_CDECL gmf_GetUserIdentityId(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GetEula(gmThread* a_thread) {
+    a_thread->PushNull();
+    return GM_OK;
+}
+
+int GM_CDECL gmf_GetEulaVersion(gmThread* a_thread) {
+    a_thread->PushNewString("");
+    return GM_OK;
+}
+
 // Watermelon_IsOnline() -> bool. Permanently offline, matching the
 // OnlineCoordinator_* stance.
 int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
@@ -888,6 +898,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_UnpackScore", gmf_UnpackScore);
     a_machine.RegisterLibraryFunction("Watermelon_IsScoreGreaterThan", gmf_IsScoreGreaterThan);
     a_machine.RegisterLibraryFunction("Watermelon_GetUserIdentityId", gmf_GetUserIdentityId);
+    a_machine.RegisterLibraryFunction("Watermelon_GetEula", gmf_GetEula);
+    a_machine.RegisterLibraryFunction("Watermelon_GetEulaVersion", gmf_GetEulaVersion);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
     a_machine.RegisterLibraryFunction("Watermelon_Purge", gmf_Purge);
     a_machine.RegisterLibraryFunction("Watermelon_ForceCachePurgeByFilter", gmf_NoOp);
@@ -937,8 +949,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
 
     // Server-request family -- see the offline-stub block comment above.
     static const char* kOfflineRequests[] = {
-        "Watermelon_GetEula",
-        "Watermelon_GetEulaVersion",
         "Watermelon_PublishLevel",
         "Watermelon_GetLevelDescription",
         "Watermelon_GetLevelThumbnail",

@@ -13,6 +13,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKERS = (
+    "unloaded EULA values PASS",
     "configured identity PASS",
     "Watermelon index requests QUEUED",
     "typed index response PASS",

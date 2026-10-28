@@ -249,6 +249,9 @@ global Main = function(p) {
         Process=p,
         init=function() { return true; },
         constructor=function() {
+            if (Watermelon_GetEula() == null && Watermelon_GetEulaVersion() == "") {
+                GameSystem.trace("unloaded EULA values PASS");
+            }
             if (Watermelon_GetUserIdentityId() == "test-user") {
                 GameSystem.trace("configured identity PASS");
             }
