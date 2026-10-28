@@ -21,6 +21,7 @@ descriptions = set()
 sounds = set()
 queued = set()
 ratings_favourites = set()
+metadata = set()
 rating_path = f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}"
 
 
@@ -33,6 +34,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == "/otg/~level:level-1/~metadata:field.put":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"value" and self.headers.get("Content-Type") == "text/plain":
+                metadata.add("put")
+            self.reply(200, b'{"ok":1}')
+            return
         if self.path == rating_path + ".put":
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"value=1":
                 ratings_favourites.add(self.path)
@@ -90,6 +96,10 @@ class Handler(BaseHTTPRequestHandler):
                            "/otg/~level:level-1/~favourite:item.delete"}:
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 ratings_favourites.add(self.path)
+            self.reply(200, b'{"ok":1}')
+        elif self.path in {"/otg/~level:level-1/~metadata:*.get", "/otg/~level:level-1/~metadata:field.get", "/otg/~level:level-1/~metadata:field.put"}:
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and (not self.path.endswith("field.put") or self.headers.get("Content-Type") == "text/plain"):
+                metadata.add({"/otg/~level:level-1/~metadata:*.get": "all", "/otg/~level:level-1/~metadata:field.get": "get", "/otg/~level:level-1/~metadata:field.put": "empty"}[self.path])
             self.reply(200, b'{"ok":1}')
         elif self.path == "/otg/~identity:*.hello":
             self.reply(200)
@@ -149,8 +159,8 @@ def main():
             expected_queue = {f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.get", f"/otg/~identity:{USER}/~queued:simple.put", f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.delete"}
             expected_ratings = {rating_path + ".get", rating_path + ".put", "/otg/~level:level-1/~favourite:*.all", "/otg/~level:level-1/~favourite:item.put", "/otg/~level:level-1/~favourite:item.delete"}
             if server:
-                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS")
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS")
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

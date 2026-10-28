@@ -25,6 +25,8 @@ behavior.
       request paths, callback responses and rating body with a local fixture.
 - [x] Gate featured-level requests on identity setup; exercise signed-in
       publication and retrieval against the local replacement server.
+- [x] Gate metadata requests on identity setup and test raw-text and JSON
+      callbacks, including the empty-value GET with its content-type header.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.

@@ -123,7 +123,7 @@ int QueueMetadata(gmThread* a_thread, int a_operation) {
         return GM_OK;
     }
     std::string base, key, value;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base) ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base) ||
         (a_operation != 0 && !ReadOptionalString(a_thread, 4, key)) ||
         (a_operation == 2 && !ReadOptionalString(a_thread, 5, value))) {
         a_thread->PushInt(0);
@@ -140,7 +140,7 @@ int QueueMetadata(gmThread* a_thread, int a_operation) {
             a_thread->Param(1), a_thread->Param(2), 0, 0);
     } else {
         id = g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
-            a_thread->Param(2), 0, a_operation == 1 ? 1 : 0);
+            a_thread->Param(2), 0, a_operation == 1 ? 1 : 0, a_operation == 2 ? "text/plain" : "");
     }
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;

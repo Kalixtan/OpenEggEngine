@@ -153,17 +153,7 @@ global PurgedReply = function(data, response, error) {
 };
 
 global MetadataReply = function(data, response, error) {
-    if (data == "all" && response == null && error == 403) {
-        GameSystem.trace("metadata all response PASS");
-    } else if (data == "get" && response == null && error == 404) {
-        GameSystem.trace("metadata get response PASS");
-    } else if (data == "put" && response == null && error == 404) {
-        GameSystem.trace("metadata put response PASS");
-    } else if (data == "empty_put" && response == null && error == 404) {
-        GameSystem.trace("empty metadata put response PASS");
-    } else {
-        GameSystem.trace("metadata response FAIL");
-    }
+    GameSystem.trace("metadata offline callback FAIL");
 };
 
 global LeaderboardPageReply = function(data, response, error) {
@@ -339,8 +329,8 @@ global Main = function(p) {
             local metaGet = Watermelon_Metadata_Get(MetadataReply, "get", 21, "~level:test-level", "featured");
             local metaPut = Watermelon_Metadata_Put(MetadataReply, "put", 22, "~level:test-level", "featured", "value");
             local metaEmpty = Watermelon_Metadata_Put(MetadataReply, "empty_put", 23, "~level:test-level", "featured", "");
-            if (metaAll != 1 || metaGet != 1 || metaPut != 1 || metaEmpty != 1) {
-                GameSystem.trace("metadata NOT_QUEUED");
+            if (metaAll == 0 && metaGet == 0 && metaPut == 0 && metaEmpty == 0) {
+                GameSystem.trace("metadata offline gate PASS");
             }
             local followGet = Watermelon_Following_Get(FollowingActionReply, "following_get", 10, "test-target");
             local followPut = Watermelon_Following_Put(FollowingActionReply, "following_put", 11, "test-target");

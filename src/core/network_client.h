@@ -32,7 +32,7 @@ public:
                  const gmVariable& a_callbackData);
     int QueueRetailGet(const std::string& a_path, const gmVariable& a_callback,
                        const gmVariable& a_callbackData, const gmVariable& a_tag,
-                       int a_bucket, int a_callbackMode);
+                       int a_bucket, int a_callbackMode, const std::string& a_contentType = {});
     int QueueRetailPost(const std::string& a_path, const std::string& a_body,
                         const std::string& a_contentType, const gmVariable& a_callback,
                         const gmVariable& a_callbackData, const gmVariable& a_tag,

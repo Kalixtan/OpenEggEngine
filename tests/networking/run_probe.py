@@ -58,10 +58,7 @@ MARKERS = (
     "leaderboard post setup PASS",
     "leaderboard integer post PASS",
     "leaderboard string post PASS",
-    "metadata all response PASS",
-    "metadata get response PASS",
-    "metadata put response PASS",
-    "empty metadata put response PASS",
+    "metadata offline gate PASS",
     "ticket POST route PASS",
     "empty POST route PASS",
 )

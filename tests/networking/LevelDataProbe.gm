@@ -54,6 +54,11 @@ global RatingFavouriteReply = function(data, result, error) {
     else { GameSystem.trace("rating/favourite callback FAIL"); }
 };
 
+global MetadataFixtureReply = function(data, result, error) {
+    if (error == 0 && result != null && ((data == "get" && result == "{\"ok\":1}") || (data != "get" && result.ok == 1))) { GameSystem.trace("metadata " + data + " PASS"); }
+    else { GameSystem.trace("metadata callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -77,6 +82,10 @@ global Main = function(p) {
                 Watermelon_Favourite_All(RatingFavouriteReply, "favourite all", 92, "~level:level-1");
                 Watermelon_Favourite_Put(RatingFavouriteReply, "favourite put", 93, "~level:level-1", "item");
                 Watermelon_Favourite_Delete(RatingFavouriteReply, "favourite delete", 94, "~level:level-1", "item");
+                Watermelon_Metadata_All(MetadataFixtureReply, "all", 95, "~level:level-1");
+                Watermelon_Metadata_Get(MetadataFixtureReply, "get", 96, "~level:level-1", "field");
+                Watermelon_Metadata_Put(MetadataFixtureReply, "put", 97, "~level:level-1", "field", "value");
+                Watermelon_Metadata_Put(MetadataFixtureReply, "empty", 98, "~level:level-1", "field", "");
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");

@@ -183,8 +183,8 @@ int NetworkClient::QueueGet(const std::string& a_path, const gmVariable& a_callb
 
 int NetworkClient::QueueRetailGet(const std::string& a_path, const gmVariable& a_callback,
                                   const gmVariable& a_callbackData, const gmVariable& a_tag,
-                                  int a_bucket, int a_callbackMode) {
-    return Queue(a_path, a_callback, a_callbackData, a_tag, a_bucket, a_callbackMode);
+                                  int a_bucket, int a_callbackMode, const std::string& a_contentType) {
+    return Queue(a_path, a_callback, a_callbackData, a_tag, a_bucket, a_callbackMode, false, {}, a_contentType);
 }
 
 int NetworkClient::QueueRetailPost(const std::string& a_path, const std::string& a_body,
