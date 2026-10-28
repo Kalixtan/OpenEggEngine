@@ -1,0 +1,63 @@
+global SW = 1.0;
+global OSID_NGP = 3;
+global OSID_VITATV = 4;
+global SAVEDATAHELPER_HasAcceptedEula = function(version) { return 1; };
+
+global CommunityBrowseReply = function(data, result, error) {
+    if (error == 0 && result != null) {
+        callback_firstRequest(data, result, error);
+        if (?data.numPanels && data.panels != null) {
+            GameSystem.trace("community tab request PASS");
+        } else { GameSystem.trace("community tab result FAIL"); }
+        data.probeFinished = 1;
+    } else {
+        GameSystem.trace("community tab request FAIL", error);
+    }
+};
+
+global Main = function(p) {
+    return table(Process=p, stage=0,
+        constructor=function() {
+            GameMonkeyScript.loadScript("ArrayHelper.gm");
+            GameMonkeyScript.loadScript("State.gm");
+            GameMonkeyScript.loadScript("Platformer/KeyToStringMap.gm");
+            GameMonkeyScript.loadScript("VideoHelper.gm");
+            GameMonkeyScript.loadScript("Platformer/WatermelonHelperNew.gm");
+            GameMonkeyScript.loadScript("Platformer/MainMenu5PS3/CommunityScreenNavBar.gm");
+            GameMonkeyScript.loadScript("Platformer/MainMenu5PS3/CommunityScreenLevelPanels.gm");
+            GameMonkeyScript.loadScript("Platformer/MainMenu5PS3/CommunityScreenSidePanel.gm");
+            GameMonkeyScript.loadScript("Platformer/MainMenu5PS3/CommunityScreenMore.gm");
+            GameMonkeyScript.loadScript("Platformer/MainMenu5PS3/CommunityScreenNetworkBusy.gm");
+            OnlineCoordinator_GoOnline();
+        },
+        init=function() { return true; },
+        update=function() {
+            if (this.stage == 0 && Watermelon_IsOnline()) {
+                GameSystem.trace("community browse online");
+                this.screen = GameSystem.runProcess("Platformer_MainMenu5PS3_CommunityScreen");
+                if (this.screen == null || this.screen.Process == null) {
+                    GameSystem.trace("community screen missing FAIL");
+                    this.stage = 3;
+                    return;
+                }
+                this.screen.region = 1;
+                this.screen.preDraw = null;
+                this.screen.update = null;
+                this.stage = 1;
+            } else if (this.stage == 1 && this.screen.isInited()) {
+                GameSystem.trace("community browse initialized");
+                if (!?this.screen.isPaused || this.screen.tabs == null) {
+                    GameSystem.trace("community screen init FAIL");
+                    this.stage = 3;
+                    return;
+                }
+                this.stage = 2;
+                local tab = this.screen.tabs[this.screen.HITS_BUTTON_INDEX];
+                GameSystem.trace("community browse requesting");
+                tab.request(null, null, tab.results, CommunityBrowseReply);
+            } else if (this.stage == 2 && ?this.screen.tabs[this.screen.HITS_BUTTON_INDEX].results.probeFinished) {
+                this.screen.terminate();
+                this.stage = 3;
+            }
+        });
+};
