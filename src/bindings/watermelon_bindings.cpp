@@ -1123,8 +1123,7 @@ int GM_CDECL gmf_ForceCachePurgeByFilter(gmThread* a_thread) {
 
 int GM_CDECL gmf_Purge(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(bucket, 0, 0);
-    if (g_networkClient) g_networkClient->Purge(bucket);
+    if (g_networkClient) g_networkClient->Purge(NetworkBucketValue(a_thread->Param(0)));
     return GM_OK;
 }
 

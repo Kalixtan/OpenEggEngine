@@ -15,6 +15,8 @@ class gmMachine;
 class gmTableObject;
 class gmVariable;
 
+int NetworkBucketValue(const gmVariable& value);
+
 class NetworkClient {
 public:
     struct Friend {

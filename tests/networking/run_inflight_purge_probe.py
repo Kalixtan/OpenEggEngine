@@ -41,6 +41,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--status", type=int, choices=(200, 404), default=200)
+    parser.add_argument("--bucket", choices=("int", "float", "string"), default="int")
     args = parser.parse_args()
     response_status = args.status
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -61,7 +62,9 @@ def main():
             script_dir = temp / "probe"
             script_dir.mkdir()
             source = (ROOT / "tests/networking/InFlightPurgeProbe.gm").read_text()
-            (script_dir / "InFlightPurgeProbe.gm").write_text(source.replace("__EXPECTED_ERROR__", str(args.status)))
+            bucket = {"int": "42", "float": "42.5", "string": '"probe-bucket"'}[args.bucket]
+            (script_dir / "InFlightPurgeProbe.gm").write_text(
+                source.replace("__EXPECTED_ERROR__", str(args.status)).replace("__BUCKET__", bucket))
             harness = temp / "harness.txt"
             harness.write_text("wait 240\nquit\n")
             env = os.environ.copy()

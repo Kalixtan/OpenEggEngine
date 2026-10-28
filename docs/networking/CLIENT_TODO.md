@@ -77,6 +77,8 @@ behavior.
       local replacement server configured to accept unsigned tickets.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       an in-flight response can retain its HTTP status, as in the PS3 trace.
+- [x] Compare raw bucket payloads for purge, including float and string values.
+      Object references use their low 32 bits on desktop, as a PS3 approximation.
 - [x] Cancel identity requests on logout and login transitions while allowing
       independent global image requests to complete.
 - [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`.

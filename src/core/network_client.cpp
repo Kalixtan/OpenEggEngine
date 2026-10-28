@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <iterator>
 #include <limits>
 #include <string_view>
@@ -286,6 +287,13 @@ size_t ReceiveBody(char* a_data, size_t a_size, size_t a_count, void* a_context)
 #endif
 } // namespace
 
+int NetworkBucketValue(const gmVariable& value) {
+    int32_t word = 0;
+    static_assert(sizeof(word) <= sizeof(value.m_value), "GameMonkey payload is too small");
+    std::memcpy(&word, &value.m_value, sizeof(word));
+    return word;
+}
+
 NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
                              std::string a_sessionId, std::string a_userId)
     : m_machine(a_machine), m_baseUrl(std::move(a_baseUrl)),
@@ -535,8 +543,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     if (a_callbackMode == 4)
         context->Set(&m_machine, 5, gmVariable(m_machine.AllocStringObject(a_resourceKey.c_str())));
     m_roots->Set(&m_machine, id, gmVariable(context));
-    const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
-        ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
+    const int bucket = a_callbackMode >= 0 ? NetworkBucketValue(a_tag) : a_bucket;
     m_pending.emplace(id, PendingRequest{bucket, false, a_sendSession});
     if (cacheHit) {
         auto& cachedCompletions = a_sendSession ? m_identityCacheCompletions : m_globalCacheCompletions;

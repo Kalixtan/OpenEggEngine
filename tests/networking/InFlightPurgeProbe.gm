@@ -17,12 +17,12 @@ global Main = function(p) {
         },
         update=function() {
             if (!this.started && Watermelon_IsOnline()) {
-                this.started = Watermelon_Index_Page(InFlightReply, "slow", 42, "type=level&search=all");
+                this.started = Watermelon_Index_Page(InFlightReply, "slow", __BUCKET__, "type=level&search=all");
             }
             if (!this.started) { return; }
             this.ticks += 1;
             if (this.ticks == 30) {
-                Watermelon_Purge(42);
+                Watermelon_Purge(__BUCKET__);
                 GameSystem.trace("in-flight purge requested");
             }
         }
