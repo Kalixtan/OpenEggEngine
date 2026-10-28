@@ -955,10 +955,16 @@ void NetworkClient::UpdateCoordinator() {
     m_coordinatorState = accepted ? 24 : 23;
 }
 
+void NetworkClient::EnqueueWorkerCompletion(Completion&& completion, bool identity) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto& queue = identity ? m_identityCompletions : m_globalCompletions;
+    // The retail worker ignores the failure returned by a full completion ring.
+    if (queue.size() < 32) queue.push_back(std::move(completion));
+}
+
 void NetworkClient::WorkerMain(bool a_identity) {
 #if defined(OPENEGG_HAS_CURL)
     auto& requests = a_identity ? m_identityRequests : m_globalRequests;
-    auto& completions = a_identity ? m_identityCompletions : m_globalCompletions;
     for (;;) {
         Request request;
         std::string sessionId;
@@ -979,8 +985,7 @@ void NetworkClient::WorkerMain(bool a_identity) {
         completion.cacheKey = request.cacheKey;
         completion.identity = a_identity;
         if (request.purged) {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            completions.push_back(std::move(completion));
+            EnqueueWorkerCompletion(std::move(completion), a_identity);
             continue;
         }
         CURL* curl = curl_easy_init();
@@ -1029,10 +1034,7 @@ void NetworkClient::WorkerMain(bool a_identity) {
             curl_easy_cleanup(curl);
         }
 
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            completions.push_back(std::move(completion));
-        }
+        EnqueueWorkerCompletion(std::move(completion), a_identity);
     }
 #endif
 }

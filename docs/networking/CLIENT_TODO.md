@@ -55,6 +55,8 @@ behavior.
       worker completions, following the traced manager paths.
 - [x] Share the four-completion update budget across identity and global
       requests; exercise both queues in the headless budget probe.
+- [x] Limit each worker completion ring to 32 entries. The traced worker
+      ignores insertion failure; the overflow probe exercises that path.
 - [x] Follow the traced cache replacement order and zero-length first-entry
       eviction behavior; the latter has a local pool-pressure test.
 - [x] Match traced queue key construction: `get` builds a level key, while
@@ -136,6 +138,8 @@ behavior.
       waiting admission follows the retail enqueue retry path.
 - [ ] Verify request manager update ordering and shutdown draining against
       retail; identity and global image requests use separate desktop workers.
+- [ ] Verify the lifetime of requests whose completion ring insertion fails.
+      OpenEgg retains their callback roots until shutdown.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
       HTTP errors, and transport errors.
 - [ ] Compare partial JSON tables and array handling with retail for malformed

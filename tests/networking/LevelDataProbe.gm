@@ -105,6 +105,7 @@ global Main = function(p) {
     return table(
         Process=p,
         started=0,
+        ticks=0,
         init=function() { return true; },
         constructor=function() {
             if (!Watermelon_Rating_Get(null, null, 0, "~level:level-1") &&
@@ -136,6 +137,11 @@ global Main = function(p) {
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "integer", 105, "~level:level-1", 42);
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "string", 106, "~level:level-1", "4294967296");
                 if (!Watermelon_Leaderboard_Post(null, null, 107, "~level:level-1", 1.5)) { GameSystem.trace("leaderboard invalid score PASS"); }
+            } else if (this.started == 1) {
+                this.ticks += 1;
+                if (this.ticks < 15) { return; }
+                this.started = 2;
+                this.ticks = 0;
                 Watermelon_Albums_Page(AlbumFixtureReply, "list", 108, "from=1&count=2");
                 Watermelon_Album_Page(AlbumFixtureReply, "contents", 109, "album-1", "from=1&count=2");
                 Watermelon_Album_Page(AlbumFixtureReply, "empty", 110, "");
@@ -153,6 +159,10 @@ global Main = function(p) {
                 Watermelon_Index_Page(IndexFixtureReply, "scalar string", 138, "type=string");
                 Watermelon_Index_Page(IndexFixtureReply, "scalar null", 139, "type=null");
                 Watermelon_Index_Page(IndexFixtureReply, "scalar bool", 140, "type=bool");
+            } else if (this.started == 2) {
+                this.ticks += 1;
+                if (this.ticks < 15) { return; }
+                this.started = 3;
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "page", 113, "user-1", "news", "count=2");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "empty", 114, "", "");
                 Watermelon_ActivityStream_Post(ActivityFixtureReply, "post", 115, "~identity:user-1", "entry");

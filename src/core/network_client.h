@@ -106,6 +106,7 @@ private:
     };
     using Cache = std::map<std::string, CacheEntry>;
     void StoreCache(const Completion& completion);
+    void EnqueueWorkerCompletion(Completion&& completion, bool identity);
 
     void WorkerMain(bool a_identity);
     int Queue(const std::string& a_path, const gmVariable& a_callback,
