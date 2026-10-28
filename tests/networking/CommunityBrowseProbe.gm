@@ -80,6 +80,40 @@ global CommunityQueueAdded = function(data, result, error) {
     }
 };
 
+global CommunityHeartReply = function(data, result, error) {
+    if (data.heartStage == 0 && error == 404) {
+        GameSystem.trace("community heart missing PASS");
+        data.heartStage = 1;
+        if (!Watermelon_LevelHearts_Post(CommunityHeartReply, data, 51, data.queueLevelId)) {
+            GameSystem.trace("community heart post setup FAIL");
+        }
+    } else if (data.heartStage == 1 && error == 0) {
+        GameSystem.trace("community heart post PASS");
+        data.heartStage = 2;
+        if (!Watermelon_LevelHearts_Get(CommunityHeartReply, data, 52, data.queueLevelId)) {
+            GameSystem.trace("community heart read setup FAIL");
+        }
+    } else if (data.heartStage == 2 && error == 0 && result != null) {
+        GameSystem.trace("community heart read PASS");
+        data.heartStage = 3;
+        if (!Watermelon_LevelHearts_Delete(CommunityHeartReply, data, 53, data.queueLevelId)) {
+            GameSystem.trace("community heart delete setup FAIL");
+        }
+    } else if (data.heartStage == 3 && error == 0) {
+        GameSystem.trace("community heart delete PASS");
+        data.heartStage = 4;
+        if (!Watermelon_LevelHearts_Get(CommunityHeartReply, data, 54, data.queueLevelId)) {
+            GameSystem.trace("community heart cleared setup FAIL");
+        }
+    } else if (data.heartStage == 4 && error == 404) {
+        GameSystem.trace("community heart cleared PASS");
+        data.heartFinished = 1;
+    } else {
+        GameSystem.trace("community heart request FAIL", data.heartStage, error);
+        data.heartFinished = 1;
+    }
+};
+
 global Main = function(p) {
     return table(Process=p, stage=0, nextTab=0,
         constructor=function() {
@@ -170,6 +204,17 @@ global Main = function(p) {
                     this.stage = 5;
                 }
             } else if (this.stage == 7 && ?this.queueFinished) {
+                if (?COMMUNITY_REQUIRE_HEART && COMMUNITY_REQUIRE_HEART) {
+                    this.heartStage = 0;
+                    this.stage = 8;
+                    if (!Watermelon_LevelHearts_Get(CommunityHeartReply, this, 50, this.queueLevelId)) {
+                        GameSystem.trace("community heart missing setup FAIL");
+                    }
+                } else {
+                    this.screen.terminate();
+                    this.stage = 5;
+                }
+            } else if (this.stage == 8 && ?this.heartFinished) {
                 this.screen.terminate();
                 this.stage = 5;
             }

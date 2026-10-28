@@ -17,8 +17,9 @@ parser.add_argument("--expect-populated", action="store_true", help="Require the
 parser.add_argument("--expect-thumbnail", action="store_true", help="Require the fixture panel's thumbnail")
 parser.add_argument("--expect-level-data", action="store_true", help="Download the fixture panel's level data")
 parser.add_argument("--expect-queue", action="store_true", help="Add, read and remove the fixture level from the queue")
+parser.add_argument("--expect-heart", action="store_true", help="Like and unlike the fixture level")
 args = parser.parse_args()
-if (args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue) and not args.server_url:
+if (args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
     parser.error("populated checks require --server-url")
 if args.server_url:
     endpoint = urlsplit(args.server_url)
@@ -52,30 +53,35 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
     script_dir = ROOT / "tests/networking"
     script_name = "CommunityBrowseProbe.gm" if args.server_url else "CommunityStartProbe.gm"
-    if args.expect_thumbnail or args.expect_level_data or args.expect_queue:
+    if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         script_dir = temp / "probe"
         script_dir.mkdir()
         source = (ROOT / "tests/networking" / script_name).read_text()
         setup = "global COMMUNITY_REQUIRE_THUMBNAIL = 1;\n"
-        if args.expect_level_data or args.expect_queue:
+        if args.expect_level_data or args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_LEVEL = 1;\n"
-        if args.expect_queue:
+        if args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_QUEUE = 1;\n"
+        if args.expect_heart:
+            setup += "global COMMUNITY_REQUIRE_HEART = 1;\n"
         (script_dir / script_name).write_text(setup + source)
     result = subprocess.run([str(temp / engine.name), str(script_dir), script_name, "Main"], env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
     print(result.stdout, end="")
     markers = [f"community tab request PASS  {index}  panels " for index in (2, 1, 6, 7, 0)] if args.server_url else ["community fallback PASS"] if args.offline or args.no_patch else [
         "community screen constructor PASS", "community screen init PASS"]
-    if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue:
+    if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community fixture level PASS  2")
-    if args.expect_thumbnail or args.expect_level_data or args.expect_queue:
+    if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community thumbnail PASS")
-    if args.expect_level_data or args.expect_queue:
+    if args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community level download PASS")
-    if args.expect_queue:
+    if args.expect_queue or args.expect_heart:
         markers.extend(["community queue put PASS", "community queue read PASS", "community queue delete PASS",
                         "community queue cleared PASS"])
+    if args.expect_heart:
+        markers.extend(["community heart missing PASS", "community heart post PASS", "community heart read PASS",
+                        "community heart delete PASS", "community heart cleared PASS"])
     if (result.returncode or any(marker not in result.stdout for marker in markers) or
             (args.server_url and result.stdout.count("community tab request PASS") != 5) or
             " FAIL" in result.stdout or "[gm]" in result.stdout):

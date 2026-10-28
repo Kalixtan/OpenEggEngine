@@ -31,6 +31,8 @@ behavior.
       description wrappers; headless fixtures check each request.
 - [x] Queue the panel's level, read it back, remove it, and confirm a later
       lookup reports it missing (`--expect-queue`).
+- [x] Like, read, unlike, and recheck the panel's level against the local
+      server (`--expect-heart`). Its separate rating-delete request gets 404.
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
