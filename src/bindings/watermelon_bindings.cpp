@@ -370,12 +370,12 @@ int QueueUserPage(gmThread* a_thread, const char* a_suffix) {
         return GM_OK;
     }
 
+    if (!g_networkClient || !g_networkClient->IdentityReady()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
     std::string identity;
-    if (!ReadOptionalString(a_thread, 3, identity) || identity.empty()) {
-        if (!g_networkClient || g_networkClient->UserId().empty()) {
-            a_thread->PushInt(0);
-            return GM_OK;
-        }
+    if (!ReadOptionalString(a_thread, 3, identity)) {
         identity = g_networkClient->UserId();
     }
 
@@ -404,7 +404,7 @@ int GM_CDECL gmf_FollowingAll(gmThread* a_thread) {
         a_thread->PushInt(-1);
         return GM_OK;
     }
-    if (!g_networkClient || g_networkClient->UserId().empty()) {
+    if (!g_networkClient || !g_networkClient->IdentityReady()) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -429,7 +429,7 @@ int QueueLevelHearts(gmThread* a_thread, const char* a_operation, bool a_delete)
         return GM_OK;
     }
     std::string levelId;
-    if (!g_networkClient || g_networkClient->UserId().empty() ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, levelId)) {
         a_thread->PushInt(0);
         return GM_OK;
@@ -461,7 +461,7 @@ int QueueFollowingAction(gmThread* a_thread, const char* a_operation,
     }
     std::string target;
     if (!ReadOptionalString(a_thread, 3, target) || !g_networkClient ||
-        g_networkClient->UserId().empty()) {
+        !g_networkClient->IdentityReady()) {
         a_thread->PushInt(0);
         return GM_OK;
     }

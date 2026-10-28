@@ -35,6 +35,8 @@ behavior.
       authenticated server access and in-flight purge.
 - [x] Gate activity-stream requests on identity setup; test page and empty-body
       post request construction with a local fixture.
+- [x] Gate following and heart requests on identity setup. Test their paths,
+      self-follow check and page identity fallback with a local fixture.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.

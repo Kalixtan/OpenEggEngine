@@ -79,6 +79,11 @@ global ActivityFixtureReply = function(data, result, error) {
     else { GameSystem.trace("activity callback FAIL"); }
 };
 
+global SocialFixtureReply = function(data, result, error) {
+    if (error == 0 && result != null && result.ok == 1) { GameSystem.trace("social " + data + " PASS"); }
+    else { GameSystem.trace("social callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -121,6 +126,17 @@ global Main = function(p) {
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "page", 113, "user-1", "news", "count=2");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "empty", 114, "", "");
                 Watermelon_ActivityStream_Post(ActivityFixtureReply, "post", 115, "~identity:user-1", "entry");
+                Watermelon_Following_Page(SocialFixtureReply, "following", 116, "", "count=2");
+                Watermelon_Followers_Page(SocialFixtureReply, "followers", 117, null, "count=2");
+                Watermelon_Following_All(SocialFixtureReply, "all", 118);
+                Watermelon_Following_Get(SocialFixtureReply, "get", 119, "target");
+                Watermelon_Following_Put(SocialFixtureReply, "put", 120, "target");
+                Watermelon_Following_Delete(SocialFixtureReply, "delete", 121, "target");
+                Watermelon_LevelHearts_Page(SocialFixtureReply, "hearts", 122, null, "count=2");
+                Watermelon_LevelHearts_Get(SocialFixtureReply, "heart get", 123, "level-1");
+                Watermelon_LevelHearts_Post(SocialFixtureReply, "heart put", 124, "level-1");
+                Watermelon_LevelHearts_Delete(SocialFixtureReply, "heart delete", 125, "level-1");
+                if (!Watermelon_Following_Put(null, null, 126, Watermelon_GetUserIdentityId())) { GameSystem.trace("social self follow PASS"); }
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");
