@@ -51,6 +51,59 @@ int GM_CDECL gmf_IndexPage(gmThread* a_thread) {
     return GM_OK;
 }
 
+bool ReadOptionalString(gmThread* a_thread, int a_index, std::string& a_value) {
+    if (a_thread->Param(a_index).m_type != GM_STRING) return false;
+    char buffer[2048] = {};
+    const char* value = a_thread->Param(a_index).AsString(
+        a_thread->GetMachine(), buffer, sizeof(buffer));
+    if (!value) return false;
+    a_value.assign(value);
+    return true;
+}
+
+int QueueAlbumPage(gmThread* a_thread, bool a_singleAlbum) {
+    const int count = a_thread->GetNumParams();
+    const int minimum = a_singleAlbum ? 4 : 3;
+    const int maximum = minimum + 1;
+    if (count < minimum || count > maximum) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+
+    std::string path = a_singleAlbum ? "/otg/~album:" : "/otg/~albums";
+    if (a_singleAlbum) {
+        std::string albumId;
+        if (!ReadOptionalString(a_thread, 3, albumId) || albumId.empty()) {
+            a_thread->PushInt(0);
+            return GM_OK;
+        }
+        path += albumId;
+    }
+    path += "/~link:*.page";
+
+    const int queryIndex = minimum;
+    if (count == maximum) {
+        std::string query;
+        if (ReadOptionalString(a_thread, queryIndex, query) && !query.empty())
+            path += "?" + query;
+    }
+
+    const int requestId = g_networkClient
+        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+                                          a_thread->Param(2), 0, 0)
+        : 0;
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_AlbumsPage(gmThread* a_thread) {
+    return QueueAlbumPage(a_thread, false);
+}
+
+int GM_CDECL gmf_AlbumPage(gmThread* a_thread) {
+    return QueueAlbumPage(a_thread, true);
+}
+
 // =====================================================================
 // LOCAL helpers -- real semantics, used in single-player paths too.
 // =====================================================================
@@ -264,6 +317,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetFeaturedSearches", gmf_Globals_GetFeaturedSearches);
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetNews", gmf_Globals_GetNews);
     a_machine.RegisterLibraryFunction("Watermelon_Index_Page", gmf_IndexPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Albums_Page", gmf_AlbumsPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
 
@@ -314,8 +369,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Queued_Put",
         "Watermelon_Queued_Get",
         "Watermelon_Queued_Delete",
-        "Watermelon_Albums_Page",
-        "Watermelon_Album_Page",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
         "Watermelon_GetCloudSave",

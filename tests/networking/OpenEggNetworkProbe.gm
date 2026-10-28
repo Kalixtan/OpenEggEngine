@@ -22,6 +22,22 @@ global ForbiddenIndexReply = function(data, response, error) {
     }
 };
 
+global AlbumsDeniedReply = function(data, response, error) {
+    if (data == "albums" && response == null && error == 403) {
+        GameSystem.trace("album list route PASS");
+    } else {
+        GameSystem.trace("album list route FAIL");
+    }
+};
+
+global AlbumDeniedReply = function(data, response, error) {
+    if (data == "album" && response == null && error == 403) {
+        GameSystem.trace("album contents route PASS");
+    } else {
+        GameSystem.trace("album contents route FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -30,7 +46,9 @@ global Main = function(p) {
             local typed = Watermelon_Index_Page(TypedIndexReply, "typed", 1, "type=level&search=tagged3");
             local wildcard = Watermelon_Index_Page(WildcardIndexReply, "wildcard", 2, "search=tagged3");
             local forbidden = Watermelon_Index_Page(ForbiddenIndexReply, "forbidden", 3, "type=level&search=all");
-            if (typed == 1 && wildcard == 1 && forbidden == 1) {
+            local albums = Watermelon_Albums_Page(AlbumsDeniedReply, "albums", 4, "from=0&count=1");
+            local album = Watermelon_Album_Page(AlbumDeniedReply, "album", 5, "test-id", "from=0&count=1");
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");

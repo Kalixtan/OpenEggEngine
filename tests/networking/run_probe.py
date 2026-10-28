@@ -15,6 +15,8 @@ MARKERS = (
     "typed index response PASS",
     "wildcard index response PASS",
     "index authorization response PASS",
+    "album list route PASS",
+    "album contents route PASS",
 )
 
 

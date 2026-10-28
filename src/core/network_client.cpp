@@ -117,8 +117,9 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     if (m_baseUrl.empty() || !m_worker.joinable() || a_path.empty() ||
         a_path.front() != '/' || a_path.size() > 1023 ||
         m_baseUrl.size() + a_path.size() > 1023 ||
-        a_callback.m_type != GM_FUNCTION || m_roots == nullptr)
+        a_callback.m_type != GM_FUNCTION || m_roots == nullptr) {
         return 0;
+    }
 
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_stopping || m_nextId <= 0 || m_nextId == std::numeric_limits<int>::max())
