@@ -249,6 +249,9 @@ global Main = function(p) {
         Process=p,
         init=function() { return true; },
         constructor=function() {
+            if (OnlineCoordinator_IsDisabled() == 1 && OnlineCoordinator_IsSendQueueFull() == 1) {
+                GameSystem.trace("offline send queue state PASS");
+            }
             local boundaryKey = Watermelon_BaseKeyValue("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaé:value", {});
             if (boundaryKey.key == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" && boundaryKey.value == "value") {
                 GameSystem.trace("base key multibyte boundary PASS");
