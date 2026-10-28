@@ -1008,6 +1008,28 @@ int GM_CDECL gmf_GetCloudSave(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GriefPost(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(5);
+    std::string item;
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
+        !ReadOptionalString(a_thread, 3, item) || a_thread->Param(4).m_type != GM_INT) {
+        a_thread->PushInt(0); return GM_OK;
+    }
+    const std::string language = std::to_string(SystemConfig::Get().languageCode);
+    const std::string reason = std::to_string(a_thread->Param(4).m_value.m_int);
+    const std::string& country = g_networkClient->PlatformCountry();
+    std::string body, contentType;
+    if (!BuildMultipart({{"reportLanguageId", language}, {"reporterCountryCode", country},
+                         {"item", item}, {"reportReasonId", reason}, {"platformId", "1"},
+                         {"consoleId", ""}}, body, contentType)) {
+        a_thread->PushInt(0); return GM_OK;
+    }
+    const int id = g_networkClient->QueueRetailPost("/otg/~grief:*.post", body, contentType,
+        a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_PostCloudSave(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
     if (!g_networkClient || a_thread->Param(2).m_type != GM_STRING) {
@@ -1117,6 +1139,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetContentImage", gmf_GetContentImage);
     a_machine.RegisterLibraryFunction("Watermelon_PublishLevel", gmf_PublishLevel);
     a_machine.RegisterLibraryFunction("Watermelon_GetCloudSave", gmf_GetCloudSave);
+    a_machine.RegisterLibraryFunction("Watermelon_Grief_Post", gmf_GriefPost);
     a_machine.RegisterLibraryFunction("Watermelon_PostCloudSave", gmf_PostCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
     a_machine.RegisterLibraryFunction("Watermelon_Purge", gmf_Purge);
@@ -1171,7 +1194,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_GetLevelDescription",
         "Watermelon_SaveLevelAndAssetsToDisk",
         "Watermelon_GetSoundData",
-        "Watermelon_Grief_Post",
         "Watermelon_GetBetaParticipationAgreement",
     };
     for (const char* name : kOfflineRequests)

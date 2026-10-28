@@ -47,6 +47,7 @@ public:
     int CoordinatorError() const { return m_coordinatorError; }
     bool IdentityReady() const { return m_identityReady; }
     const std::string& PlatformOnlineId() const { return m_platformOnlineId; }
+    const std::string& PlatformCountry() const { return m_platformCountry; }
     bool HasChatPermissions() const { return m_chatPermissions; }
     bool IsSendQueueFull();
     bool HasEula() const { return m_eulaReady; }
@@ -112,6 +113,7 @@ private:
     int m_translationRequestId = 0;
     std::string m_platformTicket;
     std::string m_platformOnlineId;
+    std::string m_platformCountry;
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;
     bool m_identityReady = false;

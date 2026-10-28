@@ -44,6 +44,9 @@ behavior.
       exercised against a local fixture and a synthetic server thumbnail.
 - [x] Publish and update a synthetic level using saved resource tickets;
       read it back and remove it on a disposable local server.
+- [x] Send a report for a synthetic level on a disposable local server.
+- [ ] Compare account country, language and console-ID reporting with retail;
+      desktop currently uses the supplied ticket and configured language.
 - [ ] Compare publish failures, multipart boundaries and ticket ownership
       against retail. Desktop tickets currently reload their named files.
 - [ ] Compare level XML/JSON conversion and malformed input with retail;
@@ -85,8 +88,7 @@ behavior.
       oversized tables instead of reproducing the retail buffer edge cases.
 - [x] Submit a fixture record and read back a large leaderboard score through
       the local server. Compare the same case with retail before claiming parity.
-- [ ] Implement grief reports; verify cloud-save edge cases
-      and multipart behavior against retail.
+- [ ] Verify cloud-save edge cases and multipart behavior against retail.
 - [ ] Implement friend, identity, EULA, and online coordinator flows.
 - [ ] Review every currently offline request binding against the tracked
       `Watermelon` and `Network` symbol entries in

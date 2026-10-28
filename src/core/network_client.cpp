@@ -28,7 +28,8 @@ constexpr const char* kRootTableName = "__OpenEggNetworkRequestRoots";
 
 // Desktop ticket files stand in for the PSN online-ID query. This reads only
 // the common identity fields from PS3/Vita ticket versions 2.1 and 3.0.
-std::string TicketOnlineId(const std::string& ticket) {
+std::string TicketOnlineId(const std::string& ticket, std::string& country) {
+    country.clear();
     if (ticket.size() < 12) return {};
     const auto* bytes = reinterpret_cast<const unsigned char*>(ticket.data());
     const bool version21 = (bytes[0] >> 4) == 2 && bytes[1] == 1;
@@ -51,6 +52,16 @@ std::string TicketOnlineId(const std::string& ticket) {
             std::string id = ticket.substr(pos, std::min<size_t>(length, 16));
             const size_t zero = id.find('\0');
             if (zero != std::string::npos) id.resize(zero);
+            pos += length;
+            if (bodyEnd - pos >= 4 && read16(pos) == 8) {
+                const size_t countryLength = read16(pos + 2);
+                pos += 4;
+                if (countryLength <= bodyEnd - pos) {
+                    country = ticket.substr(pos, countryLength);
+                    const size_t terminator = country.find('\0');
+                    if (terminator != std::string::npos) country.resize(terminator);
+                }
+            }
             return id;
         }
         pos += length;
@@ -185,7 +196,7 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
 }
 
 void NetworkClient::SetPlatformTicket(std::string a_ticket) {
-    m_platformOnlineId = TicketOnlineId(a_ticket);
+    m_platformOnlineId = TicketOnlineId(a_ticket, m_platformCountry);
     m_platformTicket = std::move(a_ticket);
     if (!m_platformTicket.empty() && m_worker.joinable()) m_coordinatorState = 4;
 }

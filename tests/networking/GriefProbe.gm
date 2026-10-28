@@ -1,0 +1,33 @@
+global GriefReply = function(data, result, error) {
+    if (data == "report" && error == 0) {
+        GameSystem.trace("grief response PASS");
+    } else {
+        GameSystem.trace("grief response FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        started=0,
+        init=function() { return true; },
+        constructor=function() {
+            if (!Watermelon_Grief_Post(GriefReply, null, 1, "__ITEM__", 1)) {
+                GameSystem.trace("grief offline PASS");
+            }
+            OnlineCoordinator_GoOnline();
+        },
+        update=function() {
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                local all = "----BouNdaRy --fOsBKwDjKn --krj6RoYg8n --BqiXa1etbG --vghjJJFy5S --HUoWHHxpJN --IkzsNBtjJy --zzzzzzzzzz";
+                if (!Watermelon_Grief_Post(GriefReply, null, 3, all, 1)) {
+                    GameSystem.trace("grief boundary exhaustion PASS");
+                }
+                if (Watermelon_Grief_Post(GriefReply, "report", 2, "__ITEM__", 1)) {
+                    GameSystem.trace("grief queued PASS");
+                }
+            }
+        }
+    );
+};
