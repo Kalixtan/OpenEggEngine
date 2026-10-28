@@ -3,17 +3,31 @@ global PublishRemoved = function(data, result, error) {
     else { GameSystem.trace("publish cleanup FAIL"); }
 };
 
-global PublishReadback = function(data, result, error) {
-    if (error == 0 && result != null && result.bpm == 120) {
-        GameSystem.trace("publish level readback PASS");
+global PublishSnapshot = function(data, result, error) {
+    if (error == 0 && result != null && result.id != null) {
+        local parsed = {};
+        Watermelon_ParseLevelObjectString(result.id, parsed);
+        if (parsed.uploadId == null || parsed.levelId != data.levelId) {
+            GameSystem.trace("publish snapshot FAIL");
+            return;
+        }
+        GameSystem.trace("publish snapshot PASS");
+        data.uploadId = parsed.uploadId;
         data.stage = "update";
         if (Watermelon_PublishLevel(PublishFinished, data, 43, data.level, data.image, data.sound,
                                    "Synthetic probe", "Test description", data.levelId, data.uploadId)) {
             GameSystem.trace("publish update queued PASS");
         }
     } else {
-        GameSystem.trace("publish level readback FAIL");
+        GameSystem.trace("publish snapshot FAIL");
     }
+};
+
+global PublishReadback = function(data, result, error) {
+    if (error == 0 && result != null && result.bpm == 120) {
+        GameSystem.trace("publish level readback PASS");
+        Watermelon_GetSnapshot(PublishSnapshot, data, 47, data.levelId);
+    } else { GameSystem.trace("publish level readback FAIL"); }
 };
 
 global PublishDescription = function(data, result, error) {
