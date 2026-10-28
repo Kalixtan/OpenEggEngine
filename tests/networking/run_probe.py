@@ -33,6 +33,7 @@ MARKERS = (
     "purge request QUEUED",
     "purged request callback PASS",
     "activity page route PASS",
+    "activity post response PASS",
     "featured unknown-user response PASS",
     "rating get response PASS",
     "favourite all response PASS",

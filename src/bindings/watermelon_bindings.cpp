@@ -480,6 +480,29 @@ int GM_CDECL gmf_ActivityStreamPage(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_ActivityStreamPost(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 5) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string base, component;
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base) ||
+        !ReadOptionalString(a_thread, 4, component)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (!base.empty() && base.front() == '/') base.erase(0, 1);
+    std::string path = "/otg/" + base;
+    if (!base.empty() && base.back() != '/') path += '/';
+    path += "~activity:*";
+    if (component.size() > 1 && component.front() != '/') path += '/';
+    path += component + ".post";
+    const int id = g_networkClient->QueueRetailPost(path, "", "", a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_FeaturedLevelGet(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 4) {
         a_thread->PushInt(-1);
@@ -750,6 +773,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Queued_Get", gmf_QueuedGet);
     a_machine.RegisterLibraryFunction("Watermelon_Queued_Delete", gmf_QueuedDelete);
     a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Page", gmf_ActivityStreamPage);
+    a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Post", gmf_ActivityStreamPost);
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Get", gmf_FeaturedLevelGet);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
@@ -775,7 +799,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_LevelHearts_Delete",
         "Watermelon_Get_Friends",
         "Watermelon_Following_All",
-        "Watermelon_ActivityStream_Post",
         "Watermelon_FeaturedLevel_Post",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",

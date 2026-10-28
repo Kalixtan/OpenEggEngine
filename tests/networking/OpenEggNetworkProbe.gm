@@ -102,6 +102,14 @@ global ActivityDeniedReply = function(data, response, error) {
     }
 };
 
+global ActivityPostReply = function(data, response, error) {
+    if (data == "activity_post" && response == null && error == 404) {
+        GameSystem.trace("activity post response PASS");
+    } else {
+        GameSystem.trace("activity post response FAIL");
+    }
+};
+
 global FeaturedMissingUserReply = function(data, response, error) {
     if (data == "featured" && response == null && error == 404) {
         GameSystem.trace("featured unknown-user response PASS");
@@ -220,6 +228,10 @@ global Main = function(p) {
                 GameSystem.trace("hearts page NOT_QUEUED");
             }
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
+            local activityPost = Watermelon_ActivityStream_Post(ActivityPostReply, "activity_post", 36, "~identity:test-user", "test");
+            if (activityPost != 1) {
+                GameSystem.trace("activity post NOT_QUEUED");
+            }
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
             local ratingGet = Watermelon_Rating_Get(RatingReply, "rating_get", 31, "~level:test-level");
             local favAll = Watermelon_Favourite_All(FavouriteReply, "favourite_all", 33, "~level:test-level");
