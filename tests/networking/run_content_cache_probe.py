@@ -11,15 +11,24 @@ import threading
 import zlib
 
 from run_level_data_probe import Handler, ROOT, SESSION
+from run_image_probe import png
 from run_ticket_probe import ticket
 
 requests = []
 missing_requests = []
 eviction_requests = []
+global_requests = []
 
 
 class CacheHandler(Handler):
     def do_GET(self):
+        if self.path == "/global/~content:image/data":
+            if self.headers.get("X-OTG-Identity-SessionId") is not None:
+                self.reply(403)
+                return
+            global_requests.append(self.path)
+            self.reply(200 if len(global_requests) == 1 else 404, png() if len(global_requests) == 1 else b"")
+            return
         for level in ("aaa", "bbb", "ccc"):
             if self.path == f"/otg/~level:{level}/~version:v1/~content:level/data.get":
                 if self.headers.get("X-OTG-Identity-SessionId") != SESSION:
@@ -50,7 +59,9 @@ class CacheHandler(Handler):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--eviction", action="store_true", help="Check pool eviction edge cases")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--eviction", action="store_true", help="Check pool eviction edge cases")
+    group.add_argument("--global", dest="global_image", action="store_true", help="Check the global image cache")
     args = parser.parse_args()
     server = ThreadingHTTPServer(("127.0.0.1", 0), CacheHandler)
     server.daemon_threads = True
@@ -73,15 +84,22 @@ def main():
             env = os.environ.copy()
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-            probe = "ContentCacheEvictionProbe.gm" if args.eviction else "ContentCacheProbe.gm"
-            result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
+            probe = "ContentCacheEvictionProbe.gm" if args.eviction else "GlobalImageCacheProbe.gm" if args.global_image else "ContentCacheProbe.gm"
+            script_dir = ROOT / "tests/networking"
+            if args.global_image:
+                script_dir = temp / "probe"
+                script_dir.mkdir()
+                source = (ROOT / "tests/networking" / probe).read_text()
+                (script_dir / probe).write_text(source.replace("__IMAGE_URL__", f"http://127.0.0.1:{server.server_port}/global/~content:image/data"))
+            result = subprocess.run([str(temp / engine.name), str(script_dir),
                                      probe, "Main"], env=env, text=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             markers = (("cache empty candidate PASS", "cache eviction PASS") if args.eviction else
+                       ("global image cache hit PASS", "global image cache isolation PASS") if args.global_image else
                        ("cache hit PASS", "cache filter PASS", "cache purge PASS", "cache error hit PASS", "cache error purge PASS"))
             request_ok = (eviction_requests == ["aaa", "bbb", "ccc", "ccc", "ccc"] if args.eviction else
-                          len(requests) == 2 and len(missing_requests) == 2)
+                          len(global_requests) == 1 if args.global_image else len(requests) == 2 and len(missing_requests) == 2)
             if result.returncode or not request_ok or any(marker not in result.stdout for marker in markers) or "FAIL" in result.stdout:
                 raise SystemExit("content cache probe failed")
     finally:

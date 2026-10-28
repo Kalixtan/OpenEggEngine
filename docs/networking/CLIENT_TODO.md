@@ -55,6 +55,8 @@ behavior.
       fields on malformed level-description responses.
 - [x] Cache the default image, level and sound content paths and support
       identity-cache filter purge. Local tests cover hits, errors and purge.
+- [x] Apply the traced content rules to global image keys and keep the global
+      cache separate from identity-cache filter purges.
 - [x] Admit cache hits ahead of the worker queue and consume them after pending
       worker completions, following the traced manager paths.
 - [x] Share the four-completion update budget across identity and global

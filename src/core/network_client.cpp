@@ -53,10 +53,18 @@ bool CachePatternMatches(const std::string& pattern, const std::string& key) {
     return p == pattern.size();
 }
 
-std::string ContentCacheKey(const std::string& path, bool post) {
-    if (post || path.rfind("/otg/", 0) != 0 || path.size() < 4 ||
-        path.compare(path.size() - 4, 4, ".get") != 0) return {};
-    std::string key = path.substr(5, path.size() - 9);
+std::string ContentCacheKey(const std::string& path, bool post, bool identity,
+                            const std::string& resourceKey) {
+    if (post) return {};
+    std::string key;
+    if (identity) {
+        if (path.rfind("/otg/", 0) != 0 || path.size() < 9 ||
+            path.compare(path.size() - 4, 4, ".get") != 0) return {};
+        key = path.substr(5, path.size() - 9);
+    } else {
+        // The global image builder stores the supplied key, not its base URL.
+        key = resourceKey;
+    }
     for (const char* pattern : {"##/~content:image/data", "##/~content:level/data", "##/~content:sound/data"})
         if (CachePatternMatches(pattern, key)) return key;
     return {};
@@ -506,7 +514,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     }
 
     std::unique_lock<std::mutex> lock(m_mutex);
-    const std::string cacheKey = ContentCacheKey(a_path, a_post);
+    const std::string cacheKey = ContentCacheKey(a_path, a_post, a_sendSession, a_resourceKey);
     const Cache& cache = a_sendSession ? m_identityCache : m_globalCache;
     const auto cached = cache.find(cacheKey);
     const bool cacheHit = !cacheKey.empty() && cached != cache.end();

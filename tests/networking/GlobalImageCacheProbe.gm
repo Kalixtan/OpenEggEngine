@@ -1,0 +1,25 @@
+global GlobalImageCacheReply = function(step, image, error) {
+    if (error != 0 || image == null || !image.isValid()) {
+        GameSystem.trace("global image cache FAIL");
+    } else if (step == 1) {
+        Watermelon_GetContentImage(GlobalImageCacheReply, 2, 410, "__IMAGE_URL__");
+    } else if (step == 2) {
+        GameSystem.trace("global image cache hit PASS");
+        Watermelon_ForceCachePurgeByFilter("##/~content:image/data");
+        Watermelon_GetContentImage(GlobalImageCacheReply, 3, 411, "__IMAGE_URL__");
+    } else if (step == 3) {
+        GameSystem.trace("global image cache isolation PASS");
+    }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            if (!this.started && Watermelon_IsOnline()) {
+                this.started = 1;
+                Watermelon_GetContentImage(GlobalImageCacheReply, 1, 409, "__IMAGE_URL__");
+            }
+        });
+};
