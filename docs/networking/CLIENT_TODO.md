@@ -17,8 +17,11 @@ behavior.
 - [x] Run retail greatest-hits, friends, albums, daily and activity tab
       requests and callbacks against a local server with a fixture account;
       the tested responses were empty.
+- [x] Create greatest-hits and activity panels from a synthetic server level;
+      seed it with the server's `OpenEggCommunityFixture` tool and require it
+      with `--expect-populated` in the community probe.
 - [ ] Exercise community screen drawing and browsing against a server.
-- [ ] Test tab callbacks and panels with populated server responses.
+- [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept the seventh asset-download argument used by patched scripts;
       the retail wrapper ignores it.
 - [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.

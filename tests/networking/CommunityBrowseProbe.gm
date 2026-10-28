@@ -13,6 +13,14 @@ global CommunityBrowseReply = function(data, result, error) {
         }
         if (?data.numPanels && data.panels != null) {
             GameSystem.trace("community tab request PASS ", data.tab.index, " panels ", data.numPanels);
+            local i;
+            for (i = 0; i < data.numPanels; i += 1) {
+                local panel = data.panels[i];
+                if (panel.type == "level" && panel.levelName == "Probe level" &&
+                    ?panel.levelID && panel.authorName == "level_probe_author") {
+                    GameSystem.trace("community fixture level PASS ", data.tab.index);
+                }
+            }
         } else { GameSystem.trace("community tab result FAIL"); }
         data.probeFinished = 1;
     } else {

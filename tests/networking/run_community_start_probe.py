@@ -13,7 +13,10 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--offline", action="store_true", help="Check the offline fallback")
 parser.add_argument("--no-patch", action="store_true", help="Check fallback without the patch archive")
 parser.add_argument("--server-url", help="Run a tab request against a local server with the fixture account")
+parser.add_argument("--expect-populated", action="store_true", help="Require the synthetic Probe level in greatest hits")
 args = parser.parse_args()
+if args.expect_populated and not args.server_url:
+    parser.error("--expect-populated requires --server-url")
 if args.server_url:
     endpoint = urlsplit(args.server_url)
     if (endpoint.scheme != "http" or endpoint.hostname != "127.0.0.1" or
@@ -50,6 +53,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
     print(result.stdout, end="")
     markers = [f"community tab request PASS  {index}  panels " for index in (2, 1, 6, 7, 0)] if args.server_url else ["community fallback PASS"] if args.offline or args.no_patch else [
         "community screen constructor PASS", "community screen init PASS"]
+    if args.expect_populated:
+        markers.append("community fixture level PASS  2")
     if (result.returncode or any(marker not in result.stdout for marker in markers) or
             (args.server_url and result.stdout.count("community tab request PASS") != 5) or
             " FAIL" in result.stdout or "[gm]" in result.stdout):
