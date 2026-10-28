@@ -139,6 +139,34 @@ int GM_CDECL gmf_LeaderboardPage(gmThread* a_thread) {
     return GM_OK;
 }
 
+int QueueLeaderboardRead(gmThread* a_thread, const char* a_operation) {
+    if (a_thread->GetNumParams() < 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string base;
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (!base.empty() && base.front() == '/') base.erase(0, 1);
+    std::string path = "/otg/" + base;
+    if (!base.empty() && base.back() != '/') path += '/';
+    path += std::string("~leaderboard.") + a_operation;
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 2);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_LeaderboardGet(gmThread* a_thread) {
+    return QueueLeaderboardRead(a_thread, "get");
+}
+
+int GM_CDECL gmf_LeaderboardAll(gmThread* a_thread) {
+    return QueueLeaderboardRead(a_thread, "all");
+}
+
 int GM_CDECL gmf_LeaderboardPost(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 5) {
         a_thread->PushInt(-1);
@@ -645,6 +673,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Put", gmf_MetadataPut);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Page", gmf_LeaderboardPage);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Post", gmf_LeaderboardPost);
+    a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Get", gmf_LeaderboardGet);
+    a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_All", gmf_LeaderboardAll);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Near", gmf_LeaderboardNear);
     a_machine.RegisterLibraryFunction("Watermelon_Albums_Page", gmf_AlbumsPage);
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
@@ -682,8 +712,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Favourite_Delete",
         "Watermelon_Rating_Get",
         "Watermelon_Rating_Put",
-        "Watermelon_Leaderboard_Get",
-        "Watermelon_Leaderboard_All",
         "Watermelon_Record_Post",
         "Watermelon_Grief_Post",
         "Watermelon_LevelHearts_Post",

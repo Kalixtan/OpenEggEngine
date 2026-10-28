@@ -168,6 +168,16 @@ global LeaderboardPostReply = function(data, response, error) {
     }
 };
 
+global LeaderboardReadReply = function(data, response, error) {
+    if (data == "get" && response == null && error == 404) {
+        GameSystem.trace("leaderboard get response PASS");
+    } else if (data == "all" && response == null && error == 404) {
+        GameSystem.trace("leaderboard all response PASS");
+    } else {
+        GameSystem.trace("leaderboard read response FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -187,6 +197,11 @@ global Main = function(p) {
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
             local leaderboard = Watermelon_Leaderboard_Page(LeaderboardPageReply, "leaderboard", 24, "~level:test-level", "from=0&count=1");
+            local boardGet = Watermelon_Leaderboard_Get(LeaderboardReadReply, "get", 29, "~level:test-level");
+            local boardAll = Watermelon_Leaderboard_All(LeaderboardReadReply, "all", 30, "~level:test-level");
+            if (boardGet != 1 || boardAll != 1) {
+                GameSystem.trace("leaderboard reads NOT_QUEUED");
+            }
             local near = Watermelon_Leaderboard_Near(LeaderboardNearReply, "near", 25, "~level:test-level", "/~identity:test-user", "count=0");
             local scoreInt = Watermelon_Leaderboard_Post(LeaderboardPostReply, "post_int", 26, "global/~campaign:test-level", 42);
             local scoreString = Watermelon_Leaderboard_Post(LeaderboardPostReply, "post_string", 27, "global/~campaign:test-level", "4294967296");

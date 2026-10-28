@@ -34,6 +34,8 @@ MARKERS = (
     "activity page route PASS",
     "featured unknown-user response PASS",
     "leaderboard page route PASS",
+    "leaderboard get response PASS",
+    "leaderboard all response PASS",
     "leaderboard near route PASS",
     "leaderboard post setup PASS",
     "leaderboard integer post PASS",
