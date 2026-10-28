@@ -45,6 +45,8 @@ behavior.
       their routes and a publish/update/cleanup cycle on the local server.
 - [x] Convert JSON arrays to integer-keyed tables without adding a `size` key;
       retail scripts count their entries with `tableCount`.
+- [x] Return an empty result table for scalar JSON roots, and preserve parsed
+      fields on malformed level-description responses.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.

@@ -15,8 +15,10 @@ global LevelReply = function(data, result, error) {
 global DescriptionReply = function(data, result, error) {
     if (data == "description" && error == 0 && result != null && result.title == "Fixture") {
         GameSystem.trace("description JSON PASS");
-    } else if (data == "malformed" && error == 0 && result == null) {
+    } else if (data == "malformed" && error == 0 && result != null && tableCount(result) == 0) {
         GameSystem.trace("description malformed PASS");
+    } else if (data == "partial" && error == 0 && result != null && result.title == "Retained") {
+        GameSystem.trace("description partial PASS");
     } else if (data == "missing" && error == 1 && result == null) {
         GameSystem.trace("description missing PASS");
     } else {
@@ -74,6 +76,7 @@ global IndexFixtureReply = function(data, result, error) {
     else if (data == "partial" && error == 0 && result != null && result.first == 7 && result.nested.done == 2 && result.nested.unfinished == null) { GameSystem.trace("index partial PASS"); }
     else if (data == "array" && error == 0 && result != null && result.values[0] == 1 && result.values[1] == 2 && tableCount(result.values) == 2 && result.values.size == null) { GameSystem.trace("index partial array PASS"); }
     else if (data == "items" && error == 0 && result != null && tableCount(result.items) == 2 && result.items[1].id == "second" && result.items.size == null) { GameSystem.trace("index item count PASS"); }
+    else if ((data == "scalar number" || data == "scalar string" || data == "scalar null" || data == "scalar bool") && error == 0 && result != null && tableCount(result) == 0) { GameSystem.trace("index " + data + " PASS"); }
     else if (error == 0 && result != null && tableCount(result.items) == 0 && result.items.size == null && result.count == 0) { GameSystem.trace("index " + data + " PASS"); }
     else { GameSystem.trace("index callback FAIL"); }
 };
@@ -142,6 +145,10 @@ global Main = function(p) {
                 Watermelon_Index_Page(IndexFixtureReply, "partial", 133, "type=partial");
                 Watermelon_Index_Page(IndexFixtureReply, "array", 134, "type=array");
                 Watermelon_Index_Page(IndexFixtureReply, "items", 136, "type=items");
+                Watermelon_Index_Page(IndexFixtureReply, "scalar number", 137, "type=number");
+                Watermelon_Index_Page(IndexFixtureReply, "scalar string", 138, "type=string");
+                Watermelon_Index_Page(IndexFixtureReply, "scalar null", 139, "type=null");
+                Watermelon_Index_Page(IndexFixtureReply, "scalar bool", 140, "type=bool");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "page", 113, "user-1", "news", "count=2");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "empty", 114, "", "");
                 Watermelon_ActivityStream_Post(ActivityFixtureReply, "post", 115, "~identity:user-1", "entry");
@@ -171,6 +178,7 @@ global Main = function(p) {
                 }
                 if (Watermelon_GetLevelDescription(DescriptionReply, "description", 75, "level-1", "good") &&
                     Watermelon_GetLevelDescription(DescriptionReply, "malformed", 76, "level-1", "invalid") &&
+                    Watermelon_GetLevelDescription(DescriptionReply, "partial", 141, "level-1", "partial") &&
                     Watermelon_GetLevelDescription(DescriptionReply, "missing", 77, "level-1", "missing")) {
                     GameSystem.trace("description requests queued PASS");
                 }

@@ -193,8 +193,8 @@ gmVariable ParseRetailJson(gmMachine& a_machine, const std::string& a_body, int 
     document.Parse(a_body.data(), a_body.size());
     if (document.HasParseError()) {
         // Retail writes values as parser callbacks run and keeps the table
-        // after a parse error. Level descriptions use a different callback.
-        if (a_mode != 7 && !a_body.empty()) {
+        // after a parse error.
+        if (!a_body.empty()) {
             PartialJsonHandler partial(a_machine, a_mode);
             rapidjson::MemoryStream stream(a_body.data(), a_body.size());
             rapidjson::Reader reader;
@@ -203,6 +203,10 @@ gmVariable ParseRetailJson(gmMachine& a_machine, const std::string& a_body, int 
         }
         return gmVariable::s_null;
     }
+    // The common retail callback always returns the destination table.
+    // A root scalar has no table key, so the parser cannot insert it.
+    if (!document.IsObject() && !document.IsArray())
+        return gmVariable(a_machine.AllocTableObject());
     return JsonToGm(a_machine, document, a_mode);
 }
 
