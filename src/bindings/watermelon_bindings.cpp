@@ -451,6 +451,13 @@ int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(0); return GM_
 
 int GM_CDECL gmf_NoOp(gmThread*) { return GM_OK; }
 
+int GM_CDECL gmf_Purge(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(bucket, 0, 0);
+    if (g_networkClient) g_networkClient->Purge(bucket);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_Globals_GetFeaturedSearches(gmThread* a_thread) {
     a_thread->PushTable(a_thread->GetMachine()->AllocTableObject());
     return GM_OK;
@@ -512,7 +519,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_IsScoreGreaterThan", gmf_IsScoreGreaterThan);
     a_machine.RegisterLibraryFunction("Watermelon_GetUserIdentityId", gmf_GetUserIdentityId);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
-    a_machine.RegisterLibraryFunction("Watermelon_Purge", gmf_NoOp);
+    a_machine.RegisterLibraryFunction("Watermelon_Purge", gmf_Purge);
     a_machine.RegisterLibraryFunction("Watermelon_ForceCachePurgeByFilter", gmf_NoOp);
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetFeaturedSearches", gmf_Globals_GetFeaturedSearches);
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetNews", gmf_Globals_GetNews);

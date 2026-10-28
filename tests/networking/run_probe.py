@@ -28,6 +28,8 @@ MARKERS = (
     "queued put route PASS",
     "queued delete route PASS",
     "null callback request QUEUED",
+    "purge request QUEUED",
+    "purged request callback PASS",
     "activity page route PASS",
     "featured unknown-user response PASS",
     "ticket POST route PASS",

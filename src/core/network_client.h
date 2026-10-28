@@ -31,6 +31,7 @@ public:
                         const gmVariable& a_callbackData, const gmVariable& a_tag,
                         int a_bucket, int a_callbackMode);
     const std::string& UserId() const { return m_userId; }
+    void Purge(int a_bucket);
     void PumpCallbacks();
 
 private:
@@ -40,6 +41,8 @@ private:
         std::string body;
         std::string contentType;
         bool post = false;
+        int bucket = 0;
+        bool purged = false;
     };
     struct Completion {
         int id = 0;

@@ -110,6 +110,14 @@ global InvalidTicketReply = function(data, response, status) {
     }
 };
 
+global PurgedReply = function(data, response, error) {
+    if (data == "purged" && response == null && error == 1) {
+        GameSystem.trace("purged request callback PASS");
+    } else {
+        GameSystem.trace("purged request callback FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -132,6 +140,8 @@ global Main = function(p) {
             local queuedGet = Watermelon_Queued_Get(QueuedActionReply, "queued_get", 15, "test-level");
             local queuedPut = Watermelon_Queued_Put(QueuedActionReply, "queued_put", 16, "test-level");
             local queuedDelete = Watermelon_Queued_Delete(QueuedActionReply, "queued_delete", 17, "test-level");
+            local purged = Watermelon_Index_Page(PurgedReply, "purged", 991, "type=level&search=tagged3");
+            Watermelon_Purge(991);
             local noCallback = Watermelon_Queued_Put(null, null, 18, "test-level");
             local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
             if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
@@ -141,6 +151,9 @@ global Main = function(p) {
             }
             if (noCallback == 1) {
                 GameSystem.trace("null callback request QUEUED");
+            }
+            if (purged == 1) {
+                GameSystem.trace("purge request QUEUED");
             }
             if (selfFollow == 0) {
                 GameSystem.trace("self follow short circuit PASS");

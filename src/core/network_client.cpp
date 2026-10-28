@@ -144,9 +144,19 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     context->Set(&m_machine, 3, gmVariable(static_cast<gmint>(a_bucket)));
     context->Set(&m_machine, 4, a_tag);
     m_roots->Set(&m_machine, id, gmVariable(context));
-    m_requests.push_back({id, m_baseUrl + a_path, a_body, a_contentType, a_post});
+    const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
+        ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
+    m_requests.push_back({id, m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false});
     m_wake.notify_one();
     return id;
+}
+
+void NetworkClient::Purge(int a_bucket) {
+    if (a_bucket == 0) return;
+    std::lock_guard<std::mutex> lock(m_mutex);
+    for (Request& request : m_requests) {
+        if (request.bucket == a_bucket) request.purged = true;
+    }
 }
 
 void NetworkClient::PumpCallbacks() {
@@ -211,6 +221,11 @@ void NetworkClient::WorkerMain() {
 
         Completion completion;
         completion.id = request.id;
+        if (request.purged) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_completions.push_back(std::move(completion));
+            continue;
+        }
         CURL* curl = curl_easy_init();
         if (curl) {
             curl_easy_setopt(curl, CURLOPT_URL, request.url.c_str());
@@ -237,8 +252,8 @@ void NetworkClient::WorkerMain() {
             if (!m_sessionId.empty()) {
                 const std::string cookie = "X-OTG-Identity-SessionId: " + m_sessionId;
                 headers = curl_slist_append(headers, cookie.c_str());
-                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
             }
+            if (headers) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
             const CURLcode result = curl_easy_perform(curl);
             if (result == CURLE_OK)
