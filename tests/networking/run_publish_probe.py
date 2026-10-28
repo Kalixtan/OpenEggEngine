@@ -38,6 +38,13 @@ class Handler(BaseHTTPRequestHandler):
             response = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
             self.reply(201, response)
             return
+        if self.path == f"/otg/~identity:{USER}/~metadata:featuredlevel.put":
+            if body != b"/~level:levelABC/~version:42" or self.headers.get("Content-Type") != "text/plain":
+                self.reply(400)
+                return
+            seen.append("featured-put")
+            self.reply(200)
+            return
         stage = "create" if self.path == "/otg/~level:*.create" else "update" if self.path == "/otg/~level:levelABC.update" else None
         if not stage or self.headers.get("X-OTG-Identity-SessionId") != SESSION:
             self.reply(400)
@@ -67,6 +74,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/otg/~identity:*.hello":
             self.reply(200)
+        elif self.path == f"/otg/~identity:{USER}/~metadata:featuredlevel.get":
+            seen.append("featured-get")
+            self.reply(200, b"/~level:levelABC/~version:42")
         elif self.path == "/otg/~level:levelABC/~upload:42.get":
             seen.append("description")
             self.reply(200, b'{"id":"/~level:levelABC/~upload:42","title":"Synthetic probe"}')
@@ -143,9 +153,9 @@ def main():
             result = subprocess.run([str(temp / engine.name), str(script_dir), "PublishProbe.gm", "Main"], cwd=ROOT, env=env,
                                     text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            markers = ("publish missing ticket PASS", "publish invalid IDs PASS", "publish create queued PASS", "publish create PASS", "publish description PASS", "publish level readback PASS", "publish snapshot PASS", "publish update queued PASS",
+            markers = ("publish missing ticket PASS", "publish invalid IDs PASS", "publish create queued PASS", "publish create PASS", "publish featured PASS", "publish description PASS", "publish level readback PASS", "publish snapshot PASS", "publish update queued PASS",
                        "publish update PASS", "publish cleanup PASS")
-            if result.returncode or any(marker not in result.stdout for marker in markers) or (server and seen != ["create", "description", "readback", "snapshot", "update", "remove"]):
+            if result.returncode or any(marker not in result.stdout for marker in markers) or (server and seen != ["create", "featured-put", "featured-get", "description", "readback", "snapshot", "update", "remove"]):
                 raise SystemExit("publish probe failed")
     finally:
         if server:

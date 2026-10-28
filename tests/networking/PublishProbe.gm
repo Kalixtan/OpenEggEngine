@@ -39,6 +39,19 @@ global PublishDescription = function(data, result, error) {
     }
 };
 
+global PublishFeaturedGet = function(data, result, error) {
+    if (error == 0 && result == "/~level:" + data.levelId + "/~version:" + data.uploadId) {
+        GameSystem.trace("publish featured PASS");
+        Watermelon_GetLevelDescription(PublishDescription, data, 46, data.levelId, data.uploadId);
+    } else { GameSystem.trace("publish featured get FAIL"); }
+};
+
+global PublishFeaturedPut = function(data, result, error) {
+    if (error == 0) {
+        Watermelon_FeaturedLevel_Get(PublishFeaturedGet, data, 49, Watermelon_GetUserIdentityId());
+    } else { GameSystem.trace("publish featured put FAIL"); }
+};
+
 global PublishFinished = function(data, levelId, uploadId, error) {
     if (error != 0 || levelId == null || uploadId == null) {
         GameSystem.trace("publish callback FAIL");
@@ -48,7 +61,7 @@ global PublishFinished = function(data, levelId, uploadId, error) {
         GameSystem.trace("publish create PASS");
         data.levelId = levelId;
         data.uploadId = uploadId;
-        Watermelon_GetLevelDescription(PublishDescription, data, 46, levelId, uploadId);
+        Watermelon_FeaturedLevel_Post(PublishFeaturedPut, data, 48, levelId + "/~version:" + uploadId);
     } else if (data.stage == "update") {
         GameSystem.trace("publish update PASS");
         Watermelon_UnpublishLevel(PublishRemoved, "remove", 44, levelId);
