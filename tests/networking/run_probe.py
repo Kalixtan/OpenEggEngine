@@ -19,6 +19,8 @@ MARKERS = (
     "album contents route PASS",
     "following page route PASS",
     "followers page route PASS",
+    "activity page route PASS",
+    "featured unknown-user response PASS",
 )
 
 

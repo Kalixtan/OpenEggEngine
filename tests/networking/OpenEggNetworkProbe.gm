@@ -54,6 +54,22 @@ global FollowersDeniedReply = function(data, response, error) {
     }
 };
 
+global ActivityDeniedReply = function(data, response, error) {
+    if (data == "activity" && response == null && error == 403) {
+        GameSystem.trace("activity page route PASS");
+    } else {
+        GameSystem.trace("activity page route FAIL");
+    }
+};
+
+global FeaturedMissingUserReply = function(data, response, error) {
+    if (data == "featured" && response == null && error == 404) {
+        GameSystem.trace("featured unknown-user response PASS");
+    } else {
+        GameSystem.trace("featured unknown-user response FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -66,7 +82,9 @@ global Main = function(p) {
             local album = Watermelon_Album_Page(AlbumDeniedReply, "album", 5, "test-id", "from=0&count=1");
             local following = Watermelon_Following_Page(FollowingDeniedReply, "following", 6, "test-user", "from=0&count=1");
             local followers = Watermelon_Followers_Page(FollowersDeniedReply, "followers", 7, "test-user", "from=0&count=1");
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1) {
+            local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
+            local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");

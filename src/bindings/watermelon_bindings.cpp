@@ -144,6 +144,53 @@ int GM_CDECL gmf_FollowersPage(gmThread* a_thread) {
     return QueueUserPage(a_thread, true);
 }
 
+int GM_CDECL gmf_ActivityStreamPage(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    if (count != 5 && count != 6) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string identity;
+    std::string stream;
+    if (!ReadOptionalString(a_thread, 3, identity) ||
+        !ReadOptionalString(a_thread, 4, stream) || identity.empty() || stream.empty()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    std::string path = "/otg/~identity:" + identity + "/~stream:" + stream + ".page";
+    if (count == 6) {
+        std::string query;
+        if (ReadOptionalString(a_thread, 5, query) && !query.empty())
+            path += "?" + query;
+    }
+    const int requestId = g_networkClient
+        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+                                          a_thread->Param(2), 0, 0)
+        : 0;
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_FeaturedLevelGet(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string authorId;
+    if (!ReadOptionalString(a_thread, 3, authorId) || authorId.empty()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string path = "/otg/~identity:" + authorId +
+                             "/~metadata:featuredlevel.get";
+    const int requestId = g_networkClient
+        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+                                          a_thread->Param(2), 0, 1)
+        : 0;
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
+
 // =====================================================================
 // LOCAL helpers -- real semantics, used in single-player paths too.
 // =====================================================================
@@ -361,6 +408,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Page", gmf_FollowingPage);
     a_machine.RegisterLibraryFunction("Watermelon_Followers_Page", gmf_FollowersPage);
+    a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Page", gmf_ActivityStreamPage);
+    a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Get", gmf_FeaturedLevelGet);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
 
@@ -402,9 +451,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Following_Delete",
         "Watermelon_Following_Get",
         "Watermelon_ActivityStream_Post",
-        "Watermelon_ActivityStream_Page",
         "Watermelon_FeaturedLevel_Post",
-        "Watermelon_FeaturedLevel_Get",
         "Watermelon_Queued_Page",
         "Watermelon_Queued_Put",
         "Watermelon_Queued_Get",

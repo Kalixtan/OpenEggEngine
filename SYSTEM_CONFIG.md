@@ -32,7 +32,8 @@ to different window shapes. The default is `true`.
 `http://127.0.0.1:10061`. Leave it blank to disable requests.
 `network_session_id` optionally sets the `X-OTG-Identity-SessionId` header.
 `network_user_id` supplies the account ID for requests that address a user.
-Current traced request bindings cover index, album, and user-list pages.
+Current traced request bindings cover index, album, user-list, and activity
+pages, plus featured-level metadata lookup.
 `OpenEgg_NetworkGet` is a test-only probe, not a retail API.
 
 The `SYSTEM_GetOSDescription()` names `Win32`, `OS X`, `PS3`, and `NGP` are
