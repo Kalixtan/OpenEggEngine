@@ -1,0 +1,59 @@
+# OpenEgg networking worklist
+
+Early implementation. Only a small read path has been exercised against the
+replacement server; this list is not a parity claim.
+
+## Current
+
+- [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.
+- [x] JSON, raw-text, and large-integer callback conversion paths.
+- [x] Configurable server URL, session ID, and user ID.
+- [x] `Watermelon_Index_Page`, album pages, user-list pages,
+      `Watermelon_ActivityStream_Page`, and `Watermelon_FeaturedLevel_Get`.
+- [x] Explicit POST transport; local invalid-ticket request reaches the
+      replacement server and returns HTTP 400.
+- [ ] Successful authenticated request from OpenEgg.
+
+## Request core
+
+- [ ] Match retail URL building: `/otg` suffix, operation suffix, absolute
+      URLs, separators, query placement, and byte limits.
+- [ ] Match retail HTTP verb selection, body ownership, content-type handling,
+      and the traced record-post header quirk where required for parity.
+- [ ] Match request buckets, purge/cancel behavior, FIFO ordering, retry
+      admission, stale status handling, and shutdown draining.
+- [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
+      HTTP errors, and transport errors.
+- [ ] Add native-comparison probes for request ordering and callback timing.
+
+## Watermelon APIs
+
+- [ ] Trace and implement level reads, snapshots, downloads, and save-to-disk.
+- [ ] Implement metadata, ratings, favourites, hearts, following, and queued
+      item operations, including their retail routes and methods.
+- [ ] Implement record and leaderboard requests with retail serialization and
+      callback modes.
+- [ ] Implement publishing, grief reports, cloud saves, and multipart bodies.
+- [ ] Implement friend, identity, EULA, and online coordinator flows.
+- [ ] Review every currently offline request binding against the tracked
+      `Watermelon` and `Network` symbol entries in
+      `src/core/retail_symbols.inc` and its corresponding PS3 trace.
+
+## Platform Network APIs
+
+- [ ] Inventory which of the 45 `Network_*` calls have meaningful desktop
+      equivalents and keep Sony-only APIs explicitly unsupported where needed.
+- [ ] Implement and probe the applicable account, trophy, store, DLC, language,
+      SNS, activity, and Near behavior.
+- [ ] Match online/offline state and error transitions exposed to scripts.
+
+## Verification
+
+- [ ] Establish a reproducible authenticated test account and session for the
+      local replacement server.
+- [ ] Capture comparable request/response logs from retail and OpenEgg for each
+      implemented family; compare method, URL, query, headers, body, status,
+      callback data, and callback order.
+- [ ] Keep server rejection, missing test data, unimplemented client behavior,
+      and confirmed parity failures as distinct outcomes in reports.
+- [ ] Run the network probe headlessly after each client networking change.
