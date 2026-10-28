@@ -9,6 +9,7 @@
 #include "sha1.h"
 #include "network_translation.h"
 #include "network_level_data.h"
+#include "save_data.h"
 #include "engine_context.h"
 #include "../bindings/texture_bindings.h"
 #include <rapidjson/document.h>
@@ -182,6 +183,39 @@ int NetworkClient::QueueRetailImage(const std::string& a_path, const std::string
     return Queue(a_path, a_callback, a_callbackData, a_tag, 0, 4, false, {}, {}, a_cacheKey);
 }
 
+bool NetworkClient::QueueAssetBundle(const std::string& level, const std::string& version,
+                                     const std::string& outputPath, const gmVariable& callback,
+                                     const gmVariable& callbackData, const gmVariable& tag) {
+    if (!m_identityReady || outputPath.empty() || m_nextAssetBundleId == std::numeric_limits<int>::max()) return false;
+    const std::string prefix = "/otg/~level:" + level + "/~version:" + version + "/~content:";
+    // Reject setup before dispatch if any of the three paths cannot be queued.
+    if (!m_worker.joinable() || m_baseUrl.size() + prefix.size() + sizeof("sound/data.get") - 1 > 1023 ||
+        m_nextId > std::numeric_limits<int>::max() - 4) return false;
+    const char* types[] = {"level", "sound", "image"};
+    std::array<int, 3> requests{};
+    for (size_t i = 0; i < requests.size(); ++i) {
+        requests[i] = QueueRetailGet(prefix + types[i] + "/data.get", gmVariable::s_null,
+                                     gmVariable::s_null, tag, 0, 6);
+        if (!requests[i]) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            for (int id : requests) {
+                auto pending = m_pending.find(id);
+                if (pending != m_pending.end()) pending->second.purged = true;
+            }
+            return false;
+        }
+    }
+    const int group = m_nextAssetBundleId++;
+    gmTableObject* context = m_machine.AllocTableObject();
+    context->Set(&m_machine, 0, callback);
+    context->Set(&m_machine, 1, callbackData);
+    m_roots->Set(&m_machine, -group, gmVariable(context));
+    m_assetBundles.emplace(group, AssetBundle{outputPath});
+    for (size_t i = 0; i < requests.size(); ++i)
+        m_assetRequests.emplace(requests[i], std::make_pair(group, static_cast<int>(i)));
+    return true;
+}
+
 bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     if (a_ticket.empty() || m_loginRequestId != 0) return false;
     {
@@ -321,6 +355,44 @@ void NetworkClient::PumpCallbacks() {
                     completion.body.clear();
                 }
                 m_pending.erase(pending);
+            }
+        }
+        const auto assetRequest = m_assetRequests.find(completion.id);
+        if (assetRequest != m_assetRequests.end()) {
+            const int groupId = assetRequest->second.first;
+            const int part = assetRequest->second.second;
+            m_assetRequests.erase(assetRequest);
+            auto group = m_assetBundles.find(groupId);
+            if (group != m_assetBundles.end()) {
+                auto& bundle = group->second;
+                if (completion.status == 200 || completion.status == 201) {
+                    static const char* suffixes[] = {".json.z", ".jef", ".png"};
+                    bundle.sizes[part] = static_cast<int>(std::min<size_t>(completion.body.size(), INT32_MAX));
+                    SaveData::RegisterTransient(bundle.path + suffixes[part], completion.body);
+                }
+                if (--bundle.remaining == 0) {
+                    const gmVariable contextValue = m_roots->Get(-groupId);
+                    if (contextValue.m_type == GM_TABLE) {
+                        auto* context = static_cast<gmTableObject*>(m_machine.GetObject(contextValue.m_value.m_ref));
+                        const gmVariable callback = context->Get(0);
+                        if (callback.m_type == GM_FUNCTION) {
+                            auto* function = static_cast<gmFunctionObject*>(m_machine.GetObject(callback.m_value.m_ref));
+                            gmCall call;
+                            if (call.BeginFunction(&m_machine, function)) {
+                                gmTableObject* result = m_machine.AllocTableObject();
+                                result->Set(&m_machine, "levelSize", gmVariable(static_cast<gmint>(bundle.sizes[0])));
+                                result->Set(&m_machine, "audioSize", gmVariable(static_cast<gmint>(bundle.sizes[1])));
+                                result->Set(&m_machine, "screenshotSize", gmVariable(static_cast<gmint>(bundle.sizes[2])));
+                                call.AddParam(context->Get(1));
+                                call.AddParam(gmVariable(result));
+                                call.AddParamInt(bundle.sizes[0] > 0 && bundle.sizes[1] > 0 && bundle.sizes[2] > 0 ? 0 : -1);
+                                call.End();
+                            }
+                        }
+                    }
+                    m_roots->Set(&m_machine, -groupId, gmVariable::s_null);
+                    m_assetBundles.erase(groupId);
+                }
             }
         }
         if (completion.id == m_loginRequestId) {

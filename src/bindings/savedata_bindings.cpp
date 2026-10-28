@@ -184,7 +184,7 @@ int GM_CDECL gmf_SAVEDATA_reqSaveString(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_SAVEDATA_SaveAll(gmThread* a_thread) {
-    a_thread->PushInt(1);
+    a_thread->PushInt(SaveData::FlushTransient() ? 1 : 0);
     return GM_OK;
 }
 

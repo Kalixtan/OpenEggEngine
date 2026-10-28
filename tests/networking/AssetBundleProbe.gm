@@ -1,0 +1,40 @@
+global BundleFailure = function(data, result, error) {
+    if (data == "failure" && error == -1 && result != null && result.levelSize > 0 &&
+        result.audioSize == 0 && result.screenshotSize > 0) {
+        GameSystem.trace("asset partial failure PASS");
+    } else {
+        GameSystem.trace("asset partial failure FAIL");
+    }
+};
+
+global BundleSuccess = function(data, result, error) {
+    if (data == "success" && error == 0 && result != null && result.levelSize > 0 &&
+        result.audioSize > 0 && result.screenshotSize > 0) {
+        local ticket = SAVEDATA_reqGetFileSize("myLevels/ok.json.z");
+        if (ticket.getSize() == result.levelSize && SAVEDATA_SaveAll()) {
+            GameSystem.trace("asset staging and save PASS");
+        }
+        if ("__FAILURE_TEST__" == "yes") {
+            Watermelon_SaveLevelAndAssetsToDisk(BundleFailure, "failure", 62, "__LEVEL_ID__", "missing", "myLevels/bad");
+        }
+    } else {
+        GameSystem.trace("asset success FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        started=0,
+        init=function() { return true; },
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                if (Watermelon_SaveLevelAndAssetsToDisk(BundleSuccess, "success", 61, "__LEVEL_ID__", "ok", "myLevels/ok")) {
+                    GameSystem.trace("asset bundle queued PASS");
+                }
+            }
+        }
+    );
+};

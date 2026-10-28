@@ -913,6 +913,19 @@ int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_SaveLevelAndAssetsToDisk(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(6);
+    std::string level, version, output;
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, level) ||
+        !ReadOptionalString(a_thread, 4, version) || !ReadOptionalString(a_thread, 5, output)) {
+        a_thread->PushInt(0); return GM_OK;
+    }
+    const bool queued = g_networkClient->QueueAssetBundle(level, version, output,
+        a_thread->Param(0), a_thread->Param(1), a_thread->Param(2));
+    a_thread->PushInt(queued ? 1 : 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_GetLevelThumbnail(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(5);
     std::string level, version;
@@ -1135,6 +1148,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetEulaVersion", gmf_GetEulaVersion);
     a_machine.RegisterLibraryFunction("Watermelon_Get_Friends", gmf_GetFriends);
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelData", gmf_GetLevelData);
+    a_machine.RegisterLibraryFunction("Watermelon_SaveLevelAndAssetsToDisk", gmf_SaveLevelAndAssetsToDisk);
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelThumbnail", gmf_GetLevelThumbnail);
     a_machine.RegisterLibraryFunction("Watermelon_GetContentImage", gmf_GetContentImage);
     a_machine.RegisterLibraryFunction("Watermelon_PublishLevel", gmf_PublishLevel);
@@ -1192,7 +1206,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     // Server-request family -- see the offline-stub block comment above.
     static const char* kOfflineRequests[] = {
         "Watermelon_GetLevelDescription",
-        "Watermelon_SaveLevelAndAssetsToDisk",
         "Watermelon_GetSoundData",
         "Watermelon_GetBetaParticipationAgreement",
     };

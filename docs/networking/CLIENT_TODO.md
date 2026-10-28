@@ -79,8 +79,12 @@ behavior.
 
 ## Watermelon APIs
 
-- [ ] Finish level description, sound and save-to-disk paths; compare image
-      cache ownership and malformed image behavior with retail.
+- [x] Download and stage level, sound and image files; test saving against a
+      local replacement server.
+- [ ] Compare asset staging and save persistence with retail. Flushing staged
+      files through `SAVEDATA_SaveAll` is currently a desktop adaptation.
+- [ ] Finish level description and sound paths; compare image cache ownership
+      and malformed image behavior with retail.
 - [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated

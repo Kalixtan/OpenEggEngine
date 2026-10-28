@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <cstdio>
+#include <unordered_map>
 
 #if defined(__linux__)
 #include <unistd.h>
@@ -51,6 +52,10 @@ fs::path ExeDir() {
 
 namespace SaveData {
 
+namespace {
+std::unordered_map<std::string, std::string> g_transient;
+}
+
 const std::string& ExecutableDirectory() {
     static const std::string directory = ExeDir().u8string();
     return directory;
@@ -71,6 +76,8 @@ const std::string& Dir() {
 }
 
 bool ReadFile(const std::string& a_relativePath, std::string& a_outContent) {
+    const auto found = g_transient.find(a_relativePath);
+    if (found != g_transient.end()) { a_outContent = found->second; return true; }
     fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::ifstream in(full, std::ios::binary);
     if (!in) return false;
@@ -87,16 +94,21 @@ bool WriteFile(const std::string& a_relativePath, const std::string& a_content) 
     std::ofstream out(full, std::ios::binary | std::ios::trunc);
     if (!out) return false;
     out.write(a_content.data(), (std::streamsize)a_content.size());
-    return out.good();
+    const bool written = out.good();
+    if (written) g_transient.erase(a_relativePath);
+    return written;
 }
 
 bool FileExists(const std::string& a_relativePath) {
+    if (g_transient.find(a_relativePath) != g_transient.end()) return true;
     fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::error_code ec;
     return fs::exists(full, ec) && fs::is_regular_file(full, ec);
 }
 
 long long FileSize(const std::string& a_relativePath) {
+    const auto found = g_transient.find(a_relativePath);
+    if (found != g_transient.end()) return static_cast<long long>(found->second.size());
     fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::error_code ec;
     auto sz = fs::file_size(full, ec);
@@ -104,10 +116,24 @@ long long FileSize(const std::string& a_relativePath) {
 }
 
 bool DeleteFile(const std::string& a_relativePath) {
+    g_transient.erase(a_relativePath);
     fs::path full = fs::u8path(Dir()) / fs::u8path(a_relativePath);
     std::error_code ec;
     fs::remove(full, ec);
     return !ec;
+}
+
+void RegisterTransient(const std::string& a_relativePath, const std::string& a_content) {
+    g_transient[a_relativePath] = a_content;
+}
+
+bool FlushTransient() {
+    while (!g_transient.empty()) {
+        // WriteFile removes the entry on success; copy before invalidation.
+        const auto entry = *g_transient.begin();
+        if (!WriteFile(entry.first, entry.second)) return false;
+    }
+    return true;
 }
 
 } // namespace SaveData

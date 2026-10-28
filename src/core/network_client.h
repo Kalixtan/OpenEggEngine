@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <array>
 #include <vector>
 
 class gmMachine;
@@ -39,6 +40,9 @@ public:
     int QueueRetailImage(const std::string& a_path, const std::string& a_cacheKey,
                          const gmVariable& a_callback, const gmVariable& a_callbackData,
                          const gmVariable& a_tag);
+    bool QueueAssetBundle(const std::string& level, const std::string& version,
+                          const std::string& outputPath, const gmVariable& callback,
+                          const gmVariable& callbackData, const gmVariable& tag);
     const std::string& UserId() const { return m_userId; }
     void SetPlatformTicket(std::string a_ticket);
     void GoOnline();
@@ -81,6 +85,11 @@ private:
         int bucket;
         bool purged = false;
     };
+    struct AssetBundle {
+        std::string path;
+        int remaining = 3;
+        std::array<int, 3> sizes{};
+    };
 
     void WorkerMain();
     int Queue(const std::string& a_path, const gmVariable& a_callback,
@@ -100,9 +109,12 @@ private:
     std::deque<Request> m_requests;
     std::deque<Completion> m_completions;
     std::unordered_map<int, PendingRequest> m_pending;
+    std::unordered_map<int, AssetBundle> m_assetBundles;
+    std::unordered_map<int, std::pair<int, int>> m_assetRequests;
     std::thread m_worker;
     bool m_stopping = false;
     int m_nextId = 1;
+    int m_nextAssetBundleId = 1;
     int m_loginRequestId = 0;
     int m_helloRequestId = 0;
     int m_eulaRequestId = 0;

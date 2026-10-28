@@ -29,4 +29,8 @@ long long FileSize(const std::string& a_relativePath);
 
 bool DeleteFile(const std::string& a_relativePath);
 
+// Network downloads stage resources until the save operation runs.
+void RegisterTransient(const std::string& a_relativePath, const std::string& a_content);
+bool FlushTransient();
+
 } // namespace SaveData
