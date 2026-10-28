@@ -1,0 +1,21 @@
+global AuthIndexReply = function(data, response, error) {
+    if (data == "authenticated" && error == 0 && response.count == 0 && response.items.size == 0) {
+        GameSystem.trace("authenticated index response PASS");
+    } else {
+        GameSystem.trace("authenticated index response FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        init=function() { return true; },
+        constructor=function() {
+            local request = Watermelon_Index_Page(AuthIndexReply, "authenticated", 1, "type=level&search=all&count=1");
+            if (request == 1) {
+                GameSystem.trace("authenticated request QUEUED");
+            }
+        },
+        update=function() {}
+    );
+};

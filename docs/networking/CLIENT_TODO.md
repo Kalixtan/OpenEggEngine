@@ -21,7 +21,8 @@ behavior.
 - [x] Metadata all/get/put request construction and callback modes.
 - [x] Explicit POST transport; local invalid-ticket request reaches the
       replacement server and returns HTTP 400.
-- [ ] Successful authenticated request from OpenEgg.
+- [x] Authenticated index request from OpenEgg using a locally seeded test session.
+- [ ] Implement and verify the retail ticket login and coordinator state flow.
 
 ## Request core
 

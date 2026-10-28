@@ -66,6 +66,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("server_url", help="Local server root, e.g. http://127.0.0.1:8080")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
+    parser.add_argument("--session-id", help="Local test session ID for an authenticated probe")
+    parser.add_argument("--user-id", default="test-user", help="Identity belonging to the session")
     args = parser.parse_args()
 
     engine = args.engine.resolve()
@@ -87,7 +89,8 @@ def main():
         (temp / "OpenEgg.ini").write_text(
             "[system]\nos_id = ps3\nlanguage = en_us\n"
             f"network_base_url = {args.server_url.rstrip('/')}\n"
-            "network_user_id = test-user\n",
+            f"network_user_id = {args.user_id}\n"
+            f"network_session_id = {args.session_id or ''}\n",
             encoding="utf-8",
         )
 
@@ -102,14 +105,16 @@ def main():
             # Avoid selecting PSn00bSDK's cross assembler as host assembler.
             "PATH": "/usr/bin:/bin:" + env.get("PATH", ""),
         })
+        probe = "AuthenticatedNetworkProbe.gm" if args.session_id else "OpenEggNetworkProbe.gm"
+        markers = ("authenticated request QUEUED", "authenticated index response PASS") if args.session_id else MARKERS
         result = subprocess.run(
             [str(test_engine), str(ROOT / "tests" / "networking"),
-             "OpenEggNetworkProbe.gm", "Main"],
+             probe, "Main"],
             cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, timeout=15, check=False,
         )
         print(result.stdout, end="")
-        missing = [marker for marker in MARKERS if marker not in result.stdout]
+        missing = [marker for marker in markers if marker not in result.stdout]
         if result.returncode or missing:
             raise SystemExit(f"network probe failed; missing markers: {missing}")
 
