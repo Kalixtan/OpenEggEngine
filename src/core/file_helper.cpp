@@ -140,9 +140,12 @@ std::optional<std::string> FileHelper::Resolve(const std::string& a_relativePath
             namespace fs = std::filesystem;
             std::error_code ec;
             const fs::path archivePath = fs::u8path(source.root);
+            const fs::path resolvedPath = fs::canonical(archivePath, ec);
+            const std::string cacheSource = ec ? source.root : resolvedPath.u8string();
+            ec.clear();
             const auto stamp = fs::last_write_time(archivePath, ec).time_since_epoch().count();
             const auto size = fs::file_size(archivePath, ec);
-            const size_t archiveKey = std::hash<std::string>{}(source.root + ":" +
+            const size_t archiveKey = std::hash<std::string>{}(cacheSource + ":" +
                 std::to_string(stamp) + ":" + std::to_string(size));
             const fs::path cacheRelative = fs::u8path(requested).lexically_normal().relative_path();
             fs::path cache = fs::temp_directory_path() / "OpenEgg_psarc_cache" /
