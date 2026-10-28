@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <iterator>
 #include <limits>
+#include <string_view>
 #include <utility>
 
 #if defined(OPENEGG_HAS_CURL)
@@ -240,6 +241,33 @@ gmVariable ParseRetailJson(gmMachine& a_machine, const std::string& a_body, int 
 }
 
 #if defined(OPENEGG_HAS_CURL)
+struct HeaderContext {
+    CURL* curl;
+    bool rawResponse;
+    bool followRedirects;
+    bool hasLocation = false;
+    bool skippedErrorBody = false;
+};
+
+size_t ReceiveHeaders(char* data, size_t size, size_t count, void* context) {
+    if (size != 0 && count > std::numeric_limits<size_t>::max() / size) return 0;
+    const size_t bytes = size * count;
+    auto& headers = *static_cast<HeaderContext*>(context);
+    if (bytes >= 5 && std::string_view(data, 5) == "HTTP/") headers.hasLocation = false;
+    if (bytes >= 9 && curl_strnequal(data, "Location:", 9)) headers.hasLocation = true;
+    if (!headers.rawResponse && ((bytes == 2 && data[0] == '\r' && data[1] == '\n') ||
+                                 (bytes == 1 && data[0] == '\n'))) {
+        long status = 0;
+        curl_easy_getinfo(headers.curl, CURLINFO_RESPONSE_CODE, &status);
+        const bool redirect = headers.followRedirects && headers.hasLocation && status >= 300 && status < 400;
+        if (status >= 200 && status != 200 && status != 201 && !redirect) {
+            headers.skippedErrorBody = true;
+            return 0;
+        }
+    }
+    return bytes;
+}
+
 size_t ReceiveBody(char* a_data, size_t a_size, size_t a_count, void* a_context) {
     if (a_size != 0 && a_count > std::numeric_limits<size_t>::max() / a_size) return 0;
     const size_t bytes = a_size * a_count;
@@ -508,7 +536,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
                                      cacheKey, a_sendSession, true});
     } else {
         requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType,
-                            a_post, bucket, false, a_sendSession, cacheKey});
+                            a_post, bucket, false, a_sendSession, cacheKey, a_callbackMode < 0});
         m_wake.notify_all();
     }
     return id;
@@ -1000,7 +1028,10 @@ void NetworkClient::WorkerMain(bool a_identity) {
         }
         CURL* curl = curl_easy_init();
         if (curl) {
+            HeaderContext responseHeaders{curl, request.rawResponse, !request.sendSession};
             curl_easy_setopt(curl, CURLOPT_URL, request.url.c_str());
+            curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, ReceiveHeaders);
+            curl_easy_setopt(curl, CURLOPT_HEADERDATA, &responseHeaders);
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, ReceiveBody);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, &completion.body);
             curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
@@ -1037,7 +1068,7 @@ void NetworkClient::WorkerMain(bool a_identity) {
 
             const CURLcode result = curl_easy_perform(curl);
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &completion.status);
-            if (result != CURLE_OK) {
+            if (result != CURLE_OK && !responseHeaders.skippedErrorBody) {
                 // Retail skips body reception for non-success HTTP statuses.
                 // A later body error cannot turn those into transport failures.
                 completion.transportFailed = completion.status == 0 ||

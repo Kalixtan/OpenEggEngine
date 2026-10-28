@@ -14,6 +14,9 @@ from run_ticket_probe import ticket
 
 level_requests = []
 error_requests = []
+stall_started = threading.Event()
+release_stall = threading.Event()
+stall_expired = threading.Event()
 
 
 class FailureHandler(Handler):
@@ -31,6 +34,17 @@ class FailureHandler(Handler):
         elif self.path == "/otg/~index:level.page?type=level&case=disconnect":
             self.close_connection = True
         elif self.path == "/otg/~index:level.page?type=level&case=success":
+            self.reply(200, b'{"count":0}')
+        elif self.path == "/otg/~index:level.page?type=level&case=stall":
+            self.send_response(404)
+            self.send_header("Content-Length", "100")
+            self.end_headers()
+            self.wfile.flush()
+            stall_started.set()
+            if not release_stall.wait(10):
+                stall_expired.set()
+            self.close_connection = True
+        elif self.path == "/otg/~index:level.page?type=level&case=after-stall":
             self.reply(200, b'{"count":0}')
         elif self.path == "/otg/~level:transport/~version:v1/~content:level/data.get":
             level_requests.append(self.path)
@@ -71,15 +85,36 @@ def main():
             env = os.environ.copy()
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-            result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
-                                     "TransportFailureProbe.gm", "Main"], env=env, text=True,
-                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
-            print(result.stdout, end="")
+            process = subprocess.Popen([str(temp / engine.name), str(ROOT / "tests/networking"),
+                                        "TransportFailureProbe.gm", "Main"], env=env, text=True,
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            lines, stalled = [], []
+            def read_output():
+                for line in process.stdout:
+                    lines.append(line)
+                    if "transport stalled error PASS" in line:
+                        stalled.append(stall_started.is_set() and not stall_expired.is_set())
+                        release_stall.set()
+            reader = threading.Thread(target=read_output)
+            reader.start()
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise
+            finally:
+                release_stall.set()
+                reader.join()
+            output = "".join(lines)
+            print(output, end="")
             markers = ("transport partial status PASS", "transport no status PASS", "transport success PASS",
-                       "transport failure not cached PASS", "transport HTTP error cached PASS")
-            if result.returncode or len(level_requests) != 2 or len(error_requests) != 1 or any(marker not in result.stdout for marker in markers) or " FAIL" in result.stdout:
+                       "transport failure not cached PASS", "transport HTTP error cached PASS",
+                       "transport stalled error PASS", "transport after stall PASS")
+            if process.returncode or stalled != [True] or len(level_requests) != 2 or len(error_requests) != 1 or any(marker not in output for marker in markers) or " FAIL" in output:
                 raise SystemExit("transport failure probe failed")
     finally:
+        release_stall.set()
         server.shutdown()
         server.server_close()
         thread.join()

@@ -80,6 +80,7 @@ private:
         bool purged = false;
         bool sendSession = true;
         std::string cacheKey;
+        bool rawResponse = false;
     };
     struct Completion {
         int id = 0;

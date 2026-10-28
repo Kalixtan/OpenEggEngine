@@ -134,8 +134,8 @@ behavior.
       URLs, separators, query placement, and byte limits.
 - [ ] Match retail HTTP verb selection, body ownership, content-type handling,
       and the traced record-post header quirk where required for parity.
-- [ ] Stop reading error response bodies after headers. libcurl can still wait
-      for an interrupted or stalled error body before OpenEgg reports it.
+- [x] Stop reading non-success response bodies after headers; test a stalled
+      404 response without blocking the following request.
 - [ ] Match request buckets, purge/cancel behavior, FIFO ordering, retry
       admission, stale status handling, and shutdown draining.
 - [ ] Compare cache enable flags, wildcard edges, capacity and pool eviction
