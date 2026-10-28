@@ -30,7 +30,14 @@ bool MergeNetworkTranslations(const std::string& data,
         if (keyEnd != std::string::npos) key.resize(keyEnd);
         const auto valueEnd = value.find('\0');
         if (valueEnd != std::string::npos) value.resize(valueEnd);
-        if (!key.empty()) translations[std::move(key)] = std::move(value);
+        if (!key.empty()) {
+            auto existing = translations.find(key);
+            // Retail compares only the incoming value's length; an empty or
+            // shorter prefix therefore leaves an existing entry unchanged.
+            if (existing != translations.end() &&
+                existing->second.compare(0, value.size(), value) == 0) continue;
+            translations[std::move(key)] = std::move(value);
+        }
     }
     return true;
 }

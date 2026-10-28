@@ -40,6 +40,8 @@ behavior.
       traced missing-file path dereferences a null pointer.
 - [x] Parse little-endian network MO catalogs and reach coordinator online
       state after all three localized callbacks have run.
+- [x] Match the traced duplicate-translation prefix comparison in the network
+      catalog, including empty incoming values.
 - [x] Cloud-save GET and multipart POST; tested with a disposable local server
       account and a byte-checking fixture.
 - [x] Fetch and inflate level data as XML or JSON, with request-state callback

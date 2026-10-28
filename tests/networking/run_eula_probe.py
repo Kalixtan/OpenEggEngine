@@ -31,11 +31,20 @@ translation_invalid = False
 
 
 def translation_catalog():
-    key = b"probe-key"
-    value = b"probe-value"
-    header = struct.pack("<7I", 0x950412de, 0, 1, 28, 36, 0, 0)
-    return (header + struct.pack("<2I", len(key), 44) + struct.pack("<2I", len(value), 45 + len(key))
-            + key + b"\0" + value + b"\0")
+    entries = [(b"probe-key", b"probe-value"), (b"probe-key", b"probe"),
+               (b"probe-key", b""), (b"replacement", b"old"),
+               (b"replacement", b"new"), (b"empty-key", b"")]
+    count = len(entries)
+    originals, values = 28, 28 + count * 8
+    blob = bytearray()
+    keys, translations = [], []
+    for key, value in entries:
+        keys.append((len(key), 28 + count * 16 + len(blob)))
+        blob.extend(key + b"\0")
+        translations.append((len(value), 28 + count * 16 + len(blob)))
+        blob.extend(value + b"\0")
+    header = struct.pack("<7I", 0x950412de, 0, count, originals, values, 0, 0)
+    return header + b"".join(struct.pack("<2I", *entry) for entry in keys + translations) + blob
 
 
 class Handler(BaseHTTPRequestHandler):

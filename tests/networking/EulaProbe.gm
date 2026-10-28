@@ -50,7 +50,9 @@ global Main = function(p) {
             } else if (this.checked == 5 && OnlineCoordinator_IsOnline() && Watermelon_IsOnline()) {
                 this.checked = 6;
                 GameSystem.trace("coordinator online PASS");
-                if (OpenEgg_NetworkTranslation("probe-key") == "probe-value") {
+                if (OpenEgg_NetworkTranslation("probe-key") == "probe-value" &&
+                    OpenEgg_NetworkTranslation("replacement") == "new" &&
+                    OpenEgg_NetworkTranslation("empty-key") == "") {
                     GameSystem.trace("network translation PASS");
                 }
                 OnlineCoordinator_GoOffline();
