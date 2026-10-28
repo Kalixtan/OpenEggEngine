@@ -1,0 +1,29 @@
+global EvictionReply = function(step, result, error) {
+    if (step == 1 && error == 1 && result == null) {
+        Watermelon_GetLevelData(EvictionReply, 2, 301, "bbb", "v1");
+    } else if (step == 2 && error == 0 && result == null) {
+        Watermelon_GetLevelData(EvictionReply, 3, 302, "ccc", "v1");
+    } else if (step == 3 && error == 0 && result == null) {
+        Watermelon_GetLevelData(EvictionReply, 4, 303, "ccc", "v1");
+    } else if (step == 4 && error == 0 && result == null) {
+        GameSystem.trace("cache empty candidate PASS");
+        Watermelon_ForceCachePurgeByFilter("~level:aaa/##");
+        Watermelon_GetLevelData(EvictionReply, 5, 304, "ccc", "v1");
+    } else if (step == 5 && error == 0 && result == null) {
+        Watermelon_GetLevelData(EvictionReply, 6, 305, "ccc", "v1");
+    } else if (step == 6 && error == 0 && result == null) {
+        GameSystem.trace("cache eviction PASS");
+    } else { GameSystem.trace("cache eviction FAIL"); }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            if (!this.started && Watermelon_IsOnline()) {
+                this.started = 1;
+                Watermelon_GetLevelData(EvictionReply, 1, 300, "aaa", "v1");
+            }
+        });
+};

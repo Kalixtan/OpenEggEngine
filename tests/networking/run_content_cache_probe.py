@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check content cache hits and filter invalidation with a local fixture."""
 from http.server import ThreadingHTTPServer
+import argparse
 import os
 from pathlib import Path
 import shutil
@@ -14,10 +15,19 @@ from run_ticket_probe import ticket
 
 requests = []
 missing_requests = []
+eviction_requests = []
 
 
 class CacheHandler(Handler):
     def do_GET(self):
+        for level in ("aaa", "bbb", "ccc"):
+            if self.path == f"/otg/~level:{level}/~version:v1/~content:level/data.get":
+                if self.headers.get("X-OTG-Identity-SessionId") != SESSION:
+                    self.reply(403)
+                    return
+                eviction_requests.append(level)
+                self.reply(404 if level == "aaa" else 200, b"" if level == "aaa" else b"X" * (600 * 1024))
+                return
         if self.path == "/otg/~level:cache-level/~version:missing/~content:level/data.get":
             if self.headers.get("X-OTG-Identity-SessionId") != SESSION:
                 self.reply(403)
@@ -39,6 +49,9 @@ class CacheHandler(Handler):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--eviction", action="store_true", help="Check pool eviction edge cases")
+    args = parser.parse_args()
     server = ThreadingHTTPServer(("127.0.0.1", 0), CacheHandler)
     server.daemon_threads = True
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -60,12 +73,16 @@ def main():
             env = os.environ.copy()
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
+            probe = "ContentCacheEvictionProbe.gm" if args.eviction else "ContentCacheProbe.gm"
             result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
-                                     "ContentCacheProbe.gm", "Main"], env=env, text=True,
+                                     probe, "Main"], env=env, text=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            if result.returncode or len(requests) != 2 or len(missing_requests) != 2 or any(
-                    marker not in result.stdout for marker in ("cache hit PASS", "cache filter PASS", "cache purge PASS", "cache error hit PASS", "cache error purge PASS")) or "FAIL" in result.stdout:
+            markers = (("cache empty candidate PASS", "cache eviction PASS") if args.eviction else
+                       ("cache hit PASS", "cache filter PASS", "cache purge PASS", "cache error hit PASS", "cache error purge PASS"))
+            request_ok = (eviction_requests == ["aaa", "bbb", "ccc", "ccc", "ccc"] if args.eviction else
+                          len(requests) == 2 and len(missing_requests) == 2)
+            if result.returncode or not request_ok or any(marker not in result.stdout for marker in markers) or "FAIL" in result.stdout:
                 raise SystemExit("content cache probe failed")
     finally:
         server.shutdown()

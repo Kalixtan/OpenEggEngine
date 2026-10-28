@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <iterator>
 #include <limits>
 #include <utility>
 
@@ -535,21 +536,34 @@ void NetworkClient::StoreCache(const Completion& completion) {
     const std::string body = (completion.status == 200 || completion.status == 201)
         ? completion.body : std::string();
     constexpr size_t kPoolSize = 1024 * 1024;
-    if (body.size() > kPoolSize) return;
     auto bytesUsed = [&] {
         size_t bytes = 0;
         for (const auto* entries : {&m_identityCache, &m_globalCache})
             for (const auto& entry : *entries) bytes += entry.second.body.size();
         return bytes;
     };
-    while (cache.size() >= 300 || bytesUsed() + body.size() > kPoolSize) {
-        auto oldest = cache.end();
-        for (auto it = cache.begin(); it != cache.end(); ++it) {
-            if (!it->second.body.empty() && (oldest == cache.end() || it->second.inserted < oldest->second.inserted))
+    auto evictOldest = [&] {
+        auto oldest = cache.begin();
+        if (oldest == cache.end() || oldest->second.body.empty()) return false;
+        for (auto it = std::next(oldest); it != cache.end(); ++it) {
+            if (!it->second.body.empty() && it->second.inserted < oldest->second.inserted)
                 oldest = it;
         }
-        if (oldest == cache.end()) return;
         cache.erase(oldest);
+        return true;
+    };
+    // Retail trims for the entry limit before looking up the key, then frees
+    // an existing body before attempting to allocate its replacement.
+    while (cache.size() >= 300) {
+        if (!evictOldest()) return;
+    }
+    auto existing = cache.find(completion.cacheKey);
+    if (existing != cache.end()) existing->second.body.clear();
+    while (bytesUsed() + body.size() > kPoolSize) {
+        if (!evictOldest()) {
+            cache.erase(completion.cacheKey);
+            return;
+        }
     }
     cache[completion.cacheKey] = {completion.status, body,
         std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()};
