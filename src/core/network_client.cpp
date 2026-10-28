@@ -237,11 +237,9 @@ void NetworkClient::WorkerMain() {
 
             if (request.post) {
                 curl_easy_setopt(curl, CURLOPT_POST, 1L);
-                if (!request.body.empty()) {
-                    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.data());
-                    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
-                                     static_cast<curl_off_t>(request.body.size()));
-                }
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.data());
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
+                                 static_cast<curl_off_t>(request.body.size()));
             }
 
             struct curl_slist* headers = nullptr;

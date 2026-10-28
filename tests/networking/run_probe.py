@@ -33,6 +33,7 @@ MARKERS = (
     "activity page route PASS",
     "featured unknown-user response PASS",
     "ticket POST route PASS",
+    "empty POST route PASS",
 )
 
 
