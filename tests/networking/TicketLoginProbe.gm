@@ -26,6 +26,11 @@ global Main = function(p) {
             if (OnlineCoordinator_IsConnecting() && !OnlineCoordinator_IsOnline()) {
                 GameSystem.trace("ticket coordinator connecting PASS");
             }
+            if (OnlineCoordinator_HasChatPermissions() && !OnlineCoordinator_IsSendQueueFull()) {
+                GameSystem.trace("desktop community permissions PASS");
+            } else if (!OnlineCoordinator_HasChatPermissions() && !OnlineCoordinator_IsSendQueueFull()) {
+                GameSystem.trace("desktop community restricted PASS");
+            }
             OnlineCoordinator_GoOffline();
             if (OnlineCoordinator_IsOffline() && Watermelon_GetUserIdentityId() == "") {
                 GameSystem.trace("ticket coordinator cancel PASS");

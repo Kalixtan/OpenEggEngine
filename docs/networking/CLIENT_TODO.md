@@ -38,6 +38,8 @@ behavior.
       fails, after both community data callbacks have run.
 - [ ] Parse nonempty translation responses. Online transition currently waits
       when such data arrives; platform sign-in and timing remain incomplete.
+- [ ] Replace the configurable desktop chat-permission fallback with platform
+      restriction data where a platform provider is available.
 - [ ] Implement other product regions and later coordinator phases. Match
       retail update timing and malformed EULA edge cases.
 - [ ] Match retail login reset, request purging, malformed responses and error

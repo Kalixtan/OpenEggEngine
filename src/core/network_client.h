@@ -43,6 +43,8 @@ public:
     int CoordinatorState() const { return m_coordinatorState; }
     int CoordinatorError() const { return m_coordinatorError; }
     bool IdentityReady() const { return m_identityReady; }
+    bool HasChatPermissions() const { return m_chatPermissions; }
+    bool IsSendQueueFull();
     bool HasEula() const { return m_eulaReady; }
     const std::string& EulaText() const { return m_eulaText; }
     const std::string& EulaVersion() const { return m_eulaVersion; }
@@ -106,6 +108,8 @@ private:
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;
     bool m_identityReady = false;
+    bool m_managerAttached = false;
+    bool m_chatPermissions = false;
     bool m_eulaReady = false;
     std::string m_eulaText;
     std::string m_eulaVersion;

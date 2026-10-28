@@ -39,6 +39,7 @@ def main():
     parser.add_argument("--invalid-ticket", action="store_true", help="Check rejection of a malformed ticket")
     parser.add_argument("--expect-hello-failure", action="store_true", help="Check a failed hello response")
     parser.add_argument("--eula", action="store_true", help="Check EULA retrieval from the local server")
+    parser.add_argument("--community-disabled", action="store_true", help="Disable desktop community permissions")
     args = parser.parse_args()
     if not args.server_url.startswith("http://127.0.0.1:"):
         parser.error("fixture must use a local 127.0.0.1 server")
@@ -52,7 +53,8 @@ def main():
         if data.is_dir():
             (temp / "game_data").symlink_to(data, target_is_directory=True)
         (temp / "ticket.bin").write_bytes(b"invalid" if args.invalid_ticket else ticket())
-        (temp / "OpenEgg.ini").write_text("[network]\nserver_url = " + args.server_url.rstrip("/") + "\nticket_file = ticket.bin\n")
+        (temp / "OpenEgg.ini").write_text("[network]\nserver_url = " + args.server_url.rstrip("/") + "\nticket_file = ticket.bin\n" +
+                                          ("community_allowed = false\n" if args.community_disabled else ""))
         harness = temp / "harness.txt"
         harness.write_text("wait 240\nquit\n")
         env = os.environ.copy()
@@ -63,7 +65,8 @@ def main():
                                  probe, "Main"], cwd=ROOT, env=env,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         print(result.stdout, end="")
-        markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS")
+        markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS",
+                   "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
         if args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
                        "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS",

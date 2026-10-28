@@ -156,6 +156,10 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (section == "network" && key == "ticket_file") {
             networkTicketFile = value;
             valid = true;
+        } else if (section == "network" && key == "community_allowed") {
+            bool parsed = networkCommunityAllowed;
+            valid = ParseBool(value, parsed);
+            if (valid) networkCommunityAllowed = parsed;
         } else {
             continue;
         }

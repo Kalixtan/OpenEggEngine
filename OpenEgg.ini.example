@@ -39,3 +39,7 @@ user_id =
 ; GoOnline exchanges it for a session; later online phases are unfinished.
 ; The server decides whether to accept the ticket.
 ticket_file =
+
+; Desktop fallback for the PSN chat restriction check. Set false to disable
+; community features. This does not change server-side permissions.
+community_allowed = true

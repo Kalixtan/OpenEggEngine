@@ -147,12 +147,20 @@ void NetworkClient::SetPlatformTicket(std::string a_ticket) {
 
 void NetworkClient::GoOnline() {
     if (m_coordinatorState != 2 && m_coordinatorState != 4) return;
+    m_managerAttached = true;
+    m_chatPermissions = SystemConfig::Get().networkCommunityAllowed;
     m_coordinatorError = 0;
     if (BeginTicketLogin(m_platformTicket)) {
         m_coordinatorState = 18;
     } else {
         m_coordinatorError = -12;
     }
+}
+
+bool NetworkClient::IsSendQueueFull() {
+    if (!m_managerAttached) return true;
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_requests.size() >= 32;
 }
 
 void NetworkClient::GoOffline() {

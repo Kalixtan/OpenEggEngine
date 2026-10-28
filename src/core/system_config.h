@@ -34,6 +34,8 @@ struct SystemConfig {
     std::string networkUserId;
     // Optional binary platform ticket for the experimental login exchange.
     std::string networkTicketFile;
+    // Desktop fallback for PSN's chat restriction query.
+    bool networkCommunityAllowed = true;
 
     // Reads optional settings from OpenEgg.ini beside the executable.
     // Missing or invalid values leave the retail-compatible defaults above.
