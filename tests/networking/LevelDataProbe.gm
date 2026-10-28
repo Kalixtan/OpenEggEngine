@@ -71,6 +71,8 @@ global AlbumFixtureReply = function(data, result, error) {
 
 global IndexFixtureReply = function(data, result, error) {
     if (data == "malformed" && error == 0 && result != null && result.invalid == null) { GameSystem.trace("index malformed PASS"); }
+    else if (data == "partial" && error == 0 && result != null && result.first == 7 && result.nested.done == 2 && result.nested.unfinished == null) { GameSystem.trace("index partial PASS"); }
+    else if (data == "array" && error == 0 && result != null && result.values[0] == 1 && result.values[1] == 2) { GameSystem.trace("index partial array PASS"); }
     else if (error == 0 && result != null && result.items.size == 0 && result.count == 0) { GameSystem.trace("index " + data + " PASS"); }
     else { GameSystem.trace("index callback FAIL"); }
 };
@@ -125,6 +127,7 @@ global Main = function(p) {
                 Watermelon_Leaderboard_Get(LeaderboardFixtureReply, "get", 101, "~level:level-1");
                 Watermelon_Leaderboard_All(LeaderboardFixtureReply, "all", 102, "~level:level-1");
                 Watermelon_Leaderboard_Page(LeaderboardFixtureReply, "page", 103, "~level:level-1", "count=2");
+                Watermelon_Leaderboard_Page(LeaderboardFixtureReply, "partial", 135, "~level:level-1", "broken=1");
                 Watermelon_Leaderboard_Near(LeaderboardFixtureReply, "near", 104, "~level:level-1", "/~identity:one", "count=2");
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "integer", 105, "~level:level-1", 42);
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "string", 106, "~level:level-1", "4294967296");
@@ -135,6 +138,8 @@ global Main = function(p) {
                 Watermelon_Index_Page(IndexFixtureReply, "typed", 111, "type=level&count=1");
                 Watermelon_Index_Page(IndexFixtureReply, "wildcard", 112, "count=1");
                 Watermelon_Index_Page(IndexFixtureReply, "malformed", 132, "type=broken");
+                Watermelon_Index_Page(IndexFixtureReply, "partial", 133, "type=partial");
+                Watermelon_Index_Page(IndexFixtureReply, "array", 134, "type=array");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "page", 113, "user-1", "news", "count=2");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "empty", 114, "", "");
                 Watermelon_ActivityStream_Post(ActivityFixtureReply, "post", 115, "~identity:user-1", "entry");

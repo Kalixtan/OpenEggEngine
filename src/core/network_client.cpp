@@ -14,6 +14,8 @@
 #include "../bindings/texture_bindings.h"
 #include "../bindings/audio_bindings.h"
 #include <rapidjson/document.h>
+#include <rapidjson/memorystream.h>
+#include <rapidjson/reader.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include "stb_image.h"
@@ -119,16 +121,89 @@ gmVariable JsonToGm(gmMachine& a_machine, const rapidjson::Value& a_value, int a
     return gmVariable(table);
 }
 
+class PartialJsonHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, PartialJsonHandler> {
+public:
+    PartialJsonHandler(gmMachine& machine, int mode)
+        : m_machine(machine), m_mode(mode), m_root(machine.AllocTableObject()) {}
+
+    gmVariable Result() const { return gmVariable(m_root); }
+    bool Null() { return Add(gmVariable::s_null); }
+    bool Bool(bool value) { return Add(gmVariable(static_cast<gmint>(value))); }
+    bool Int(int value) { return Add(gmVariable(static_cast<gmint>(value))); }
+    bool Uint(unsigned value) { return Uint64(value); }
+    bool Int64(int64_t value) {
+        if (m_mode == 2 && value >= 0x100000000LL)
+            return Add(gmVariable(m_machine.AllocStringObject(std::to_string(value).c_str())));
+        return Add(gmVariable(static_cast<gmint>(value)));
+    }
+    bool Uint64(uint64_t value) {
+        if (m_mode == 2 && value >= 0x100000000ULL)
+            return Add(gmVariable(m_machine.AllocStringObject(std::to_string(value).c_str())));
+        return Add(gmVariable(static_cast<gmint>(value)));
+    }
+    bool Double(double value) { return Add(gmVariable(static_cast<float>(value))); }
+    bool String(const char* value, rapidjson::SizeType length, bool) {
+        return Add(gmVariable(m_machine.AllocStringObject(value, static_cast<int>(length))));
+    }
+    bool Key(const char* value, rapidjson::SizeType length, bool) {
+        if (m_stack.empty()) return false;
+        m_stack.back().key.assign(value, length);
+        return true;
+    }
+    bool StartObject() { return Start(false); }
+    bool StartArray() { return Start(true); }
+    bool EndObject(rapidjson::SizeType) { return End(); }
+    bool EndArray(rapidjson::SizeType) { return End(); }
+
+private:
+    struct Frame {
+        gmTableObject* table;
+        bool array;
+        int index = 0;
+        std::string key;
+    };
+    bool Add(const gmVariable& value) {
+        if (m_stack.empty()) return false;
+        Frame& frame = m_stack.back();
+        if (frame.array) frame.table->Set(&m_machine, frame.index++, value);
+        else frame.table->Set(&m_machine, frame.key.c_str(), value);
+        return true;
+    }
+    bool Start(bool array) {
+        gmTableObject* table = m_root;
+        if (!m_stack.empty()) {
+            table = m_machine.AllocTableObject();
+            if (!Add(gmVariable(table))) return false;
+        }
+        m_stack.push_back({table, array, 0, {}});
+        return true;
+    }
+    bool End() {
+        if (m_stack.empty()) return false;
+        if (m_stack.back().array)
+            m_stack.back().table->Set(&m_machine, "size", gmVariable(static_cast<gmint>(m_stack.back().index)));
+        m_stack.pop_back();
+        return true;
+    }
+    gmMachine& m_machine;
+    int m_mode;
+    gmTableObject* m_root;
+    std::vector<Frame> m_stack;
+};
+
 gmVariable ParseRetailJson(gmMachine& a_machine, const std::string& a_body, int a_mode) {
     rapidjson::Document document;
     document.Parse(a_body.data(), a_body.size());
     if (document.HasParseError()) {
-        // The retail callback allocates its result table before parsing. For
-        // an object that fails before its first value, that table is empty.
-        // Later errors may retain partial data and still need tracing.
-        if (a_mode != 7 && !a_body.empty() && a_body.front() == '{' &&
-            a_body.find(':') >= document.GetErrorOffset())
-            return gmVariable(a_machine.AllocTableObject());
+        // Retail writes values as parser callbacks run and keeps the table
+        // after a parse error. Level descriptions use a different callback.
+        if (a_mode != 7 && !a_body.empty()) {
+            PartialJsonHandler partial(a_machine, a_mode);
+            rapidjson::MemoryStream stream(a_body.data(), a_body.size());
+            rapidjson::Reader reader;
+            reader.Parse(stream, partial);
+            return partial.Result();
+        }
         return gmVariable::s_null;
     }
     return JsonToGm(a_machine, document, a_mode);
