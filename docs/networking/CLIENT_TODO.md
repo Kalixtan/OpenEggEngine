@@ -33,8 +33,8 @@ behavior.
       lookup reports it missing (`--expect-queue`).
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
-- [x] Accept the seventh asset-download argument used by patched scripts;
-      the retail wrapper ignores it.
+- [x] Accept extra asset-download arguments, including the seventh argument
+      used by patched scripts; the retail wrapper ignores them.
 - [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.
 - [x] JSON, raw-text, and large-integer callback conversion paths.
 - [x] Configurable server URL, session ID, and user ID.

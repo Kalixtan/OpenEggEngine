@@ -1,7 +1,10 @@
 global BundleFailure = function(data, result, error) {
-    if (data == "failure" && error == -1 && result != null && result.levelSize > 0 &&
+    if ((data == "failure" || data == "failure8") && error == -1 && result != null && result.levelSize > 0 &&
         result.audioSize == 0 && result.screenshotSize > 0) {
-        GameSystem.trace("asset partial failure PASS");
+        if (data == "failure") {
+            GameSystem.trace("asset partial failure PASS");
+            Watermelon_SaveLevelAndAssetsToDisk(BundleFailure, "failure8", 63, "__LEVEL_ID__", "missing8", "myLevels/bad8", false, "ignored");
+        } else { GameSystem.trace("asset extra arguments PASS"); }
     } else {
         GameSystem.trace("asset partial failure FAIL");
     }
@@ -31,7 +34,7 @@ global Main = function(p) {
         update=function() {
             if (this.started == 0 && Watermelon_IsOnline()) {
                 this.started = 1;
-                if (Watermelon_SaveLevelAndAssetsToDisk(BundleSuccess, "success", 61, "__LEVEL_ID__", "ok", "myLevels/ok")) {
+                if (Watermelon_SaveLevelAndAssetsToDisk(BundleSuccess, "success", 61, "__LEVEL_ID__", "ok", "myLevels/ok"__EXTRA_ARGS__)) {
                     GameSystem.trace("asset bundle queued PASS");
                 }
             }

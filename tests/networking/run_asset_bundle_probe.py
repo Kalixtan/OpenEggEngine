@@ -40,7 +40,7 @@ class Handler(BaseHTTPRequestHandler):
             kind = content.removesuffix("/data.get")
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 seen.append((version, kind))
-            if version == "missing" and kind == "sound":
+            if version in ("missing", "missing8") and kind == "sound":
                 self.reply(404)
             elif kind in ("level", "sound", "image"):
                 self.reply(200, {"level": LEVEL, "sound": SOUND, "image": IMAGE}[kind])
@@ -93,6 +93,7 @@ def main():
             script_dir.mkdir()
             source = (ROOT / "tests/networking/AssetBundleProbe.gm").read_text().replace("__LEVEL_ID__", level)
             source = source.replace("__FAILURE_TEST__", "no" if args.server_url else "yes")
+            source = source.replace("__EXTRA_ARGS__", ', false, "ignored"' if args.server_url else "")
             (script_dir / "AssetBundleProbe.gm").write_text(source)
             harness = temp / "harness.txt"
             harness.write_text("wait 300\nquit\n")
@@ -104,12 +105,13 @@ def main():
             print(result.stdout, end="")
             markers = ["asset bundle queued PASS", "asset staging and save PASS"]
             if server:
-                markers.append("asset partial failure PASS")
+                markers.extend(["asset partial failure PASS", "asset extra arguments PASS"])
             actual = {suffix: (temp / "savedata/myLevels" / ("ok" + suffix)).read_bytes()
                       for suffix in expected if (temp / "savedata/myLevels" / ("ok" + suffix)).exists()}
-            order = [(v, k) for v in ("ok", "missing") for k in ("level", "sound", "image")]
+            order = [(v, k) for v in ("ok", "missing", "missing8") for k in ("level", "sound", "image")]
             if (result.returncode or actual != expected or (server and seen != order) or
                     (temp / "savedata/myLevels/bad.json.z").exists() or
+                    (temp / "savedata/myLevels/bad8.json.z").exists() or
                     any(marker not in result.stdout for marker in markers)):
                 raise SystemExit("asset bundle probe failed")
     finally:
