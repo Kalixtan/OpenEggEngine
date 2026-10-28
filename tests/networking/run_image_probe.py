@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 seen = set()
+bad_headers = []
 content_requests = 0
 
 
@@ -46,13 +47,15 @@ class Handler(BaseHTTPRequestHandler):
         global content_requests
         paths = {
             "/otg/~level:level-1/~version:version-1/~content:image/data.get": "thumbnail",
-            "/otg/~communityTab:1/~content:thumbnail/data.get?foo=bar": "content",
-            "/absolute-image": "absolute", "/otg/invalid.get": "invalid", "/otg/missing.get": "missing"
+            "/~communityTab:1/~content:thumbnail/data?foo=bar": "content",
+            "/absolute-image": "absolute", "/invalid": "invalid", "/missing": "missing"
         }
         name = paths.get(self.path)
         if name:
-            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
-                seen.add(name)
+            seen.add(name)
+            expected_session = SESSION if name == "thumbnail" else None
+            if self.headers.get("X-OTG-Identity-SessionId") != expected_session:
+                bad_headers.append(name)
             if name == "content":
                 content_requests += 1
             self.reply(404 if name == "missing" else 200,
@@ -93,7 +96,7 @@ def main():
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             (temp / "ticket.bin").write_bytes(ticket())
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nticket_file = ticket.bin\n")
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nimage_base_url = {url}\nticket_file = ticket.bin\n")
             script_dir = temp / "probe"
             script_dir.mkdir()
             probe = "ServerImageProbe.gm" if args.server_url else "ImageProbe.gm"
@@ -112,7 +115,7 @@ def main():
             names = {"thumbnail", "content", "absolute", "invalid", "missing"}
             markers = (["server image PASS"] if args.server_url else
                        ["image requests queued PASS", "image cached-invalid PASS"] + [f"image {name} PASS" for name in names])
-            if (result.returncode or (server and (seen != names or content_requests != 2)) or
+            if (result.returncode or (server and (seen != names or bad_headers or content_requests != 2)) or
                     any(marker not in result.stdout for marker in markers)):
                 raise SystemExit("image probe failed")
     finally:

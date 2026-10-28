@@ -147,6 +147,9 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (key == "network_base_url" || (section == "network" && key == "server_url")) {
             valid = value.empty() || value.rfind("http://", 0) == 0 || value.rfind("https://", 0) == 0;
             if (valid) networkBaseUrl = value;
+        } else if (section == "network" && key == "image_base_url") {
+            valid = value.rfind("http://", 0) == 0 || value.rfind("https://", 0) == 0;
+            if (valid) networkImageBaseUrl = value;
         } else if (key == "network_session_id" || (section == "network" && key == "session_id")) {
             networkSessionId = value;
             valid = true;

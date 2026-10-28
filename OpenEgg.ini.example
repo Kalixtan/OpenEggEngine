@@ -29,6 +29,9 @@ letterbox = true
 ; Leave blank to disable requests.
 server_url =
 
+; Base URL for relative community image keys. Retail uses Amazon S3.
+image_base_url = https://s3.amazonaws.com
+
 ; Existing server session and identity IDs for testing. These are not a
 ; username and password. Automatic login and in-game online flow are unfinished.
 ; Treat the session ID as a password and keep OpenEgg.ini private.

@@ -983,13 +983,10 @@ int GM_CDECL gmf_GetContentImage(gmThread* a_thread) {
     }
     std::string path = key;
     if (key.rfind("http://", 0) != 0 && key.rfind("https://", 0) != 0) {
-        if (path.front() == '/') path.erase(0, 1);
-        const size_t query = path.rfind('?');
-        path.insert(query == std::string::npos ? path.size() : query, ".get");
-        path = "/otg/" + path;
+        path = SystemConfig::Get().networkImageBaseUrl + "/" + key;
     }
     const int id = g_networkClient->QueueRetailImage(path, key, a_thread->Param(0),
-        a_thread->Param(1), a_thread->Param(2));
+        a_thread->Param(1), a_thread->Param(2), false);
     a_thread->PushInt(id != 0);
     return GM_OK;
 }

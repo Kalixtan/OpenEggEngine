@@ -39,7 +39,7 @@ public:
                         int a_bucket, int a_callbackMode);
     int QueueRetailImage(const std::string& a_path, const std::string& a_cacheKey,
                          const gmVariable& a_callback, const gmVariable& a_callbackData,
-                         const gmVariable& a_tag);
+                         const gmVariable& a_tag, bool a_sendSession = true);
     bool QueueAssetBundle(const std::string& level, const std::string& version,
                           const std::string& outputPath, const gmVariable& callback,
                           const gmVariable& callbackData, const gmVariable& tag);
@@ -75,6 +75,7 @@ private:
         bool post = false;
         int bucket = 0;
         bool purged = false;
+        bool sendSession = true;
     };
     struct Completion {
         int id = 0;
@@ -96,7 +97,7 @@ private:
               const gmVariable& a_callbackData, const gmVariable& a_tag,
               int a_bucket, int a_callbackMode, bool a_post = false,
               const std::string& a_body = {}, const std::string& a_contentType = {},
-              const std::string& a_resourceKey = {});
+              const std::string& a_resourceKey = {}, bool a_sendSession = true);
     bool BeginTicketLogin(const std::string& a_ticket);
 
     gmMachine& m_machine;

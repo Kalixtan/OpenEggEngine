@@ -180,8 +180,8 @@ int NetworkClient::QueueRetailPost(const std::string& a_path, const std::string&
 
 int NetworkClient::QueueRetailImage(const std::string& a_path, const std::string& a_cacheKey,
                                    const gmVariable& a_callback, const gmVariable& a_callbackData,
-                                   const gmVariable& a_tag) {
-    return Queue(a_path, a_callback, a_callbackData, a_tag, 0, 4, false, {}, {}, a_cacheKey);
+                                   const gmVariable& a_tag, bool a_sendSession) {
+    return Queue(a_path, a_callback, a_callbackData, a_tag, 0, 4, false, {}, {}, a_cacheKey, a_sendSession);
 }
 
 bool NetworkClient::QueueAssetBundle(const std::string& level, const std::string& version,
@@ -299,7 +299,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
                          const gmVariable& a_callbackData, const gmVariable& a_tag,
                          int a_bucket, int a_callbackMode, bool a_post,
                          const std::string& a_body, const std::string& a_contentType,
-                         const std::string& a_resourceKey) {
+                         const std::string& a_resourceKey, bool a_sendSession) {
     const bool absolute = a_callbackMode == 4 &&
         (a_path.rfind("http://", 0) == 0 || a_path.rfind("https://", 0) == 0);
     if (m_baseUrl.empty() || !m_worker.joinable() || a_path.empty() ||
@@ -326,7 +326,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
     m_pending.emplace(id, PendingRequest{bucket, false});
-    m_requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false});
+    m_requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false, a_sendSession});
     m_wake.notify_one();
     return id;
 }
@@ -738,7 +738,7 @@ void NetworkClient::WorkerMain() {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 sessionId = m_sessionId;
             }
-            if (!sessionId.empty()) {
+            if (request.sendSession && !sessionId.empty()) {
                 const std::string cookie = "X-OTG-Identity-SessionId: " + sessionId;
                 headers = curl_slist_append(headers, cookie.c_str());
             }

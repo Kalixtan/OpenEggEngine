@@ -28,6 +28,8 @@ struct SystemConfig {
 
     // Optional replacement OTG server root. Empty keeps online requests disabled.
     std::string networkBaseUrl;
+    // Retail's separate global image manager uses this service root.
+    std::string networkImageBaseUrl = "https://s3.amazonaws.com";
     // Optional OTG session cookie for local server testing.
     std::string networkSessionId;
     // Optional identity ID paired with a manually supplied session ID.
