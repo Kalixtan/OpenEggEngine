@@ -23,6 +23,7 @@ queued = set()
 ratings_favourites = set()
 metadata = set()
 leaderboard = set()
+albums = set()
 rating_path = f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}"
 
 
@@ -111,6 +112,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 leaderboard.add(self.path)
             self.reply(200, b'{"score":4294967296}')
+        elif self.path in {"/otg/~albums/~link:*.page?from=1&count=2", "/otg/~album:album-1/~link:*.page?from=1&count=2", "/otg/~album:/~link:*.page"}:
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                albums.add(self.path)
+            self.reply(200, b'{"ok":1}')
         elif self.path == "/otg/~identity:*.hello":
             self.reply(200)
         else:
@@ -169,9 +174,10 @@ def main():
             expected_queue = {f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.get", f"/otg/~identity:{USER}/~queued:simple.put", f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.delete"}
             expected_ratings = {rating_path + ".get", rating_path + ".put", "/otg/~level:level-1/~favourite:*.all", "/otg/~level:level-1/~favourite:item.put", "/otg/~level:level-1/~favourite:item.delete"}
             expected_leaderboard = {"/otg/~level:level-1/~leaderboard.get", "/otg/~level:level-1/~leaderboard.all", "/otg/~level:level-1/~leaderboard.page?count=2", "/otg/~level:level-1/~leaderboard.near?entrant=%2F~identity%3Aone&count=2", "score=42", "score=4294967296"}
+            expected_albums = {"/otg/~albums/~link:*.page?from=1&count=2", "/otg/~album:album-1/~link:*.page?from=1&count=2", "/otg/~album:/~link:*.page"}
             if server:
-                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS")
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS")
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard or albums != expected_albums)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

@@ -29,6 +29,8 @@ behavior.
       callbacks, including the empty-value GET with its content-type header.
 - [x] Gate leaderboard requests on identity setup; test request paths, score
       bodies, and large-integer conversion with a local fixture.
+- [x] Gate album page requests on identity setup; test both page paths and
+      empty album IDs with a local fixture.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.

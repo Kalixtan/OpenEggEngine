@@ -320,11 +320,15 @@ int QueueAlbumPage(gmThread* a_thread, bool a_singleAlbum) {
         a_thread->PushInt(-1);
         return GM_OK;
     }
+    if (!g_networkClient || !g_networkClient->IdentityReady()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
 
     std::string path = a_singleAlbum ? "/otg/~album:" : "/otg/~albums";
     if (a_singleAlbum) {
         std::string albumId;
-        if (!ReadOptionalString(a_thread, 3, albumId) || albumId.empty()) {
+        if (!ReadOptionalString(a_thread, 3, albumId)) {
             a_thread->PushInt(0);
             return GM_OK;
         }

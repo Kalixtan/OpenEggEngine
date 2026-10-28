@@ -64,6 +64,11 @@ global LeaderboardFixtureReply = function(data, result, error) {
     else { GameSystem.trace("leaderboard callback FAIL"); }
 };
 
+global AlbumFixtureReply = function(data, result, error) {
+    if (error == 0 && result != null && result.ok == 1) { GameSystem.trace("album " + data + " PASS"); }
+    else { GameSystem.trace("album callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -98,6 +103,9 @@ global Main = function(p) {
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "integer", 105, "~level:level-1", 42);
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "string", 106, "~level:level-1", "4294967296");
                 if (!Watermelon_Leaderboard_Post(null, null, 107, "~level:level-1", 1.5)) { GameSystem.trace("leaderboard invalid score PASS"); }
+                Watermelon_Albums_Page(AlbumFixtureReply, "list", 108, "from=1&count=2");
+                Watermelon_Album_Page(AlbumFixtureReply, "contents", 109, "album-1", "from=1&count=2");
+                Watermelon_Album_Page(AlbumFixtureReply, "empty", 110, "");
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");

@@ -268,6 +268,7 @@ global Main = function(p) {
             local forbidden = Watermelon_Index_Page(ForbiddenIndexReply, "forbidden", 3, "type=level&search=all");
             local albums = Watermelon_Albums_Page(AlbumsDeniedReply, "albums", 4, "from=0&count=1");
             local album = Watermelon_Album_Page(AlbumDeniedReply, "album", 5, "test-id", "from=0&count=1");
+            if (albums == 0 && album == 0) { GameSystem.trace("album offline gate PASS"); }
             local following = Watermelon_Following_Page(FollowingDeniedReply, "following", 6, "test-user", "from=0&count=1");
             local followingAll = Watermelon_Following_All(FollowingAllReply, "following_all", 38);
             if (followingAll != 1) {
@@ -339,7 +340,7 @@ global Main = function(p) {
             if (emptyPost == 0) {
                 GameSystem.trace("empty POST NOT_QUEUED");
             }
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 0 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 0 && album == 0 && following == 1 && followers == 1 && activity == 1 && featured == 0 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");
