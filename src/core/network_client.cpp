@@ -128,7 +128,8 @@ size_t ReceiveBody(char* a_data, size_t a_size, size_t a_count, void* a_context)
 NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
                              std::string a_sessionId, std::string a_userId)
     : m_machine(a_machine), m_baseUrl(std::move(a_baseUrl)),
-      m_sessionId(std::move(a_sessionId)), m_userId(std::move(a_userId)) {
+      m_sessionId(std::move(a_sessionId)), m_userId(std::move(a_userId)),
+      m_manualSessionId(m_sessionId), m_manualUserId(m_userId) {
     while (!m_baseUrl.empty() && m_baseUrl.back() == '/') m_baseUrl.pop_back();
     m_roots = m_machine.AllocTableObject();
     m_machine.GetGlobals()->Set(&m_machine, kRootTableName, gmVariable(m_roots));
@@ -141,6 +142,8 @@ NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
     static const CURLcode curlInit = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curlInit == CURLE_OK && !m_baseUrl.empty())
         m_worker = std::thread(&NetworkClient::WorkerMain, this);
+    if (m_worker.joinable() && !m_manualSessionId.empty() && !m_manualUserId.empty())
+        m_coordinatorState = 4;
 #else
     if (!m_baseUrl.empty())
         std::fprintf(stderr, "network: libcurl unavailable; replacement-server requests disabled\n");
@@ -243,8 +246,21 @@ void NetworkClient::GoOnline() {
     m_managerAttached = true;
     m_chatPermissions = SystemConfig::Get().networkCommunityAllowed;
     m_coordinatorError = 0;
-    if (BeginTicketLogin(m_platformTicket)) {
+    if (!m_platformTicket.empty() && BeginTicketLogin(m_platformTicket)) {
         m_coordinatorState = 18;
+    } else if (m_platformTicket.empty() && !m_manualSessionId.empty() && !m_manualUserId.empty()) {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            for (auto& entry : m_pending)
+                if (entry.second.identity) entry.second.purged = true;
+            m_sessionId = m_manualSessionId;
+        }
+        m_userId = m_manualUserId;
+        m_identityReady = false;
+        m_manualValidationRequestId = QueueRetailGet("/otg/~identity:" + m_userId + "/~metadata:*.get",
+            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+        if (m_manualValidationRequestId) m_coordinatorState = 18;
+        else m_coordinatorError = -12;
     } else {
         m_coordinatorError = -12;
     }
@@ -270,6 +286,7 @@ void NetworkClient::GoOffline() {
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
+    m_manualValidationRequestId = 0;
     m_helloRequestId = 0;
     m_eulaRequestId = 0;
     m_friendsUploadRequestId = 0;
@@ -387,6 +404,24 @@ void NetworkClient::PumpCallbacks() {
                     m_roots->Set(&m_machine, -groupId, gmVariable::s_null);
                     m_assetBundles.erase(groupId);
                 }
+            }
+        }
+        if (completion.id == m_manualValidationRequestId) {
+            m_manualValidationRequestId = 0;
+            if (completion.status == 200 || completion.status == 201) {
+                m_identityReady = true;
+                m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
+                    gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+                if (m_helloRequestId) m_coordinatorState = 20;
+                else m_coordinatorError = -12;
+            } else {
+                {
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    m_sessionId.clear();
+                }
+                m_userId.clear();
+                m_coordinatorError = -12;
+                std::fprintf(stderr, "network: configured session validation failed (HTTP %ld)\n", completion.status);
             }
         }
         if (completion.id == m_loginRequestId) {

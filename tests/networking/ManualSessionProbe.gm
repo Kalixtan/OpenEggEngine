@@ -1,0 +1,34 @@
+global SAVEDATAHELPER_HasAcceptedEula = function(version) { return 1; };
+
+global ManualReply = function(data, result, error) {
+    if (error == 0 && result != null) {
+        GameSystem.trace("manual session request PASS");
+        OnlineCoordinator_GoOffline();
+        if (OnlineCoordinator_IsOffline() && !Watermelon_IsOnline()) {
+            GameSystem.trace("manual session logout PASS");
+        }
+        OnlineCoordinator_GoOnline();
+        data.stage = 2;
+    } else { GameSystem.trace("manual session request FAIL"); }
+};
+
+global Main = function(p) {
+    return table(Process=p, stage=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            if (this.stage == 0 && Watermelon_IsOnline()) {
+                this.stage = 1;
+                Watermelon_Index_Page(ManualReply, this, 1, "type=level&search=all");
+            } else if (this.stage == 2 && Watermelon_IsOnline()) {
+                this.stage = 3;
+                GameSystem.trace("manual session reconnect PASS");
+            } else if (this.stage == 3 && OnlineCoordinator_IsOnline()) {
+                this.stage = 5;
+                GameSystem.trace("manual session coordinator PASS");
+            } else if (this.stage == 0 && OnlineCoordinator_GetLastError() == -12) {
+                this.stage = 4;
+                if (!Watermelon_IsOnline()) { GameSystem.trace("manual session rejection PASS"); }
+            }
+        });
+};

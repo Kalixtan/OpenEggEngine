@@ -13,6 +13,8 @@ behavior.
 - [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.
 - [x] JSON, raw-text, and large-integer callback conversion paths.
 - [x] Configurable server URL, session ID, and user ID.
+- [x] Start the coordinator with a configured session after a server check.
+      The check does not prove that the supplied identity owns the session.
 - [ ] Add account login; the INI session and user IDs are temporary test inputs,
       not username/password credentials or a complete online flow.
 - [x] `Watermelon_Index_Page`, album pages, user-list pages,

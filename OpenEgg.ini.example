@@ -33,7 +33,7 @@ server_url =
 image_base_url = https://s3.amazonaws.com
 
 ; Existing server session and identity IDs for testing. These are not a
-; username and password. Automatic login and in-game online flow are unfinished.
+; username and password. OpenEgg checks the session before starting online flow.
 ; Treat the session ID as a password and keep OpenEgg.ini private.
 session_id =
 user_id =

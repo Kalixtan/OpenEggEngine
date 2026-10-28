@@ -118,6 +118,7 @@ private:
     int m_nextId = 1;
     int m_nextAssetBundleId = 1;
     int m_loginRequestId = 0;
+    int m_manualValidationRequestId = 0;
     int m_helloRequestId = 0;
     int m_eulaRequestId = 0;
     int m_friendsUploadRequestId = 0;
@@ -126,6 +127,8 @@ private:
     int m_newsRequestId = 0;
     int m_translationRequestId = 0;
     std::string m_platformTicket;
+    std::string m_manualSessionId;
+    std::string m_manualUserId;
     std::string m_platformOnlineId;
     std::string m_platformCountry;
     int m_coordinatorState = 1;
