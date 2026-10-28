@@ -72,6 +72,10 @@ std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200
 int GM_CDECL gmf_IndexPage(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 3 || a_thread->GetNumParams() > 4)
         return GM_EXCEPTION;
+    if (!g_networkClient || !g_networkClient->IdentityReady()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
 
     const gmVariable callback = a_thread->Param(0);
     const gmVariable callbackData = a_thread->Param(1);

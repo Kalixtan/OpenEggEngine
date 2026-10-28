@@ -16,6 +16,13 @@ received = threading.Event()
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if not self.path.startswith("/otg/~index:"):
+            body = b'{}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         received.set()
         time.sleep(2)
         body = b'{"items":[],"count":0}'
@@ -46,7 +53,7 @@ def main():
             data = engine.parent / "game_data"
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = http://127.0.0.1:{server.server_port}\n")
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = http://127.0.0.1:{server.server_port}\nuser_id = probe\nsession_id = probe-session\n")
             harness = temp / "harness.txt"
             harness.write_text("wait 240\nquit\n")
             env = os.environ.copy()

@@ -69,6 +69,11 @@ global AlbumFixtureReply = function(data, result, error) {
     else { GameSystem.trace("album callback FAIL"); }
 };
 
+global IndexFixtureReply = function(data, result, error) {
+    if (error == 0 && result != null && result.items.size == 0 && result.count == 0) { GameSystem.trace("index " + data + " PASS"); }
+    else { GameSystem.trace("index callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -106,6 +111,8 @@ global Main = function(p) {
                 Watermelon_Albums_Page(AlbumFixtureReply, "list", 108, "from=1&count=2");
                 Watermelon_Album_Page(AlbumFixtureReply, "contents", 109, "album-1", "from=1&count=2");
                 Watermelon_Album_Page(AlbumFixtureReply, "empty", 110, "");
+                Watermelon_Index_Page(IndexFixtureReply, "typed", 111, "type=level&count=1");
+                Watermelon_Index_Page(IndexFixtureReply, "wildcard", 112, "count=1");
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");

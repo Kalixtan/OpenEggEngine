@@ -266,6 +266,7 @@ global Main = function(p) {
             local typed = Watermelon_Index_Page(TypedIndexReply, "typed", 1, "type=level&search=tagged3");
             local wildcard = Watermelon_Index_Page(WildcardIndexReply, "wildcard", 2, "search=tagged3");
             local forbidden = Watermelon_Index_Page(ForbiddenIndexReply, "forbidden", 3, "type=level&search=all");
+            if (typed == 0 && wildcard == 0 && forbidden == 0) { GameSystem.trace("index offline gate PASS"); }
             local albums = Watermelon_Albums_Page(AlbumsDeniedReply, "albums", 4, "from=0&count=1");
             local album = Watermelon_Album_Page(AlbumDeniedReply, "album", 5, "test-id", "from=0&count=1");
             if (albums == 0 && album == 0) { GameSystem.trace("album offline gate PASS"); }
@@ -332,24 +333,19 @@ global Main = function(p) {
             local queuedGet = Watermelon_Queued_Get(QueuedActionReply, "queued_get", 15, "test-level");
             local queuedPut = Watermelon_Queued_Put(QueuedActionReply, "queued_put", 16, "/~level:test-level");
             local queuedDelete = Watermelon_Queued_Delete(QueuedActionReply, "queued_delete", 17, "/~level:test-level");
-            local purged = Watermelon_Index_Page(PurgedReply, "purged", 991, "type=level&search=tagged3");
-            Watermelon_Purge(991);
             local noCallback = Watermelon_Queued_Put(null, null, 18, "/~level:test-level");
             local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
             local emptyPost = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "", "application/octet-stream", InvalidTicketReply, "empty_ticket");
             if (emptyPost == 0) {
                 GameSystem.trace("empty POST NOT_QUEUED");
             }
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 0 && album == 0 && following == 1 && followers == 1 && activity == 1 && featured == 0 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
-                GameSystem.trace("Watermelon index requests QUEUED");
+            if (typed == 0 && wildcard == 0 && forbidden == 0 && albums == 0 && album == 0 && following == 1 && followers == 1 && activity == 1 && featured == 0 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
+                GameSystem.trace("Watermelon request setup PASS");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");
             }
             if (noCallback == 1) {
                 GameSystem.trace("null callback request QUEUED");
-            }
-            if (purged == 1) {
-                GameSystem.trace("purge request QUEUED");
             }
             if (selfFollow == 0) {
                 GameSystem.trace("self follow short circuit PASS");

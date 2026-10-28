@@ -10,11 +10,16 @@ global Main = function(p) {
     return table(
         Process=p,
         ticks=0,
+        started=0,
         init=function() { return true; },
         constructor=function() {
-            Watermelon_Index_Page(InFlightReply, "slow", 42, "type=level&search=all");
+            OnlineCoordinator_GoOnline();
         },
         update=function() {
+            if (!this.started && Watermelon_IsOnline()) {
+                this.started = Watermelon_Index_Page(InFlightReply, "slow", 42, "type=level&search=all");
+            }
+            if (!this.started) { return; }
             this.ticks += 1;
             if (this.ticks == 30) {
                 Watermelon_Purge(42);
