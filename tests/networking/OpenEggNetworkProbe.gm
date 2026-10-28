@@ -224,6 +224,14 @@ global RatingReply = function(data, response, error) {
     }
 };
 
+global RecordReply = function(data, response, error) {
+    if (data == "record" && response == null && error == 403) {
+        GameSystem.trace("record post route PASS");
+    } else {
+        GameSystem.trace("record post route FAIL");
+    }
+};
+
 global FavouriteReply = function(data, response, error) {
     if (data == "favourite_all" && response == null && error == 404) {
         GameSystem.trace("favourite all response PASS");
@@ -276,6 +284,10 @@ global Main = function(p) {
                 GameSystem.trace("featured post NOT_QUEUED");
             }
             local ratingGet = Watermelon_Rating_Get(RatingReply, "rating_get", 31, "~level:test-level");
+            local record = Watermelon_Record_Post(RecordReply, "record", 42, "test-level", {score="4294967296", completed=1, playTime=1.25});
+            if (record != 1) {
+                GameSystem.trace("record post NOT_QUEUED");
+            }
             local favAll = Watermelon_Favourite_All(FavouriteReply, "favourite_all", 33, "~level:test-level");
             local favPut = Watermelon_Favourite_Put(FavouriteReply, "favourite_put", 34, "~level:test-level", "/~identity:test-user");
             local favDelete = Watermelon_Favourite_Delete(FavouriteReply, "favourite_delete", 35, "~level:test-level", "/~identity:test-user");

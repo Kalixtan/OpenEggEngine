@@ -40,8 +40,9 @@ behavior.
 - [ ] Trace and implement level reads, snapshots, downloads, and save-to-disk.
 - [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
-- [ ] Implement record and leaderboard requests with retail serialization and
-      callback modes.
+- [ ] Verify record and leaderboard serialization, callbacks, and authenticated
+      server results. Record submission currently rejects unsupported values and
+      oversized tables instead of reproducing the retail buffer edge cases.
 - [ ] Implement publishing, grief reports, cloud saves, and multipart bodies.
 - [ ] Implement friend, identity, EULA, and online coordinator flows.
 - [ ] Review every currently offline request binding against the tracked

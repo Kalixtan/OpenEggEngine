@@ -41,6 +41,7 @@ MARKERS = (
     "featured unknown-user response PASS",
     "featured post response PASS",
     "rating get response PASS",
+    "record post route PASS",
     "favourite all response PASS",
     "favourite put response PASS",
     "favourite delete response PASS",

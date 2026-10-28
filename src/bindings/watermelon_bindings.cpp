@@ -589,6 +589,50 @@ int GM_CDECL gmf_FeaturedLevelPost(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_RecordPost(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 5) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string levelId;
+    gmTableObject* table = a_thread->ParamTable(4);
+    if (!g_networkClient || g_networkClient->UserId().empty() || !table ||
+        !ReadOptionalString(a_thread, 3, levelId)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    gmMachine& machine = *a_thread->GetMachine();
+    std::string body;
+    gmTableIterator it;
+    for (gmTableNode* node = table->GetFirst(it); !table->IsNull(it); node = table->GetNext(it)) {
+        char keyBuffer[256], valueBuffer[256];
+        const char* key = node->m_key.AsString(&machine, keyBuffer, sizeof(keyBuffer));
+        std::string value;
+        if (!key) { a_thread->PushInt(0); return GM_OK; }
+        if (node->m_value.m_type == GM_INT)
+            value = std::to_string(node->m_value.m_value.m_int);
+        else if (node->m_value.m_type == GM_FLOAT) {
+            std::snprintf(valueBuffer, sizeof(valueBuffer), "%f", node->m_value.m_value.m_float);
+            value = valueBuffer;
+        } else if (node->m_value.m_type == GM_STRING) {
+            const char* text = node->m_value.AsString(&machine, valueBuffer, sizeof(valueBuffer));
+            if (!text) { a_thread->PushInt(0); return GM_OK; }
+            value = text;
+        } else { a_thread->PushInt(0); return GM_OK; }
+        if (!body.empty()) body += '&';
+        body += key;
+        body += '=';
+        body += value;
+        if (body.size() >= 2000) { a_thread->PushInt(0); return GM_OK; }
+    }
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
+        "/~record:" + EncodeRetailUrl("/~level:" + levelId) + ".post";
+    const int id = g_networkClient->QueueRetailPost(path, body, "www-form-urlencoded",
+        a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
 // =====================================================================
 // LOCAL helpers -- real semantics, used in single-player paths too.
 // =====================================================================
@@ -846,6 +890,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Post", gmf_ActivityStreamPost);
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Get", gmf_FeaturedLevelGet);
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Post", gmf_FeaturedLevelPost);
+    a_machine.RegisterLibraryFunction("Watermelon_Record_Post", gmf_RecordPost);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkPost", gmf_OpenEggNetworkPost);
@@ -863,7 +908,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_GetLevelVersions",
         "Watermelon_GetSnapshot",
         "Watermelon_GetSoundData",
-        "Watermelon_Record_Post",
         "Watermelon_Grief_Post",
         "Watermelon_Get_Friends",
         "Watermelon_GetContentImage",
