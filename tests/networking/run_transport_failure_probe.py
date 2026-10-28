@@ -13,11 +13,12 @@ from run_level_data_probe import Handler, ROOT
 from run_ticket_probe import ticket
 
 level_requests = []
+error_requests = []
 
 
 class FailureHandler(Handler):
-    def truncated(self, body):
-        self.send_response(200)
+    def truncated(self, body, status=200):
+        self.send_response(status)
         self.send_header("Content-Length", str(len(body) + 100))
         self.end_headers()
         self.wfile.write(body)
@@ -38,6 +39,12 @@ class FailureHandler(Handler):
                 self.truncated(data[:2])
             else:
                 self.reply(200, data)
+        elif self.path == "/otg/~level:transport-error/~version:v1/~content:level/data.get":
+            error_requests.append(self.path)
+            if len(error_requests) == 1:
+                self.truncated(b"missing", 404)
+            else:
+                self.reply(200, zlib.compress(b'{"bpm":130,"screenData":[],"entities":[]}'))
         else:
             super().do_GET()
 
@@ -69,8 +76,8 @@ def main():
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             markers = ("transport partial status PASS", "transport no status PASS", "transport success PASS",
-                       "transport failure not cached PASS")
-            if result.returncode or len(level_requests) != 2 or any(marker not in result.stdout for marker in markers) or " FAIL" in result.stdout:
+                       "transport failure not cached PASS", "transport HTTP error cached PASS")
+            if result.returncode or len(level_requests) != 2 or len(error_requests) != 1 or any(marker not in result.stdout for marker in markers) or " FAIL" in result.stdout:
                 raise SystemExit("transport failure probe failed")
     finally:
         server.shutdown()

@@ -45,6 +45,8 @@ behavior.
       empty records and the traced header value with a local fixture.
 - [x] Preserve the HTTP status when a response body fails to arrive; reject
       partial data from the content cache and test a subsequent fetch.
+- [x] Keep non-success HTTP status results cacheable when their bodies are
+      interrupted; the retail worker does not read those bodies.
 - [x] Gate snapshot, version and unpublish requests on identity setup; test
       their routes and a publish/update/cleanup cycle on the local server.
 - [x] Convert JSON arrays to integer-keyed tables without adding a `size` key;
@@ -132,6 +134,8 @@ behavior.
       URLs, separators, query placement, and byte limits.
 - [ ] Match retail HTTP verb selection, body ownership, content-type handling,
       and the traced record-post header quirk where required for parity.
+- [ ] Stop reading error response bodies after headers. libcurl can still wait
+      for an interrupted or stalled error body before OpenEgg reports it.
 - [ ] Match request buckets, purge/cancel behavior, FIFO ordering, retry
       admission, stale status handling, and shutdown draining.
 - [ ] Compare cache enable flags, wildcard edges, capacity and pool eviction

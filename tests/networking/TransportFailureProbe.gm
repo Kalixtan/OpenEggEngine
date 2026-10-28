@@ -16,6 +16,14 @@ global TransportLevelReply = function(step, result, error) {
     } else { GameSystem.trace("transport level FAIL"); }
 };
 
+global TransportHttpErrorReply = function(step, result, error) {
+    if (step == 1 && result == null && error == 1) {
+        Watermelon_GetLevelData(TransportHttpErrorReply, 2, 406, "transport-error", "v1");
+    } else if (step == 2 && result == null && error == 1) {
+        GameSystem.trace("transport HTTP error cached PASS");
+    } else { GameSystem.trace("transport HTTP error FAIL"); }
+};
+
 global Main = function(p) {
     return table(Process=p, started=0,
         constructor=function() { OnlineCoordinator_GoOnline(); },
@@ -27,6 +35,7 @@ global Main = function(p) {
                 Watermelon_Index_Page(TransportReply, "disconnect", 402, "type=level&case=disconnect");
                 Watermelon_Index_Page(TransportReply, "success", 403, "type=level&case=success");
                 Watermelon_GetLevelData(TransportLevelReply, 1, 404, "transport", "v1");
+                Watermelon_GetLevelData(TransportHttpErrorReply, 1, 405, "transport-error", "v1");
             }
         });
 };

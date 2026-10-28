@@ -1038,7 +1038,11 @@ void NetworkClient::WorkerMain(bool a_identity) {
             const CURLcode result = curl_easy_perform(curl);
             curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &completion.status);
             if (result != CURLE_OK) {
-                completion.transportFailed = true;
+                // Retail skips body reception for non-success HTTP statuses.
+                // A later body error cannot turn those into transport failures.
+                completion.transportFailed = completion.status == 0 ||
+                    completion.status == 200 || completion.status == 201 ||
+                    (!request.sendSession && completion.status >= 300 && completion.status < 400);
                 std::fprintf(stderr, "network: GET failed: %s\n", curl_easy_strerror(result));
             }
             curl_slist_free_all(headers);
