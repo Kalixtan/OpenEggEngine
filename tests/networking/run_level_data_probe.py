@@ -69,6 +69,12 @@ class Handler(BaseHTTPRequestHandler):
                 ratings_favourites.add(self.path)
             self.reply(200, b'{"ok":1}')
             return
+        if self.path != "/identity/login/token/psn":
+            self.reply(404)
+            return
+        if len(body) != len(ticket()) or body[:2] != b"\x20\x01" or b"openegg_probe" not in body:
+            self.reply(400)
+            return
         data = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
         self.reply(201, data)
 
@@ -220,7 +226,31 @@ def main():
             expected_social = {"/otg/~identity:/~follow:*.page?count=2", f"/otg/~identity:{USER}/~followers.page?count=2", f"/otg/~identity:{USER}/~follow:*.all", f"/otg/~identity:{USER}/~like:*.page?count=2", *(f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.{op}" for op in ("get", "put", "delete")), *(f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.{op}" for op in ("get", "put", "delete")), f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}.delete"}
             if server:
                 markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "activity page PASS", "activity empty PASS", "activity post PASS", "record values PASS", "record empty PASS", "level lookup snapshot PASS", "level lookup versions PASS", "level lookup unpublish PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard or albums != expected_albums or indexes != expected_indexes or activity != {"page", "empty", "post"} or social != expected_social or records != {"values", "empty"} or level_lookups != expected_lookups)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+            checks = {
+                "levels": (seen, {"json", "xml", "invalid", "missing"}),
+                "descriptions": (descriptions, {"good", "invalid", "missing"}),
+                "sounds": (sounds, {"compressed", "fun", "invalid", "missing"}),
+                "queue": (queued, expected_queue),
+                "ratings and favourites": (ratings_favourites, expected_ratings),
+                "metadata": (metadata, {"all", "get", "put", "empty"}),
+                "leaderboard": (leaderboard, expected_leaderboard),
+                "albums": (albums, expected_albums),
+                "indexes": (indexes, expected_indexes),
+                "activity": (activity, {"page", "empty", "post"}),
+                "social": (social, expected_social),
+                "records": (records, {"values", "empty"}),
+                "level lookups": (level_lookups, expected_lookups),
+            }
+            failed = False
+            if server:
+                for name, (actual, expected) in checks.items():
+                    if actual != expected:
+                        print(f"{name}: missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}")
+                        failed = True
+            missing = [marker for marker in markers if marker not in result.stdout]
+            if missing:
+                print(f"missing markers: {missing}")
+            if result.returncode or failed or missing or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:
