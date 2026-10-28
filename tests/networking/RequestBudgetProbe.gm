@@ -1,4 +1,4 @@
-global BudgetState = table(frame=0, lastFrame=-1, thisFrame=0, max=0, count=0);
+global BudgetState = table(frame=0, lastFrame=-1, thisFrame=0, max=0, count=0, identity=0, image=0);
 
 global BudgetReply = function(data, result, error) {
     if (BudgetState.lastFrame != BudgetState.frame) {
@@ -8,9 +8,11 @@ global BudgetReply = function(data, result, error) {
     BudgetState.thisFrame += 1;
     if (BudgetState.thisFrame > BudgetState.max) { BudgetState.max = BudgetState.thisFrame; }
     BudgetState.count += 1;
+    if (data == "identity") { BudgetState.identity += 1; }
+    if (data == "image") { BudgetState.image += 1; }
     if (error != 0 || result == null) { GameSystem.trace("request budget response FAIL"); }
-    if (BudgetState.count == 24) {
-        if (BudgetState.max == 4) { GameSystem.trace("request budget PASS"); }
+    if (BudgetState.count == 64) {
+        if (BudgetState.max == 4 && BudgetState.identity == 40 && BudgetState.image == 24) { GameSystem.trace("request budget PASS"); }
         else { GameSystem.trace("request budget FAIL"); }
     }
 };
@@ -25,7 +27,10 @@ global Main = function(p) {
                 this.started = 1;
                 local i = 0;
                 for (i = 0; i < 24; i += 1) {
-                    Watermelon_GetLevelDescription(BudgetReply, null, 90, "level-1", "good");
+                    Watermelon_GetContentImage(BudgetReply, "image", 91, "__IMAGE_URL__");
+                }
+                for (i = 0; i < 40; i += 1) {
+                    Watermelon_GetLevelDescription(BudgetReply, "identity", 90, "level-1", "good");
                 }
                 GameSystem.trace("request budget queued");
             }

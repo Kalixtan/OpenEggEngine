@@ -53,6 +53,8 @@ behavior.
       identity-cache filter purge. Local tests cover hits, errors and purge.
 - [x] Admit cache hits ahead of the worker queue and consume them after pending
       worker completions, following the traced manager paths.
+- [x] Share the four-completion update budget across identity and global
+      requests; exercise both queues in the headless budget probe.
 - [x] Follow the traced cache replacement order and zero-length first-entry
       eviction behavior; the latter has a local pool-pressure test.
 - [x] Match traced queue key construction: `get` builds a level key, while

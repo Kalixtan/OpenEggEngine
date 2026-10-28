@@ -573,14 +573,16 @@ void NetworkClient::PumpCallbacks() {
     std::deque<Completion> completions;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        // Retail managers each consume at most four completions per update.
+        // The retail owner shares four completion slots across its managers.
+        int budget = 4;
         for (bool identity : {true, false}) {
             auto& queue = identity ? m_identityCompletions : m_globalCompletions;
             auto& cached = identity ? m_identityCacheCompletions : m_globalCacheCompletions;
-            for (int count = 0; count < 4 && (!queue.empty() || !cached.empty()); ++count) {
+            while (budget > 0 && (!queue.empty() || !cached.empty())) {
                 auto& source = queue.empty() ? cached : queue;
                 completions.push_back(std::move(source.front()));
                 source.pop_front();
+                --budget;
             }
         }
     }
