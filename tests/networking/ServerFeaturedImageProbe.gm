@@ -1,0 +1,22 @@
+global SAVEDATAHELPER_HasAcceptedEula = function(version) { return 1; };
+
+global FeaturedImageReply = function(data, image, error) {
+    if (error == 0 && image != null && image.isValid()) {
+        GameSystem.trace("server featured image PASS");
+    } else {
+        GameSystem.trace("server featured image FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            local featured = WatermelonGlobals_GetFeaturedSearches();
+            if (this.started == 0 && featured != null && featured["00_imageUrl"] != null) {
+                this.started = 1;
+                Watermelon_GetContentImage(FeaturedImageReply, null, 91, featured["00_imageUrl"]);
+            }
+        });
+};

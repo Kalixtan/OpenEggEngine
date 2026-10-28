@@ -73,10 +73,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", help="Disposable local replacement server")
     parser.add_argument("--level-id", help="Fixture level ID")
+    parser.add_argument("--featured", action="store_true", help="Test a server's seeded featured image")
     args = parser.parse_args()
+    if args.featured and not args.server_url:
+        parser.error("--featured requires a disposable local server")
     server = None
     if args.server_url:
-        if not args.server_url.startswith("http://127.0.0.1:") or not args.level_id or not args.level_id.isalnum():
+        if not args.server_url.startswith("http://127.0.0.1:") or (not args.featured and (not args.level_id or not args.level_id.isalnum())):
             parser.error("local server URL and fixture level ID required")
         url = args.server_url.rstrip("/")
     else:
@@ -99,10 +102,10 @@ def main():
             (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nimage_base_url = {url}\nticket_file = ticket.bin\n")
             script_dir = temp / "probe"
             script_dir.mkdir()
-            probe = "ServerImageProbe.gm" if args.server_url else "ImageProbe.gm"
+            probe = ("ServerFeaturedImageProbe.gm" if args.featured else "ServerImageProbe.gm") if args.server_url else "ImageProbe.gm"
             source = (ROOT / "tests/networking" / probe).read_text().replace("__ABSOLUTE_URL__", url + "/absolute-image")
             if args.server_url:
-                source = source.replace("__LEVEL_ID__", args.level_id)
+                source = source.replace("__LEVEL_ID__", args.level_id or "")
             (script_dir / probe).write_text(source)
             harness = temp / "harness.txt"
             harness.write_text("wait 240\nquit\n")
@@ -113,7 +116,7 @@ def main():
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             names = {"thumbnail", "content", "absolute", "invalid", "missing"}
-            markers = (["server image PASS"] if args.server_url else
+            markers = (["server featured image PASS" if args.featured else "server image PASS"] if args.server_url else
                        ["image requests queued PASS", "image cached-invalid PASS"] + [f"image {name} PASS" for name in names])
             if (result.returncode or (server and (seen != names or bad_headers or content_requests != 2)) or
                     any(marker not in result.stdout for marker in markers)):

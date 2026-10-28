@@ -46,6 +46,7 @@ behavior.
       exercised against a local fixture and a synthetic server thumbnail.
 - [x] Use a separate configurable image base URL and omit the identity session
       header on global content-image requests.
+- [x] Load a featured image URL returned by a disposable replacement server.
 - [x] Publish and update a synthetic level using saved resource tickets;
       read it back and remove it on a disposable local server.
 - [x] Send a report for a synthetic level on a disposable local server.
