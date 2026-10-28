@@ -29,6 +29,8 @@ letterbox = true
 ; Leave blank to disable requests.
 server_url =
 
-; Existing session and identity IDs for testing. Login is not implemented yet.
+; Existing server session and identity IDs for testing. These are not a
+; username and password. Automatic login and in-game online flow are unfinished.
+; Treat the session ID as a password and keep OpenEgg.ini private.
 session_id =
 user_id =
