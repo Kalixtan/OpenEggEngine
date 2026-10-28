@@ -34,6 +34,7 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
                              "CommunityStartProbe.gm", "Main"], env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
     print(result.stdout, end="")
-    marker = "community fallback PASS" if args.offline or args.no_patch else "community screen constructor PASS"
-    if result.returncode or marker not in result.stdout or " FAIL" in result.stdout:
+    markers = ["community fallback PASS"] if args.offline or args.no_patch else [
+        "community screen constructor PASS", "community screen init PASS"]
+    if result.returncode or any(marker not in result.stdout for marker in markers) or " FAIL" in result.stdout or "[gm]" in result.stdout:
         raise SystemExit("community start probe failed")
