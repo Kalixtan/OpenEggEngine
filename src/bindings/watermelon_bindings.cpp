@@ -5,6 +5,8 @@
 #include "../core/network_client.h"
 #include "../core/save_data.h"
 #include "../core/system_config.h"
+#include "../core/engine_context.h"
+#include "../core/file_helper.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
@@ -1119,9 +1121,14 @@ int GM_CDECL gmf_Globals_GetNews(gmThread* a_thread) {
 }
 
 
-int GM_CDECL gmf_OfflineRequest(gmThread* a_thread) {
-    (void)a_thread;
-    a_thread->PushInt(0);
+int GM_CDECL gmf_GetBetaParticipationAgreement(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(0);
+    FileHelper* files = GetEngineContext().fileHelper;
+    std::string text;
+    if (files && files->ReadTextFile("betaparticipationagreement.txt", text))
+        a_thread->PushNewString(text.c_str());
+    else
+        a_thread->PushNull();
     return GM_OK;
 }
 
@@ -1235,10 +1242,5 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkTranslation", gmf_OpenEggNetworkTranslation);
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkPost", gmf_OpenEggNetworkPost);
 
-    // Server-request family -- see the offline-stub block comment above.
-    static const char* kOfflineRequests[] = {
-        "Watermelon_GetBetaParticipationAgreement",
-    };
-    for (const char* name : kOfflineRequests)
-        a_machine.RegisterLibraryFunction(name, gmf_OfflineRequest);
+    a_machine.RegisterLibraryFunction("Watermelon_GetBetaParticipationAgreement", gmf_GetBetaParticipationAgreement);
 }

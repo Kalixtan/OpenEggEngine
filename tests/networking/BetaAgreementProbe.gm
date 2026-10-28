@@ -1,0 +1,14 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            local agreement = Watermelon_GetBetaParticipationAgreement();
+            if (("__CASE__" == "present" && agreement == "Synthetic agreement") ||
+                ("__CASE__" == "missing" && agreement == null)) {
+                GameSystem.trace("beta agreement __CASE__ PASS");
+            } else {
+                GameSystem.trace("beta agreement __CASE__ FAIL");
+            }
+        },
+        init=function() { return true; },
+        update=function() {});
+};

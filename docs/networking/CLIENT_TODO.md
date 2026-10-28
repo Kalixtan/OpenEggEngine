@@ -34,6 +34,8 @@ behavior.
 - [x] Synchronize an empty desktop platform friend list and expose returned
       friend identities. A real platform friend provider is still needed.
 - [x] Fetch and refresh featured and news data into rooted script tables.
+- [x] Read the local beta agreement file. A missing file returns null; retail's
+      traced missing-file path dereferences a null pointer.
 - [x] Parse little-endian network MO catalogs and reach coordinator online
       state after all three localized callbacks have run.
 - [x] Cloud-save GET and multipart POST; tested with a disposable local server
