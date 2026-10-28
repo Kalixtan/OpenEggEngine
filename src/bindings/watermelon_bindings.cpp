@@ -775,7 +775,13 @@ int GM_CDECL gmf_GameMonkey2QueryString(gmThread* a_thread) {
     for (gmTableNode* n = table->GetFirst(it); !table->IsNull(it); n = table->GetNext(it)) {
         char kbuf[64], vbuf[256];
         const char* k = n->m_key.AsString(&m, kbuf, sizeof(kbuf));
-        const char* v = n->m_value.AsString(&m, vbuf, sizeof(vbuf));
+        const char* v;
+        if (n->m_value.m_type == GM_FLOAT) {
+            std::snprintf(vbuf, sizeof(vbuf), "%f", n->m_value.m_value.m_float);
+            v = vbuf;
+        } else {
+            v = n->m_value.AsString(&m, vbuf, sizeof(vbuf));
+        }
         if (!k || !v) continue;
         if (!out.empty()) out += '&';
         out += k;
