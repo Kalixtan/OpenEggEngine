@@ -688,17 +688,18 @@ int GM_CDECL gmf_ParseLevelObjectString(gmThread* a_thread) {
     GM_STRING_PARAM(str, 0, "");
     GM_TABLE_PARAM(table, 1);
     gmMachine& m = *a_thread->GetMachine();
-    char levelId[101] = {0};
-    char uploadId[101] = {0};
-    const char* slash = std::strchr(str, '/');
-    if (slash) {
-        std::snprintf(levelId, sizeof(levelId), "%.*s", (int)(slash - str), str);
-        std::snprintf(uploadId, sizeof(uploadId), "%.100s", slash + 1);
-    } else {
-        std::snprintf(levelId, sizeof(levelId), "%.100s", str);
+    const std::string path(str);
+    const size_t lastColon = path.rfind(':');
+    std::string levelId, uploadId;
+    if (lastColon != std::string::npos) {
+        const size_t previous = lastColon == 0 ? std::string::npos : path.rfind(':', lastColon - 1);
+        const size_t start = previous != std::string::npos ? previous + 1 : (lastColon == 0 ? 0 : 1);
+        const size_t slash = path.find('/', start);
+        levelId = path.substr(start, slash == std::string::npos ? std::string::npos : slash - start).substr(0, 99);
+        uploadId = path.substr(lastColon + 1, 99);
     }
-    table->Set(&m, "levelId", gmVariable(m.AllocStringObject(levelId)));
-    table->Set(&m, "uploadId", gmVariable(m.AllocStringObject(uploadId)));
+    table->Set(&m, "levelId", gmVariable(m.AllocStringObject(levelId.c_str())));
+    table->Set(&m, "uploadId", gmVariable(m.AllocStringObject(uploadId.c_str())));
     a_thread->PushTable(table);
     return GM_OK;
 }
