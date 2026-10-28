@@ -92,6 +92,8 @@ behavior.
       and the traced record-post header quirk where required for parity.
 - [ ] Match request buckets, purge/cancel behavior, FIFO ordering, retry
       admission, stale status handling, and shutdown draining.
+- [x] Bound identity and global worker queues to 32 pending requests each;
+      waiting admission follows the retail enqueue retry path.
 - [ ] Split identity and Watermelon request managers. The desktop currently
       applies retail's four-completion update budget to their combined queue.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,

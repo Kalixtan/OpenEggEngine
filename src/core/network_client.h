@@ -111,6 +111,8 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_wake;
     std::deque<Request> m_requests;
+    size_t m_identityQueued = 0;
+    size_t m_globalQueued = 0;
     std::deque<Completion> m_completions;
     std::unordered_map<int, PendingRequest> m_pending;
     std::unordered_map<int, AssetBundle> m_assetBundles;

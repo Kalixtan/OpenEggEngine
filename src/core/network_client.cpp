@@ -315,7 +315,7 @@ void NetworkClient::GoOnline() {
 bool NetworkClient::IsSendQueueFull() {
     if (!m_managerAttached) return true;
     std::lock_guard<std::mutex> lock(m_mutex);
-    return m_requests.size() >= 32;
+    return m_identityQueued == 32;
 }
 
 const std::string* NetworkClient::FindNetworkTranslation(const std::string& key) const {
@@ -361,7 +361,12 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
         return 0;
     }
 
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
+    // The PS3 enqueue helper retries when its 32-slot worker ring is full.
+    // Desktop shares a worker but keeps separate identity and global budgets.
+    m_wake.wait(lock, [&] {
+        return m_stopping || (a_sendSession ? m_identityQueued : m_globalQueued) < 32;
+    });
     if (m_stopping || m_nextId <= 0 || m_nextId == std::numeric_limits<int>::max())
         return 0;
 
@@ -379,7 +384,8 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
     m_pending.emplace(id, PendingRequest{bucket, false, a_sendSession});
     m_requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false, a_sendSession});
-    m_wake.notify_one();
+    ++(a_sendSession ? m_identityQueued : m_globalQueued);
+    m_wake.notify_all();
     return id;
 }
 
@@ -781,6 +787,8 @@ void NetworkClient::WorkerMain() {
             if (m_stopping) return;
             request = std::move(m_requests.front());
             m_requests.pop_front();
+            --(request.sendSession ? m_identityQueued : m_globalQueued);
+            m_wake.notify_all();
             const auto pending = m_pending.find(request.id);
             request.purged = pending != m_pending.end() && pending->second.purged;
             if (request.sendSession) sessionId = m_sessionId;
