@@ -113,6 +113,36 @@ int GM_CDECL gmf_MetadataAll(gmThread* a_thread) { return QueueMetadata(a_thread
 int GM_CDECL gmf_MetadataGet(gmThread* a_thread) { return QueueMetadata(a_thread, 1); }
 int GM_CDECL gmf_MetadataPut(gmThread* a_thread) { return QueueMetadata(a_thread, 2); }
 
+int QueueRating(gmThread* a_thread, bool a_put) {
+    if (a_thread->GetNumParams() < (a_put ? 5 : 4)) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string base;
+    if (!g_networkClient || g_networkClient->UserId().empty() ||
+        !ReadOptionalString(a_thread, 3, base) ||
+        (a_put && a_thread->Param(4).m_type != GM_INT)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (!base.empty() && base.front() == '/') base.erase(0, 1);
+    std::string path = "/otg/" + base;
+    if (!base.empty() && base.back() != '/') path += '/';
+    path += "~rating:" + EncodeRetailUrl("/~identity:" + g_networkClient->UserId()) +
+            (a_put ? ".put" : ".get");
+    const int id = a_put
+        ? g_networkClient->QueueRetailPost(path,
+            "value=" + std::to_string(a_thread->Param(4).m_value.m_int), "",
+            a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0)
+        : g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+            a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_RatingGet(gmThread* a_thread) { return QueueRating(a_thread, false); }
+int GM_CDECL gmf_RatingPut(gmThread* a_thread) { return QueueRating(a_thread, true); }
+
 int GM_CDECL gmf_LeaderboardPage(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 4 && count != 5) {
@@ -671,6 +701,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_All", gmf_MetadataAll);
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Get", gmf_MetadataGet);
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Put", gmf_MetadataPut);
+    a_machine.RegisterLibraryFunction("Watermelon_Rating_Get", gmf_RatingGet);
+    a_machine.RegisterLibraryFunction("Watermelon_Rating_Put", gmf_RatingPut);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Page", gmf_LeaderboardPage);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Post", gmf_LeaderboardPost);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Get", gmf_LeaderboardGet);
@@ -710,8 +742,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Favourite_All",
         "Watermelon_Favourite_Put",
         "Watermelon_Favourite_Delete",
-        "Watermelon_Rating_Get",
-        "Watermelon_Rating_Put",
         "Watermelon_Record_Post",
         "Watermelon_Grief_Post",
         "Watermelon_LevelHearts_Post",

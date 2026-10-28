@@ -178,6 +178,16 @@ global LeaderboardReadReply = function(data, response, error) {
     }
 };
 
+global RatingReply = function(data, response, error) {
+    if (data == "rating_get" && response == null && error == 404) {
+        GameSystem.trace("rating get response PASS");
+    } else if (data == "rating_put" && response == null && error == 404) {
+        GameSystem.trace("rating put response PASS");
+    } else {
+        GameSystem.trace("rating response FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -199,6 +209,11 @@ global Main = function(p) {
             }
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
+            local ratingGet = Watermelon_Rating_Get(RatingReply, "rating_get", 31, "~level:test-level");
+            local ratingPut = Watermelon_Rating_Put(RatingReply, "rating_put", 32, "~level:test-level", 1);
+            if (ratingGet != 1 || ratingPut != 1) {
+                GameSystem.trace("rating NOT_QUEUED");
+            }
             local leaderboard = Watermelon_Leaderboard_Page(LeaderboardPageReply, "leaderboard", 24, "~level:test-level", "from=0&count=1");
             local boardGet = Watermelon_Leaderboard_Get(LeaderboardReadReply, "get", 29, "~level:test-level");
             local boardAll = Watermelon_Leaderboard_All(LeaderboardReadReply, "all", 30, "~level:test-level");

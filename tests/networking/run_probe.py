@@ -34,6 +34,8 @@ MARKERS = (
     "purged request callback PASS",
     "activity page route PASS",
     "featured unknown-user response PASS",
+    "rating get response PASS",
+    "rating put response PASS",
     "leaderboard page route PASS",
     "leaderboard get response PASS",
     "leaderboard all response PASS",
