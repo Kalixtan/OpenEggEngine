@@ -51,6 +51,8 @@ behavior.
       fields on malformed level-description responses.
 - [x] Cache the default image, level and sound content paths and support
       identity-cache filter purge. Local tests cover hits, errors and purge.
+- [x] Admit cache hits ahead of the worker queue and consume them after pending
+      worker completions, following the traced manager paths.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.

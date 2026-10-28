@@ -477,11 +477,14 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     }
 
     std::unique_lock<std::mutex> lock(m_mutex);
-    // The PS3 enqueue helper retries when its 32-slot worker ring is full.
+    const std::string cacheKey = ContentCacheKey(a_path, a_post);
+    const Cache& cache = a_sendSession ? m_identityCache : m_globalCache;
+    const auto cached = cache.find(cacheKey);
+    const bool cacheHit = !cacheKey.empty() && cached != cache.end();
+    // Retail resolves cache hits before trying the 32-slot worker ring.
     auto& requests = a_sendSession ? m_identityRequests : m_globalRequests;
-    m_wake.wait(lock, [&] {
-        return m_stopping || requests.size() < 32;
-    });
+    if (!cacheHit)
+        m_wake.wait(lock, [&] { return m_stopping || requests.size() < 32; });
     if (m_stopping || m_nextId <= 0 || m_nextId == std::numeric_limits<int>::max())
         return 0;
 
@@ -498,9 +501,15 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
     m_pending.emplace(id, PendingRequest{bucket, false, a_sendSession});
-    requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType,
-                        a_post, bucket, false, a_sendSession, ContentCacheKey(a_path, a_post)});
-    m_wake.notify_all();
+    if (cacheHit) {
+        auto& cachedCompletions = a_sendSession ? m_identityCacheCompletions : m_globalCacheCompletions;
+        cachedCompletions.push_back({id, cached->second.status, cached->second.body,
+                                     cacheKey, a_sendSession, true});
+    } else {
+        requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType,
+                            a_post, bucket, false, a_sendSession, cacheKey});
+        m_wake.notify_all();
+    }
     return id;
 }
 
@@ -551,10 +560,13 @@ void NetworkClient::PumpCallbacks() {
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         // Retail managers each consume at most four completions per update.
-        for (auto* queue : {&m_identityCompletions, &m_globalCompletions}) {
-            for (int count = 0; count < 4 && !queue->empty(); ++count) {
-                completions.push_back(std::move(queue->front()));
-                queue->pop_front();
+        for (bool identity : {true, false}) {
+            auto& queue = identity ? m_identityCompletions : m_globalCompletions;
+            auto& cached = identity ? m_identityCacheCompletions : m_globalCacheCompletions;
+            for (int count = 0; count < 4 && (!queue.empty() || !cached.empty()); ++count) {
+                auto& source = queue.empty() ? cached : queue;
+                completions.push_back(std::move(source.front()));
+                source.pop_front();
             }
         }
     }
@@ -954,18 +966,6 @@ void NetworkClient::WorkerMain(bool a_identity) {
             std::lock_guard<std::mutex> lock(m_mutex);
             completions.push_back(std::move(completion));
             continue;
-        }
-        if (!request.cacheKey.empty()) {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            const Cache& cache = a_identity ? m_identityCache : m_globalCache;
-            const auto found = cache.find(request.cacheKey);
-            if (found != cache.end()) {
-                completion.status = found->second.status;
-                completion.body = found->second.body;
-                completion.cacheHit = true;
-                completions.push_back(std::move(completion));
-                continue;
-            }
         }
         CURL* curl = curl_easy_init();
         if (curl) {

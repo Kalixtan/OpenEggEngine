@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
 USER = "00000000-0000-0000-0000-000000000002"
@@ -28,6 +29,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         seen.append(self.path)
+        if self.path == "/otg/~level:capacity/~version:v1/~content:level/data.get":
+            self.reply(200, zlib.compress(b'{"bpm":120,"screenData":[],"entities":[]}'))
+            return
         if self.path == "/image.png":
             global_received.set()
         if "slow=1" in self.path:
@@ -95,9 +99,11 @@ try:
             reader.join()
         output = "".join(lines)
         print(output, end="")
-        markers = ("send queue full PASS", "global queue admission PASS", "send queue resumed PASS", "send queue drained PASS")
+        markers = ("send queue full PASS", "cache queue admission PASS", "global queue admission PASS", "send queue resumed PASS", "send queue drained PASS", "capacity worker completion PASS", "capacity cached completion PASS")
         if (process.returncode or blocked != [True] or any(marker not in output for marker in markers) or
-                sum("queued=1" in path for path in seen) != 32 or not any("extra=1" in path for path in seen)):
+                output.find("capacity worker completion PASS") > output.find("capacity cached completion PASS") or
+                sum("queued=1" in path for path in seen) != 32 or not any("extra=1" in path for path in seen) or
+                seen.count("/otg/~level:capacity/~version:v1/~content:level/data.get") != 1):
             raise SystemExit("queue capacity probe failed")
 finally:
     release.set()

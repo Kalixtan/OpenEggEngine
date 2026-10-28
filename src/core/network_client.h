@@ -127,6 +127,8 @@ private:
     std::deque<Request> m_globalRequests;
     std::deque<Completion> m_identityCompletions;
     std::deque<Completion> m_globalCompletions;
+    std::deque<Completion> m_identityCacheCompletions;
+    std::deque<Completion> m_globalCacheCompletions;
     Cache m_identityCache;
     Cache m_globalCache;
     std::unordered_map<int, PendingRequest> m_pending;
