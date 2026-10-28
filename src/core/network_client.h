@@ -6,6 +6,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 class gmMachine;
 class gmTableObject;
@@ -50,6 +51,10 @@ private:
         long status = 0;
         std::string body;
     };
+    struct PendingRequest {
+        int bucket;
+        bool purged = false;
+    };
 
     void WorkerMain();
     int Queue(const std::string& a_path, const gmVariable& a_callback,
@@ -66,6 +71,7 @@ private:
     std::condition_variable m_wake;
     std::deque<Request> m_requests;
     std::deque<Completion> m_completions;
+    std::unordered_map<int, PendingRequest> m_pending;
     std::thread m_worker;
     bool m_stopping = false;
     int m_nextId = 1;

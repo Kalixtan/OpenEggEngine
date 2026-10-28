@@ -1,0 +1,25 @@
+global InFlightReply = function(data, response, error) {
+    if (data == "slow" && response == null && error == 1) {
+        GameSystem.trace("in-flight purge PASS");
+    } else {
+        GameSystem.trace("in-flight purge FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        ticks=0,
+        init=function() { return true; },
+        constructor=function() {
+            Watermelon_Index_Page(InFlightReply, "slow", 42, "type=level&search=all");
+        },
+        update=function() {
+            this.ticks += 1;
+            if (this.ticks == 30) {
+                Watermelon_Purge(42);
+                GameSystem.trace("in-flight purge requested");
+            }
+        }
+    );
+};

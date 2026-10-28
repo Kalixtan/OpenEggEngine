@@ -160,6 +160,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     m_roots->Set(&m_machine, id, gmVariable(context));
     const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
+    m_pending.emplace(id, PendingRequest{bucket, false});
     m_requests.push_back({id, m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false});
     m_wake.notify_one();
     return id;
@@ -168,8 +169,8 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
 void NetworkClient::Purge(int a_bucket) {
     if (a_bucket == 0) return;
     std::lock_guard<std::mutex> lock(m_mutex);
-    for (Request& request : m_requests) {
-        if (request.bucket == a_bucket) request.purged = true;
+    for (auto& entry : m_pending) {
+        if (entry.second.bucket == a_bucket) entry.second.purged = true;
     }
 }
 
@@ -181,6 +182,17 @@ void NetworkClient::PumpCallbacks() {
     }
 
     for (Completion& completion : completions) {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            auto pending = m_pending.find(completion.id);
+            if (pending != m_pending.end()) {
+                if (pending->second.purged) {
+                    completion.status = 0;
+                    completion.body.clear();
+                }
+                m_pending.erase(pending);
+            }
+        }
         if (completion.id == m_loginRequestId) {
             m_loginRequestId = 0;
             rapidjson::Document response;
@@ -257,6 +269,8 @@ void NetworkClient::WorkerMain() {
             if (m_stopping) return;
             request = std::move(m_requests.front());
             m_requests.pop_front();
+            const auto pending = m_pending.find(request.id);
+            request.purged = pending != m_pending.end() && pending->second.purged;
         }
 
         Completion completion;

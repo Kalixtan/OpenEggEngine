@@ -26,6 +26,8 @@ behavior.
 - [x] Authenticated index request from OpenEgg using a locally seeded test session.
 - [x] Experimental ticket-file exchange and authenticated request against a
       local replacement server configured to accept unsigned tickets.
+- [x] Purging a queued or in-flight request produces a cancelled callback;
+      the in-flight transport may still finish, as in the PS3 trace.
 - [ ] Integrate experimental ticket-file exchange into the coordinator flow;
       current startup exchange does not enable in-game online menus.
 - [ ] Match retail login reset, request purging, malformed responses and error
