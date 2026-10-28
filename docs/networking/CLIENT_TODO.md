@@ -36,6 +36,8 @@ behavior.
 - [x] Fetch and refresh featured and news data into rooted script tables.
 - [x] Parse little-endian network MO catalogs and reach coordinator online
       state after all three localized callbacks have run.
+- [x] Cloud-save GET and multipart POST; tested with a disposable local server
+      account and a byte-checking fixture.
 - [ ] Connect the separate network translation map to traced native string
       consumers; compare malformed catalogs and platform sign-in timing.
 - [ ] Replace the configurable desktop chat-permission fallback with platform
@@ -70,7 +72,8 @@ behavior.
       oversized tables instead of reproducing the retail buffer edge cases.
 - [x] Submit a fixture record and read back a large leaderboard score through
       the local server. Compare the same case with retail before claiming parity.
-- [ ] Implement publishing, grief reports, cloud saves, and multipart bodies.
+- [ ] Implement publishing and grief reports; verify cloud-save edge cases
+      and multipart behavior against retail.
 - [ ] Implement friend, identity, EULA, and online coordinator flows.
 - [ ] Review every currently offline request binding against the tracked
       `Watermelon` and `Network` symbol entries in

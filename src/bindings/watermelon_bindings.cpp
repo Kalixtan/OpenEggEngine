@@ -864,6 +864,49 @@ int GM_CDECL gmf_GetFriends(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GetCloudSave(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    if (!g_networkClient) { a_thread->PushInt(0); return GM_OK; }
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() + "/~content:progress/data.get";
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        gmVariable::s_null, 0, 0);
+    a_thread->PushInt(id != 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_PostCloudSave(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(3);
+    if (!g_networkClient || a_thread->Param(2).m_type != GM_STRING) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    auto* string = static_cast<gmStringObject*>(a_thread->GetMachine()->GetObject(a_thread->Param(2).m_value.m_ref));
+    const std::string save = string->GetString();
+    static const char* boundaries[] = {"----BouNdaRy", "--fOsBKwDjKn", "--krj6RoYg8n", "--BqiXa1etbG",
+                                       "--vghjJJFy5S", "--HUoWHHxpJN", "--IkzsNBtjJy", "--zzzzzzzzzz"};
+    const char* boundary = nullptr;
+    for (const char* candidate : boundaries) {
+        if (save.find(candidate) == std::string::npos) { boundary = candidate; break; }
+    }
+    if (!boundary) { a_thread->PushInt(0); return GM_OK; }
+    std::string body;
+    auto part = [&](const char* name, const std::string& value) {
+        body += "--"; body += boundary;
+        body += "\r\nContent-Disposition: form-data; name=\"";
+        body += name; body += "\"\r\n\r\n"; body += value; body += "\r\n";
+    };
+    part("mutable", "true");
+    part("deleteLevel", "HARD");
+    part("file", save);
+    body += "--"; body += boundary; body += "--\r\n";
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() + "/~content:progress.put";
+    const int id = g_networkClient->QueueRetailPost(path, body,
+        std::string("multipart/form-data; boundary=") + boundary,
+        a_thread->Param(0), a_thread->Param(1), gmVariable::s_null, 0, 1);
+    a_thread->PushInt(id != 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_IsOnline(gmThread* a_thread) {
     a_thread->PushInt(g_networkClient && g_networkClient->IdentityReady());
     return GM_OK;
@@ -949,6 +992,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetEula", gmf_GetEula);
     a_machine.RegisterLibraryFunction("Watermelon_GetEulaVersion", gmf_GetEulaVersion);
     a_machine.RegisterLibraryFunction("Watermelon_Get_Friends", gmf_GetFriends);
+    a_machine.RegisterLibraryFunction("Watermelon_GetCloudSave", gmf_GetCloudSave);
+    a_machine.RegisterLibraryFunction("Watermelon_PostCloudSave", gmf_PostCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
     a_machine.RegisterLibraryFunction("Watermelon_Purge", gmf_Purge);
     a_machine.RegisterLibraryFunction("Watermelon_ForceCachePurgeByFilter", gmf_NoOp);
@@ -1008,8 +1053,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Grief_Post",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
-        "Watermelon_GetCloudSave",
-        "Watermelon_PostCloudSave",
     };
     for (const char* name : kOfflineRequests)
         a_machine.RegisterLibraryFunction(name, gmf_OfflineRequest);
