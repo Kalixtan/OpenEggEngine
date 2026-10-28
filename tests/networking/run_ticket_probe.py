@@ -37,6 +37,7 @@ def main():
     parser.add_argument("server_url", help="Local server with RequireAuthentication=false")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--invalid-ticket", action="store_true", help="Check rejection of a malformed ticket")
+    parser.add_argument("--expect-hello-failure", action="store_true", help="Check a failed hello response")
     args = parser.parse_args()
     if not args.server_url.startswith("http://127.0.0.1:"):
         parser.error("fixture must use a local 127.0.0.1 server")
@@ -61,9 +62,14 @@ def main():
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         print(result.stdout, end="")
         markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS")
-        markers += (("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS") if args.invalid_ticket else
-                    ("network: ticket login succeeded", "ticket identity PASS", "ticket authenticated request PASS",
-                     "ticket coordinator logout PASS"))
+        if args.invalid_ticket:
+            markers += ("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS")
+        elif args.expect_hello_failure:
+            markers += ("network: ticket login succeeded", "network: identity hello failed (HTTP 503)",
+                        "ticket coordinator error PASS", "ticket request rejected PASS")
+        else:
+            markers += ("network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
+                        "ticket authenticated request PASS", "ticket coordinator logout PASS")
         missing = [marker for marker in markers if marker not in result.stdout]
         if result.returncode or missing or (args.invalid_ticket and "ticket identity PASS" in result.stdout):
             raise SystemExit(f"ticket probe failed; missing markers: {missing}")

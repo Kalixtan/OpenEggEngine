@@ -156,9 +156,12 @@ void NetworkClient::GoOffline() {
         std::lock_guard<std::mutex> lock(m_mutex);
         auto pending = m_pending.find(m_loginRequestId);
         if (pending != m_pending.end()) pending->second.purged = true;
+        pending = m_pending.find(m_helloRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
+    m_helloRequestId = 0;
     m_userId.clear();
     m_coordinatorError = 0;
     m_coordinatorState = 4;
@@ -240,8 +243,14 @@ void NetworkClient::PumpCallbacks() {
                         m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                     }
                     m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
-                    m_coordinatorState = 19;
                     std::fprintf(stderr, "network: ticket login succeeded\n");
+                    m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
+                        gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+                    if (m_helloRequestId) {
+                        m_coordinatorState = 20;
+                    } else {
+                        m_coordinatorError = -12;
+                    }
                 } else {
                     m_coordinatorError = -12;
                     std::fprintf(stderr, "network: ticket login returned an incomplete session\n");
@@ -249,6 +258,16 @@ void NetworkClient::PumpCallbacks() {
             } else {
                 m_coordinatorError = -12;
                 std::fprintf(stderr, "network: ticket login failed (HTTP %ld)\n", completion.status);
+            }
+        }
+        if (completion.id == m_helloRequestId) {
+            m_helloRequestId = 0;
+            if (completion.status == 200 || completion.status == 201) {
+                m_coordinatorState = 21;
+                std::fprintf(stderr, "network: identity hello succeeded\n");
+            } else {
+                m_coordinatorError = -12;
+                std::fprintf(stderr, "network: identity hello failed (HTTP %ld)\n", completion.status);
             }
         }
         const gmVariable contextValue = m_roots->Get(completion.id);

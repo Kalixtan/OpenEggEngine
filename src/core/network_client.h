@@ -81,6 +81,7 @@ private:
     bool m_stopping = false;
     int m_nextId = 1;
     int m_loginRequestId = 0;
+    int m_helloRequestId = 0;
     std::string m_platformTicket;
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;

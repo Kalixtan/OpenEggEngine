@@ -5,6 +5,8 @@ global TicketLoginReply = function(data, response, error) {
         if (OnlineCoordinator_IsOffline() && Watermelon_GetUserIdentityId() == "") {
             GameSystem.trace("ticket coordinator logout PASS");
         }
+    } else if (OnlineCoordinator_GetLastError() == -12) {
+        GameSystem.trace("ticket request rejected PASS");
     } else {
         GameSystem.trace("ticket authenticated request FAIL");
     }
