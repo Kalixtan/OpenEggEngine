@@ -32,6 +32,8 @@ behavior.
       stop at the unimplemented post-login phases rather than reporting online.
 - [x] Send the identity hello and PS3 SCEA EULA requests after login; cache
       EULA text and digest and poll script acceptance.
+- [x] Synchronize an empty desktop platform friend list and expose returned
+      friend identities. A real platform friend provider is still needed.
 - [ ] Implement other product regions and later coordinator phases. Match
       retail update timing and malformed EULA edge cases.
 - [ ] Match retail login reset, request purging, malformed responses and error

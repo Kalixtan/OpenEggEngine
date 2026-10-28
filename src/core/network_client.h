@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 class gmMachine;
 class gmTableObject;
@@ -14,6 +15,10 @@ class gmVariable;
 
 class NetworkClient {
 public:
+    struct Friend {
+        std::string identity;
+        std::string displayName;
+    };
     NetworkClient(gmMachine& a_machine, std::string a_baseUrl, std::string a_sessionId,
                   std::string a_userId);
     ~NetworkClient();
@@ -40,6 +45,8 @@ public:
     bool HasEula() const { return m_eulaReady; }
     const std::string& EulaText() const { return m_eulaText; }
     const std::string& EulaVersion() const { return m_eulaVersion; }
+    bool FriendsReady() const { return m_friendsReady; }
+    const std::vector<Friend>& Friends() const { return m_friends; }
     void UpdateCoordinator();
     void Purge(int a_bucket);
     void PumpCallbacks();
@@ -87,10 +94,14 @@ private:
     int m_loginRequestId = 0;
     int m_helloRequestId = 0;
     int m_eulaRequestId = 0;
+    int m_friendsUploadRequestId = 0;
+    int m_friendsFetchRequestId = 0;
     std::string m_platformTicket;
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;
     bool m_eulaReady = false;
     std::string m_eulaText;
     std::string m_eulaVersion;
+    bool m_friendsReady = false;
+    std::vector<Friend> m_friends;
 };

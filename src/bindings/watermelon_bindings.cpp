@@ -849,6 +849,21 @@ int GM_CDECL gmf_GetEulaVersion(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GetFriends(gmThread* a_thread) {
+    if (!g_networkClient || !g_networkClient->FriendsReady()) return GM_OK;
+    gmMachine& machine = *a_thread->GetMachine();
+    gmTableObject* friends = machine.AllocTableObject();
+    int index = 0;
+    for (const auto& entry : g_networkClient->Friends()) {
+        gmTableObject* row = machine.AllocTableObject();
+        row->Set(&machine, "identity", gmVariable(machine.AllocStringObject(entry.identity.c_str())));
+        row->Set(&machine, "displayName", gmVariable(machine.AllocStringObject(entry.displayName.c_str())));
+        friends->Set(&machine, index++, gmVariable(row));
+    }
+    a_thread->PushTable(friends);
+    return GM_OK;
+}
+
 // Watermelon_IsOnline() -> bool. Permanently offline, matching the
 // OnlineCoordinator_* stance.
 int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
@@ -924,6 +939,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetUserIdentityId", gmf_GetUserIdentityId);
     a_machine.RegisterLibraryFunction("Watermelon_GetEula", gmf_GetEula);
     a_machine.RegisterLibraryFunction("Watermelon_GetEulaVersion", gmf_GetEulaVersion);
+    a_machine.RegisterLibraryFunction("Watermelon_Get_Friends", gmf_GetFriends);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
     a_machine.RegisterLibraryFunction("Watermelon_Purge", gmf_Purge);
     a_machine.RegisterLibraryFunction("Watermelon_ForceCachePurgeByFilter", gmf_NoOp);
@@ -980,7 +996,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_SaveLevelAndAssetsToDisk",
         "Watermelon_GetSoundData",
         "Watermelon_Grief_Post",
-        "Watermelon_Get_Friends",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
         "Watermelon_GetCloudSave",

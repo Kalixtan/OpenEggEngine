@@ -161,11 +161,17 @@ void NetworkClient::GoOffline() {
         if (pending != m_pending.end()) pending->second.purged = true;
         pending = m_pending.find(m_eulaRequestId);
         if (pending != m_pending.end()) pending->second.purged = true;
+        pending = m_pending.find(m_friendsUploadRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
+        pending = m_pending.find(m_friendsFetchRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
     m_helloRequestId = 0;
     m_eulaRequestId = 0;
+    m_friendsUploadRequestId = 0;
+    m_friendsFetchRequestId = 0;
     m_userId.clear();
     m_coordinatorError = 0;
     m_coordinatorState = 4;
@@ -303,6 +309,42 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, "network: EULA failed (HTTP %ld)\n", completion.status);
             }
         }
+        if (completion.id == m_friendsUploadRequestId) {
+            m_friendsUploadRequestId = 0;
+            if (completion.status == 200 || completion.status == 201) {
+                m_friendsFetchRequestId = QueueRetailGet("/otg/~identity:" + m_userId + "/~friends.all",
+                    gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+                if (!m_friendsFetchRequestId) m_coordinatorError = -12;
+            } else {
+                m_coordinatorError = -12;
+                std::fprintf(stderr, "network: friends upload failed (HTTP %ld)\n", completion.status);
+            }
+        }
+        if (completion.id == m_friendsFetchRequestId) {
+            m_friendsFetchRequestId = 0;
+            m_friends.clear();
+            if (completion.status == 200 || completion.status == 201) {
+                rapidjson::Document response;
+                response.Parse(completion.body.data(), completion.body.size());
+                if (!response.HasParseError() && response.IsObject() && response.HasMember("friends") &&
+                    response["friends"].IsArray()) {
+                    for (const auto& row : response["friends"].GetArray()) {
+                        if (!row.IsObject()) continue;
+                        Friend entry;
+                        if (row.HasMember("id") && row["id"].IsString())
+                            entry.identity.assign(row["id"].GetString(), row["id"].GetStringLength());
+                        if (row.HasMember("displayName") && row["displayName"].IsString())
+                            entry.displayName.assign(row["displayName"].GetString(), row["displayName"].GetStringLength());
+                        m_friends.push_back(std::move(entry));
+                    }
+                }
+                m_friendsReady = true;
+                std::fprintf(stderr, "network: friends synchronized\n");
+            } else {
+                m_coordinatorError = -12;
+                std::fprintf(stderr, "network: friends fetch failed (HTTP %ld)\n", completion.status);
+            }
+        }
         const gmVariable contextValue = m_roots->Get(completion.id);
         if (contextValue.m_type == GM_TABLE) {
             auto* context = static_cast<gmTableObject*>(
@@ -344,6 +386,20 @@ void NetworkClient::PumpCallbacks() {
 }
 
 void NetworkClient::UpdateCoordinator() {
+    if (m_coordinatorState == 24) {
+        if (!m_friendsReady) {
+            // Desktop has no PSN friend provider yet; send an empty list.
+            m_friendsUploadRequestId = QueueRetailPost("/identity/person/" + m_userId + "/data/psn/friends-list",
+                "", "text/plain", gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+            if (!m_friendsUploadRequestId) m_coordinatorError = -12;
+        }
+        m_coordinatorState = 25;
+        return;
+    }
+    if (m_coordinatorState == 25 && m_friendsReady) {
+        m_coordinatorState = 26;
+        return;
+    }
     if ((m_coordinatorState != 22 && m_coordinatorState != 23) || !m_eulaReady) return;
     int accepted = 0;
     gmCall call;

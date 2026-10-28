@@ -24,11 +24,21 @@ global Main = function(p) {
             } else if (this.checked == 1 && !OnlineCoordinator_IsWaitingForEulaAcceptance()) {
                 this.checked = 2;
                 GameSystem.trace("EULA acceptance PASS");
+            } else if (this.checked == 2) {
+                local friends = Watermelon_Get_Friends();
+                if (friends != null && friends[0] != null && friends[1] != null &&
+                    friends[0].identity == "friend-1" && friends[0].displayName == "First" &&
+                    friends[1].identity == "friend-2" && friends[1].displayName == "Second") {
+                    this.checked = 3;
+                    GameSystem.trace("friends snapshot PASS");
+                }
             }
             if (this.errorChecked == 0 && OnlineCoordinator_GetLastError() == -12) {
                 this.errorChecked = 1;
                 if (Watermelon_GetEula() == null && Watermelon_GetEulaVersion() == "") {
                     GameSystem.trace("EULA failure PASS");
+                } else if (Watermelon_Get_Friends() == null) {
+                    GameSystem.trace("friends failure PASS");
                 }
             }
         }

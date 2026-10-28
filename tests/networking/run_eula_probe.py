@@ -15,12 +15,21 @@ ROOT = Path(__file__).resolve().parents[2]
 SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 received = threading.Event()
+friends_uploaded = threading.Event()
+friends_fetched = threading.Event()
 fail = False
+friends_fail = ""
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        payload = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == f"/identity/person/{USER}/data/psn/friends-list":
+            if (payload == b"" and self.headers.get("Content-Type") == "text/plain" and
+                    self.headers.get("X-OTG-Identity-SessionId") == SESSION):
+                friends_uploaded.set()
+            self.reply(503 if friends_fail == "upload" else 200, b"")
+            return
         body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
         self.reply(201, body)
 
@@ -31,6 +40,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 received.set()
             self.reply(503 if fail else 200, b"" if fail else b"\xef\xbb\xbfOne\tTwo\n")
+        elif self.path == f"/otg/~identity:{USER}/~friends.all":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                friends_fetched.set()
+            self.reply(503 if friends_fail == "fetch" else 200, b'{"friends":[{"id":"friend-1","displayName":"First"},{"id":"friend-2","displayName":"Second"}]}')
         else:
             self.reply(404, b"")
 
@@ -45,12 +58,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global fail
+    global fail, friends_fail
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fail", action="store_true", help="Return an HTTP error for EULA")
+    parser.add_argument("--friends-fail", choices=("upload", "fetch"), help="Return an error during friends sync")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     args = parser.parse_args()
     fail = args.fail
+    friends_fail = args.friends_fail or ""
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -76,8 +91,11 @@ def main():
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            markers = ("EULA failure PASS",) if fail else ("EULA text and digest PASS", "EULA acceptance PASS")
-            if result.returncode or not received.is_set() or any(x not in result.stdout for x in markers) or "EULA acceptance version FAIL" in result.stdout:
+            markers = (("EULA failure PASS",) if fail else ("friends failure PASS",) if friends_fail else
+                       ("EULA text and digest PASS", "EULA acceptance PASS", "friends snapshot PASS"))
+            requests_ok = fail or (friends_uploaded.is_set() and (friends_fail == "upload" or friends_fetched.is_set()))
+            if (result.returncode or not received.is_set() or not requests_ok or
+                    any(x not in result.stdout for x in markers) or "EULA acceptance version FAIL" in result.stdout):
                 raise SystemExit("EULA probe failed")
     finally:
         server.shutdown()

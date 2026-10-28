@@ -66,7 +66,7 @@ def main():
         markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS")
         if args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
-                       "network: EULA received", "server EULA PASS")
+                       "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS")
         elif args.invalid_ticket:
             markers += ("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS")
         elif args.expect_hello_failure:

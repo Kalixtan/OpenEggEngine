@@ -1,4 +1,5 @@
-global SAVEDATAHELPER_HasAcceptedEula = function(version) { return 0; };
+global ServerEulaState = table(accepted=0);
+global SAVEDATAHELPER_HasAcceptedEula = function(version) { return ServerEulaState.accepted; };
 
 global Main = function(p) {
     return table(
@@ -12,6 +13,10 @@ global Main = function(p) {
                 if (Watermelon_GetEula() != null && Watermelon_GetEulaVersion() != "") {
                     GameSystem.trace("server EULA PASS");
                 }
+                ServerEulaState.accepted = 1;
+            } else if (this.checked == 1 && Watermelon_Get_Friends() != null) {
+                this.checked = 2;
+                GameSystem.trace("server friends PASS");
             }
         }
     );
