@@ -150,6 +150,14 @@ global LeaderboardPageReply = function(data, response, error) {
     }
 };
 
+global LeaderboardNearReply = function(data, response, error) {
+    if (data == "near" && response == null && error == 403) {
+        GameSystem.trace("leaderboard near route PASS");
+    } else {
+        GameSystem.trace("leaderboard near route FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -169,6 +177,10 @@ global Main = function(p) {
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
             local leaderboard = Watermelon_Leaderboard_Page(LeaderboardPageReply, "leaderboard", 24, "~level:test-level", "from=0&count=1");
+            local near = Watermelon_Leaderboard_Near(LeaderboardNearReply, "near", 25, "~level:test-level", "/~identity:test-user", "count=0");
+            if (near != 1) {
+                GameSystem.trace("leaderboard near NOT_QUEUED");
+            }
             if (leaderboard != 1) {
                 GameSystem.trace("leaderboard page NOT_QUEUED");
             }

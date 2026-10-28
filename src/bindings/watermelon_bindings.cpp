@@ -139,6 +139,32 @@ int GM_CDECL gmf_LeaderboardPage(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_LeaderboardNear(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    if (count != 5 && count != 6) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string base, entrant;
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base) ||
+        !ReadOptionalString(a_thread, 4, entrant)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (!base.empty() && base.front() == '/') base.erase(0, 1);
+    std::string path = "/otg/" + base;
+    if (!base.empty() && base.back() != '/') path += '/';
+    path += "~leaderboard.near?entrant=" + EncodeRetailUrl(entrant);
+    if (count == 6) {
+        std::string query;
+        if (ReadOptionalString(a_thread, 5, query) && !query.empty()) path += "&" + query;
+    }
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 2);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
 int QueueAlbumPage(gmThread* a_thread, bool a_singleAlbum) {
     const int count = a_thread->GetNumParams();
     const int minimum = a_singleAlbum ? 4 : 3;
@@ -592,6 +618,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Get", gmf_MetadataGet);
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Put", gmf_MetadataPut);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Page", gmf_LeaderboardPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Near", gmf_LeaderboardNear);
     a_machine.RegisterLibraryFunction("Watermelon_Albums_Page", gmf_AlbumsPage);
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Page", gmf_FollowingPage);
@@ -631,7 +658,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Leaderboard_Get",
         "Watermelon_Leaderboard_Post",
         "Watermelon_Leaderboard_All",
-        "Watermelon_Leaderboard_Near",
         "Watermelon_Record_Post",
         "Watermelon_Grief_Post",
         "Watermelon_LevelHearts_Post",

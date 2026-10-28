@@ -34,6 +34,7 @@ MARKERS = (
     "activity page route PASS",
     "featured unknown-user response PASS",
     "leaderboard page route PASS",
+    "leaderboard near route PASS",
     "metadata all response PASS",
     "metadata get response PASS",
     "metadata put response PASS",
