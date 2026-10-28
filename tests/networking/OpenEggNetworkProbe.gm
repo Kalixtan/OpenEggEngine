@@ -188,6 +188,18 @@ global RatingReply = function(data, response, error) {
     }
 };
 
+global FavouriteReply = function(data, response, error) {
+    if (data == "favourite_all" && response == null && error == 404) {
+        GameSystem.trace("favourite all response PASS");
+    } else if (data == "favourite_put" && response == null && error == 404) {
+        GameSystem.trace("favourite put response PASS");
+    } else if (data == "favourite_delete" && response == null && error == 404) {
+        GameSystem.trace("favourite delete response PASS");
+    } else {
+        GameSystem.trace("favourite response FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -210,6 +222,12 @@ global Main = function(p) {
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
             local ratingGet = Watermelon_Rating_Get(RatingReply, "rating_get", 31, "~level:test-level");
+            local favAll = Watermelon_Favourite_All(FavouriteReply, "favourite_all", 33, "~level:test-level");
+            local favPut = Watermelon_Favourite_Put(FavouriteReply, "favourite_put", 34, "~level:test-level", "/~identity:test-user");
+            local favDelete = Watermelon_Favourite_Delete(FavouriteReply, "favourite_delete", 35, "~level:test-level", "/~identity:test-user");
+            if (favAll != 1 || favPut != 1 || favDelete != 1) {
+                GameSystem.trace("favourite NOT_QUEUED");
+            }
             local ratingPut = Watermelon_Rating_Put(RatingReply, "rating_put", 32, "~level:test-level", 1);
             if (ratingGet != 1 || ratingPut != 1) {
                 GameSystem.trace("rating NOT_QUEUED");

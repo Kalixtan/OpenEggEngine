@@ -143,6 +143,32 @@ int QueueRating(gmThread* a_thread, bool a_put) {
 int GM_CDECL gmf_RatingGet(gmThread* a_thread) { return QueueRating(a_thread, false); }
 int GM_CDECL gmf_RatingPut(gmThread* a_thread) { return QueueRating(a_thread, true); }
 
+int QueueFavourite(gmThread* a_thread, const char* a_operation, bool a_all) {
+    if (a_thread->GetNumParams() < (a_all ? 4 : 5)) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string base, key;
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base) ||
+        (!a_all && !ReadOptionalString(a_thread, 4, key))) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (!base.empty() && base.front() == '/') base.erase(0, 1);
+    std::string path = "/otg/" + base;
+    if (!base.empty() && base.back() != '/') path += '/';
+    path += "~favourite:" + (a_all ? std::string("*") : EncodeRetailUrl(key)) +
+            "." + a_operation;
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_FavouriteAll(gmThread* a_thread) { return QueueFavourite(a_thread, "all", true); }
+int GM_CDECL gmf_FavouritePut(gmThread* a_thread) { return QueueFavourite(a_thread, "put", false); }
+int GM_CDECL gmf_FavouriteDelete(gmThread* a_thread) { return QueueFavourite(a_thread, "delete", false); }
+
 int GM_CDECL gmf_LeaderboardPage(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 4 && count != 5) {
@@ -703,6 +729,9 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Put", gmf_MetadataPut);
     a_machine.RegisterLibraryFunction("Watermelon_Rating_Get", gmf_RatingGet);
     a_machine.RegisterLibraryFunction("Watermelon_Rating_Put", gmf_RatingPut);
+    a_machine.RegisterLibraryFunction("Watermelon_Favourite_All", gmf_FavouriteAll);
+    a_machine.RegisterLibraryFunction("Watermelon_Favourite_Put", gmf_FavouritePut);
+    a_machine.RegisterLibraryFunction("Watermelon_Favourite_Delete", gmf_FavouriteDelete);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Page", gmf_LeaderboardPage);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Post", gmf_LeaderboardPost);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Get", gmf_LeaderboardGet);
@@ -739,9 +768,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_GetLevelVersions",
         "Watermelon_GetSnapshot",
         "Watermelon_GetSoundData",
-        "Watermelon_Favourite_All",
-        "Watermelon_Favourite_Put",
-        "Watermelon_Favourite_Delete",
         "Watermelon_Record_Post",
         "Watermelon_Grief_Post",
         "Watermelon_LevelHearts_Post",
