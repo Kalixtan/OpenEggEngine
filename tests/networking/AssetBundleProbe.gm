@@ -15,7 +15,7 @@ global BundleSuccess = function(data, result, error) {
             GameSystem.trace("asset staging and save PASS");
         }
         if ("__FAILURE_TEST__" == "yes") {
-            Watermelon_SaveLevelAndAssetsToDisk(BundleFailure, "failure", 62, "__LEVEL_ID__", "missing", "myLevels/bad");
+            Watermelon_SaveLevelAndAssetsToDisk(BundleFailure, "failure", 62, "__LEVEL_ID__", "missing", "myLevels/bad", false);
         }
     } else {
         GameSystem.trace("asset success FAIL");

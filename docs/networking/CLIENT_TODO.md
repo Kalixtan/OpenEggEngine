@@ -13,6 +13,8 @@ behavior.
 - [x] Construct the patched PS3 community screen when a server is configured;
       retain the fallback when offline or the patch helper is unavailable.
 - [ ] Exercise community screen initialization and browsing against a server.
+- [x] Accept the seventh asset-download argument used by patched scripts;
+      the retail wrapper ignores it.
 - [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.
 - [x] JSON, raw-text, and large-integer callback conversion paths.
 - [x] Configurable server URL, session ID, and user ID.

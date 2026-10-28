@@ -963,7 +963,8 @@ int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_SaveLevelAndAssetsToDisk(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(6);
+    // Retail accepts a seventh argument but does not pass it to the worker.
+    if (GM_NUM_PARAMS != 6 && GM_NUM_PARAMS != 7) return GM_EXCEPTION;
     std::string level, version, output;
     if (!g_networkClient || !ReadOptionalString(a_thread, 3, level) ||
         !ReadOptionalString(a_thread, 4, version) || !ReadOptionalString(a_thread, 5, output)) {
