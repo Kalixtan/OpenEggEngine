@@ -139,6 +139,32 @@ int GM_CDECL gmf_LeaderboardPage(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_LeaderboardPost(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 5) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string base, score;
+    const gmVariable value = a_thread->Param(4);
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (value.m_type == GM_INT) score = std::to_string(value.m_value.m_int);
+    else if (value.m_type != GM_STRING || !ReadOptionalString(a_thread, 4, score)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (!base.empty() && base.front() == '/') base.erase(0, 1);
+    std::string path = "/otg/" + base;
+    if (!base.empty() && base.back() != '/') path += '/';
+    path += "~leaderboard.post";
+    const int id = g_networkClient->QueueRetailPost(path, "score=" + score, "",
+        a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 2);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_LeaderboardNear(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 5 && count != 6) {
@@ -618,6 +644,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Get", gmf_MetadataGet);
     a_machine.RegisterLibraryFunction("Watermelon_Metadata_Put", gmf_MetadataPut);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Page", gmf_LeaderboardPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Post", gmf_LeaderboardPost);
     a_machine.RegisterLibraryFunction("Watermelon_Leaderboard_Near", gmf_LeaderboardNear);
     a_machine.RegisterLibraryFunction("Watermelon_Albums_Page", gmf_AlbumsPage);
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
@@ -656,7 +683,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Rating_Get",
         "Watermelon_Rating_Put",
         "Watermelon_Leaderboard_Get",
-        "Watermelon_Leaderboard_Post",
         "Watermelon_Leaderboard_All",
         "Watermelon_Record_Post",
         "Watermelon_Grief_Post",

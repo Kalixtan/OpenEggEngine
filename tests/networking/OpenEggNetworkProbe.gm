@@ -158,6 +158,16 @@ global LeaderboardNearReply = function(data, response, error) {
     }
 };
 
+global LeaderboardPostReply = function(data, response, error) {
+    if (data == "post_int" && response == null && error == 403) {
+        GameSystem.trace("leaderboard integer post PASS");
+    } else if (data == "post_string" && response == null && error == 403) {
+        GameSystem.trace("leaderboard string post PASS");
+    } else {
+        GameSystem.trace("leaderboard post FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -178,6 +188,12 @@ global Main = function(p) {
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
             local leaderboard = Watermelon_Leaderboard_Page(LeaderboardPageReply, "leaderboard", 24, "~level:test-level", "from=0&count=1");
             local near = Watermelon_Leaderboard_Near(LeaderboardNearReply, "near", 25, "~level:test-level", "/~identity:test-user", "count=0");
+            local scoreInt = Watermelon_Leaderboard_Post(LeaderboardPostReply, "post_int", 26, "global/~campaign:test-level", 42);
+            local scoreString = Watermelon_Leaderboard_Post(LeaderboardPostReply, "post_string", 27, "global/~campaign:test-level", "4294967296");
+            local scoreInvalid = Watermelon_Leaderboard_Post(null, null, 28, "global/~campaign:test-level", 1.5);
+            if (scoreInt == 1 && scoreString == 1 && scoreInvalid == 0) {
+                GameSystem.trace("leaderboard post setup PASS");
+            }
             if (near != 1) {
                 GameSystem.trace("leaderboard near NOT_QUEUED");
             }
