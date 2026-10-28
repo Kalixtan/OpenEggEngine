@@ -90,7 +90,8 @@ def main():
                 result = subprocess.run([str(root / "OpenEgg"), str(ROOT / "tests/networking"), "AccountLoginProbe.gm", "Main"],
                                         env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=45)
                 print(result.stdout, end="")
-                markers = ("account name PASS", "account request PASS", "account reconnect PASS", "account coordinator PASS") if valid else ("account rejection PASS",)
+                markers = ("account name PASS", "account request PASS", "account reconnect PASS", "account coordinator PASS", "account platform state PASS", "account platform persists PASS") if valid else ("account rejection PASS",)
+                markers += ("account platform initial PASS",)
                 if result.returncode or any(marker not in result.stdout for marker in markers) or "account request FAIL" in result.stdout:
                     raise SystemExit("account login probe failed")
             if server and seen != [True, True, False]:

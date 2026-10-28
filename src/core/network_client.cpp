@@ -457,6 +457,7 @@ void NetworkClient::PumpCallbacks() {
             m_manualValidationRequestId = 0;
             if (completion.status == 200 || completion.status == 201) {
                 m_identityReady = true;
+                m_desktopPlatformOnline = true;
                 m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                     gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
                 if (m_helloRequestId) m_coordinatorState = 20;
@@ -497,6 +498,7 @@ void NetworkClient::PumpCallbacks() {
                         session["person"]["display_name"].IsString())
                         m_platformOnlineId = session["person"]["display_name"].GetString();
                     m_identityReady = true;
+                    m_desktopPlatformOnline = true;
                     std::fprintf(stderr, "network: %s login succeeded\n", accountLogin ? "account" : "ticket");
                     m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                         gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);

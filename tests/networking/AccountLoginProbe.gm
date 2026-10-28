@@ -4,6 +4,10 @@ global AccountReply = function(data, result, error) {
     if (error == 0 && result != null) {
         GameSystem.trace("account request PASS");
         OnlineCoordinator_GoOffline();
+        if (!Watermelon_IsOnline() && OnlineCoordinator_IsLoggedIntoPlatform() &&
+            Network_IsSignedIn() && Network_IsOnline()) {
+            GameSystem.trace("account platform persists PASS");
+        }
         OnlineCoordinator_GoOnline();
         data.stage = 2;
     } else { GameSystem.trace("account request FAIL"); }
@@ -11,12 +15,21 @@ global AccountReply = function(data, result, error) {
 
 global Main = function(p) {
     return table(Process=p, stage=0,
-        constructor=function() { OnlineCoordinator_GoOnline(); },
+        constructor=function() {
+            if (!OnlineCoordinator_IsLoggedIntoPlatform() && !Network_IsSignedIn() && !Network_IsOnline()) {
+                GameSystem.trace("account platform initial PASS");
+            }
+            OnlineCoordinator_GoOnline();
+        },
         init=function() { return true; },
         update=function() {
             if (this.stage == 0 && Watermelon_IsOnline()) {
                 this.stage = 1;
                 if (OnlineCoordinator_GetOnlineID() == "openegg_probe") { GameSystem.trace("account name PASS"); }
+                if (OnlineCoordinator_IsLoggedIntoPlatform() && Network_IsSignedIn() &&
+                    Network_IsOnline() && !Network_IsChatRestricted()) {
+                    GameSystem.trace("account platform state PASS");
+                }
                 Watermelon_Index_Page(AccountReply, this, 1, "type=level&search=all");
             } else if (this.stage == 2 && Watermelon_IsOnline()) {
                 this.stage = 3;
@@ -26,7 +39,8 @@ global Main = function(p) {
                 GameSystem.trace("account coordinator PASS");
             } else if (this.stage == 0 && OnlineCoordinator_GetLastError() == -12) {
                 this.stage = 5;
-                if (!Watermelon_IsOnline()) { GameSystem.trace("account rejection PASS"); }
+                if (!Watermelon_IsOnline() && !OnlineCoordinator_IsLoggedIntoPlatform() &&
+                    !Network_IsSignedIn() && !Network_IsOnline()) { GameSystem.trace("account rejection PASS"); }
             }
         });
 };

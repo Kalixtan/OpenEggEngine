@@ -19,6 +19,9 @@ global Main = function(p) {
         update=function() {
             if (this.stage == 0 && Watermelon_IsOnline()) {
                 this.stage = 1;
+                if (OnlineCoordinator_IsLoggedIntoPlatform() && Network_IsSignedIn() && Network_IsOnline()) {
+                    GameSystem.trace("manual platform state PASS");
+                }
                 Watermelon_Index_Page(ManualReply, this, 1, "type=level&search=all");
             } else if (this.stage == 2 && Watermelon_IsOnline()) {
                 this.stage = 3;

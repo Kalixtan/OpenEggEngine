@@ -16,7 +16,7 @@ int GM_CDECL gmf_IsOffline(gmThread* a_thread) { int state = CoordinatorState();
 int GM_CDECL gmf_IsDisabled(gmThread* a_thread) { a_thread->PushInt(CoordinatorState() == 1); return GM_OK; }
 int GM_CDECL gmf_IsConnecting(gmThread* a_thread) { int state = CoordinatorState(); a_thread->PushInt(state != 1 && state != 2 && state != 4 && state != 30); return GM_OK; }
 int GM_CDECL gmf_IsReadyGoOffline(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
-int GM_CDECL gmf_IsLoggedIntoPlatform(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+int GM_CDECL gmf_IsLoggedIntoPlatform(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->DesktopPlatformOnline()); return GM_OK; }
 int GM_CDECL gmf_HasChatPermissions(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->HasChatPermissions()); return GM_OK; }
 int GM_CDECL gmf_IsSendQueueFull(gmThread* a_thread) { a_thread->PushInt(!g_networkClient || g_networkClient->IsSendQueueFull()); return GM_OK; }
 int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
@@ -25,6 +25,8 @@ int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
 }
 int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(g_networkClient ? g_networkClient->CoordinatorError() : 0); return GM_OK; }
 int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushNewString(g_networkClient ? g_networkClient->PlatformOnlineId().c_str() : ""); return GM_OK; }
+int GM_CDECL gmf_NetworkPlatformOnline(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->DesktopPlatformOnline()); return GM_OK; }
+int GM_CDECL gmf_NetworkChatRestricted(gmThread* a_thread) { a_thread->PushInt(!SystemConfig::Get().networkCommunityAllowed); return GM_OK; }
 int GM_CDECL gmf_GoOnline(gmThread*) { if (g_networkClient) g_networkClient->GoOnline(); return GM_OK; }
 int GM_CDECL gmf_GoOffline(gmThread*) { if (g_networkClient) g_networkClient->GoOffline(); return GM_OK; }
 
@@ -173,10 +175,10 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_TrophyUnlock", gmf_Network_TrophyUnlock);
     a_machine.RegisterLibraryFunction("Network_TrophySetup", gmf_Network_TrophySetup);
     a_machine.RegisterLibraryFunction("Network_GetIsTrophyQueueFull", gmf_Network_GetIsTrophyQueueFull);
-    a_machine.RegisterLibraryFunction("Network_IsSignedIn", gmf_NetworkUnavailable);
-    a_machine.RegisterLibraryFunction("Network_IsOnline", gmf_NetworkUnavailable);
+    a_machine.RegisterLibraryFunction("Network_IsSignedIn", gmf_NetworkPlatformOnline);
+    a_machine.RegisterLibraryFunction("Network_IsOnline", gmf_NetworkPlatformOnline);
     a_machine.RegisterLibraryFunction("Network_IsAccountRestricted", gmf_NetworkUnavailable);
-    a_machine.RegisterLibraryFunction("Network_IsChatRestricted", gmf_NetworkUnavailable);
+    a_machine.RegisterLibraryFunction("Network_IsChatRestricted", gmf_NetworkChatRestricted);
     a_machine.RegisterLibraryFunction("Network_ActivityStreamPost", gmf_Network_ActivityStreamPost);
     a_machine.RegisterLibraryFunction("Network_WebBrowserLaunch", gmf_Network_WebBrowserLaunch);
     a_machine.RegisterLibraryFunction("Network_WebBrowserIsAvailable", gmf_NetworkUnavailable);

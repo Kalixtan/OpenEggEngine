@@ -75,6 +75,9 @@ behavior.
       restriction data where a platform provider is available.
 - [ ] Replace the ticket-derived online ID with a platform provider when one
       exists; this desktop fallback does not query PSN sign-in state.
+- [ ] Replace the platform-state fallback with a real platform provider. A
+      successful desktop server login currently stands in for platform state;
+      it does not establish a PSN sign-in or retail restriction status.
 - [ ] Implement other product regions and later coordinator phases. Match
       retail update timing and malformed EULA edge cases.
 - [ ] Match retail login reset, request purging, malformed responses and error
