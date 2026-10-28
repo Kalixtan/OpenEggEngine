@@ -146,7 +146,7 @@ global Main = function(p) {
                         Watermelon_ParseLevelObjectString(panel.levelVersionID, parts);
                         this.queueLevelKey = panel.levelID;
                         this.queueLevelId = parts.levelId;
-                        if (Watermelon_GetLevelData(CommunityLevelReply, this, 42, parts.levelId, parts.uploadId)) {
+                        if (Watermelon_GetLevelData(CommunityLevelReply, this, 42, parts.levelId, parts.uploadId, "ignored")) {
                             this.stage = 6;
                         } else {
                             GameSystem.trace("community level queue FAIL");

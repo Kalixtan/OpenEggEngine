@@ -917,8 +917,9 @@ int GM_CDECL gmf_GetFriends(gmThread* a_thread) {
     return GM_OK;
 }
 
+// These four resource wrappers read slots 0-4 without checking for extra arguments.
 int GM_CDECL gmf_GetLevelDescription(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(5);
+    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
     std::string level, upload;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, upload)) {
@@ -933,7 +934,7 @@ int GM_CDECL gmf_GetLevelDescription(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetSoundData(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(5);
+    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
     std::string level, version;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
@@ -948,7 +949,7 @@ int GM_CDECL gmf_GetSoundData(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(5);
+    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
     std::string level, version;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
@@ -977,7 +978,7 @@ int GM_CDECL gmf_SaveLevelAndAssetsToDisk(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetLevelThumbnail(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(5);
+    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
     std::string level, version;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {

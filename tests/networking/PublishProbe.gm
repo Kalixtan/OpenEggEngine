@@ -42,7 +42,7 @@ global PublishDescription = function(data, result, error) {
 global PublishFeaturedGet = function(data, result, error) {
     if (error == 0 && result == "/~level:" + data.levelId + "/~version:" + data.uploadId) {
         GameSystem.trace("publish featured PASS");
-        Watermelon_GetLevelDescription(PublishDescription, data, 46, data.levelId, data.uploadId);
+        Watermelon_GetLevelDescription(PublishDescription, data, 46, data.levelId, data.uploadId, "ignored");
     } else { GameSystem.trace("publish featured get FAIL"); }
 };
 

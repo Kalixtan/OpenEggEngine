@@ -27,6 +27,8 @@ behavior.
       channel order and capture timing with retail.
 - [x] Download the synthetic level using the panel's retail version ID and
       check its decoded BPM (`--expect-level-data`).
+- [x] Accept extra arguments on the traced level, sound, thumbnail, and
+      description wrappers; headless fixtures check each request.
 - [x] Queue the panel's level, read it back, remove it, and confirm a later
       lookup reports it missing (`--expect-queue`).
 - [ ] Exercise community screen drawing and browsing against a server.
