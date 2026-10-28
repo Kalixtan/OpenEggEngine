@@ -1,0 +1,16 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            GameMonkeyScript.loadScript("ArrayHelper.gm");
+            local screen = GameSystem.runProcess("Platformer_MainMenu5PS3_CommunityScreen");
+            if (?COMMONCOMMUNITYSTUFF_InitCommonCommunityScreenStuff && screen != null &&
+                screen.Process != null && screen.preDrawList != null && screen.widgets != null) {
+                GameSystem.trace("community screen constructor PASS");
+            } else if (screen != null && screen.Process == null && screen.isInited()) {
+                GameSystem.trace("community fallback PASS");
+            } else { GameSystem.trace("community screen constructor FAIL"); }
+            if (screen != null) { screen.terminate(); }
+        },
+        init=function() { return true; },
+        update=function() {});
+};

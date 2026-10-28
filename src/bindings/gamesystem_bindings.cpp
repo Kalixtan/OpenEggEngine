@@ -2,6 +2,7 @@
 #include "gamesystem_bindings.h"
 #include "../core/engine_context.h"
 #include "../core/process_manager.h"
+#include "../core/system_config.h"
 #include "gmTableObject.h"
 #include "gmCall.h"
 #include "vector2d_bindings.h"
@@ -20,16 +21,20 @@ float Random01() {
 }
 
 bool IsUnavailableCommunityProcess(const std::string& a_name) {
-    // The PS3 community screens depend on COMMONCOMMUNITYSTUFF_* providers
-    // supplied by the online service layer. That provider is absent from the
-    // mounted retail archives, and this desktop build intentionally keeps
-    // Network/Watermelon offline. Letting the process constructor run reaches
-    // missing globals during construction and leaves a half-created process.
-    // The offline compatibility path below supplies a ready no-op handle so
-    // stock menu code can keep its process list complete without changing any
-    // retail GameMonkey source.
     return a_name == "Platformer_MainMenu5PS3_CommunityScreen" ||
            a_name == "Platformer_MainMenu5_CommunityScreen";
+}
+
+bool LoadCommunityProvider(gmMachine& machine) {
+    if (SystemConfig::Get().networkBaseUrl.empty()) return false;
+    constexpr const char* function = "COMMONCOMMUNITYSTUFF_InitCommonCommunityScreenStuff";
+    if (machine.GetGlobals()->Get(&machine, function).m_type == GM_FUNCTION) return true;
+    FileHelper* files = GetEngineContext().fileHelper;
+    std::string source;
+    constexpr const char* path = "Platformer/CommonCommunityStuff.gm";
+    if (!files || !files->ReadTextFile(path, source)) return false;
+    if (machine.ExecuteString(source.c_str(), nullptr, true, path) != 0) return false;
+    return machine.GetGlobals()->Get(&machine, function).m_type == GM_FUNCTION;
 }
 
 int GM_CDECL OfflineCommunityProcessIsInited(gmThread* a_thread) {
@@ -331,7 +336,7 @@ int GM_CDECL gmf_runProcess(gmThread* a_thread) {
     GM_STRING_PARAM(name, 0, "");
     bool replaceExisting = false;
     if (a_thread->GetNumParams() == 2) replaceExisting = a_thread->Param(1).m_value.m_int != 0;
-    if (IsUnavailableCommunityProcess(name)) {
+    if (IsUnavailableCommunityProcess(name) && !LoadCommunityProvider(*a_thread->GetMachine())) {
         static bool reportedUnavailableCommunity = false;
         if (!reportedUnavailableCommunity) {
             std::fprintf(stderr,
