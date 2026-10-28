@@ -728,10 +728,12 @@ int GM_CDECL gmf_PackScore(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_INT_PARAM(tokens, 0, 0);
     GM_INT_PARAM(playTime, 1, 0);
-    long long t = tokens;
+    const int32_t inputTokens = static_cast<int32_t>(tokens);
+    int64_t t = inputTokens;
     if (t > 0x7ffe) t = 0x7ffe;
     unsigned long long packed =
-        ((unsigned long long)(0x7fff - t) << 32) | (uint32_t)playTime;
+        ((unsigned long long)(0x7fff - t) << 32) |
+        static_cast<uint64_t>(static_cast<int64_t>(static_cast<int32_t>(playTime)));
     char buf[64];
     std::snprintf(buf, sizeof(buf), "%llu", packed);
     a_thread->PushNewString(buf);
@@ -744,8 +746,8 @@ int GM_CDECL gmf_UnpackScore(gmThread* a_thread) {
     GM_TABLE_PARAM(table, 1);
     gmMachine& m = *a_thread->GetMachine();
     unsigned long long packed = std::strtoull(str, nullptr, 10);
-    table->Set(&m, "tokens", gmVariable((gmint)(0x7fff - (gmint)(packed >> 32))));
-    table->Set(&m, "time", gmVariable((gmint)(uint32_t)(packed & 0xffffffffu)));
+    table->Set(&m, "tokens", gmVariable((gmint)(0x7fff - ((packed >> 32) & 0x7fff))));
+    table->Set(&m, "time", gmVariable((gmint)(int32_t)(uint32_t)packed));
     a_thread->PushTable(table);
     return GM_OK;
 }
