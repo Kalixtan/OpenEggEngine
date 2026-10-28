@@ -523,6 +523,25 @@ int GM_CDECL gmf_FeaturedLevelGet(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_FeaturedLevelPost(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string levelId;
+    if (!g_networkClient || g_networkClient->UserId().empty() ||
+        !ReadOptionalString(a_thread, 3, levelId)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
+                             "/~metadata:featuredlevel.put";
+    const int id = g_networkClient->QueueRetailPost(path, "/~level:" + levelId,
+        "text/plain", a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
 // =====================================================================
 // LOCAL helpers -- real semantics, used in single-player paths too.
 // =====================================================================
@@ -775,6 +794,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Page", gmf_ActivityStreamPage);
     a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Post", gmf_ActivityStreamPost);
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Get", gmf_FeaturedLevelGet);
+    a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Post", gmf_FeaturedLevelPost);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkPost", gmf_OpenEggNetworkPost);
@@ -799,7 +819,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_LevelHearts_Delete",
         "Watermelon_Get_Friends",
         "Watermelon_Following_All",
-        "Watermelon_FeaturedLevel_Post",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
         "Watermelon_GetCloudSave",

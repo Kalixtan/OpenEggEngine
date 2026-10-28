@@ -35,6 +35,7 @@ MARKERS = (
     "activity page route PASS",
     "activity post response PASS",
     "featured unknown-user response PASS",
+    "featured post response PASS",
     "rating get response PASS",
     "favourite all response PASS",
     "favourite put response PASS",

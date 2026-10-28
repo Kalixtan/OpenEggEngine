@@ -118,6 +118,14 @@ global FeaturedMissingUserReply = function(data, response, error) {
     }
 };
 
+global FeaturedPostReply = function(data, response, error) {
+    if (data == "featured_post" && response == null && error == 404) {
+        GameSystem.trace("featured post response PASS");
+    } else {
+        GameSystem.trace("featured post response FAIL");
+    }
+};
+
 global InvalidTicketReply = function(data, response, status) {
     if (data == "ticket" && status == 400) {
         GameSystem.trace("ticket POST route PASS");
@@ -233,6 +241,10 @@ global Main = function(p) {
                 GameSystem.trace("activity post NOT_QUEUED");
             }
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
+            local featuredPost = Watermelon_FeaturedLevel_Post(FeaturedPostReply, "featured_post", 37, "test-level");
+            if (featuredPost != 1) {
+                GameSystem.trace("featured post NOT_QUEUED");
+            }
             local ratingGet = Watermelon_Rating_Get(RatingReply, "rating_get", 31, "~level:test-level");
             local favAll = Watermelon_Favourite_All(FavouriteReply, "favourite_all", 33, "~level:test-level");
             local favPut = Watermelon_Favourite_Put(FavouriteReply, "favourite_put", 34, "~level:test-level", "/~identity:test-user");
