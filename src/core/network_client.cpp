@@ -110,7 +110,6 @@ gmVariable JsonToGm(gmMachine& a_machine, const rapidjson::Value& a_value, int a
         int index = 0;
         for (const rapidjson::Value& element : a_value.GetArray())
             table->Set(&a_machine, index++, JsonToGm(a_machine, element, a_mode));
-        table->Set(&a_machine, "size", gmVariable(static_cast<gmint>(index)));
     } else if (a_value.IsObject()) {
         for (auto member = a_value.MemberBegin(); member != a_value.MemberEnd(); ++member) {
             const gmVariable key(a_machine.AllocStringObject(
@@ -180,8 +179,6 @@ private:
     }
     bool End() {
         if (m_stack.empty()) return false;
-        if (m_stack.back().array)
-            m_stack.back().table->Set(&m_machine, "size", gmVariable(static_cast<gmint>(m_stack.back().index)));
         m_stack.pop_back();
         return true;
     }

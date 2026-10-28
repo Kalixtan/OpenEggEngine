@@ -43,6 +43,8 @@ behavior.
       empty records and the traced header value with a local fixture.
 - [x] Gate snapshot, version and unpublish requests on identity setup; test
       their routes and a publish/update/cleanup cycle on the local server.
+- [x] Convert JSON arrays to integer-keyed tables without adding a `size` key;
+      retail scripts count their entries with `tableCount`.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.
@@ -122,7 +124,7 @@ behavior.
       retail; identity and global image requests use separate desktop workers.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
       HTTP errors, and transport errors.
-- [ ] Compare partial JSON tables and array size fields with retail for malformed
+- [ ] Compare partial JSON tables and array handling with retail for malformed
       tokens, truncated strings, nesting, numeric limits and trailing bytes.
       OpenEgg retains values parsed before an error, but has no retail capture.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;

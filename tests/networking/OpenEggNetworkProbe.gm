@@ -1,5 +1,5 @@
 global TypedIndexReply = function(data, response, error) {
-    if (data == "typed" && response.count == 0 && response.items.size == 0 && error == 0) {
+    if (data == "typed" && response.count == 0 && tableCount(response.items) == 0 && error == 0) {
         GameSystem.trace("typed index response PASS");
     } else {
         GameSystem.trace("typed index response FAIL");
@@ -7,7 +7,7 @@ global TypedIndexReply = function(data, response, error) {
 };
 
 global WildcardIndexReply = function(data, response, error) {
-    if (data == "wildcard" && response.count == 0 && response.items.size == 0 && error == 0) {
+    if (data == "wildcard" && response.count == 0 && tableCount(response.items) == 0 && error == 0) {
         GameSystem.trace("wildcard index response PASS");
     } else {
         GameSystem.trace("wildcard index response FAIL");

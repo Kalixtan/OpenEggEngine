@@ -1,5 +1,5 @@
 global AuthIndexReply = function(data, response, error) {
-    if (data == "authenticated" && error == 0 && (("__LEVEL_ID__" == "" && response.count == 0 && response.items.size == 0) || ("__LEVEL_ID__" != "" && response.count == 1 && response.items.size == 1))) {
+    if (data == "authenticated" && error == 0 && (("__LEVEL_ID__" == "" && response.count == 0 && tableCount(response.items) == 0) || ("__LEVEL_ID__" != "" && response.count == 1 && tableCount(response.items) == 1))) {
         GameSystem.trace("authenticated index response PASS");
     } else {
         GameSystem.trace("authenticated index response FAIL");
@@ -7,7 +7,7 @@ global AuthIndexReply = function(data, response, error) {
 };
 
 global AuthUserPageReply = function(data, response, error) {
-    if (error == 0 && response.count == 0 && response.items.size == 0) {
+    if (error == 0 && response.count == 0 && tableCount(response.items) == 0) {
         if (data == "following") {
             GameSystem.trace("authenticated following response PASS");
         } else if (data == "followers") {
@@ -21,7 +21,7 @@ global AuthUserPageReply = function(data, response, error) {
 };
 
 global AuthFollowCleared = function(data, response, error) {
-    if (error == 0 && response.count == 0 && response.items.size == 0) {
+    if (error == 0 && response.count == 0 && tableCount(response.items) == 0) {
         GameSystem.trace("authenticated unfollow readback PASS");
     } else {
         GameSystem.trace("authenticated unfollow readback FAIL");
@@ -56,7 +56,7 @@ global AuthFollowPut = function(data, response, error) {
 };
 
 global AuthHeartCleared = function(data, response, error) {
-    if (error == 0 && response.count == 0 && response.items.size == 0) {
+    if (error == 0 && response.count == 0 && tableCount(response.items) == 0) {
         GameSystem.trace("authenticated unheart readback PASS");
     } else {
         GameSystem.trace("authenticated unheart readback FAIL");
@@ -111,7 +111,7 @@ global AuthSnapshotReply = function(data, response, error) {
 };
 
 global AuthRecordLeaderboard = function(data, response, error) {
-    if (error == 0 && response.items.size > 0 && response.items[0].score == "4294967296") {
+    if (error == 0 && tableCount(response.items) > 0 && response.items[0].score == "4294967296") {
         GameSystem.trace("authenticated record readback PASS");
     } else {
         GameSystem.trace("authenticated record readback FAIL");
@@ -138,8 +138,12 @@ global AuthVersionsReply = function(data, response, error) {
 global Main = function(p) {
     return table(
         Process=p,
+        started=0,
         init=function() { return true; },
-        constructor=function() {
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (this.started || !Watermelon_IsOnline()) { return; }
+            this.started = 1;
             local request = Watermelon_Index_Page(AuthIndexReply, "authenticated", 1, "type=level&search=all&count=1");
             local identity = Watermelon_GetUserIdentityId();
             local following = Watermelon_Following_Page(AuthUserPageReply, "following", 2, identity, "from=0&count=1");
@@ -161,7 +165,6 @@ global Main = function(p) {
             if (following == 1 && followers == 1 && hearts == 1) {
                 GameSystem.trace("authenticated user pages QUEUED");
             }
-        },
-        update=function() {}
+        }
     );
 };
