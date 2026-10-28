@@ -76,8 +76,22 @@ global Main = function(p) {
                 this.nextTab += 1;
                 this.stage = 2;
             } else if (this.stage == 2 && this.nextTab == 5) {
-                this.screen.terminate();
-                this.stage = 4;
+                if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) {
+                    this.stage = 4;
+                } else {
+                    this.screen.terminate();
+                    this.stage = 5;
+                }
+            } else if (this.stage == 4) {
+                local panels = this.screen.tabs[this.screen.HITS_BUTTON_INDEX].results.panels;
+                local panel = panels[0];
+                if (?panel && panel.levelName == "Probe level" &&
+                    panel.screenshotStatus == this.screen.RESPONSE_RECEIVED &&
+                    ?panel.screenshotTexture && panel.screenshotTexture.isValid()) {
+                    GameSystem.trace("community thumbnail PASS");
+                    this.screen.terminate();
+                    this.stage = 5;
+                }
             }
         });
 };

@@ -20,6 +20,8 @@ behavior.
 - [x] Create greatest-hits and activity panels from a synthetic server level;
       seed it with the server's `OpenEggCommunityFixture` tool and require it
       with `--expect-populated` in the community probe.
+- [x] Fetch the synthetic level's thumbnail and verify the retail callback
+      assigns a valid panel texture (`--expect-thumbnail`).
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept the seventh asset-download argument used by patched scripts;
