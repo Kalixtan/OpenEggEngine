@@ -35,6 +35,51 @@ global CommunityLevelReply = function(data, result, error) {
     data.levelFinished = 1;
 };
 
+global CommunityQueueCleared = function(data, result, error) {
+    if (error == 404 && result == null) { GameSystem.trace("community queue cleared PASS"); }
+    else { GameSystem.trace("community queue cleared FAIL", error); }
+    data.queueFinished = 1;
+};
+
+global CommunityQueueDeleted = function(data, result, error) {
+    if (error == 0) {
+        GameSystem.trace("community queue delete PASS");
+        if (!Watermelon_Queued_Get(CommunityQueueCleared, data, 46, data.queueLevelId)) {
+            GameSystem.trace("community queue cleared setup FAIL");
+            data.queueFinished = 1;
+        }
+    } else {
+        GameSystem.trace("community queue delete FAIL", error);
+        data.queueFinished = 1;
+    }
+};
+
+global CommunityQueueRead = function(data, result, error) {
+    if (error == 0 && result != null) {
+        GameSystem.trace("community queue read PASS");
+        if (!Watermelon_Queued_Delete(CommunityQueueDeleted, data, 45, data.queueLevelKey)) {
+            GameSystem.trace("community queue delete setup FAIL");
+            data.queueFinished = 1;
+        }
+    } else {
+        GameSystem.trace("community queue read FAIL", error);
+        data.queueFinished = 1;
+    }
+};
+
+global CommunityQueueAdded = function(data, result, error) {
+    if (error == 0) {
+        GameSystem.trace("community queue put PASS");
+        if (!Watermelon_Queued_Get(CommunityQueueRead, data, 44, data.queueLevelId)) {
+            GameSystem.trace("community queue read setup FAIL");
+            data.queueFinished = 1;
+        }
+    } else {
+        GameSystem.trace("community queue put FAIL", error);
+        data.queueFinished = 1;
+    }
+};
+
 global Main = function(p) {
     return table(Process=p, stage=0, nextTab=0,
         constructor=function() {
@@ -99,6 +144,8 @@ global Main = function(p) {
                     if (?COMMUNITY_REQUIRE_LEVEL && COMMUNITY_REQUIRE_LEVEL) {
                         local parts = {};
                         Watermelon_ParseLevelObjectString(panel.levelVersionID, parts);
+                        this.queueLevelKey = panel.levelID;
+                        this.queueLevelId = parts.levelId;
                         if (Watermelon_GetLevelData(CommunityLevelReply, this, 42, parts.levelId, parts.uploadId)) {
                             this.stage = 6;
                         } else {
@@ -111,6 +158,18 @@ global Main = function(p) {
                     }
                 }
             } else if (this.stage == 6 && ?this.levelFinished) {
+                if (?COMMUNITY_REQUIRE_QUEUE && COMMUNITY_REQUIRE_QUEUE) {
+                    if (Watermelon_Queued_Put(CommunityQueueAdded, this, 43, this.queueLevelKey)) {
+                        this.stage = 7;
+                    } else {
+                        GameSystem.trace("community queue put setup FAIL");
+                        this.stage = 5;
+                    }
+                } else {
+                    this.screen.terminate();
+                    this.stage = 5;
+                }
+            } else if (this.stage == 7 && ?this.queueFinished) {
                 this.screen.terminate();
                 this.stage = 5;
             }
