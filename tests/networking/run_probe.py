@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import uuid
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -68,7 +69,12 @@ def main():
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--session-id", help="Local test session ID for an authenticated probe")
     parser.add_argument("--user-id", default="test-user", help="Identity belonging to the session")
+    parser.add_argument("--target-id", help="Fixture user ID for follow and unfollow checks")
     args = parser.parse_args()
+    if args.target_id:
+        args.target_id = str(uuid.UUID(args.target_id))
+        if not args.session_id:
+            parser.error("--target-id requires --session-id")
 
     engine = args.engine.resolve()
     if not engine.is_file():
@@ -109,8 +115,17 @@ def main():
         markers = ("authenticated request QUEUED", "authenticated index response PASS",
                    "authenticated user pages QUEUED", "authenticated following response PASS",
                    "authenticated followers response PASS", "authenticated hearts response PASS") if args.session_id else MARKERS
+        script_dir = ROOT / "tests" / "networking"
+        if args.session_id:
+            script_dir = temp / "probe"
+            script_dir.mkdir()
+            source = (ROOT / "tests" / "networking" / probe).read_text(encoding="utf-8")
+            (script_dir / probe).write_text(source.replace("__TARGET_ID__", args.target_id or ""), encoding="utf-8")
+            if args.target_id:
+                markers += ("authenticated follow PASS", "authenticated follow read PASS", "authenticated unfollow PASS",
+                            "authenticated unfollow readback PASS")
         result = subprocess.run(
-            [str(test_engine), str(ROOT / "tests" / "networking"),
+            [str(test_engine), str(script_dir),
              probe, "Main"],
             cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, timeout=15, check=False,
