@@ -10,11 +10,43 @@
 #include <cstdint>
 #include <cstdlib>
 #include <string>
+#include <string_view>
+#include <vector>
 
 
 namespace {
 
 NetworkClient* g_networkClient = nullptr;
+
+struct MultipartPart {
+    const char* name;
+    std::string_view value;
+    const char* mime = nullptr;
+};
+
+bool BuildMultipart(const std::vector<MultipartPart>& parts, std::string& body, std::string& contentType) {
+    static const char* boundaries[] = {"----BouNdaRy", "--fOsBKwDjKn", "--krj6RoYg8n", "--BqiXa1etbG",
+                                       "--vghjJJFy5S", "--HUoWHHxpJN", "--IkzsNBtjJy", "--zzzzzzzzzz"};
+    const char* boundary = nullptr;
+    for (const char* candidate : boundaries) {
+        bool present = false;
+        for (const auto& part : parts) {
+            if (part.value.find(candidate) != std::string_view::npos) { present = true; break; }
+        }
+        if (!present) { boundary = candidate; break; }
+    }
+    if (!boundary) return false;
+    body.clear();
+    for (const auto& part : parts) {
+        body += "--"; body += boundary; body += "\r\nContent-Disposition: form-data; name=\"";
+        body += part.name; body += '"';
+        if (part.mime) { body += "; filename=\"file.tmp\"\r\nContent-Type: "; body += part.mime; }
+        body += "\r\n\r\n"; body.append(part.value.data(), part.value.size()); body += "\r\n";
+    }
+    body += "--"; body += boundary; body += "--\r\n";
+    contentType = std::string("multipart/form-data; boundary=") + boundary;
+    return true;
+}
 
 std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200) {
     char buffer[0x200];
@@ -949,34 +981,18 @@ int GM_CDECL gmf_PublishLevel(gmThread* a_thread) {
         a_thread->PushInt(0); return GM_OK;
     }
     const std::string language = std::to_string(SystemConfig::Get().languageCode);
-    static const char* boundaries[] = {"----BouNdaRy", "--fOsBKwDjKn", "--krj6RoYg8n", "--BqiXa1etbG",
-                                       "--vghjJJFy5S", "--HUoWHHxpJN", "--IkzsNBtjJy", "--zzzzzzzzzz"};
-    const char* boundary = nullptr;
-    for (const char* candidate : boundaries) {
-        if (level.find(candidate) == std::string::npos && image.find(candidate) == std::string::npos &&
-            sound.find(candidate) == std::string::npos && title.find(candidate) == std::string::npos &&
-            description.find(candidate) == std::string::npos && versionId.find(candidate) == std::string::npos &&
-            language.find(candidate) == std::string::npos) { boundary = candidate; break; }
-    }
-    if (!boundary) { a_thread->PushInt(0); return GM_OK; }
-    std::string body;
-    auto part = [&](const char* name, const std::string& value, const char* mime) {
-        body += "--"; body += boundary; body += "\r\nContent-Disposition: form-data; name=\"";
-        body += name; body += '"';
-        if (mime) { body += "; filename=\"file.tmp\"\r\nContent-Type: "; body += mime; }
-        body += "\r\n\r\n"; body += value; body += "\r\n";
-    };
-    if (!create) part("baseVersionId", versionId, nullptr);
-    part("title", title, nullptr);
-    part("description", description, nullptr);
-    part("image", image, "image/png");
-    part("level", level, "application/vnd.soundshapes.level");
-    part("sound", sound, "application/vnd.soundshapes.sound");
-    part("sce_np_language", language, nullptr);
-    body += "--"; body += boundary; body += "--\r\n";
+    std::vector<MultipartPart> parts;
+    if (!create) parts.push_back({"baseVersionId", versionId});
+    parts.push_back({"title", title});
+    parts.push_back({"description", description});
+    parts.push_back({"image", image, "image/png"});
+    parts.push_back({"level", level, "application/vnd.soundshapes.level"});
+    parts.push_back({"sound", sound, "application/vnd.soundshapes.sound"});
+    parts.push_back({"sce_np_language", language});
+    std::string body, contentType;
+    if (!BuildMultipart(parts, body, contentType)) { a_thread->PushInt(0); return GM_OK; }
     const std::string path = create ? "/otg/~level:*.create" : "/otg/~level:" + levelId + ".update";
-    const int request = g_networkClient->QueueRetailPost(path, body,
-        std::string("multipart/form-data; boundary=") + boundary,
+    const int request = g_networkClient->QueueRetailPost(path, body, contentType,
         a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 5);
     a_thread->PushInt(request != 0);
     return GM_OK;
@@ -1000,26 +1016,12 @@ int GM_CDECL gmf_PostCloudSave(gmThread* a_thread) {
     }
     auto* string = static_cast<gmStringObject*>(a_thread->GetMachine()->GetObject(a_thread->Param(2).m_value.m_ref));
     const std::string save = string->GetString();
-    static const char* boundaries[] = {"----BouNdaRy", "--fOsBKwDjKn", "--krj6RoYg8n", "--BqiXa1etbG",
-                                       "--vghjJJFy5S", "--HUoWHHxpJN", "--IkzsNBtjJy", "--zzzzzzzzzz"};
-    const char* boundary = nullptr;
-    for (const char* candidate : boundaries) {
-        if (save.find(candidate) == std::string::npos) { boundary = candidate; break; }
+    std::string body, contentType;
+    if (!BuildMultipart({{"mutable", "true"}, {"deleteLevel", "HARD"}, {"file", save}}, body, contentType)) {
+        a_thread->PushInt(0); return GM_OK;
     }
-    if (!boundary) { a_thread->PushInt(0); return GM_OK; }
-    std::string body;
-    auto part = [&](const char* name, const std::string& value) {
-        body += "--"; body += boundary;
-        body += "\r\nContent-Disposition: form-data; name=\"";
-        body += name; body += "\"\r\n\r\n"; body += value; body += "\r\n";
-    };
-    part("mutable", "true");
-    part("deleteLevel", "HARD");
-    part("file", save);
-    body += "--"; body += boundary; body += "--\r\n";
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() + "/~content:progress.put";
-    const int id = g_networkClient->QueueRetailPost(path, body,
-        std::string("multipart/form-data; boundary=") + boundary,
+    const int id = g_networkClient->QueueRetailPost(path, body, contentType,
         a_thread->Param(0), a_thread->Param(1), gmVariable::s_null, 0, 1);
     a_thread->PushInt(id != 0);
     return GM_OK;
