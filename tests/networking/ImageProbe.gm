@@ -1,0 +1,33 @@
+global ImageReply = function(data, result, error) {
+    if ((data == "thumbnail" || data == "content" || data == "absolute") && error == 0 && result != null && result.isValid()) {
+        GameSystem.trace("image " + data + " PASS");
+        if (data == "content") {
+            Watermelon_GetContentImage(ImageReply, "cached-invalid", 36, "~communityTab:1/~content:thumbnail/data?foo=bar");
+        }
+    } else if ((data == "invalid" || data == "missing" || data == "cached-invalid") && error == 1 && result == null) {
+        GameSystem.trace("image " + data + " PASS");
+    } else {
+        GameSystem.trace("image callback FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        started=0,
+        init=function() { return true; },
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                if (Watermelon_GetLevelThumbnail(ImageReply, "thumbnail", 31, "level-1", "version-1") &&
+                    Watermelon_GetContentImage(ImageReply, "content", 32, "~communityTab:1/~content:thumbnail/data?foo=bar") &&
+                    Watermelon_GetContentImage(ImageReply, "absolute", 33, "__ABSOLUTE_URL__") &&
+                    Watermelon_GetContentImage(ImageReply, "invalid", 34, "invalid") &&
+                    Watermelon_GetContentImage(ImageReply, "missing", 35, "missing")) {
+                    GameSystem.trace("image requests queued PASS");
+                }
+            }
+        }
+    );
+};

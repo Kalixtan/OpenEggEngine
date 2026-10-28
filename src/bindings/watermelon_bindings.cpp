@@ -879,6 +879,42 @@ int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GetLevelThumbnail(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(5);
+    std::string level, version;
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
+        !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string path = "/otg/~level:" + level + "/~version:" + version + "/~content:image/data.get";
+    const std::string key = "thumbnails\\" + level + "\\" + version + "\\thumbnail.png";
+    const int id = g_networkClient->QueueRetailImage(path, key, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2));
+    a_thread->PushInt(id != 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_GetContentImage(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(4);
+    std::string key;
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, key) || key.empty()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    std::string path = key;
+    if (key.rfind("http://", 0) != 0 && key.rfind("https://", 0) != 0) {
+        if (path.front() == '/') path.erase(0, 1);
+        const size_t query = path.rfind('?');
+        path.insert(query == std::string::npos ? path.size() : query, ".get");
+        path = "/otg/" + path;
+    }
+    const int id = g_networkClient->QueueRetailImage(path, key, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2));
+    a_thread->PushInt(id != 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_GetCloudSave(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     if (!g_networkClient) { a_thread->PushInt(0); return GM_OK; }
@@ -1008,6 +1044,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetEulaVersion", gmf_GetEulaVersion);
     a_machine.RegisterLibraryFunction("Watermelon_Get_Friends", gmf_GetFriends);
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelData", gmf_GetLevelData);
+    a_machine.RegisterLibraryFunction("Watermelon_GetLevelThumbnail", gmf_GetLevelThumbnail);
+    a_machine.RegisterLibraryFunction("Watermelon_GetContentImage", gmf_GetContentImage);
     a_machine.RegisterLibraryFunction("Watermelon_GetCloudSave", gmf_GetCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_PostCloudSave", gmf_PostCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
@@ -1062,11 +1100,9 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     static const char* kOfflineRequests[] = {
         "Watermelon_PublishLevel",
         "Watermelon_GetLevelDescription",
-        "Watermelon_GetLevelThumbnail",
         "Watermelon_SaveLevelAndAssetsToDisk",
         "Watermelon_GetSoundData",
         "Watermelon_Grief_Post",
-        "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
     };
     for (const char* name : kOfflineRequests)

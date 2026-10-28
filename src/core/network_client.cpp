@@ -3,12 +3,16 @@
 #include "gmCall.h"
 #include "gmFunctionObject.h"
 #include "gmMachine.h"
+#include "gmStringObject.h"
 #include "gmTableObject.h"
 #include "system_config.h"
 #include "sha1.h"
 #include "network_translation.h"
 #include "network_level_data.h"
+#include "engine_context.h"
+#include "../bindings/texture_bindings.h"
 #include <rapidjson/document.h>
+#include "stb_image.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -161,6 +165,12 @@ int NetworkClient::QueueRetailPost(const std::string& a_path, const std::string&
                  true, a_body, a_contentType);
 }
 
+int NetworkClient::QueueRetailImage(const std::string& a_path, const std::string& a_cacheKey,
+                                   const gmVariable& a_callback, const gmVariable& a_callbackData,
+                                   const gmVariable& a_tag) {
+    return Queue(a_path, a_callback, a_callbackData, a_tag, 0, 4, false, {}, {}, a_cacheKey);
+}
+
 bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     if (a_ticket.empty() || m_loginRequestId != 0) return false;
     {
@@ -242,10 +252,13 @@ void NetworkClient::GoOffline() {
 int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback,
                          const gmVariable& a_callbackData, const gmVariable& a_tag,
                          int a_bucket, int a_callbackMode, bool a_post,
-                         const std::string& a_body, const std::string& a_contentType) {
+                         const std::string& a_body, const std::string& a_contentType,
+                         const std::string& a_resourceKey) {
+    const bool absolute = a_callbackMode == 4 &&
+        (a_path.rfind("http://", 0) == 0 || a_path.rfind("https://", 0) == 0);
     if (m_baseUrl.empty() || !m_worker.joinable() || a_path.empty() ||
-        a_path.front() != '/' || a_path.size() > 1023 ||
-        m_baseUrl.size() + a_path.size() > 1023 ||
+        (!absolute && a_path.front() != '/') || a_path.size() > 1023 ||
+        (!absolute && m_baseUrl.size() + a_path.size() > 1023) ||
         (a_callbackMode < 0 && a_callback.m_type != GM_FUNCTION) || m_roots == nullptr) {
         return 0;
     }
@@ -261,11 +274,13 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     context->Set(&m_machine, 2, gmVariable(static_cast<gmint>(a_callbackMode)));
     context->Set(&m_machine, 3, gmVariable(static_cast<gmint>(a_bucket)));
     context->Set(&m_machine, 4, a_tag);
+    if (a_callbackMode == 4)
+        context->Set(&m_machine, 5, gmVariable(m_machine.AllocStringObject(a_resourceKey.c_str())));
     m_roots->Set(&m_machine, id, gmVariable(context));
     const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
     m_pending.emplace(id, PendingRequest{bucket, false});
-    m_requests.push_back({id, m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false});
+    m_requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false});
     m_wake.notify_one();
     return id;
 }
@@ -455,10 +470,33 @@ void NetworkClient::PumpCallbacks() {
                     } else {
                         gmVariable result = gmVariable::s_null;
                         int error = completion.status == 0 ? 1 : static_cast<int>(completion.status);
-                        if (callbackMode == 3) error = 1;
+                        if (callbackMode == 3 || callbackMode == 4) error = 1;
                         if (completion.status == 200 || completion.status == 201) {
                             error = 0;
-                            if (callbackMode == 3) {
+                            if (callbackMode == 4) {
+                                error = 1;
+                                Renderer* renderer = GetEngineContext().renderer;
+                                const gmVariable keyValue = context->Get(5);
+                                if (renderer && keyValue.m_type == GM_STRING && !completion.body.empty() &&
+                                    completion.body.size() <= static_cast<size_t>(std::numeric_limits<int>::max())) {
+                                    auto* keyObject = static_cast<gmStringObject*>(m_machine.GetObject(keyValue.m_value.m_ref));
+                                    const std::string key = keyObject->GetString();
+                                    const auto* bytes = reinterpret_cast<const unsigned char*>(completion.body.data());
+                                    int width = 0, height = 0, channels = 0;
+                                    unsigned char* decoded = stbi_load_from_memory(bytes, static_cast<int>(completion.body.size()),
+                                                                                  &width, &height, &channels, 0);
+                                    const bool validImage = decoded != nullptr;
+                                    if (decoded) stbi_image_free(decoded);
+                                    const unsigned handle = validImage ? renderer->LoadTextureFromMemory(
+                                        bytes, completion.body.size(), "3:" + key) : 0;
+                                    if (handle) {
+                                        auto lease = MakeTextureResourceLease(handle, 3, key);
+                                        RetainManagedTextureResource(handle, 3, key);
+                                        result = MakeTextureHandle(m_machine, handle, std::move(lease));
+                                        error = 0;
+                                    }
+                                }
+                            } else if (callbackMode == 3) {
                                 result = ParseNetworkLevelData(m_machine, completion.body);
                             } else if (callbackMode == 1) {
                                 result = gmVariable(m_machine.AllocStringObject(

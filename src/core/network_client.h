@@ -36,6 +36,9 @@ public:
                         const std::string& a_contentType, const gmVariable& a_callback,
                         const gmVariable& a_callbackData, const gmVariable& a_tag,
                         int a_bucket, int a_callbackMode);
+    int QueueRetailImage(const std::string& a_path, const std::string& a_cacheKey,
+                         const gmVariable& a_callback, const gmVariable& a_callbackData,
+                         const gmVariable& a_tag);
     const std::string& UserId() const { return m_userId; }
     void SetPlatformTicket(std::string a_ticket);
     void GoOnline();
@@ -82,7 +85,8 @@ private:
     int Queue(const std::string& a_path, const gmVariable& a_callback,
               const gmVariable& a_callbackData, const gmVariable& a_tag,
               int a_bucket, int a_callbackMode, bool a_post = false,
-              const std::string& a_body = {}, const std::string& a_contentType = {});
+              const std::string& a_body = {}, const std::string& a_contentType = {},
+              const std::string& a_resourceKey = {});
     bool BeginTicketLogin(const std::string& a_ticket);
 
     gmMachine& m_machine;

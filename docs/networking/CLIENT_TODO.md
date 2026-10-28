@@ -40,6 +40,8 @@ behavior.
       account and a byte-checking fixture.
 - [x] Fetch and inflate level data as XML or JSON, with request-state callback
       status; exercised against a synthetic replacement-server level.
+- [x] Fetch level thumbnails and content images into script texture handles;
+      exercised against a local fixture and a synthetic server thumbnail.
 - [ ] Compare level XML/JSON conversion and malformed input with retail;
       desktop inflate currently caps output at 64 MiB.
 - [ ] Connect the separate network translation map to traced native string
@@ -70,7 +72,8 @@ behavior.
 
 ## Watermelon APIs
 
-- [ ] Finish level description, thumbnail, sound and save-to-disk paths.
+- [ ] Finish level description, sound and save-to-disk paths; compare image
+      cache ownership and malformed image behavior with retail.
 - [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated

@@ -1,0 +1,22 @@
+global ServerImageReply = function(data, result, error) {
+    if (error == 0 && result != null && result.isValid()) {
+        GameSystem.trace("server image PASS");
+    } else {
+        GameSystem.trace("server image FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        started=0,
+        init=function() { return true; },
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                Watermelon_GetLevelThumbnail(ServerImageReply, null, 1, "__LEVEL_ID__", "probe");
+            }
+        }
+    );
+};
