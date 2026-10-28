@@ -574,7 +574,7 @@ void NetworkClient::PumpCallbacks() {
                     } else {
                         gmVariable result = gmVariable::s_null;
                         int error = completion.status == 0 ? 1 : static_cast<int>(completion.status);
-                        if (callbackMode == 3 || callbackMode == 4) error = 1;
+                        if (callbackMode == 3 || callbackMode == 4 || callbackMode == 7) error = 1;
                         if (completion.status == 200 || completion.status == 201) {
                             error = 0;
                             if (callbackMode == 4) {
@@ -606,7 +606,7 @@ void NetworkClient::PumpCallbacks() {
                                 result = gmVariable(m_machine.AllocStringObject(
                                     completion.body.data(), static_cast<int>(completion.body.size())));
                             } else if (!completion.body.empty()) {
-                                result = ParseRetailJson(m_machine, completion.body, callbackMode);
+                                result = ParseRetailJson(m_machine, completion.body, callbackMode == 7 ? 0 : callbackMode);
                             }
                         }
                         call.AddParam(result);

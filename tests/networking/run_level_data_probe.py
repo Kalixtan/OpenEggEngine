@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 seen = set()
+descriptions = set()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -44,6 +45,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, zlib.compress(xml))
             elif version == "invalid":
                 self.reply(200, b"invalid compressed data")
+            else:
+                self.reply(404)
+        elif self.path.startswith("/otg/~level:level-1/~upload:") and self.path.endswith(".get"):
+            upload = self.path[len("/otg/~level:level-1/~upload:"):-len(".get")]
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                descriptions.add(upload)
+            if upload == "good":
+                self.reply(200, b'{"title":"Fixture"}')
+            elif upload == "invalid":
+                self.reply(200, b'{invalid')
             else:
                 self.reply(404)
         elif self.path == "/otg/~identity:*.hello":
@@ -100,8 +111,8 @@ def main():
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             markers = (("server level data PASS",) if args.server_url else
-                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS"))
-            if result.returncode or (server and seen != {"json", "xml", "invalid", "missing"}) or any(m not in result.stdout for m in markers):
+                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS"))
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

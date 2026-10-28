@@ -83,8 +83,10 @@ behavior.
       local replacement server.
 - [ ] Compare asset staging and save persistence with retail. Flushing staged
       files through `SAVEDATA_SaveAll` is currently a desktop adaptation.
-- [ ] Finish level description and sound paths; compare image cache ownership
-      and malformed image behavior with retail.
+- [x] Implement level-description callbacks and test success, malformed JSON
+      and HTTP failure against a local fixture.
+- [ ] Verify the description URL and server response against retail; implement
+      sound loading and compare image cache ownership with retail.
 - [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated
