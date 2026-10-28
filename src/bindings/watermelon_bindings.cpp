@@ -2,6 +2,7 @@
 #include "watermelon_bindings.h"
 #include "gmTableObject.h"
 #include "gmStringObject.h"
+#include "../core/network_client.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
@@ -10,6 +11,45 @@
 
 
 namespace {
+
+NetworkClient* g_networkClient = nullptr;
+
+int GM_CDECL gmf_IndexPage(gmThread* a_thread) {
+    if (a_thread->GetNumParams() < 3 || a_thread->GetNumParams() > 4)
+        return GM_EXCEPTION;
+
+    const gmVariable callback = a_thread->Param(0);
+    const gmVariable callbackData = a_thread->Param(1);
+    const gmVariable tag = a_thread->Param(2);
+    std::string query;
+    if (a_thread->GetNumParams() == 4 && a_thread->Param(3).m_type == GM_STRING) {
+        char buffer[2048] = {};
+        const char* value = a_thread->Param(3).AsString(
+            a_thread->GetMachine(), buffer, sizeof(buffer));
+        if (value) query.assign(value);
+    }
+
+    std::string type = "*";
+    size_t pos = 0;
+    while (pos < query.size()) {
+        const size_t end = query.find('&', pos);
+        const size_t pairEnd = end == std::string::npos ? query.size() : end;
+        if (query.compare(pos, 5, "type=") == 0) {
+            type = query.substr(pos + 5, pairEnd - pos - 5);
+            break;
+        }
+        if (end == std::string::npos) break;
+        pos = end + 1;
+    }
+
+    std::string path = "/otg/~index:" + type + ".page";
+    if (!query.empty()) path += "?" + query;
+    const int requestId = g_networkClient
+        ? g_networkClient->QueueRetailGet(path, callback, callbackData, tag, 0, 0)
+        : 0;
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
 
 // =====================================================================
 // LOCAL helpers -- real semantics, used in single-player paths too.
@@ -193,9 +233,21 @@ int GM_CDECL gmf_OfflineRequest(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_OpenEggNetworkGet(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(3);
+    GM_STRING_PARAM(path, 0, "");
+    if (!g_networkClient) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    a_thread->PushInt(g_networkClient->QueueGet(path, a_thread->Param(1), a_thread->Param(2)));
+    return GM_OK;
+}
+
 } // namespace
 
-void RegisterWatermelonBindings(gmMachine& a_machine) {
+void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkClient) {
+    g_networkClient = &a_networkClient;
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelObject", gmf_GetLevelObject);
     a_machine.RegisterLibraryFunction("Watermelon_ParseLevelObjectString", gmf_ParseLevelObjectString);
     a_machine.RegisterLibraryFunction("Watermelon_BaseKeyValue", gmf_BaseKeyValue);
@@ -211,6 +263,9 @@ void RegisterWatermelonBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("Watermelon_ForceCachePurgeByFilter", gmf_NoOp);
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetFeaturedSearches", gmf_Globals_GetFeaturedSearches);
     a_machine.RegisterLibraryFunction("WatermelonGlobals_GetNews", gmf_Globals_GetNews);
+    a_machine.RegisterLibraryFunction("Watermelon_Index_Page", gmf_IndexPage);
+    // Local test hook. Not part of the retail GameMonkey API.
+    a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
 
     // Server-request family -- see the offline-stub block comment above.
     static const char* kOfflineRequests[] = {
@@ -225,7 +280,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine) {
         "Watermelon_GetLevelVersions",
         "Watermelon_GetSnapshot",
         "Watermelon_GetSoundData",
-        "Watermelon_Index_Page",
         "Watermelon_Favourite_All",
         "Watermelon_Favourite_Put",
         "Watermelon_Favourite_Delete",

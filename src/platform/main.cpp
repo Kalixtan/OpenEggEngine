@@ -304,7 +304,7 @@ int main(int argc, char** argv) {
     RegisterMathBindings(vm.Machine());
     RegisterEnvelopeBindings(vm.Machine());
     RegisterOnlineCoordinatorBindings(vm.Machine());
-    RegisterWatermelonBindings(vm.Machine());
+    RegisterWatermelonBindings(vm.Machine(), vm.Network());
     RegisterVideoHelperBindings(vm.Machine());
     RegisterScriptCompatBindings(vm.Machine());
 

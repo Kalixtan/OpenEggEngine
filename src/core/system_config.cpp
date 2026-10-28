@@ -144,6 +144,13 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             bool parsed = letterbox;
             valid = ParseBool(value, parsed);
             if (valid) letterbox = parsed;
+        } else if (key == "network_base_url") {
+            networkBaseUrl = value;
+            valid = value.empty() || value.rfind("http://", 0) == 0 || value.rfind("https://", 0) == 0;
+            if (!valid) networkBaseUrl.clear();
+        } else if (key == "network_session_id") {
+            networkSessionId = value;
+            valid = true;
         } else {
             continue;
         }

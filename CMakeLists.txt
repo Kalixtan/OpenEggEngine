@@ -49,6 +49,11 @@ else()
   set(GE3_FREETYPE_TARGET PkgConfig::FREETYPE)
 endif()
 find_package(OpenGL REQUIRED)
+if(WIN32)
+  find_package(CURL QUIET)
+else()
+  pkg_check_modules(CURL QUIET IMPORTED_TARGET libcurl)
+endif()
 # Prefer static zlib where available.
 set(ZLIB_USE_STATIC_LIBS ON)
 find_package(ZLIB REQUIRED)
@@ -104,6 +109,7 @@ add_library(OpenEgg_backend STATIC
   src/core/strict_calls.cpp
   src/core/save_data.cpp
   src/core/system_config.cpp
+  src/core/network_client.cpp
   src/core/file_helper.cpp
   src/core/psarc_archive.cpp
   src/core/process_manager.cpp
@@ -175,6 +181,16 @@ target_link_libraries(OpenEgg_backend PUBLIC
   OpenGL::GL
   ${GE3_ZLIB_TARGET}
 )
+
+if(WIN32 AND TARGET CURL::libcurl)
+  target_link_libraries(OpenEgg_backend PUBLIC CURL::libcurl)
+  target_compile_definitions(OpenEgg_backend PRIVATE OPENEGG_HAS_CURL=1)
+elseif(TARGET PkgConfig::CURL)
+  target_link_libraries(OpenEgg_backend PUBLIC PkgConfig::CURL)
+  target_compile_definitions(OpenEgg_backend PRIVATE OPENEGG_HAS_CURL=1)
+elseif(WIN32)
+  message(STATUS "libcurl not found; OpenEgg network requests are disabled")
+endif()
 
 if(NOT WIN32)
   target_compile_options(OpenEgg_backend PRIVATE ${GLEW_CFLAGS_OTHER})

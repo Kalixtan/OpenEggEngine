@@ -3,6 +3,7 @@
 #include "gmThread.h"
 #include "gmMachine.h"
 #include "file_helper.h"
+#include "network_client.h"
 
 class GmVm {
 public:
@@ -11,6 +12,7 @@ public:
 
     gmMachine& Machine() { return m_machine; }
     FileHelper& Files() { return m_files; }
+    NetworkClient& Network() { return m_networkClient; }
 
     // Compiles+runs a_relativePath (resolved via FileHelper) as a new thread,
     // matching GameMonkeyScript.loadScript(path). Returns false on file-not-found
@@ -25,4 +27,5 @@ public:
 private:
     gmMachine m_machine;
     FileHelper m_files;
+    NetworkClient m_networkClient;
 };

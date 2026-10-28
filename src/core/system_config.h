@@ -26,6 +26,11 @@ struct SystemConfig {
     // Disable to use the full host window, matching the pre-letterbox port.
     bool letterbox = true;
 
+    // Optional replacement OTG server root. Empty keeps online requests disabled.
+    std::string networkBaseUrl;
+    // Optional OTG session cookie for local server testing.
+    std::string networkSessionId;
+
     // Reads optional settings from OpenEgg.ini beside the executable.
     // Missing or invalid values leave the retail-compatible defaults above.
     bool LoadFromIni(const std::string& path);

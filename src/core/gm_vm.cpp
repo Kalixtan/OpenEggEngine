@@ -2,6 +2,7 @@
 #include "gmMachineLib.h"
 #include "gmFunctionObject.h"
 #include "gmTableObject.h"
+#include "system_config.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -95,7 +96,9 @@ bool GM_CDECL TraceEditorLimitLine(gmThread* thread) {
 
 } // namespace
 
-GmVm::GmVm() {
+GmVm::GmVm()
+    : m_networkClient(m_machine, SystemConfig::Get().networkBaseUrl,
+                      SystemConfig::Get().networkSessionId) {
     m_machine.SetDebugMode(true); // readable compile/runtime error messages
     if (std::getenv("GE3_TRACE_EDITOR_LIMIT"))
         m_machine.m_line = TraceEditorLimitLine;
@@ -123,6 +126,7 @@ bool GmVm::LoadScript(const std::string& a_relativePath) {
 
 void GmVm::Tick(unsigned int a_deltaMs) {
     m_machine.Execute(a_deltaMs);
+    m_networkClient.PumpCallbacks();
     FlushLog();
 }
 

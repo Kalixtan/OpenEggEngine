@@ -23,3 +23,11 @@ debug_all_dlc_available = false
 ; Preserve the game's configured aspect ratio and draw black bars when the
 ; host window has a different aspect ratio. Set false to fill the whole window.
 letterbox = true
+
+; Optional replacement server URL, including scheme and host only.
+; OpenEgg's networking probe and OTG requests append paths beginning with /otg/.
+; Leave blank to keep network requests disabled.
+network_base_url =
+
+; Optional session ID from a local replacement-server account.
+network_session_id =
