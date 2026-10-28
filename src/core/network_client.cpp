@@ -467,6 +467,27 @@ void NetworkClient::PumpCallbacks() {
                         call.AddParamString(completion.body.data(),
                                             static_cast<int>(completion.body.size()));
                         call.AddParamInt(static_cast<int>(completion.status));
+                    } else if (callbackMode == 5) {
+                        std::string level, upload;
+                        const bool success = completion.status == 200 || completion.status == 201;
+                        if (success) {
+                            rapidjson::Document document;
+                            document.Parse(completion.body.data(), completion.body.size());
+                            if (!document.HasParseError() && document.IsObject() && document.HasMember("id") && document["id"].IsString()) {
+                                const std::string path(document["id"].GetString(), document["id"].GetStringLength());
+                                const size_t last = path.rfind(':');
+                                if (last != std::string::npos) {
+                                    const size_t previous = last == 0 ? std::string::npos : path.rfind(':', last - 1);
+                                    const size_t start = previous != std::string::npos ? previous + 1 : (last == 0 ? 0 : 1);
+                                    const size_t slash = path.find('/', start);
+                                    level = path.substr(start, slash == std::string::npos ? std::string::npos : slash - start).substr(0, 99);
+                                    upload = path.substr(last + 1, 99);
+                                }
+                            }
+                        }
+                        if (level.empty()) call.AddParamNull(); else call.AddParamString(level.c_str());
+                        if (upload.empty()) call.AddParamNull(); else call.AddParamString(upload.c_str());
+                        call.AddParamInt(success ? 0 : 1);
                     } else {
                         gmVariable result = gmVariable::s_null;
                         int error = completion.status == 0 ? 1 : static_cast<int>(completion.status);

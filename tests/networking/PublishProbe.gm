@@ -1,0 +1,64 @@
+global PublishRemoved = function(data, result, error) {
+    if (data == "remove" && error == 0) { GameSystem.trace("publish cleanup PASS"); }
+    else { GameSystem.trace("publish cleanup FAIL"); }
+};
+
+global PublishReadback = function(data, result, error) {
+    if (error == 0 && result != null && result.bpm == 120) {
+        GameSystem.trace("publish level readback PASS");
+        data.stage = "update";
+        if (Watermelon_PublishLevel(PublishFinished, data, 43, data.level, data.image, data.sound,
+                                   "Synthetic probe", "Test description", data.levelId, data.uploadId)) {
+            GameSystem.trace("publish update queued PASS");
+        }
+    } else {
+        GameSystem.trace("publish level readback FAIL");
+    }
+};
+
+global PublishFinished = function(data, levelId, uploadId, error) {
+    if (error != 0 || levelId == null || uploadId == null) {
+        GameSystem.trace("publish callback FAIL");
+        return;
+    }
+    if (data.stage == "create") {
+        GameSystem.trace("publish create PASS");
+        data.levelId = levelId;
+        data.uploadId = uploadId;
+        Watermelon_GetLevelData(PublishReadback, data, 45, levelId, uploadId);
+    } else if (data.stage == "update") {
+        GameSystem.trace("publish update PASS");
+        Watermelon_UnpublishLevel(PublishRemoved, "remove", 44, levelId);
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        started=0,
+        init=function() { return true; },
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                local data = {stage="create",
+                    level=SAVEDATA_reqLoadFile("level.bin", __LEVEL_SIZE__),
+                    image=SAVEDATA_reqLoadFile("image.bin", __IMAGE_SIZE__),
+                    sound=SAVEDATA_reqLoadFile("sound.bin", __SOUND_SIZE__)};
+                local missing = SAVEDATA_reqLoadFile("missing.bin", 1);
+                if (!Watermelon_PublishLevel(PublishFinished, data, 40, missing, data.image, data.sound,
+                                            "Synthetic probe", "Test description", null, null)) {
+                    GameSystem.trace("publish missing ticket PASS");
+                }
+                if (!Watermelon_PublishLevel(PublishFinished, data, 41, data.level, data.image, data.sound,
+                                            "Synthetic probe", "Test description", "partial", null)) {
+                    GameSystem.trace("publish invalid IDs PASS");
+                }
+                if (Watermelon_PublishLevel(PublishFinished, data, 42, data.level, data.image, data.sound,
+                                           "Synthetic probe", "Test description", null, null)) {
+                    GameSystem.trace("publish create queued PASS");
+                }
+            }
+        }
+    );
+};

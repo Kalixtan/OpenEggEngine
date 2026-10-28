@@ -3,6 +3,8 @@
 #include "gmTableObject.h"
 #include "gmStringObject.h"
 #include "../core/network_client.h"
+#include "../core/save_data.h"
+#include "../core/system_config.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
@@ -915,6 +917,71 @@ int GM_CDECL gmf_GetContentImage(gmThread* a_thread) {
     return GM_OK;
 }
 
+bool ReadPublishTicket(gmMachine& machine, const gmVariable& ticket, std::string& data) {
+    if (ticket.m_type != GM_TABLE) return false;
+    auto* table = static_cast<gmTableObject*>(machine.GetObject(ticket.m_value.m_ref));
+    if (!table) return false;
+    const gmVariable filename = table->Get(&machine, "filename");
+    const gmVariable size = table->Get(&machine, "size");
+    const gmVariable error = table->Get(&machine, "error");
+    if (filename.m_type != GM_STRING || size.m_type != GM_INT || size.m_value.m_int < 0 ||
+        (error.m_type == GM_INT && error.m_value.m_int != 0)) return false;
+    auto* name = static_cast<gmStringObject*>(machine.GetObject(filename.m_value.m_ref));
+    if (!name || !SaveData::ReadFile(name->GetString(), data) || static_cast<size_t>(size.m_value.m_int) > data.size()) return false;
+    data.resize(static_cast<size_t>(size.m_value.m_int));
+    return true;
+}
+
+int GM_CDECL gmf_PublishLevel(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(10);
+    gmMachine& machine = *a_thread->GetMachine();
+    if (!g_networkClient || !g_networkClient->IdentityReady()) { a_thread->PushInt(0); return GM_OK; }
+    std::string level, image, sound, title, description, levelId, versionId;
+    if (!ReadPublishTicket(machine, a_thread->Param(3), level) ||
+        !ReadPublishTicket(machine, a_thread->Param(4), image) ||
+        !ReadPublishTicket(machine, a_thread->Param(5), sound) ||
+        !ReadOptionalString(a_thread, 6, title) || !ReadOptionalString(a_thread, 7, description)) {
+        a_thread->PushInt(0); return GM_OK;
+    }
+    const bool create = a_thread->Param(8).m_type == GM_NULL && a_thread->Param(9).m_type == GM_NULL;
+    if (!create && (!ReadOptionalString(a_thread, 8, levelId) || !ReadOptionalString(a_thread, 9, versionId) ||
+                    levelId.empty() || versionId.empty())) {
+        a_thread->PushInt(0); return GM_OK;
+    }
+    const std::string language = std::to_string(SystemConfig::Get().languageCode);
+    static const char* boundaries[] = {"----BouNdaRy", "--fOsBKwDjKn", "--krj6RoYg8n", "--BqiXa1etbG",
+                                       "--vghjJJFy5S", "--HUoWHHxpJN", "--IkzsNBtjJy", "--zzzzzzzzzz"};
+    const char* boundary = nullptr;
+    for (const char* candidate : boundaries) {
+        if (level.find(candidate) == std::string::npos && image.find(candidate) == std::string::npos &&
+            sound.find(candidate) == std::string::npos && title.find(candidate) == std::string::npos &&
+            description.find(candidate) == std::string::npos && versionId.find(candidate) == std::string::npos &&
+            language.find(candidate) == std::string::npos) { boundary = candidate; break; }
+    }
+    if (!boundary) { a_thread->PushInt(0); return GM_OK; }
+    std::string body;
+    auto part = [&](const char* name, const std::string& value, const char* mime) {
+        body += "--"; body += boundary; body += "\r\nContent-Disposition: form-data; name=\"";
+        body += name; body += '"';
+        if (mime) { body += "; filename=\"file.tmp\"\r\nContent-Type: "; body += mime; }
+        body += "\r\n\r\n"; body += value; body += "\r\n";
+    };
+    if (!create) part("baseVersionId", versionId, nullptr);
+    part("title", title, nullptr);
+    part("description", description, nullptr);
+    part("image", image, "image/png");
+    part("level", level, "application/vnd.soundshapes.level");
+    part("sound", sound, "application/vnd.soundshapes.sound");
+    part("sce_np_language", language, nullptr);
+    body += "--"; body += boundary; body += "--\r\n";
+    const std::string path = create ? "/otg/~level:*.create" : "/otg/~level:" + levelId + ".update";
+    const int request = g_networkClient->QueueRetailPost(path, body,
+        std::string("multipart/form-data; boundary=") + boundary,
+        a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 5);
+    a_thread->PushInt(request != 0);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_GetCloudSave(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     if (!g_networkClient) { a_thread->PushInt(0); return GM_OK; }
@@ -1046,6 +1113,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelData", gmf_GetLevelData);
     a_machine.RegisterLibraryFunction("Watermelon_GetLevelThumbnail", gmf_GetLevelThumbnail);
     a_machine.RegisterLibraryFunction("Watermelon_GetContentImage", gmf_GetContentImage);
+    a_machine.RegisterLibraryFunction("Watermelon_PublishLevel", gmf_PublishLevel);
     a_machine.RegisterLibraryFunction("Watermelon_GetCloudSave", gmf_GetCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_PostCloudSave", gmf_PostCloudSave);
     a_machine.RegisterLibraryFunction("Watermelon_IsOnline", gmf_IsOnline);
@@ -1098,7 +1166,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
 
     // Server-request family -- see the offline-stub block comment above.
     static const char* kOfflineRequests[] = {
-        "Watermelon_PublishLevel",
         "Watermelon_GetLevelDescription",
         "Watermelon_SaveLevelAndAssetsToDisk",
         "Watermelon_GetSoundData",
