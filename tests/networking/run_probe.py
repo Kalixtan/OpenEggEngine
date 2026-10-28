@@ -21,6 +21,7 @@ MARKERS = (
     "followers page route PASS",
     "activity page route PASS",
     "featured unknown-user response PASS",
+    "ticket POST route PASS",
 )
 
 

@@ -111,9 +111,20 @@ int NetworkClient::QueueRetailGet(const std::string& a_path, const gmVariable& a
     return Queue(a_path, a_callback, a_callbackData, a_tag, a_bucket, a_callbackMode);
 }
 
+int NetworkClient::QueueRetailPost(const std::string& a_path, const std::string& a_body,
+                                   const std::string& a_contentType,
+                                   const gmVariable& a_callback,
+                                   const gmVariable& a_callbackData,
+                                   const gmVariable& a_tag, int a_bucket,
+                                   int a_callbackMode) {
+    return Queue(a_path, a_callback, a_callbackData, a_tag, a_bucket, a_callbackMode,
+                 true, a_body, a_contentType);
+}
+
 int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback,
                          const gmVariable& a_callbackData, const gmVariable& a_tag,
-                         int a_bucket, int a_callbackMode) {
+                         int a_bucket, int a_callbackMode, bool a_post,
+                         const std::string& a_body, const std::string& a_contentType) {
     if (m_baseUrl.empty() || !m_worker.joinable() || a_path.empty() ||
         a_path.front() != '/' || a_path.size() > 1023 ||
         m_baseUrl.size() + a_path.size() > 1023 ||
@@ -133,7 +144,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     context->Set(&m_machine, 3, gmVariable(static_cast<gmint>(a_bucket)));
     context->Set(&m_machine, 4, a_tag);
     m_roots->Set(&m_machine, id, gmVariable(context));
-    m_requests.push_back({id, m_baseUrl + a_path});
+    m_requests.push_back({id, m_baseUrl + a_path, a_body, a_contentType, a_post});
     m_wake.notify_one();
     return id;
 }
@@ -209,7 +220,20 @@ void NetworkClient::WorkerMain() {
             curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 5000L);
             curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 30000L);
 
+            if (request.post) {
+                curl_easy_setopt(curl, CURLOPT_POST, 1L);
+                if (!request.body.empty()) {
+                    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.data());
+                    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE,
+                                     static_cast<curl_off_t>(request.body.size()));
+                }
+            }
+
             struct curl_slist* headers = nullptr;
+            if (!request.contentType.empty()) {
+                const std::string contentType = "Content-Type: " + request.contentType;
+                headers = curl_slist_append(headers, contentType.c_str());
+            }
             if (!m_sessionId.empty()) {
                 const std::string cookie = "X-OTG-Identity-SessionId: " + m_sessionId;
                 headers = curl_slist_append(headers, cookie.c_str());

@@ -70,6 +70,14 @@ global FeaturedMissingUserReply = function(data, response, error) {
     }
 };
 
+global InvalidTicketReply = function(data, response, status) {
+    if (data == "ticket" && status == 400) {
+        GameSystem.trace("ticket POST route PASS");
+    } else {
+        GameSystem.trace("ticket POST route FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -84,7 +92,8 @@ global Main = function(p) {
             local followers = Watermelon_Followers_Page(FollowersDeniedReply, "followers", 7, "test-user", "from=0&count=1");
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1) {
+            local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && post != 0) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");

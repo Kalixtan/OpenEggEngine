@@ -384,6 +384,21 @@ int GM_CDECL gmf_OpenEggNetworkGet(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_OpenEggNetworkPost(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(5);
+    GM_STRING_PARAM(path, 0, "");
+    GM_STRING_PARAM(body, 1, "");
+    GM_STRING_PARAM(contentType, 2, "");
+    if (!g_networkClient) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    a_thread->PushInt(g_networkClient->QueueRetailPost(
+        path, body, contentType, a_thread->Param(3), a_thread->Param(4),
+        gmVariable::s_null, 0, -1));
+    return GM_OK;
+}
+
 } // namespace
 
 void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkClient) {
@@ -412,6 +427,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Get", gmf_FeaturedLevelGet);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
+    a_machine.RegisterLibraryFunction("OpenEgg_NetworkPost", gmf_OpenEggNetworkPost);
 
     // Server-request family -- see the offline-stub block comment above.
     static const char* kOfflineRequests[] = {
