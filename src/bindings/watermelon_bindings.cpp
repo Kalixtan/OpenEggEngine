@@ -199,6 +199,60 @@ int GM_CDECL gmf_FollowingDelete(gmThread* a_thread) {
     return QueueFollowingAction(a_thread, "delete", false);
 }
 
+int GM_CDECL gmf_QueuedPage(gmThread* a_thread) {
+    const int count = a_thread->GetNumParams();
+    if (count != 3 && count != 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    if (!g_networkClient || g_networkClient->UserId().empty()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    std::string path = "/otg/~identity:" + g_networkClient->UserId() +
+                       "/~queued:*.page";
+    if (count == 4) {
+        std::string query;
+        if (ReadOptionalString(a_thread, 3, query) && !query.empty())
+            path += "?" + query;
+    }
+    const int requestId = g_networkClient->QueueRetailGet(
+        path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int QueueQueuedAction(gmThread* a_thread, const char* a_operation) {
+    if (a_thread->GetNumParams() < 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string levelId;
+    if (!ReadOptionalString(a_thread, 3, levelId) || !g_networkClient ||
+        g_networkClient->UserId().empty()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
+        "/~queued:" + EncodeRetailUrl("/~level:" + levelId) + "." + a_operation;
+    const int requestId = g_networkClient->QueueRetailGet(
+        path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_QueuedPut(gmThread* a_thread) {
+    return QueueQueuedAction(a_thread, "put");
+}
+
+int GM_CDECL gmf_QueuedGet(gmThread* a_thread) {
+    return QueueQueuedAction(a_thread, "get");
+}
+
+int GM_CDECL gmf_QueuedDelete(gmThread* a_thread) {
+    return QueueQueuedAction(a_thread, "delete");
+}
+
 int GM_CDECL gmf_ActivityStreamPage(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
     if (count != 5 && count != 6) {
@@ -470,6 +524,10 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Following_Get", gmf_FollowingGet);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Put", gmf_FollowingPut);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Delete", gmf_FollowingDelete);
+    a_machine.RegisterLibraryFunction("Watermelon_Queued_Page", gmf_QueuedPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Queued_Put", gmf_QueuedPut);
+    a_machine.RegisterLibraryFunction("Watermelon_Queued_Get", gmf_QueuedGet);
+    a_machine.RegisterLibraryFunction("Watermelon_Queued_Delete", gmf_QueuedDelete);
     a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Page", gmf_ActivityStreamPage);
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Get", gmf_FeaturedLevelGet);
     // Local test hook. Not part of the retail GameMonkey API.
@@ -512,10 +570,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_Following_All",
         "Watermelon_ActivityStream_Post",
         "Watermelon_FeaturedLevel_Post",
-        "Watermelon_Queued_Page",
-        "Watermelon_Queued_Put",
-        "Watermelon_Queued_Get",
-        "Watermelon_Queued_Delete",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
         "Watermelon_GetCloudSave",

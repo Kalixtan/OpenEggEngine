@@ -58,6 +58,26 @@ global FollowingActionReply = function(data, response, error) {
     }
 };
 
+global QueuedPageReply = function(data, response, error) {
+    if (data == "queued_page" && response == null && error == 403) {
+        GameSystem.trace("queued page route PASS");
+    } else {
+        GameSystem.trace("queued page route FAIL");
+    }
+};
+
+global QueuedActionReply = function(data, response, error) {
+    if (data == "queued_get" && response == null && error == 403) {
+        GameSystem.trace("queued get route PASS");
+    } else if (data == "queued_put" && response == null && error == 403) {
+        GameSystem.trace("queued put route PASS");
+    } else if (data == "queued_delete" && response == null && error == 403) {
+        GameSystem.trace("queued delete route PASS");
+    } else {
+        GameSystem.trace("queued action route FAIL");
+    }
+};
+
 global FollowersDeniedReply = function(data, response, error) {
     if (data == "followers" && response == null && error == 403) {
         GameSystem.trace("followers page route PASS");
@@ -108,8 +128,12 @@ global Main = function(p) {
             local followPut = Watermelon_Following_Put(FollowingActionReply, "following_put", 11, "test-target");
             local followDelete = Watermelon_Following_Delete(FollowingActionReply, "following_delete", 12, "test-target");
             local selfFollow = Watermelon_Following_Put(FollowingActionReply, "self", 13, "test-user");
+            local queuedPage = Watermelon_Queued_Page(QueuedPageReply, "queued_page", 14, "from=0&count=1");
+            local queuedGet = Watermelon_Queued_Get(QueuedActionReply, "queued_get", 15, "test-level");
+            local queuedPut = Watermelon_Queued_Put(QueuedActionReply, "queued_put", 16, "test-level");
+            local queuedDelete = Watermelon_Queued_Delete(QueuedActionReply, "queued_delete", 17, "test-level");
             local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && post != 0) {
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");
