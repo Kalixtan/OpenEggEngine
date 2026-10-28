@@ -140,6 +140,8 @@ global Main = function(p) {
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");
+                Watermelon_Queued_Page(QueuedRouteReply, "page", 86, "count=2");
+                if (Watermelon_Queued_Put(null, null, 87, "simple")) { GameSystem.trace("queued null callback PASS"); }
                 if (Watermelon_GetSoundData(SoundReply, "compressed", 79, "level-1", "compressed")) {
                     GameSystem.trace("sound request queued PASS");
                 }

@@ -326,18 +326,16 @@ global Main = function(p) {
             local queuedPut = Watermelon_Queued_Put(QueuedActionReply, "queued_put", 16, "/~level:test-level");
             local queuedDelete = Watermelon_Queued_Delete(QueuedActionReply, "queued_delete", 17, "/~level:test-level");
             local noCallback = Watermelon_Queued_Put(null, null, 18, "/~level:test-level");
+            if (queuedPage == 0 && queuedGet == 0 && queuedPut == 0 && queuedDelete == 0 && noCallback == 0) { GameSystem.trace("queue offline gate PASS"); }
             local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
             local emptyPost = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "", "application/octet-stream", InvalidTicketReply, "empty_ticket");
             if (emptyPost == 0) {
                 GameSystem.trace("empty POST NOT_QUEUED");
             }
-            if (typed == 0 && wildcard == 0 && forbidden == 0 && albums == 0 && album == 0 && following == 0 && followers == 0 && activity == 0 && featured == 0 && followGet == 0 && followPut == 0 && followDelete == 0 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
+            if (typed == 0 && wildcard == 0 && forbidden == 0 && albums == 0 && album == 0 && following == 0 && followers == 0 && activity == 0 && featured == 0 && followGet == 0 && followPut == 0 && followDelete == 0 && selfFollow == 0 && queuedPage == 0 && queuedGet == 0 && queuedPut == 0 && queuedDelete == 0 && post != 0) {
                 GameSystem.trace("Watermelon request setup PASS");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");
-            }
-            if (noCallback == 1) {
-                GameSystem.trace("null callback request QUEUED");
             }
             if (selfFollow == 0) {
                 GameSystem.trace("self follow short circuit PASS");

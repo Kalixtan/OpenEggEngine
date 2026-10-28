@@ -496,7 +496,7 @@ int GM_CDECL gmf_QueuedPage(gmThread* a_thread) {
         a_thread->PushInt(-1);
         return GM_OK;
     }
-    if (!g_networkClient || g_networkClient->UserId().empty()) {
+    if (!g_networkClient || !g_networkClient->IdentityReady()) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -520,7 +520,7 @@ int QueueQueuedAction(gmThread* a_thread, const char* a_operation) {
     }
     std::string levelId;
     if (!ReadOptionalString(a_thread, 3, levelId) || !g_networkClient ||
-        g_networkClient->UserId().empty()) {
+        !g_networkClient->IdentityReady()) {
         a_thread->PushInt(0);
         return GM_OK;
     }
