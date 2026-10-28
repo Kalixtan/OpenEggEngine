@@ -33,6 +33,10 @@ MARKERS = (
     "purged request callback PASS",
     "activity page route PASS",
     "featured unknown-user response PASS",
+    "metadata all response PASS",
+    "metadata get response PASS",
+    "metadata put response PASS",
+    "empty metadata put response PASS",
     "ticket POST route PASS",
     "empty POST route PASS",
 )

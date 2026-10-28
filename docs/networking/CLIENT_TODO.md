@@ -18,6 +18,7 @@ behavior.
 - [x] Following get/put/delete route construction and self-follow short
       circuit.
 - [x] Queued page/get/put/delete route construction.
+- [x] Metadata all/get/put request construction and callback modes.
 - [x] Explicit POST transport; local invalid-ticket request reaches the
       replacement server and returns HTTP 400.
 - [ ] Successful authenticated request from OpenEgg.
@@ -37,7 +38,7 @@ behavior.
 ## Watermelon APIs
 
 - [ ] Trace and implement level reads, snapshots, downloads, and save-to-disk.
-- [ ] Implement remaining metadata, ratings, favourites, and hearts, including
+- [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
 - [ ] Implement record and leaderboard requests with retail serialization and
       callback modes.
