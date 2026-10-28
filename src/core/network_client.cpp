@@ -813,6 +813,16 @@ void NetworkClient::WorkerMain(bool a_identity) {
             curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
             curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 5000L);
             curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 30000L);
+            // The global image client has no identity header. Retail enables
+            // redirects; identity requests still need their header policy traced.
+            if (!request.sendSession) {
+                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+#if LIBCURL_VERSION_NUM >= 0x075500
+                curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+#else
+                curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+#endif
+            }
 
             if (request.post) {
                 curl_easy_setopt(curl, CURLOPT_POST, 1L);

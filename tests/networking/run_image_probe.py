@@ -45,10 +45,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         global content_requests
+        if self.path == "/redirect":
+            seen.add("redirect")
+            if self.headers.get("X-OTG-Identity-SessionId") is not None:
+                bad_headers.append("redirect")
+            self.send_response(302)
+            self.send_header("Location", "/redirected-image")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         paths = {
             "/otg/~level:level-1/~version:version-1/~content:image/data.get": "thumbnail",
             "/~communityTab:1/~content:thumbnail/data?foo=bar": "content",
-            "/absolute-image": "absolute", "/invalid": "invalid", "/missing": "missing"
+            "/absolute-image": "absolute", "/invalid": "invalid", "/missing": "missing",
+            "/redirected-image": "redirect-target"
         }
         name = paths.get(self.path)
         if name:
@@ -115,9 +125,9 @@ def main():
             result = subprocess.run([str(temp / engine.name), str(script_dir), probe, "Main"],
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            names = {"thumbnail", "content", "absolute", "invalid", "missing"}
+            names = {"thumbnail", "content", "absolute", "invalid", "missing", "redirect", "redirect-target"}
             markers = (["server featured image PASS" if args.featured else "server image PASS"] if args.server_url else
-                       ["image requests queued PASS", "image cached-invalid PASS"] + [f"image {name} PASS" for name in names])
+                       ["image requests queued PASS", "image cached-invalid PASS"] + [f"image {name} PASS" for name in names if name != "redirect-target"])
             if (result.returncode or (server and (seen != names or bad_headers or content_requests != 2)) or
                     any(marker not in result.stdout for marker in markers)):
                 raise SystemExit("image probe failed")
