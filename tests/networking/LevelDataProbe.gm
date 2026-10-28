@@ -49,15 +49,34 @@ global QueuedRouteReply = function(data, result, error) {
     else { GameSystem.trace("queued route callback FAIL"); }
 };
 
+global RatingFavouriteReply = function(data, result, error) {
+    if (error == 0 && result != null) { GameSystem.trace(data + " response PASS"); }
+    else { GameSystem.trace("rating/favourite callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
         started=0,
         init=function() { return true; },
-        constructor=function() { OnlineCoordinator_GoOnline(); },
+        constructor=function() {
+            if (!Watermelon_Rating_Get(null, null, 0, "~level:level-1") &&
+                !Watermelon_Rating_Put(null, null, 0, "~level:level-1", 1) &&
+                !Watermelon_Favourite_All(null, null, 0, "~level:level-1") &&
+                !Watermelon_Favourite_Put(null, null, 0, "~level:level-1", "item") &&
+                !Watermelon_Favourite_Delete(null, null, 0, "~level:level-1", "item")) {
+                GameSystem.trace("rating/favourite offline gate PASS");
+            }
+            OnlineCoordinator_GoOnline();
+        },
         update=function() {
             if (this.started == 0 && Watermelon_IsOnline()) {
                 this.started = 1;
+                Watermelon_Rating_Get(RatingFavouriteReply, "rating get", 90, "~level:level-1");
+                Watermelon_Rating_Put(RatingFavouriteReply, "rating put", 91, "~level:level-1", 1);
+                Watermelon_Favourite_All(RatingFavouriteReply, "favourite all", 92, "~level:level-1");
+                Watermelon_Favourite_Put(RatingFavouriteReply, "favourite put", 93, "~level:level-1", "item");
+                Watermelon_Favourite_Delete(RatingFavouriteReply, "favourite delete", 94, "~level:level-1", "item");
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");

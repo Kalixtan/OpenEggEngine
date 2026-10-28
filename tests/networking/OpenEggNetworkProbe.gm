@@ -324,12 +324,9 @@ global Main = function(p) {
             local favAll = Watermelon_Favourite_All(FavouriteReply, "favourite_all", 33, "~level:test-level");
             local favPut = Watermelon_Favourite_Put(FavouriteReply, "favourite_put", 34, "~level:test-level", "/~identity:test-user");
             local favDelete = Watermelon_Favourite_Delete(FavouriteReply, "favourite_delete", 35, "~level:test-level", "/~identity:test-user");
-            if (favAll != 1 || favPut != 1 || favDelete != 1) {
-                GameSystem.trace("favourite NOT_QUEUED");
-            }
             local ratingPut = Watermelon_Rating_Put(RatingReply, "rating_put", 32, "~level:test-level", 1);
-            if (ratingGet != 1 || ratingPut != 1) {
-                GameSystem.trace("rating NOT_QUEUED");
+            if (favAll == 0 && favPut == 0 && favDelete == 0 && ratingGet == 0 && ratingPut == 0) {
+                GameSystem.trace("rating/favourite offline gate PASS");
             }
             local leaderboard = Watermelon_Leaderboard_Page(LeaderboardPageReply, "leaderboard", 24, "~level:test-level", "from=0&count=1");
             local boardGet = Watermelon_Leaderboard_Get(LeaderboardReadReply, "get", 29, "~level:test-level");

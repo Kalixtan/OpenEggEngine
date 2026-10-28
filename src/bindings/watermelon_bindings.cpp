@@ -156,7 +156,7 @@ int QueueRating(gmThread* a_thread, bool a_put) {
         return GM_OK;
     }
     std::string base;
-    if (!g_networkClient || g_networkClient->UserId().empty() ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, base) ||
         (a_put && a_thread->Param(4).m_type != GM_INT)) {
         a_thread->PushInt(0);
@@ -186,7 +186,7 @@ int QueueFavourite(gmThread* a_thread, const char* a_operation, bool a_all) {
         return GM_OK;
     }
     std::string base, key;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base) ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base) ||
         (!a_all && !ReadOptionalString(a_thread, 4, key))) {
         a_thread->PushInt(0);
         return GM_OK;

@@ -20,6 +20,8 @@ seen = set()
 descriptions = set()
 sounds = set()
 queued = set()
+ratings_favourites = set()
+rating_path = f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -30,7 +32,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == rating_path + ".put":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"value=1":
+                ratings_favourites.add(self.path)
+            self.reply(200, b'{"ok":1}')
+            return
         data = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
         self.reply(201, data)
 
@@ -77,6 +84,12 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith(f"/otg/~identity:{USER}/~queued:"):
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 queued.add(self.path)
+            self.reply(200, b'{"ok":1}')
+        elif self.path in {rating_path + ".get", "/otg/~level:level-1/~favourite:*.all",
+                           "/otg/~level:level-1/~favourite:item.put",
+                           "/otg/~level:level-1/~favourite:item.delete"}:
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                ratings_favourites.add(self.path)
             self.reply(200, b'{"ok":1}')
         elif self.path == "/otg/~identity:*.hello":
             self.reply(200)
@@ -134,7 +147,10 @@ def main():
             markers = (("server level data PASS", "server sound data PASS", "server queue roundtrip PASS") if args.server_url else
                        ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS", "sound request queued PASS", "sound compressed PASS", "sound fun prefix PASS", "sound invalid PASS", "sound missing PASS", "queued get route PASS", "queued put route PASS", "queued delete route PASS"))
             expected_queue = {f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.get", f"/otg/~identity:{USER}/~queued:simple.put", f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.delete"}
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+            expected_ratings = {rating_path + ".get", rating_path + ".put", "/otg/~level:level-1/~favourite:*.all", "/otg/~level:level-1/~favourite:item.put", "/otg/~level:level-1/~favourite:item.delete"}
+            if server:
+                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS")
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

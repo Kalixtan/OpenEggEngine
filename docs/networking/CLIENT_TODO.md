@@ -21,6 +21,8 @@ behavior.
       `Watermelon_ActivityStream_Page`, and `Watermelon_FeaturedLevel_Get`.
 - [x] Following get/put/delete route construction and self-follow short
       circuit.
+- [x] Gate rating and favourite requests on identity setup; check their
+      request paths, callback responses and rating body with a local fixture.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.
