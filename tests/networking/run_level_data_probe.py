@@ -27,6 +27,7 @@ albums = set()
 indexes = set()
 activity = set()
 social = set()
+records = set()
 rating_path = f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}"
 
 
@@ -39,6 +40,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == f"/otg/~identity:{USER}/~record:%2F~level%3Alevel-1.post":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and self.headers.get("Content-Type") == "www-form-urlencoded":
+                if not body:
+                    records.add("empty")
+                elif set(body.decode().split("&")) == {"score=4294967296", "completed=1", "playTime=1.250000"}:
+                    records.add("values")
+            self.reply(200, b'{"ok":1}')
+            return
         if self.path == "/otg/~identity:user-1/~activity:*/entry.post":
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"":
                 activity.add("post")
@@ -204,8 +213,8 @@ def main():
             expected_indexes = {"/otg/~index:level.page?type=level&count=1", "/otg/~index:*.page?count=1"}
             expected_social = {"/otg/~identity:/~follow:*.page?count=2", f"/otg/~identity:{USER}/~followers.page?count=2", f"/otg/~identity:{USER}/~follow:*.all", f"/otg/~identity:{USER}/~like:*.page?count=2", *(f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.{op}" for op in ("get", "put", "delete")), *(f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.{op}" for op in ("get", "put", "delete")), f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}.delete"}
             if server:
-                markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "activity page PASS", "activity empty PASS", "activity post PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard or albums != expected_albums or indexes != expected_indexes or activity != {"page", "empty", "post"} or social != expected_social)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+                markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "activity page PASS", "activity empty PASS", "activity post PASS", "record values PASS", "record empty PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard or albums != expected_albums or indexes != expected_indexes or activity != {"page", "empty", "post"} or social != expected_social or records != {"values", "empty"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

@@ -84,6 +84,11 @@ global SocialFixtureReply = function(data, result, error) {
     else { GameSystem.trace("social callback FAIL"); }
 };
 
+global RecordFixtureReply = function(data, result, error) {
+    if (error == 0 && result != null && result.ok == 1) { GameSystem.trace("record " + data + " PASS"); }
+    else { GameSystem.trace("record callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -137,6 +142,8 @@ global Main = function(p) {
                 Watermelon_LevelHearts_Post(SocialFixtureReply, "heart put", 124, "level-1");
                 Watermelon_LevelHearts_Delete(SocialFixtureReply, "heart delete", 125, "level-1");
                 if (!Watermelon_Following_Put(null, null, 126, Watermelon_GetUserIdentityId())) { GameSystem.trace("social self follow PASS"); }
+                Watermelon_Record_Post(RecordFixtureReply, "values", 127, "level-1", {score="4294967296", completed=1, playTime=1.25});
+                Watermelon_Record_Post(RecordFixtureReply, "empty", 128, "level-1", {});
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");

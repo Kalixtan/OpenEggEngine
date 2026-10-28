@@ -30,7 +30,7 @@ MARKERS = (
     "queue offline gate PASS",
     "activity offline gate PASS",
     "featured offline gate PASS",
-    "record post route PASS",
+    "record offline gate PASS",
     "rating/favourite offline gate PASS",
     "leaderboard offline gate PASS",
     "metadata offline gate PASS",

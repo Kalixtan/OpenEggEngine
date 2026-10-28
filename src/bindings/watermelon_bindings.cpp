@@ -642,7 +642,7 @@ int GM_CDECL gmf_RecordPost(gmThread* a_thread) {
     }
     std::string levelId;
     gmTableObject* table = a_thread->ParamTable(4);
-    if (!g_networkClient || g_networkClient->UserId().empty() || !table ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !table ||
         !ReadOptionalString(a_thread, 3, levelId)) {
         a_thread->PushInt(0);
         return GM_OK;
