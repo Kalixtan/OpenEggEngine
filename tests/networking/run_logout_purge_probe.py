@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import tempfile
 import threading
-import time
 
 from run_image_probe import png
 from run_ticket_probe import ticket
@@ -16,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 slow_received = threading.Event()
+release_slow = threading.Event()
 seen = []
 
 class Handler(BaseHTTPRequestHandler):
@@ -34,7 +34,9 @@ class Handler(BaseHTTPRequestHandler):
             seen.append(self.path)
             if "slow=1" in self.path:
                 slow_received.set()
-                time.sleep(1.5)
+                if not release_slow.wait(15):
+                    self.reply(503)
+                    return
             self.reply(200, b'{"items":[]}')
         elif self.path == "/image.png":
             seen.append("image-with-session" if self.headers.get("X-OTG-Identity-SessionId") else "image")
@@ -81,6 +83,7 @@ try:
                 lines.append(line)
                 if "logout transition requested" in line:
                     received_before_logout.append(slow_received.is_set())
+                    release_slow.set()
         reader = threading.Thread(target=read_output)
         reader.start()
         try:
@@ -90,6 +93,7 @@ try:
             process.wait()
             raise
         finally:
+            release_slow.set()
             reader.join()
         output = "".join(lines)
         print(output, end="")
@@ -98,6 +102,7 @@ try:
                 any("queued=1" in item for item in seen) or "image" not in seen or "image-with-session" in seen):
             raise SystemExit("logout purge probe failed")
 finally:
+    release_slow.set()
     server.shutdown()
     server.server_close()
     thread.join()
