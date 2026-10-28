@@ -152,8 +152,10 @@ NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
 
 #if defined(OPENEGG_HAS_CURL)
     static const CURLcode curlInit = curl_global_init(CURL_GLOBAL_DEFAULT);
-    if (curlInit == CURLE_OK && !m_baseUrl.empty())
-        m_worker = std::thread(&NetworkClient::WorkerMain, this);
+    if (curlInit == CURLE_OK && !m_baseUrl.empty()) {
+        m_worker = std::thread(&NetworkClient::WorkerMain, this, true);
+        m_globalWorker = std::thread(&NetworkClient::WorkerMain, this, false);
+    }
     if (m_worker.joinable() && ((!m_manualSessionId.empty() && !m_manualUserId.empty()) ||
         (!SystemConfig::Get().networkAccountEmail.empty() && !SystemConfig::Get().networkAccountPassword.empty())))
         m_coordinatorState = 4;
@@ -168,8 +170,9 @@ NetworkClient::~NetworkClient() {
         std::lock_guard<std::mutex> lock(m_mutex);
         m_stopping = true;
     }
-    m_wake.notify_one();
+    m_wake.notify_all();
     if (m_worker.joinable()) m_worker.join();
+    if (m_globalWorker.joinable()) m_globalWorker.join();
     m_machine.GetGlobals()->Set(&m_machine, kRootTableName, gmVariable::s_null);
 }
 
@@ -315,7 +318,7 @@ void NetworkClient::GoOnline() {
 bool NetworkClient::IsSendQueueFull() {
     if (!m_managerAttached) return true;
     std::lock_guard<std::mutex> lock(m_mutex);
-    return m_identityQueued == 32;
+    return m_identityRequests.size() == 32;
 }
 
 const std::string* NetworkClient::FindNetworkTranslation(const std::string& key) const {
@@ -354,7 +357,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
                          const std::string& a_resourceKey, bool a_sendSession) {
     const bool absolute = a_callbackMode == 4 &&
         (a_path.rfind("http://", 0) == 0 || a_path.rfind("https://", 0) == 0);
-    if (m_baseUrl.empty() || !m_worker.joinable() || a_path.empty() ||
+    if (m_baseUrl.empty() || !(a_sendSession ? m_worker.joinable() : m_globalWorker.joinable()) || a_path.empty() ||
         (!absolute && a_path.front() != '/') || a_path.size() > 1023 ||
         (!absolute && m_baseUrl.size() + a_path.size() > 1023) ||
         (a_callbackMode < 0 && a_callback.m_type != GM_FUNCTION) || m_roots == nullptr) {
@@ -363,9 +366,9 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
 
     std::unique_lock<std::mutex> lock(m_mutex);
     // The PS3 enqueue helper retries when its 32-slot worker ring is full.
-    // Desktop shares a worker but keeps separate identity and global budgets.
+    auto& requests = a_sendSession ? m_identityRequests : m_globalRequests;
     m_wake.wait(lock, [&] {
-        return m_stopping || (a_sendSession ? m_identityQueued : m_globalQueued) < 32;
+        return m_stopping || requests.size() < 32;
     });
     if (m_stopping || m_nextId <= 0 || m_nextId == std::numeric_limits<int>::max())
         return 0;
@@ -383,8 +386,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
     m_pending.emplace(id, PendingRequest{bucket, false, a_sendSession});
-    m_requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false, a_sendSession});
-    ++(a_sendSession ? m_identityQueued : m_globalQueued);
+    requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false, a_sendSession});
     m_wake.notify_all();
     return id;
 }
@@ -401,11 +403,12 @@ void NetworkClient::PumpCallbacks() {
     std::deque<Completion> completions;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        // Retail managers consume at most four completed requests per update.
-        // Desktop currently combines their traffic into a single manager.
-        for (int count = 0; count < 4 && !m_completions.empty(); ++count) {
-            completions.push_back(std::move(m_completions.front()));
-            m_completions.pop_front();
+        // Retail managers each consume at most four completions per update.
+        for (auto* queue : {&m_identityCompletions, &m_globalCompletions}) {
+            for (int count = 0; count < 4 && !queue->empty(); ++count) {
+                completions.push_back(std::move(queue->front()));
+                queue->pop_front();
+            }
         }
     }
 
@@ -776,18 +779,19 @@ void NetworkClient::UpdateCoordinator() {
     m_coordinatorState = accepted ? 24 : 23;
 }
 
-void NetworkClient::WorkerMain() {
+void NetworkClient::WorkerMain(bool a_identity) {
 #if defined(OPENEGG_HAS_CURL)
+    auto& requests = a_identity ? m_identityRequests : m_globalRequests;
+    auto& completions = a_identity ? m_identityCompletions : m_globalCompletions;
     for (;;) {
         Request request;
         std::string sessionId;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
-            m_wake.wait(lock, [this] { return m_stopping || !m_requests.empty(); });
+            m_wake.wait(lock, [&] { return m_stopping || !requests.empty(); });
             if (m_stopping) return;
-            request = std::move(m_requests.front());
-            m_requests.pop_front();
-            --(request.sendSession ? m_identityQueued : m_globalQueued);
+            request = std::move(requests.front());
+            requests.pop_front();
             m_wake.notify_all();
             const auto pending = m_pending.find(request.id);
             request.purged = pending != m_pending.end() && pending->second.purged;
@@ -798,7 +802,7 @@ void NetworkClient::WorkerMain() {
         completion.id = request.id;
         if (request.purged) {
             std::lock_guard<std::mutex> lock(m_mutex);
-            m_completions.push_back(std::move(completion));
+            completions.push_back(std::move(completion));
             continue;
         }
         CURL* curl = curl_easy_init();
@@ -839,7 +843,7 @@ void NetworkClient::WorkerMain() {
 
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            m_completions.push_back(std::move(completion));
+            completions.push_back(std::move(completion));
         }
     }
 #endif

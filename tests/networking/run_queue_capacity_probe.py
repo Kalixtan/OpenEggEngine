@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 USER = "00000000-0000-0000-0000-000000000002"
 SESSION = "00000000-0000-0000-0000-000000000001"
 entered, release, resumed = threading.Event(), threading.Event(), threading.Event()
+global_received = threading.Event()
 seen = []
 
 class Handler(BaseHTTPRequestHandler):
@@ -27,6 +28,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         seen.append(self.path)
+        if self.path == "/image.png":
+            global_received.set()
         if "slow=1" in self.path:
             entered.set()
             if not release.wait(15):
@@ -77,7 +80,7 @@ try:
                 if "send queue resumed PASS" in line:
                     resumed.set()
                 if "global queue admission PASS" in line:
-                    blocked.append(entered.is_set() and not resumed.wait(0.2))
+                    blocked.append(entered.is_set() and global_received.wait(3) and not resumed.wait(0.2))
                     release.set()
         reader = threading.Thread(target=read_output)
         reader.start()

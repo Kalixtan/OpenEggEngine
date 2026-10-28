@@ -94,8 +94,8 @@ behavior.
       admission, stale status handling, and shutdown draining.
 - [x] Bound identity and global worker queues to 32 pending requests each;
       waiting admission follows the retail enqueue retry path.
-- [ ] Split identity and Watermelon request managers. The desktop currently
-      applies retail's four-completion update budget to their combined queue.
+- [ ] Verify request manager update ordering and shutdown draining against
+      retail; identity and global image requests use separate desktop workers.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
       HTTP errors, and transport errors.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;

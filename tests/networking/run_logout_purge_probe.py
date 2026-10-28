@@ -77,12 +77,13 @@ try:
                    SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
         process = subprocess.Popen([str(temp / engine.name), str(script), "LogoutPurgeProbe.gm", "Main"],
                                    env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        lines, received_before_logout = [], []
+        lines, received_before_logout, image_before_logout = [], [], []
         def read_output():
             for line in process.stdout:
                 lines.append(line)
                 if "logout transition requested" in line:
                     received_before_logout.append(slow_received.is_set())
+                    image_before_logout.append(any("logout global image PASS" in item for item in lines))
                     release_slow.set()
         reader = threading.Thread(target=read_output)
         reader.start()
@@ -97,7 +98,7 @@ try:
             reader.join()
         output = "".join(lines)
         print(output, end="")
-        if (process.returncode or received_before_logout != [True] or
+        if (process.returncode or received_before_logout != [True] or image_before_logout != [True] or
                 any(marker not in output for marker in ("logout identity requests PASS", "logout global image PASS")) or
                 any("queued=1" in item for item in seen) or "image" not in seen or "image-with-session" in seen):
             raise SystemExit("logout purge probe failed")

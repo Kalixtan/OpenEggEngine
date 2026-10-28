@@ -94,7 +94,7 @@ private:
         std::array<int, 3> sizes{};
     };
 
-    void WorkerMain();
+    void WorkerMain(bool a_identity);
     int Queue(const std::string& a_path, const gmVariable& a_callback,
               const gmVariable& a_callbackData, const gmVariable& a_tag,
               int a_bucket, int a_callbackMode, bool a_post = false,
@@ -110,14 +110,15 @@ private:
     std::string m_userId;
     std::mutex m_mutex;
     std::condition_variable m_wake;
-    std::deque<Request> m_requests;
-    size_t m_identityQueued = 0;
-    size_t m_globalQueued = 0;
-    std::deque<Completion> m_completions;
+    std::deque<Request> m_identityRequests;
+    std::deque<Request> m_globalRequests;
+    std::deque<Completion> m_identityCompletions;
+    std::deque<Completion> m_globalCompletions;
     std::unordered_map<int, PendingRequest> m_pending;
     std::unordered_map<int, AssetBundle> m_assetBundles;
     std::unordered_map<int, std::pair<int, int>> m_assetRequests;
     std::thread m_worker;
+    std::thread m_globalWorker;
     bool m_stopping = false;
     int m_nextId = 1;
     int m_nextAssetBundleId = 1;
