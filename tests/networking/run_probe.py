@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -70,11 +71,14 @@ def main():
     parser.add_argument("--session-id", help="Local test session ID for an authenticated probe")
     parser.add_argument("--user-id", default="test-user", help="Identity belonging to the session")
     parser.add_argument("--target-id", help="Fixture user ID for follow and unfollow checks")
+    parser.add_argument("--level-id", help="Fixture level ID for heart and unheart checks")
     args = parser.parse_args()
     if args.target_id:
         args.target_id = str(uuid.UUID(args.target_id))
         if not args.session_id:
             parser.error("--target-id requires --session-id")
+    if args.level_id and (not args.session_id or not re.fullmatch(r"[A-Za-z0-9]{8}", args.level_id)):
+        parser.error("--level-id requires a session and an eight-character level ID")
 
     engine = args.engine.resolve()
     if not engine.is_file():
@@ -92,13 +96,14 @@ def main():
         if data_dir.is_dir():
             (temp / "game_data").symlink_to(data_dir, target_is_directory=True)
 
-        (temp / "OpenEgg.ini").write_text(
-            "[system]\nos_id = ps3\nlanguage = en_us\n"
-            f"network_base_url = {args.server_url.rstrip('/')}\n"
-            f"network_user_id = {args.user_id}\n"
-            f"network_session_id = {args.session_id or ''}\n",
-            encoding="utf-8",
-        )
+        config = "[system]\nos_id = ps3\nlanguage = en_us\n"
+        if args.session_id:
+            config += (f"[network]\nserver_url = {args.server_url.rstrip('/')}\n"
+                       f"user_id = {args.user_id}\nsession_id = {args.session_id}\n")
+        else:
+            config += (f"network_base_url = {args.server_url.rstrip('/')}\n"
+                       f"network_user_id = {args.user_id}\n")
+        (temp / "OpenEgg.ini").write_text(config, encoding="utf-8")
 
         env = os.environ.copy()
         env.update({
@@ -120,10 +125,14 @@ def main():
             script_dir = temp / "probe"
             script_dir.mkdir()
             source = (ROOT / "tests" / "networking" / probe).read_text(encoding="utf-8")
-            (script_dir / probe).write_text(source.replace("__TARGET_ID__", args.target_id or ""), encoding="utf-8")
+            source = source.replace("__TARGET_ID__", args.target_id or "").replace("__LEVEL_ID__", args.level_id or "")
+            (script_dir / probe).write_text(source, encoding="utf-8")
             if args.target_id:
                 markers += ("authenticated follow PASS", "authenticated follow read PASS", "authenticated unfollow PASS",
                             "authenticated unfollow readback PASS")
+            if args.level_id:
+                markers += ("authenticated heart PASS", "authenticated heart read PASS", "authenticated unheart PASS",
+                            "authenticated unheart readback PASS")
         result = subprocess.run(
             [str(test_engine), str(script_dir),
              probe, "Main"],

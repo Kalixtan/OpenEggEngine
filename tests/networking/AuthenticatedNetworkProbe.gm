@@ -55,6 +55,41 @@ global AuthFollowPut = function(data, response, error) {
     }
 };
 
+global AuthHeartCleared = function(data, response, error) {
+    if (error == 0 && response.count == 0 && response.items.size == 0) {
+        GameSystem.trace("authenticated unheart readback PASS");
+    } else {
+        GameSystem.trace("authenticated unheart readback FAIL");
+    }
+};
+
+global AuthHeartDeleted = function(data, response, error) {
+    if (error == 0) {
+        GameSystem.trace("authenticated unheart PASS");
+        Watermelon_LevelHearts_Page(AuthHeartCleared, null, 17, Watermelon_GetUserIdentityId(), "from=0&count=1");
+    } else {
+        GameSystem.trace("authenticated unheart FAIL");
+    }
+};
+
+global AuthHeartRead = function(data, response, error) {
+    if (error == 0 && response != null) {
+        GameSystem.trace("authenticated heart read PASS");
+        Watermelon_LevelHearts_Delete(AuthHeartDeleted, null, 16, data);
+    } else {
+        GameSystem.trace("authenticated heart read FAIL");
+    }
+};
+
+global AuthHeartPut = function(data, response, error) {
+    if (error == 0) {
+        GameSystem.trace("authenticated heart PASS");
+        Watermelon_LevelHearts_Get(AuthHeartRead, data, 15, data);
+    } else {
+        GameSystem.trace("authenticated heart FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -67,6 +102,9 @@ global Main = function(p) {
             local hearts = Watermelon_LevelHearts_Page(AuthUserPageReply, "hearts", 4, identity, "from=0&count=1");
             if ("__TARGET_ID__" != "") {
                 Watermelon_Following_Put(AuthFollowPut, "__TARGET_ID__", 10, "__TARGET_ID__");
+            }
+            if ("__LEVEL_ID__" != "") {
+                Watermelon_LevelHearts_Post(AuthHeartPut, "__LEVEL_ID__", 14, "__LEVEL_ID__");
             }
             if (request == 1) {
                 GameSystem.trace("authenticated request QUEUED");
