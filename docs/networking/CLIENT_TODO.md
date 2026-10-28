@@ -30,8 +30,10 @@ behavior.
       the in-flight transport may still finish, as in the PS3 trace.
 - [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`;
       stop at the unimplemented post-login phases rather than reporting online.
-- [x] Send the traced identity hello request after login. EULA and later
-      coordinator phases still need implementation.
+- [x] Send the identity hello and PS3 SCEA EULA requests after login; cache
+      EULA text and digest and poll script acceptance.
+- [ ] Implement other product regions and later coordinator phases. Match
+      retail update timing and malformed EULA edge cases.
 - [ ] Match retail login reset, request purging, malformed responses and error
       transitions. Test genuine platform tickets against a suitable server.
 - [ ] Implement and verify the retail ticket login and coordinator state flow.

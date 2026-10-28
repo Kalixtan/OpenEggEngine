@@ -37,6 +37,10 @@ public:
     void GoOffline();
     int CoordinatorState() const { return m_coordinatorState; }
     int CoordinatorError() const { return m_coordinatorError; }
+    bool HasEula() const { return m_eulaReady; }
+    const std::string& EulaText() const { return m_eulaText; }
+    const std::string& EulaVersion() const { return m_eulaVersion; }
+    void UpdateCoordinator();
     void Purge(int a_bucket);
     void PumpCallbacks();
 
@@ -82,7 +86,11 @@ private:
     int m_nextId = 1;
     int m_loginRequestId = 0;
     int m_helloRequestId = 0;
+    int m_eulaRequestId = 0;
     std::string m_platformTicket;
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;
+    bool m_eulaReady = false;
+    std::string m_eulaText;
+    std::string m_eulaVersion;
 };

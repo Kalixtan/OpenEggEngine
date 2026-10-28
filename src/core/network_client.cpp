@@ -5,6 +5,7 @@
 #include "gmMachine.h"
 #include "gmTableObject.h"
 #include "system_config.h"
+#include "sha1.h"
 #include <rapidjson/document.h>
 
 #include <algorithm>
@@ -158,10 +159,13 @@ void NetworkClient::GoOffline() {
         if (pending != m_pending.end()) pending->second.purged = true;
         pending = m_pending.find(m_helloRequestId);
         if (pending != m_pending.end()) pending->second.purged = true;
+        pending = m_pending.find(m_eulaRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
     m_helloRequestId = 0;
+    m_eulaRequestId = 0;
     m_userId.clear();
     m_coordinatorError = 0;
     m_coordinatorState = 4;
@@ -263,11 +267,40 @@ void NetworkClient::PumpCallbacks() {
         if (completion.id == m_helloRequestId) {
             m_helloRequestId = 0;
             if (completion.status == 200 || completion.status == 201) {
-                m_coordinatorState = 21;
                 std::fprintf(stderr, "network: identity hello succeeded\n");
+                // The traced PS3 build uses the SCEA product ID. Its EULA
+                // route maps French and Spanish to their American locales.
+                const int language = SystemConfig::Get().languageCode;
+                const char* locale = language == 2 ? "fr" : language == 3 ? "es_mx" : "en";
+                m_eulaRequestId = QueueRetailGet(std::string("/otg/ps3/SCEA/") + locale + "/~eula.get",
+                    gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 1);
+                if (m_eulaRequestId) m_coordinatorState = 22;
+                else m_coordinatorError = -12;
             } else {
                 m_coordinatorError = -12;
                 std::fprintf(stderr, "network: identity hello failed (HTTP %ld)\n", completion.status);
+            }
+        }
+        if (completion.id == m_eulaRequestId) {
+            m_eulaRequestId = 0;
+            if (completion.status == 200 || completion.status == 201) {
+                std::string text = completion.body;
+                if (text.size() >= 3 && text.compare(0, 3, "\xef\xbb\xbf") == 0) text.erase(0, 3);
+                for (size_t pos = 0; pos < text.size() && text[pos] != '\0';) {
+                    const unsigned char ch = static_cast<unsigned char>(text[pos]);
+                    if (ch == '\t') text[pos] = ' ';
+                    const size_t width = ch < 0x80 ? 1 : ch < 0xe0 ? 2 : ch < 0xf0 ? 3 :
+                                         ch < 0xf8 ? 4 : ch < 0xfc ? 5 : 6;
+                    pos += std::min(width, text.size() - pos);
+                }
+                m_eulaVersion = Sha1Hex(text);
+                m_eulaText = std::move(text);
+                m_eulaText.push_back('\n');
+                m_eulaReady = true;
+                std::fprintf(stderr, "network: EULA received\n");
+            } else {
+                m_coordinatorError = -12;
+                std::fprintf(stderr, "network: EULA failed (HTTP %ld)\n", completion.status);
             }
         }
         const gmVariable contextValue = m_roots->Get(completion.id);
@@ -308,6 +341,18 @@ void NetworkClient::PumpCallbacks() {
         }
         m_roots->Set(&m_machine, completion.id, gmVariable::s_null);
     }
+}
+
+void NetworkClient::UpdateCoordinator() {
+    if ((m_coordinatorState != 22 && m_coordinatorState != 23) || !m_eulaReady) return;
+    int accepted = 0;
+    gmCall call;
+    if (call.BeginGlobalFunction(&m_machine, "SAVEDATAHELPER_HasAcceptedEula")) {
+        call.AddParamString(m_eulaVersion.c_str());
+        call.End();
+        if (call.DidReturnVariable()) call.GetReturnedInt(accepted);
+    }
+    m_coordinatorState = accepted ? 24 : 23;
 }
 
 void NetworkClient::WorkerMain() {

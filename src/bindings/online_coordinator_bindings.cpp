@@ -21,7 +21,7 @@ int GM_CDECL gmf_HasChatPermissions(gmThread* a_thread) { a_thread->PushInt(0); 
 // The offline coordinator has no attached online manager.
 int GM_CDECL gmf_IsSendQueueFull(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
 int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
-    a_thread->PushInt(0);
+    a_thread->PushInt(CoordinatorState() == 23);
     return GM_OK;
 }
 int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(g_networkClient ? g_networkClient->CoordinatorError() : 0); return GM_OK; }

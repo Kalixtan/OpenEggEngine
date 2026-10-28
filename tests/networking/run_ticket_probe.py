@@ -38,6 +38,7 @@ def main():
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--invalid-ticket", action="store_true", help="Check rejection of a malformed ticket")
     parser.add_argument("--expect-hello-failure", action="store_true", help="Check a failed hello response")
+    parser.add_argument("--eula", action="store_true", help="Check EULA retrieval from the local server")
     args = parser.parse_args()
     if not args.server_url.startswith("http://127.0.0.1:"):
         parser.error("fixture must use a local 127.0.0.1 server")
@@ -57,12 +58,16 @@ def main():
         env = os.environ.copy()
         env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt",
                    GE3_HARNESS=str(harness), SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
+        probe = "ServerEulaProbe.gm" if args.eula else "TicketLoginProbe.gm"
         result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
-                                 "TicketLoginProbe.gm", "Main"], cwd=ROOT, env=env,
+                                 probe, "Main"], cwd=ROOT, env=env,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         print(result.stdout, end="")
         markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS")
-        if args.invalid_ticket:
+        if args.eula:
+            markers = ("network: ticket login succeeded", "network: identity hello succeeded",
+                       "network: EULA received", "server EULA PASS")
+        elif args.invalid_ticket:
             markers += ("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS")
         elif args.expect_hello_failure:
             markers += ("network: ticket login succeeded", "network: identity hello failed (HTTP 503)",

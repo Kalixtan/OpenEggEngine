@@ -149,6 +149,7 @@ bool GmVm::LoadScript(const std::string& a_relativePath) {
 void GmVm::Tick(unsigned int a_deltaMs) {
     m_machine.Execute(a_deltaMs);
     m_networkClient.PumpCallbacks();
+    m_networkClient.UpdateCoordinator();
     FlushLog();
 }
 

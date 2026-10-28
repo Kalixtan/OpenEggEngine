@@ -838,12 +838,14 @@ int GM_CDECL gmf_GetUserIdentityId(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetEula(gmThread* a_thread) {
-    a_thread->PushNull();
+    if (g_networkClient && g_networkClient->HasEula())
+        a_thread->PushNewString(g_networkClient->EulaText().c_str());
+    else a_thread->PushNull();
     return GM_OK;
 }
 
 int GM_CDECL gmf_GetEulaVersion(gmThread* a_thread) {
-    a_thread->PushNewString("");
+    a_thread->PushNewString(g_networkClient ? g_networkClient->EulaVersion().c_str() : "");
     return GM_OK;
 }
 
