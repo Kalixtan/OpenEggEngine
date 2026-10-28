@@ -28,8 +28,8 @@ behavior.
       local replacement server configured to accept unsigned tickets.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       the in-flight transport may still finish, as in the PS3 trace.
-- [ ] Integrate experimental ticket-file exchange into the coordinator flow;
-      current startup exchange does not enable in-game online menus.
+- [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`;
+      stop at the unimplemented post-login phases rather than reporting online.
 - [ ] Match retail login reset, request purging, malformed responses and error
       transitions. Test genuine platform tickets against a suitable server.
 - [ ] Implement and verify the retail ticket login and coordinator state flow.

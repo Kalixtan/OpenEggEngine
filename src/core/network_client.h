@@ -32,7 +32,11 @@ public:
                         const gmVariable& a_callbackData, const gmVariable& a_tag,
                         int a_bucket, int a_callbackMode);
     const std::string& UserId() const { return m_userId; }
-    bool BeginTicketLogin(const std::string& a_ticket);
+    void SetPlatformTicket(std::string a_ticket);
+    void GoOnline();
+    void GoOffline();
+    int CoordinatorState() const { return m_coordinatorState; }
+    int CoordinatorError() const { return m_coordinatorError; }
     void Purge(int a_bucket);
     void PumpCallbacks();
 
@@ -61,6 +65,7 @@ private:
               const gmVariable& a_callbackData, const gmVariable& a_tag,
               int a_bucket, int a_callbackMode, bool a_post = false,
               const std::string& a_body = {}, const std::string& a_contentType = {});
+    bool BeginTicketLogin(const std::string& a_ticket);
 
     gmMachine& m_machine;
     gmTableObject* m_roots = nullptr;
@@ -76,4 +81,7 @@ private:
     bool m_stopping = false;
     int m_nextId = 1;
     int m_loginRequestId = 0;
+    std::string m_platformTicket;
+    int m_coordinatorState = 1;
+    int m_coordinatorError = 0;
 };

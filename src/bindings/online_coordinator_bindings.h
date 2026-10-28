@@ -1,4 +1,5 @@
 #pragma once
 #include "gmMachine.h"
 
-void RegisterOnlineCoordinatorBindings(gmMachine& a_machine);
+class NetworkClient;
+void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_networkClient);

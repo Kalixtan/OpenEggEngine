@@ -36,6 +36,6 @@ session_id =
 user_id =
 
 ; Optional binary platform ticket, relative to the executable. Experimental:
-; exchanges the ticket for a session but does not enable the in-game online flow.
+; GoOnline exchanges it for a session; later online phases are unfinished.
 ; The server decides whether to accept the ticket.
 ticket_file =

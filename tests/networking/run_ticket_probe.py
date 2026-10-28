@@ -60,8 +60,10 @@ def main():
                                  "TicketLoginProbe.gm", "Main"], cwd=ROOT, env=env,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         print(result.stdout, end="")
-        markers = (("network: ticket login failed (HTTP 400)",) if args.invalid_ticket else
-                   ("network: ticket login succeeded", "ticket identity PASS", "ticket authenticated request PASS"))
+        markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS")
+        markers += (("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS") if args.invalid_ticket else
+                    ("network: ticket login succeeded", "ticket identity PASS", "ticket authenticated request PASS",
+                     "ticket coordinator logout PASS"))
         missing = [marker for marker in markers if marker not in result.stdout]
         if result.returncode or missing or (args.invalid_ticket and "ticket identity PASS" in result.stdout):
             raise SystemExit(f"ticket probe failed; missing markers: {missing}")

@@ -10,6 +10,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <utility>
 
 namespace {
 
@@ -119,8 +120,10 @@ GmVm::GmVm()
         } else {
             std::string ticket(static_cast<size_t>(size), '\0');
             file.seekg(0);
-            if (!file.read(&ticket[0], ticket.size()) || !m_networkClient.BeginTicketLogin(ticket))
-                std::fprintf(stderr, "network: could not queue ticket login\n");
+            if (file.read(&ticket[0], ticket.size()))
+                m_networkClient.SetPlatformTicket(std::move(ticket));
+            else
+                std::fprintf(stderr, "network: could not read ticket file\n");
         }
     }
 }

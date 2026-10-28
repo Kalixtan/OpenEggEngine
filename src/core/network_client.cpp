@@ -135,6 +135,35 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     return m_loginRequestId != 0;
 }
 
+void NetworkClient::SetPlatformTicket(std::string a_ticket) {
+    m_platformTicket = std::move(a_ticket);
+    if (!m_platformTicket.empty() && m_worker.joinable()) m_coordinatorState = 4;
+}
+
+void NetworkClient::GoOnline() {
+    if (m_coordinatorState != 2 && m_coordinatorState != 4) return;
+    m_coordinatorError = 0;
+    if (BeginTicketLogin(m_platformTicket)) {
+        m_coordinatorState = 18;
+    } else {
+        m_coordinatorError = -12;
+    }
+}
+
+void NetworkClient::GoOffline() {
+    if (m_coordinatorState == 1) return;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto pending = m_pending.find(m_loginRequestId);
+        if (pending != m_pending.end()) pending->second.purged = true;
+        m_sessionId.clear();
+    }
+    m_loginRequestId = 0;
+    m_userId.clear();
+    m_coordinatorError = 0;
+    m_coordinatorState = 4;
+}
+
 int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback,
                          const gmVariable& a_callbackData, const gmVariable& a_tag,
                          int a_bucket, int a_callbackMode, bool a_post,
@@ -211,11 +240,14 @@ void NetworkClient::PumpCallbacks() {
                         m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                     }
                     m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
+                    m_coordinatorState = 19;
                     std::fprintf(stderr, "network: ticket login succeeded\n");
                 } else {
+                    m_coordinatorError = -12;
                     std::fprintf(stderr, "network: ticket login returned an incomplete session\n");
                 }
             } else {
+                m_coordinatorError = -12;
                 std::fprintf(stderr, "network: ticket login failed (HTTP %ld)\n", completion.status);
             }
         }

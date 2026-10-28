@@ -2,16 +2,19 @@
 #include "online_coordinator_bindings.h"
 #include "gmTableObject.h"
 #include "gmStringObject.h"
+#include "../core/network_client.h"
 #include "../core/system_config.h"
 #include <cstdio>
 #include <cstdlib>
 
 namespace {
 
-int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
-int GM_CDECL gmf_IsOffline(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
-int GM_CDECL gmf_IsDisabled(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
-int GM_CDECL gmf_IsConnecting(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+NetworkClient* g_networkClient = nullptr;
+int CoordinatorState() { return g_networkClient ? g_networkClient->CoordinatorState() : 1; }
+int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(CoordinatorState() == 30); return GM_OK; }
+int GM_CDECL gmf_IsOffline(gmThread* a_thread) { int state = CoordinatorState(); a_thread->PushInt(state == 2 || state == 4); return GM_OK; }
+int GM_CDECL gmf_IsDisabled(gmThread* a_thread) { a_thread->PushInt(CoordinatorState() == 1); return GM_OK; }
+int GM_CDECL gmf_IsConnecting(gmThread* a_thread) { int state = CoordinatorState(); a_thread->PushInt(state != 1 && state != 2 && state != 4 && state != 30); return GM_OK; }
 int GM_CDECL gmf_IsReadyGoOffline(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
 int GM_CDECL gmf_IsLoggedIntoPlatform(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_HasChatPermissions(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
@@ -21,10 +24,10 @@ int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
     a_thread->PushInt(0);
     return GM_OK;
 }
-int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
+int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(g_networkClient ? g_networkClient->CoordinatorError() : 0); return GM_OK; }
 int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushString(a_thread->GetMachine()->AllocStringObject("")); return GM_OK; }
-int GM_CDECL gmf_GoOnline(gmThread*) { return GM_OK; }
-int GM_CDECL gmf_GoOffline(gmThread*) { return GM_OK; }
+int GM_CDECL gmf_GoOnline(gmThread*) { if (g_networkClient) g_networkClient->GoOnline(); return GM_OK; }
+int GM_CDECL gmf_GoOffline(gmThread*) { if (g_networkClient) g_networkClient->GoOffline(); return GM_OK; }
 
 
 int GM_CDECL gmf_NetworkStoreUnavailable(gmThread* a_thread) {
@@ -151,7 +154,8 @@ int GM_CDECL gmf_Network_IsDLCAvailable(gmThread* a_thread) {
 
 } // namespace
 
-void RegisterOnlineCoordinatorBindings(gmMachine& a_machine) {
+void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_networkClient) {
+    g_networkClient = &a_networkClient;
     a_machine.RegisterLibraryFunction("OnlineCoordinator_IsOnline", gmf_IsOnline);
     a_machine.RegisterLibraryFunction("OnlineCoordinator_IsOffline", gmf_IsOffline);
     a_machine.RegisterLibraryFunction("OnlineCoordinator_IsDisabled", gmf_IsDisabled);

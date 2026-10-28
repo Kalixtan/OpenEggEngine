@@ -1,6 +1,10 @@
 global TicketLoginReply = function(data, response, error) {
     if (error == 0 && response != null) {
         GameSystem.trace("ticket authenticated request PASS");
+        OnlineCoordinator_GoOffline();
+        if (OnlineCoordinator_IsOffline() && Watermelon_GetUserIdentityId() == "") {
+            GameSystem.trace("ticket coordinator logout PASS");
+        }
     } else {
         GameSystem.trace("ticket authenticated request FAIL");
     }
@@ -10,9 +14,27 @@ global Main = function(p) {
     return table(
         Process=p,
         started=0,
+        errorReported=0,
         init=function() { return true; },
-        constructor=function() {},
+        constructor=function() {
+            if (OnlineCoordinator_IsOffline() && !OnlineCoordinator_IsDisabled()) {
+                GameSystem.trace("ticket coordinator offline PASS");
+            }
+            OnlineCoordinator_GoOnline();
+            if (OnlineCoordinator_IsConnecting() && !OnlineCoordinator_IsOnline()) {
+                GameSystem.trace("ticket coordinator connecting PASS");
+            }
+            OnlineCoordinator_GoOffline();
+            if (OnlineCoordinator_IsOffline() && Watermelon_GetUserIdentityId() == "") {
+                GameSystem.trace("ticket coordinator cancel PASS");
+            }
+            OnlineCoordinator_GoOnline();
+        },
         update=function() {
+            if (this.errorReported == 0 && OnlineCoordinator_GetLastError() == -12) {
+                this.errorReported = 1;
+                GameSystem.trace("ticket coordinator error PASS");
+            }
             if (this.started == 0 && Watermelon_GetUserIdentityId() != "") {
                 this.started = 1;
                 GameSystem.trace("ticket identity PASS");
