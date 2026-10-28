@@ -122,7 +122,7 @@ int GM_CDECL gmf_AlbumPage(gmThread* a_thread) {
     return QueueAlbumPage(a_thread, true);
 }
 
-int QueueUserPage(gmThread* a_thread, bool a_followers) {
+int QueueUserPage(gmThread* a_thread, const char* a_suffix) {
     const int count = a_thread->GetNumParams();
     if (count != 4 && count != 5) {
         a_thread->PushInt(-1);
@@ -139,7 +139,7 @@ int QueueUserPage(gmThread* a_thread, bool a_followers) {
     }
 
     std::string path = "/otg/~identity:" + identity;
-    path += a_followers ? "/~followers.page" : "/~follow:*.page";
+    path += a_suffix;
     if (count == 5) {
         std::string query;
         if (ReadOptionalString(a_thread, 4, query) && !query.empty())
@@ -155,11 +155,15 @@ int QueueUserPage(gmThread* a_thread, bool a_followers) {
 }
 
 int GM_CDECL gmf_FollowingPage(gmThread* a_thread) {
-    return QueueUserPage(a_thread, false);
+    return QueueUserPage(a_thread, "/~follow:*.page");
 }
 
 int GM_CDECL gmf_FollowersPage(gmThread* a_thread) {
-    return QueueUserPage(a_thread, true);
+    return QueueUserPage(a_thread, "/~followers.page");
+}
+
+int GM_CDECL gmf_LevelHeartsPage(gmThread* a_thread) {
+    return QueueUserPage(a_thread, "/~like:*.page");
 }
 
 int QueueFollowingAction(gmThread* a_thread, const char* a_operation,
@@ -528,6 +532,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Page", gmf_FollowingPage);
     a_machine.RegisterLibraryFunction("Watermelon_Followers_Page", gmf_FollowersPage);
+    a_machine.RegisterLibraryFunction("Watermelon_LevelHearts_Page", gmf_LevelHeartsPage);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Get", gmf_FollowingGet);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Put", gmf_FollowingPut);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Delete", gmf_FollowingDelete);
@@ -572,7 +577,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_LevelHearts_Post",
         "Watermelon_LevelHearts_Get",
         "Watermelon_LevelHearts_Delete",
-        "Watermelon_LevelHearts_Page",
         "Watermelon_Get_Friends",
         "Watermelon_Following_All",
         "Watermelon_ActivityStream_Post",
