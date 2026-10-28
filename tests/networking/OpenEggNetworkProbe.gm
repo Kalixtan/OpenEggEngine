@@ -102,6 +102,18 @@ global HeartsPageReply = function(data, response, error) {
     }
 };
 
+global HeartsActionReply = function(data, response, error) {
+    if (data == "heart_get" && response == null && error == 403) {
+        GameSystem.trace("heart get route PASS");
+    } else if (data == "heart_put" && response == null && error == 403) {
+        GameSystem.trace("heart put route PASS");
+    } else if (data == "heart_delete" && response == null && error == 403) {
+        GameSystem.trace("heart delete route PASS");
+    } else {
+        GameSystem.trace("heart action route FAIL");
+    }
+};
+
 global ActivityDeniedReply = function(data, response, error) {
     if (data == "activity" && response == null && error == 403) {
         GameSystem.trace("activity page route PASS");
@@ -244,6 +256,12 @@ global Main = function(p) {
             }
             local followers = Watermelon_Followers_Page(FollowersDeniedReply, "followers", 7, "test-user", "from=0&count=1");
             local hearts = Watermelon_LevelHearts_Page(HeartsPageReply, "hearts_page", 19, "test-user", "from=0&count=1");
+            local heartGet = Watermelon_LevelHearts_Get(HeartsActionReply, "heart_get", 39, "test-level");
+            local heartPut = Watermelon_LevelHearts_Post(HeartsActionReply, "heart_put", 40, "test-level");
+            local heartDelete = Watermelon_LevelHearts_Delete(HeartsActionReply, "heart_delete", 41, "test-level");
+            if (heartGet != 1 || heartPut != 1 || heartDelete != 1) {
+                GameSystem.trace("heart action NOT_QUEUED");
+            }
             if (hearts != 1) {
                 GameSystem.trace("hearts page NOT_QUEUED");
             }

@@ -14,11 +14,12 @@ namespace {
 
 NetworkClient* g_networkClient = nullptr;
 
-std::string EncodeRetailUrl(const std::string& a_text) {
+std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200) {
     char buffer[0x200];
+    if (a_capacity > sizeof(buffer)) a_capacity = sizeof(buffer);
     size_t out = 0;
     for (const unsigned char* p = reinterpret_cast<const unsigned char*>(a_text.c_str());
-         *p && out + 4 < sizeof(buffer); ++p) {
+         *p && out + 4 < a_capacity; ++p) {
         const unsigned char c = *p;
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
             (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
@@ -377,6 +378,36 @@ int GM_CDECL gmf_FollowersPage(gmThread* a_thread) {
 int GM_CDECL gmf_LevelHeartsPage(gmThread* a_thread) {
     return QueueUserPage(a_thread, "/~like:*.page");
 }
+
+int QueueLevelHearts(gmThread* a_thread, const char* a_operation, bool a_delete) {
+    if (a_thread->GetNumParams() < 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string levelId;
+    if (!g_networkClient || g_networkClient->UserId().empty() ||
+        !ReadOptionalString(a_thread, 3, levelId)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const std::string level = "/~level:" + levelId;
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
+        "/~like:" + EncodeRetailUrl(level, 0x80) + "." + a_operation;
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 0);
+    if (id && a_delete) {
+        const std::string rating = "/otg" + level + "/~rating:" +
+            EncodeRetailUrl("/~identity:" + g_networkClient->UserId()) + ".delete";
+        g_networkClient->QueueRetailGet(rating, gmVariable::s_null, gmVariable::s_null,
+                                       gmVariable::s_null, 0, 0);
+    }
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_LevelHeartsGet(gmThread* a_thread) { return QueueLevelHearts(a_thread, "get", false); }
+int GM_CDECL gmf_LevelHeartsPost(gmThread* a_thread) { return QueueLevelHearts(a_thread, "put", false); }
+int GM_CDECL gmf_LevelHeartsDelete(gmThread* a_thread) { return QueueLevelHearts(a_thread, "delete", true); }
 
 int QueueFollowingAction(gmThread* a_thread, const char* a_operation,
                          bool a_blockSelfFollow) {
@@ -801,6 +832,9 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Following_All", gmf_FollowingAll);
     a_machine.RegisterLibraryFunction("Watermelon_Followers_Page", gmf_FollowersPage);
     a_machine.RegisterLibraryFunction("Watermelon_LevelHearts_Page", gmf_LevelHeartsPage);
+    a_machine.RegisterLibraryFunction("Watermelon_LevelHearts_Get", gmf_LevelHeartsGet);
+    a_machine.RegisterLibraryFunction("Watermelon_LevelHearts_Post", gmf_LevelHeartsPost);
+    a_machine.RegisterLibraryFunction("Watermelon_LevelHearts_Delete", gmf_LevelHeartsDelete);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Get", gmf_FollowingGet);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Put", gmf_FollowingPut);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Delete", gmf_FollowingDelete);
@@ -831,9 +865,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_GetSoundData",
         "Watermelon_Record_Post",
         "Watermelon_Grief_Post",
-        "Watermelon_LevelHearts_Post",
-        "Watermelon_LevelHearts_Get",
-        "Watermelon_LevelHearts_Delete",
         "Watermelon_Get_Friends",
         "Watermelon_GetContentImage",
         "Watermelon_GetBetaParticipationAgreement",
