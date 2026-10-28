@@ -809,6 +809,8 @@ int GM_CDECL gmf_QueryString2GameMonkey(gmThread* a_thread) {
             std::string k(p, eq);
             std::string v(eq + 1, p + seglen);
             table->Set(&m, k.c_str(), gmVariable(m.AllocStringObject(v.c_str())));
+        } else {
+            table->Set(&m, p, gmVariable(static_cast<gmint>(1)));
         }
         p += seglen + (amp ? 1 : 0);
     }

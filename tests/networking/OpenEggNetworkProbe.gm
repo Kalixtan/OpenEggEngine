@@ -249,6 +249,10 @@ global Main = function(p) {
         Process=p,
         init=function() { return true; },
         constructor=function() {
+            local parsed = Watermelon_QueryString2GameMonkey("flag&x=1&&x=2&", {});
+            if (parsed["flag&x=1&&x=2&"] == 1 && parsed["&x=2&"] == 1 && parsed.x == "2") {
+                GameSystem.trace("query flag parsing PASS");
+            }
             if (Watermelon_GameMonkey2QueryString({gain=1.25}) == "gain=1.250000") {
                 GameSystem.trace("query float format PASS");
             }
