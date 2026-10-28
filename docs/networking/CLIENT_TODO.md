@@ -34,8 +34,8 @@ behavior.
       admission, stale status handling, and shutdown draining.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
       HTTP errors, and transport errors.
-- [ ] Match `Watermelon_BaseKeyValue` truncation at multibyte boundaries; normal
-      ASCII key splitting follows the traced separators.
+- [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;
+      normal separator and bounded multibyte cases follow the static trace.
 - [ ] Add native-comparison probes for request ordering and callback timing.
 
 ## Watermelon APIs

@@ -13,6 +13,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKERS = (
+    "base key multibyte boundary PASS",
     "score edge values PASS",
     "level object split PASS",
     "base key split PASS",

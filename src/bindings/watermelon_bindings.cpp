@@ -704,6 +704,18 @@ int GM_CDECL gmf_ParseLevelObjectString(gmThread* a_thread) {
     return GM_OK;
 }
 
+std::string TruncateKeyComponent(const std::string& a_text) {
+    size_t pos = 0;
+    while (pos < a_text.size()) {
+        const auto c = static_cast<unsigned char>(a_text[pos]);
+        const size_t width = c < 0x80 ? 1 : c < 0xe0 ? 2 : c < 0xf0 ? 3 :
+                             c < 0xf8 ? 4 : c < 0xfc ? 5 : 6;
+        if (pos + width > 199 || pos + width > a_text.size()) break;
+        pos += width;
+    }
+    return a_text.substr(0, pos);
+}
+
 int GM_CDECL gmf_BaseKeyValue(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     GM_STRING_PARAM(str, 0, "");
@@ -714,9 +726,9 @@ int GM_CDECL gmf_BaseKeyValue(gmThread* a_thread) {
     const size_t colon = path.rfind(':');
     const size_t start = slash == std::string::npos ? 0 : slash + 1;
     const bool hasValue = colon != std::string::npos && colon >= start;
-    const std::string base = slash == std::string::npos ? "" : path.substr(0, slash).substr(0, 199);
-    const std::string key = path.substr(start, hasValue ? colon - start : std::string::npos).substr(0, 199);
-    const std::string value = hasValue ? path.substr(colon + 1, 199) : "";
+    const std::string base = slash == std::string::npos ? "" : TruncateKeyComponent(path.substr(0, slash));
+    const std::string key = TruncateKeyComponent(path.substr(start, hasValue ? colon - start : std::string::npos));
+    const std::string value = hasValue ? TruncateKeyComponent(path.substr(colon + 1)) : "";
     table->Set(&m, "key", gmVariable(m.AllocStringObject(key.c_str())));
     table->Set(&m, "value", gmVariable(m.AllocStringObject(value.c_str())));
     table->Set(&m, "base", gmVariable(m.AllocStringObject(base.c_str())));

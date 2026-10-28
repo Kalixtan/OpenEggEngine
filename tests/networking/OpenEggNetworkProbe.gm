@@ -249,6 +249,10 @@ global Main = function(p) {
         Process=p,
         init=function() { return true; },
         constructor=function() {
+            local boundaryKey = Watermelon_BaseKeyValue("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaé:value", {});
+            if (boundaryKey.key == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" && boundaryKey.value == "value") {
+                GameSystem.trace("base key multibyte boundary PASS");
+            }
             local packedNegative = Watermelon_PackScore(0, -1);
             local unpackedNegative = Watermelon_UnpackScore(packedNegative, {});
             if (packedNegative == "18446744073709551615" && unpackedNegative.tokens == 0 && unpackedNegative.time == -1 && Watermelon_PackScore(32767, 0) == "4294967296") {
