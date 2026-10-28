@@ -1,5 +1,5 @@
 global InFlightReply = function(data, response, error) {
-    if (data == "slow" && response == null && error == 1) {
+    if (data == "slow" && response == null && error == __EXPECTED_ERROR__) {
         GameSystem.trace("in-flight purge PASS");
     } else {
         GameSystem.trace("in-flight purge FAIL");

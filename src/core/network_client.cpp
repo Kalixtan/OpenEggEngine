@@ -588,11 +588,14 @@ void NetworkClient::PumpCallbacks() {
     }
 
     for (Completion& completion : completions) {
+        const long responseStatus = completion.status;
+        bool purged = false;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             auto pending = m_pending.find(completion.id);
             if (pending != m_pending.end()) {
                 if (pending->second.purged) {
+                    purged = true;
                     completion.status = 0;
                     completion.body.clear();
                 }
@@ -845,7 +848,9 @@ void NetworkClient::PumpCallbacks() {
                         call.AddParamInt(success ? 0 : 1);
                     } else {
                         gmVariable result = gmVariable::s_null;
-                        int error = completion.status == 0 ? 1 : static_cast<int>(completion.status);
+                        int error = purged && responseStatus != 0
+                            ? static_cast<int>(responseStatus)
+                            : (completion.status == 0 ? 1 : static_cast<int>(completion.status));
                         if (callbackMode == 3 || callbackMode == 4 || callbackMode == 7 || callbackMode == 8) error = 1;
                         if (completion.status == 200 || completion.status == 201) {
                             error = 0;

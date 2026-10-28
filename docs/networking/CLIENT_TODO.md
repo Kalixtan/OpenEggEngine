@@ -70,7 +70,7 @@ behavior.
 - [x] Experimental ticket-file exchange and authenticated request against a
       local replacement server configured to accept unsigned tickets.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
-      the in-flight transport may still finish, as in the PS3 trace.
+      an in-flight response can retain its HTTP status, as in the PS3 trace.
 - [x] Cancel identity requests on logout and login transitions while allowing
       independent global image requests to complete.
 - [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`.

@@ -1,7 +1,7 @@
 global LogoutProbe = table(cancelled=0, image=0);
 
 global LogoutReply = function(data, result, error) {
-    if (error == 1 && result == null) {
+    if (((data == "slow" && error == 200) || (data == "queued" && error == 1)) && result == null) {
         LogoutProbe.cancelled += 1;
         if (LogoutProbe.cancelled == 2) { GameSystem.trace("logout identity requests PASS"); }
     } else { GameSystem.trace("logout identity requests FAIL"); }
