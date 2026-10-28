@@ -38,6 +38,22 @@ global AlbumDeniedReply = function(data, response, error) {
     }
 };
 
+global FollowingDeniedReply = function(data, response, error) {
+    if (data == "following" && response == null && error == 403) {
+        GameSystem.trace("following page route PASS");
+    } else {
+        GameSystem.trace("following page route FAIL");
+    }
+};
+
+global FollowersDeniedReply = function(data, response, error) {
+    if (data == "followers" && response == null && error == 403) {
+        GameSystem.trace("followers page route PASS");
+    } else {
+        GameSystem.trace("followers page route FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -48,7 +64,9 @@ global Main = function(p) {
             local forbidden = Watermelon_Index_Page(ForbiddenIndexReply, "forbidden", 3, "type=level&search=all");
             local albums = Watermelon_Albums_Page(AlbumsDeniedReply, "albums", 4, "from=0&count=1");
             local album = Watermelon_Album_Page(AlbumDeniedReply, "album", 5, "test-id", "from=0&count=1");
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1) {
+            local following = Watermelon_Following_Page(FollowingDeniedReply, "following", 6, "test-user", "from=0&count=1");
+            local followers = Watermelon_Followers_Page(FollowersDeniedReply, "followers", 7, "test-user", "from=0&count=1");
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");

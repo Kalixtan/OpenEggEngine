@@ -30,6 +30,8 @@ struct SystemConfig {
     std::string networkBaseUrl;
     // Optional OTG session cookie for local server testing.
     std::string networkSessionId;
+    // Optional identity ID paired with a manually supplied session ID.
+    std::string networkUserId;
 
     // Reads optional settings from OpenEgg.ini beside the executable.
     // Missing or invalid values leave the retail-compatible defaults above.

@@ -73,9 +73,9 @@ size_t ReceiveBody(char* a_data, size_t a_size, size_t a_count, void* a_context)
 } // namespace
 
 NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
-                             std::string a_sessionId)
+                             std::string a_sessionId, std::string a_userId)
     : m_machine(a_machine), m_baseUrl(std::move(a_baseUrl)),
-      m_sessionId(std::move(a_sessionId)) {
+      m_sessionId(std::move(a_sessionId)), m_userId(std::move(a_userId)) {
     while (!m_baseUrl.empty() && m_baseUrl.back() == '/') m_baseUrl.pop_back();
     m_roots = m_machine.AllocTableObject();
     m_machine.GetGlobals()->Set(&m_machine, kRootTableName, gmVariable(m_roots));

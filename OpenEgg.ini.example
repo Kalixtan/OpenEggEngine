@@ -31,3 +31,6 @@ network_base_url =
 
 ; Optional session ID from a local replacement-server account.
 network_session_id =
+
+; Identity ID belonging to the session above (used by user-specific requests).
+network_user_id =

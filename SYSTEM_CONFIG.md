@@ -31,8 +31,9 @@ to different window shapes. The default is `true`.
 `network_base_url` optionally sets the replacement server root, for example
 `http://127.0.0.1:10061`. Leave it blank to disable requests.
 `network_session_id` optionally sets the `X-OTG-Identity-SessionId` header.
-The current networking branch connects `Watermelon_Index_Page`; the
-`OpenEgg_NetworkGet` binding is a test-only probe, not a retail API.
+`network_user_id` supplies the account ID for requests that address a user.
+Current traced request bindings cover index, album, and user-list pages.
+`OpenEgg_NetworkGet` is a test-only probe, not a retail API.
 
 The `SYSTEM_GetOSDescription()` names `Win32`, `OS X`, `PS3`, and `NGP` are
 grounded in script call sites. The PS4 and Vita TV labels are currently

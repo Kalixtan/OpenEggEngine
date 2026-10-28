@@ -104,6 +104,46 @@ int GM_CDECL gmf_AlbumPage(gmThread* a_thread) {
     return QueueAlbumPage(a_thread, true);
 }
 
+int QueueUserPage(gmThread* a_thread, bool a_followers) {
+    const int count = a_thread->GetNumParams();
+    if (count != 4 && count != 5) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+
+    std::string identity;
+    if (!ReadOptionalString(a_thread, 3, identity) || identity.empty()) {
+        if (!g_networkClient || g_networkClient->UserId().empty()) {
+            a_thread->PushInt(0);
+            return GM_OK;
+        }
+        identity = g_networkClient->UserId();
+    }
+
+    std::string path = "/otg/~identity:" + identity;
+    path += a_followers ? "/~followers.page" : "/~follow:*.page";
+    if (count == 5) {
+        std::string query;
+        if (ReadOptionalString(a_thread, 4, query) && !query.empty())
+            path += "?" + query;
+    }
+
+    const int requestId = g_networkClient
+        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+                                          a_thread->Param(2), 0, 0)
+        : 0;
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_FollowingPage(gmThread* a_thread) {
+    return QueueUserPage(a_thread, false);
+}
+
+int GM_CDECL gmf_FollowersPage(gmThread* a_thread) {
+    return QueueUserPage(a_thread, true);
+}
+
 // =====================================================================
 // LOCAL helpers -- real semantics, used in single-player paths too.
 // =====================================================================
@@ -319,6 +359,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Index_Page", gmf_IndexPage);
     a_machine.RegisterLibraryFunction("Watermelon_Albums_Page", gmf_AlbumsPage);
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Following_Page", gmf_FollowingPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Followers_Page", gmf_FollowersPage);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
 
@@ -356,11 +398,9 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_LevelHearts_Page",
         "Watermelon_Get_Friends",
         "Watermelon_Following_All",
-        "Watermelon_Following_Page",
         "Watermelon_Following_Put",
         "Watermelon_Following_Delete",
         "Watermelon_Following_Get",
-        "Watermelon_Followers_Page",
         "Watermelon_ActivityStream_Post",
         "Watermelon_ActivityStream_Page",
         "Watermelon_FeaturedLevel_Post",

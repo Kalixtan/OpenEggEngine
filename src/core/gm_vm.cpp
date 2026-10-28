@@ -98,7 +98,8 @@ bool GM_CDECL TraceEditorLimitLine(gmThread* thread) {
 
 GmVm::GmVm()
     : m_networkClient(m_machine, SystemConfig::Get().networkBaseUrl,
-                      SystemConfig::Get().networkSessionId) {
+                      SystemConfig::Get().networkSessionId,
+                      SystemConfig::Get().networkUserId) {
     m_machine.SetDebugMode(true); // readable compile/runtime error messages
     if (std::getenv("GE3_TRACE_EDITOR_LIMIT"))
         m_machine.m_line = TraceEditorLimitLine;

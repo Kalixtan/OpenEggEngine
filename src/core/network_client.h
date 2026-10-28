@@ -13,7 +13,8 @@ class gmVariable;
 
 class NetworkClient {
 public:
-    NetworkClient(gmMachine& a_machine, std::string a_baseUrl, std::string a_sessionId);
+    NetworkClient(gmMachine& a_machine, std::string a_baseUrl, std::string a_sessionId,
+                  std::string a_userId);
     ~NetworkClient();
 
     NetworkClient(const NetworkClient&) = delete;
@@ -25,6 +26,7 @@ public:
     int QueueRetailGet(const std::string& a_path, const gmVariable& a_callback,
                        const gmVariable& a_callbackData, const gmVariable& a_tag,
                        int a_bucket, int a_callbackMode);
+    const std::string& UserId() const { return m_userId; }
     void PumpCallbacks();
 
 private:
@@ -47,6 +49,7 @@ private:
     gmTableObject* m_roots = nullptr;
     std::string m_baseUrl;
     std::string m_sessionId;
+    std::string m_userId;
     std::mutex m_mutex;
     std::condition_variable m_wake;
     std::deque<Request> m_requests;

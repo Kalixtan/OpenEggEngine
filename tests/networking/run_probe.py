@@ -17,6 +17,8 @@ MARKERS = (
     "index authorization response PASS",
     "album list route PASS",
     "album contents route PASS",
+    "following page route PASS",
+    "followers page route PASS",
 )
 
 
@@ -44,7 +46,8 @@ def main():
 
         (temp / "OpenEgg.ini").write_text(
             "[system]\nos_id = ps3\nlanguage = en_us\n"
-            f"network_base_url = {args.server_url.rstrip('/')}\n",
+            f"network_base_url = {args.server_url.rstrip('/')}\n"
+            "network_user_id = test-user\n",
             encoding="utf-8",
         )
 

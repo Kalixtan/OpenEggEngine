@@ -151,6 +151,9 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (key == "network_session_id") {
             networkSessionId = value;
             valid = true;
+        } else if (key == "network_user_id") {
+            networkUserId = value;
+            valid = true;
         } else {
             continue;
         }
