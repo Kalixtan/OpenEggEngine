@@ -6,14 +6,35 @@ global AuthIndexReply = function(data, response, error) {
     }
 };
 
+global AuthUserPageReply = function(data, response, error) {
+    if (error == 0 && response.count == 0 && response.items.size == 0) {
+        if (data == "following") {
+            GameSystem.trace("authenticated following response PASS");
+        } else if (data == "followers") {
+            GameSystem.trace("authenticated followers response PASS");
+        } else if (data == "hearts") {
+            GameSystem.trace("authenticated hearts response PASS");
+        }
+    } else {
+        GameSystem.trace("authenticated user page response FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
         init=function() { return true; },
         constructor=function() {
             local request = Watermelon_Index_Page(AuthIndexReply, "authenticated", 1, "type=level&search=all&count=1");
+            local identity = Watermelon_GetUserIdentityId();
+            local following = Watermelon_Following_Page(AuthUserPageReply, "following", 2, identity, "from=0&count=1");
+            local followers = Watermelon_Followers_Page(AuthUserPageReply, "followers", 3, identity, "from=0&count=1");
+            local hearts = Watermelon_LevelHearts_Page(AuthUserPageReply, "hearts", 4, identity, "from=0&count=1");
             if (request == 1) {
                 GameSystem.trace("authenticated request QUEUED");
+            }
+            if (following == 1 && followers == 1 && hearts == 1) {
+                GameSystem.trace("authenticated user pages QUEUED");
             }
         },
         update=function() {}

@@ -106,7 +106,9 @@ def main():
             "PATH": "/usr/bin:/bin:" + env.get("PATH", ""),
         })
         probe = "AuthenticatedNetworkProbe.gm" if args.session_id else "OpenEggNetworkProbe.gm"
-        markers = ("authenticated request QUEUED", "authenticated index response PASS") if args.session_id else MARKERS
+        markers = ("authenticated request QUEUED", "authenticated index response PASS",
+                   "authenticated user pages QUEUED", "authenticated following response PASS",
+                   "authenticated followers response PASS", "authenticated hearts response PASS") if args.session_id else MARKERS
         result = subprocess.run(
             [str(test_engine), str(ROOT / "tests" / "networking"),
              probe, "Main"],
