@@ -14,6 +14,24 @@ namespace {
 
 NetworkClient* g_networkClient = nullptr;
 
+std::string EncodeRetailUrl(const std::string& a_text) {
+    char buffer[0x200];
+    size_t out = 0;
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(a_text.c_str());
+         *p && out + 4 < sizeof(buffer); ++p) {
+        const unsigned char c = *p;
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+            buffer[out++] = static_cast<char>(c);
+        } else {
+            out += static_cast<size_t>(std::snprintf(buffer + out, sizeof(buffer) - out,
+                                                     "%%%02X", c));
+        }
+    }
+    buffer[out] = '\0';
+    return buffer;
+}
+
 int GM_CDECL gmf_IndexPage(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 3 || a_thread->GetNumParams() > 4)
         return GM_EXCEPTION;
@@ -142,6 +160,43 @@ int GM_CDECL gmf_FollowingPage(gmThread* a_thread) {
 
 int GM_CDECL gmf_FollowersPage(gmThread* a_thread) {
     return QueueUserPage(a_thread, true);
+}
+
+int QueueFollowingAction(gmThread* a_thread, const char* a_operation,
+                         bool a_blockSelfFollow) {
+    if (a_thread->GetNumParams() < 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string target;
+    if (!ReadOptionalString(a_thread, 3, target) || !g_networkClient ||
+        g_networkClient->UserId().empty()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    if (a_blockSelfFollow && target == g_networkClient->UserId()) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+
+    const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
+        "/~follow:" + EncodeRetailUrl("/~identity:" + target) + "." + a_operation;
+    const int requestId = g_networkClient->QueueRetailGet(
+        path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(requestId != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_FollowingGet(gmThread* a_thread) {
+    return QueueFollowingAction(a_thread, "get", false);
+}
+
+int GM_CDECL gmf_FollowingPut(gmThread* a_thread) {
+    return QueueFollowingAction(a_thread, "put", true);
+}
+
+int GM_CDECL gmf_FollowingDelete(gmThread* a_thread) {
+    return QueueFollowingAction(a_thread, "delete", false);
 }
 
 int GM_CDECL gmf_ActivityStreamPage(gmThread* a_thread) {
@@ -282,19 +337,8 @@ int GM_CDECL gmf_IsScoreGreaterThan(gmThread* a_thread) {
 int GM_CDECL gmf_UrlEncode(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(str, 0, "");
-    char buf[0x200];
-    size_t o = 0;
-    for (const unsigned char* p = (const unsigned char*)str; *p && o + 4 < sizeof(buf); ++p) {
-        unsigned char c = *p;
-        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
-            buf[o++] = (char)c;
-        } else {
-            o += std::snprintf(buf + o, sizeof(buf) - o, "%%%02X", c);
-        }
-    }
-    buf[o] = 0;
-    a_thread->PushNewString(buf);
+    const std::string encoded = EncodeRetailUrl(str);
+    a_thread->PushNewString(encoded.c_str());
     return GM_OK;
 }
 
@@ -423,6 +467,9 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_Album_Page", gmf_AlbumPage);
     a_machine.RegisterLibraryFunction("Watermelon_Following_Page", gmf_FollowingPage);
     a_machine.RegisterLibraryFunction("Watermelon_Followers_Page", gmf_FollowersPage);
+    a_machine.RegisterLibraryFunction("Watermelon_Following_Get", gmf_FollowingGet);
+    a_machine.RegisterLibraryFunction("Watermelon_Following_Put", gmf_FollowingPut);
+    a_machine.RegisterLibraryFunction("Watermelon_Following_Delete", gmf_FollowingDelete);
     a_machine.RegisterLibraryFunction("Watermelon_ActivityStream_Page", gmf_ActivityStreamPage);
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Get", gmf_FeaturedLevelGet);
     // Local test hook. Not part of the retail GameMonkey API.
@@ -463,9 +510,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_LevelHearts_Page",
         "Watermelon_Get_Friends",
         "Watermelon_Following_All",
-        "Watermelon_Following_Put",
-        "Watermelon_Following_Delete",
-        "Watermelon_Following_Get",
         "Watermelon_ActivityStream_Post",
         "Watermelon_FeaturedLevel_Post",
         "Watermelon_Queued_Page",

@@ -46,6 +46,18 @@ global FollowingDeniedReply = function(data, response, error) {
     }
 };
 
+global FollowingActionReply = function(data, response, error) {
+    if (data == "following_get" && response == null && error == 403) {
+        GameSystem.trace("following get route PASS");
+    } else if (data == "following_put" && response == null && error == 403) {
+        GameSystem.trace("following put route PASS");
+    } else if (data == "following_delete" && response == null && error == 403) {
+        GameSystem.trace("following delete route PASS");
+    } else {
+        GameSystem.trace("following action route FAIL");
+    }
+};
+
 global FollowersDeniedReply = function(data, response, error) {
     if (data == "followers" && response == null && error == 403) {
         GameSystem.trace("followers page route PASS");
@@ -92,11 +104,18 @@ global Main = function(p) {
             local followers = Watermelon_Followers_Page(FollowersDeniedReply, "followers", 7, "test-user", "from=0&count=1");
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
+            local followGet = Watermelon_Following_Get(FollowingActionReply, "following_get", 10, "test-target");
+            local followPut = Watermelon_Following_Put(FollowingActionReply, "following_put", 11, "test-target");
+            local followDelete = Watermelon_Following_Delete(FollowingActionReply, "following_delete", 12, "test-target");
+            local selfFollow = Watermelon_Following_Put(FollowingActionReply, "self", 13, "test-user");
             local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && post != 0) {
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && post != 0) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");
+            }
+            if (selfFollow == 0) {
+                GameSystem.trace("self follow short circuit PASS");
             }
         },
         update=function() {}

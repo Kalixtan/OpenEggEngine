@@ -3,6 +3,11 @@
 Early implementation. Only a small read path has been exercised against the
 replacement server; this list is not a parity claim.
 
+The local Ghidra worklist reports 202 of 204 research items checked (99%).
+That is checklist completion, not semantic coverage: the 127 API entries have
+different trace depth, and several traces stop at wrapper and request-building
+behavior.
+
 ## Current
 
 - [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.
@@ -10,6 +15,8 @@ replacement server; this list is not a parity claim.
 - [x] Configurable server URL, session ID, and user ID.
 - [x] `Watermelon_Index_Page`, album pages, user-list pages,
       `Watermelon_ActivityStream_Page`, and `Watermelon_FeaturedLevel_Get`.
+- [x] Following get/put/delete route construction and self-follow short
+      circuit.
 - [x] Explicit POST transport; local invalid-ticket request reaches the
       replacement server and returns HTTP 400.
 - [ ] Successful authenticated request from OpenEgg.
@@ -29,7 +36,7 @@ replacement server; this list is not a parity claim.
 ## Watermelon APIs
 
 - [ ] Trace and implement level reads, snapshots, downloads, and save-to-disk.
-- [ ] Implement metadata, ratings, favourites, hearts, following, and queued
+- [ ] Implement remaining metadata, ratings, favourites, hearts, and queued
       item operations, including their retail routes and methods.
 - [ ] Implement record and leaderboard requests with retail serialization and
       callback modes.
