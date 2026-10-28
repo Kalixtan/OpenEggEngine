@@ -19,6 +19,7 @@ USER = "00000000-0000-0000-0000-000000000002"
 seen = set()
 descriptions = set()
 sounds = set()
+queued = set()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -73,6 +74,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, b'{invalid')
             else:
                 self.reply(404)
+        elif self.path.startswith(f"/otg/~identity:{USER}/~queued:"):
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                queued.add(self.path)
+            self.reply(200, b'{"ok":1}')
         elif self.path == "/otg/~identity:*.hello":
             self.reply(200)
         else:
@@ -126,9 +131,10 @@ def main():
             result = subprocess.run([str(temp / engine.name), str(script_dir), probe, "Main"],
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            markers = (("server level data PASS", "server sound data PASS") if args.server_url else
-                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS", "sound request queued PASS", "sound compressed PASS", "sound fun prefix PASS", "sound invalid PASS", "sound missing PASS"))
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+            markers = (("server level data PASS", "server sound data PASS", "server queue roundtrip PASS") if args.server_url else
+                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS", "sound request queued PASS", "sound compressed PASS", "sound fun prefix PASS", "sound invalid PASS", "sound missing PASS", "queued get route PASS", "queued put route PASS", "queued delete route PASS"))
+            expected_queue = {f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.get", f"/otg/~identity:{USER}/~queued:simple.put", f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.delete"}
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

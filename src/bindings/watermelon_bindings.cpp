@@ -516,8 +516,9 @@ int QueueQueuedAction(gmThread* a_thread, const char* a_operation) {
         a_thread->PushInt(0);
         return GM_OK;
     }
+    const std::string target = std::strcmp(a_operation, "get") == 0 ? "/~level:" + levelId : levelId;
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
-        "/~queued:" + EncodeRetailUrl("/~level:" + levelId) + "." + a_operation;
+        "/~queued:" + EncodeRetailUrl(target) + "." + a_operation;
     const int requestId = g_networkClient->QueueRetailGet(
         path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(requestId != 0 ? 1 : 0);

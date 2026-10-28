@@ -19,6 +19,9 @@ behavior.
       `Watermelon_ActivityStream_Page`, and `Watermelon_FeaturedLevel_Get`.
 - [x] Following get/put/delete route construction and self-follow short
       circuit.
+- [x] Match traced queue key construction: `get` builds a level key, while
+      `put` and `delete` use the supplied key directly.
+- [x] Queue, read and remove a synthetic level through the local server.
 - [x] Queued page/get/put/delete route construction.
 - [x] Metadata all/get/put request construction and callback modes.
 - [x] Explicit POST transport; local invalid-ticket request reaches the

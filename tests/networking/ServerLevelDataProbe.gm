@@ -14,6 +14,23 @@ global ServerSoundReply = function(data, result, error) {
     }
 };
 
+global ServerQueueDelete = function(data, result, error) {
+    if (error == 0) { GameSystem.trace("server queue roundtrip PASS"); }
+    else { GameSystem.trace("server queue delete FAIL"); }
+};
+
+global ServerQueueGet = function(data, result, error) {
+    if (error == 0 && result != null) {
+        Watermelon_Queued_Delete(ServerQueueDelete, null, 95, "/~level:__LEVEL_ID__");
+    } else { GameSystem.trace("server queue get FAIL"); }
+};
+
+global ServerQueuePut = function(data, result, error) {
+    if (error == 0) {
+        Watermelon_Queued_Get(ServerQueueGet, null, 94, "__LEVEL_ID__");
+    } else { GameSystem.trace("server queue put FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -24,6 +41,7 @@ global Main = function(p) {
             if (this.started == 0 && Watermelon_IsOnline()) {
                 this.started = 1;
                 Audio.startPlayingScript();
+                Watermelon_Queued_Put(ServerQueuePut, null, 93, "/~level:__LEVEL_ID__");
                 Watermelon_GetSoundData(ServerSoundReply, null, 2, "__LEVEL_ID__", "probe");
                 Watermelon_GetLevelData(ServerLevelReply, null, 1, "__LEVEL_ID__", "probe");
             }

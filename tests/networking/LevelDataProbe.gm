@@ -44,6 +44,11 @@ global SoundReply = function(data, result, error) {
     }
 };
 
+global QueuedRouteReply = function(data, result, error) {
+    if (error == 0 && result != null) { GameSystem.trace("queued " + data + " route PASS"); }
+    else { GameSystem.trace("queued route callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -53,6 +58,9 @@ global Main = function(p) {
         update=function() {
             if (this.started == 0 && Watermelon_IsOnline()) {
                 this.started = 1;
+                Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
+                Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
+                Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");
                 if (Watermelon_GetSoundData(SoundReply, "compressed", 79, "level-1", "compressed")) {
                     GameSystem.trace("sound request queued PASS");
                 }

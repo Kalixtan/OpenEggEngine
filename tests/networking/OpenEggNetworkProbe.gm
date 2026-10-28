@@ -363,11 +363,11 @@ global Main = function(p) {
             local selfFollow = Watermelon_Following_Put(FollowingActionReply, "self", 13, "test-user");
             local queuedPage = Watermelon_Queued_Page(QueuedPageReply, "queued_page", 14, "from=0&count=1");
             local queuedGet = Watermelon_Queued_Get(QueuedActionReply, "queued_get", 15, "test-level");
-            local queuedPut = Watermelon_Queued_Put(QueuedActionReply, "queued_put", 16, "test-level");
-            local queuedDelete = Watermelon_Queued_Delete(QueuedActionReply, "queued_delete", 17, "test-level");
+            local queuedPut = Watermelon_Queued_Put(QueuedActionReply, "queued_put", 16, "/~level:test-level");
+            local queuedDelete = Watermelon_Queued_Delete(QueuedActionReply, "queued_delete", 17, "/~level:test-level");
             local purged = Watermelon_Index_Page(PurgedReply, "purged", 991, "type=level&search=tagged3");
             Watermelon_Purge(991);
-            local noCallback = Watermelon_Queued_Put(null, null, 18, "test-level");
+            local noCallback = Watermelon_Queued_Put(null, null, 18, "/~level:test-level");
             local post = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "not-a-ticket", "application/octet-stream", InvalidTicketReply, "ticket");
             local emptyPost = OpenEgg_NetworkPost("/otg/identity/login/token/psn.post", "", "application/octet-stream", InvalidTicketReply, "empty_ticket");
             if (emptyPost == 0) {
