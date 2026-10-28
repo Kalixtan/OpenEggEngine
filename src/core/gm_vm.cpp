@@ -3,10 +3,13 @@
 #include "gmFunctionObject.h"
 #include "gmTableObject.h"
 #include "system_config.h"
+#include "save_data.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 
 namespace {
 
@@ -105,6 +108,21 @@ GmVm::GmVm()
         m_machine.m_line = TraceEditorLimitLine;
 
     gmMachineLib(&m_machine);
+    const std::string& ticketFile = SystemConfig::Get().networkTicketFile;
+    if (!ticketFile.empty()) {
+        auto path = std::filesystem::u8path(ticketFile);
+        if (path.is_relative()) path = std::filesystem::u8path(SaveData::ExecutableDirectory()) / path;
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        const auto size = file ? file.tellg() : std::streampos(-1);
+        if (size <= 0 || size > 65536) {
+            std::fprintf(stderr, "network: cannot read ticket file or invalid size\n");
+        } else {
+            std::string ticket(static_cast<size_t>(size), '\0');
+            file.seekg(0);
+            if (!file.read(&ticket[0], ticket.size()) || !m_networkClient.BeginTicketLogin(ticket))
+                std::fprintf(stderr, "network: could not queue ticket login\n");
+        }
+    }
 }
 
 GmVm::~GmVm() = default;

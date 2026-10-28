@@ -153,6 +153,9 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (key == "network_user_id" || (section == "network" && key == "user_id")) {
             networkUserId = value;
             valid = true;
+        } else if (section == "network" && key == "ticket_file") {
+            networkTicketFile = value;
+            valid = true;
         } else {
             continue;
         }

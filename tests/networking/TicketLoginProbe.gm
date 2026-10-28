@@ -1,0 +1,23 @@
+global TicketLoginReply = function(data, response, error) {
+    if (error == 0 && response != null) {
+        GameSystem.trace("ticket authenticated request PASS");
+    } else {
+        GameSystem.trace("ticket authenticated request FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(
+        Process=p,
+        started=0,
+        init=function() { return true; },
+        constructor=function() {},
+        update=function() {
+            if (this.started == 0 && Watermelon_GetUserIdentityId() != "") {
+                this.started = 1;
+                GameSystem.trace("ticket identity PASS");
+                Watermelon_Index_Page(TicketLoginReply, null, 1, "type=level&search=all&count=1");
+            }
+        }
+    );
+};

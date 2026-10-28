@@ -34,3 +34,8 @@ server_url =
 ; Treat the session ID as a password and keep OpenEgg.ini private.
 session_id =
 user_id =
+
+; Optional binary platform ticket, relative to the executable. Experimental:
+; exchanges the ticket for a session but does not enable the in-game online flow.
+; The server decides whether to accept the ticket.
+ticket_file =

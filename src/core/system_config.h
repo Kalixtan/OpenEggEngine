@@ -32,6 +32,8 @@ struct SystemConfig {
     std::string networkSessionId;
     // Optional identity ID paired with a manually supplied session ID.
     std::string networkUserId;
+    // Optional binary platform ticket for the experimental login exchange.
+    std::string networkTicketFile;
 
     // Reads optional settings from OpenEgg.ini beside the executable.
     // Missing or invalid values leave the retail-compatible defaults above.

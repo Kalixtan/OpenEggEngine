@@ -31,6 +31,7 @@ public:
                         const gmVariable& a_callbackData, const gmVariable& a_tag,
                         int a_bucket, int a_callbackMode);
     const std::string& UserId() const { return m_userId; }
+    bool BeginTicketLogin(const std::string& a_ticket);
     void Purge(int a_bucket);
     void PumpCallbacks();
 
@@ -68,4 +69,5 @@ private:
     std::thread m_worker;
     bool m_stopping = false;
     int m_nextId = 1;
+    int m_loginRequestId = 0;
 };

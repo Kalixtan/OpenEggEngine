@@ -7,6 +7,7 @@
 #include "system_config.h"
 #include <rapidjson/document.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <limits>
 #include <utility>
@@ -121,6 +122,19 @@ int NetworkClient::QueueRetailPost(const std::string& a_path, const std::string&
                  true, a_body, a_contentType);
 }
 
+bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
+    if (a_ticket.empty() || m_loginRequestId != 0) return false;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_sessionId.clear();
+    }
+    m_userId.clear();
+    m_loginRequestId = QueueRetailPost("/identity/login/token/psn", a_ticket,
+        "application/octet-stream", gmVariable::s_null, gmVariable::s_null,
+        gmVariable::s_null, 0, 0);
+    return m_loginRequestId != 0;
+}
+
 int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback,
                          const gmVariable& a_callbackData, const gmVariable& a_tag,
                          int a_bucket, int a_callbackMode, bool a_post,
@@ -167,6 +181,32 @@ void NetworkClient::PumpCallbacks() {
     }
 
     for (Completion& completion : completions) {
+        if (completion.id == m_loginRequestId) {
+            m_loginRequestId = 0;
+            rapidjson::Document response;
+            response.Parse(completion.body.data(), completion.body.size());
+            if ((completion.status == 200 || completion.status == 201) &&
+                !response.HasParseError() && response.IsObject() &&
+                response.HasMember("session") && response["session"].IsObject()) {
+                const auto& session = response["session"];
+                if (session.HasMember("id") && session["id"].IsString() &&
+                    session.HasMember("person") && session["person"].IsObject() &&
+                    session["person"].HasMember("id") && session["person"]["id"].IsString()) {
+                    const auto& id = session["id"];
+                    const auto& user = session["person"]["id"];
+                    {
+                        std::lock_guard<std::mutex> lock(m_mutex);
+                        m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
+                    }
+                    m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
+                    std::fprintf(stderr, "network: ticket login succeeded\n");
+                } else {
+                    std::fprintf(stderr, "network: ticket login returned an incomplete session\n");
+                }
+            } else {
+                std::fprintf(stderr, "network: ticket login failed (HTTP %ld)\n", completion.status);
+            }
+        }
         const gmVariable contextValue = m_roots->Get(completion.id);
         if (contextValue.m_type == GM_TABLE) {
             auto* context = static_cast<gmTableObject*>(
@@ -247,8 +287,13 @@ void NetworkClient::WorkerMain() {
                 const std::string contentType = "Content-Type: " + request.contentType;
                 headers = curl_slist_append(headers, contentType.c_str());
             }
-            if (!m_sessionId.empty()) {
-                const std::string cookie = "X-OTG-Identity-SessionId: " + m_sessionId;
+            std::string sessionId;
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                sessionId = m_sessionId;
+            }
+            if (!sessionId.empty()) {
+                const std::string cookie = "X-OTG-Identity-SessionId: " + sessionId;
                 headers = curl_slist_append(headers, cookie.c_str());
             }
             if (headers) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);

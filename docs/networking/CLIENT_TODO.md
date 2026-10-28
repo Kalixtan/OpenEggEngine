@@ -24,6 +24,12 @@ behavior.
 - [x] Explicit POST transport; local invalid-ticket request reaches the
       replacement server and returns HTTP 400.
 - [x] Authenticated index request from OpenEgg using a locally seeded test session.
+- [x] Experimental ticket-file exchange and authenticated request against a
+      local replacement server configured to accept unsigned tickets.
+- [ ] Integrate experimental ticket-file exchange into the coordinator flow;
+      current startup exchange does not enable in-game online menus.
+- [ ] Match retail login reset, request purging, malformed responses and error
+      transitions. Test genuine platform tickets against a suitable server.
 - [ ] Implement and verify the retail ticket login and coordinator state flow.
 
 ## Request core
