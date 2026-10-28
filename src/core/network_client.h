@@ -50,6 +50,7 @@ public:
     const std::string& EulaVersion() const { return m_eulaVersion; }
     bool FriendsReady() const { return m_friendsReady; }
     const std::vector<Friend>& Friends() const { return m_friends; }
+    const std::string* FindNetworkTranslation(const std::string& key) const;
     gmTableObject* Featured() const { return m_featured; }
     gmTableObject* News() const { return m_news; }
     void UpdateCoordinator();
@@ -115,6 +116,7 @@ private:
     std::string m_eulaVersion;
     bool m_friendsReady = false;
     std::vector<Friend> m_friends;
+    std::unordered_map<std::string, std::string> m_networkTranslations;
     gmTableObject* m_featured = nullptr;
     gmTableObject* m_news = nullptr;
     bool m_featuredReady = false;

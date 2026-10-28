@@ -34,10 +34,10 @@ behavior.
 - [x] Synchronize an empty desktop platform friend list and expose returned
       friend identities. A real platform friend provider is still needed.
 - [x] Fetch and refresh featured and news data into rooted script tables.
-- [x] Reach coordinator online state when translation is empty or its request
-      fails, after both community data callbacks have run.
-- [ ] Parse nonempty translation responses. Online transition currently waits
-      when such data arrives; platform sign-in and timing remain incomplete.
+- [x] Parse little-endian network MO catalogs and reach coordinator online
+      state after all three localized callbacks have run.
+- [ ] Connect the separate network translation map to traced native string
+      consumers; compare malformed catalogs and platform sign-in timing.
 - [ ] Replace the configurable desktop chat-permission fallback with platform
       restriction data where a platform provider is available.
 - [ ] Implement other product regions and later coordinator phases. Match

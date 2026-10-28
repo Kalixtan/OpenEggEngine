@@ -6,6 +6,7 @@
 #include "gmTableObject.h"
 #include "system_config.h"
 #include "sha1.h"
+#include "network_translation.h"
 #include <rapidjson/document.h>
 
 #include <algorithm>
@@ -161,6 +162,11 @@ bool NetworkClient::IsSendQueueFull() {
     if (!m_managerAttached) return true;
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_requests.size() >= 32;
+}
+
+const std::string* NetworkClient::FindNetworkTranslation(const std::string& key) const {
+    const auto entry = m_networkTranslations.find(key);
+    return entry == m_networkTranslations.end() ? nullptr : &entry->second;
 }
 
 void NetworkClient::GoOffline() {
@@ -390,12 +396,10 @@ void NetworkClient::PumpCallbacks() {
         }
         if (completion.id == m_translationRequestId) {
             m_translationRequestId = 0;
-            // The retail parser for nonempty translation data is still being traced.
-            m_translationReady = completion.status != 200 && completion.status != 201;
-            if ((completion.status == 200 || completion.status == 201) && completion.body.empty())
-                m_translationReady = true;
-            if (!m_translationReady)
-                std::fprintf(stderr, "network: translation data is not supported yet\n");
+            if ((completion.status == 200 || completion.status == 201) && !completion.body.empty() &&
+                !MergeNetworkTranslations(completion.body, m_networkTranslations))
+                std::fprintf(stderr, "network: invalid translation catalog\n");
+            m_translationReady = true;
         }
         const gmVariable contextValue = m_roots->Get(completion.id);
         if (contextValue.m_type == GM_TABLE) {
