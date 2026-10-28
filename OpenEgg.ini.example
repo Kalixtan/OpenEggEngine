@@ -24,13 +24,11 @@ debug_all_dlc_available = false
 ; host window has a different aspect ratio. Set false to fill the whole window.
 letterbox = true
 
-; Optional replacement server URL, including scheme and host only.
-; OpenEgg's networking probe and OTG requests append paths beginning with /otg/.
-; Leave blank to keep network requests disabled.
-network_base_url =
+[network]
+; Replacement server root, for example http://127.0.0.1:10061.
+; Leave blank to disable requests.
+server_url =
 
-; Optional session ID from a local replacement-server account.
-network_session_id =
-
-; Identity ID belonging to the session above (used by user-specific requests).
-network_user_id =
+; Existing session and identity IDs for testing. Login is not implemented yet.
+session_id =
+user_id =

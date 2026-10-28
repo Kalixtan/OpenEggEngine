@@ -28,13 +28,12 @@ desktop renderer did. In that mode, viewport and script-facing aspect-ratio
 queries follow the current window dimensions, so UI and world framing adapt
 to different window shapes. The default is `true`.
 
-`network_base_url` optionally sets the replacement server root, for example
-`http://127.0.0.1:10061`. Leave it blank to disable requests.
-`network_session_id` optionally sets the `X-OTG-Identity-SessionId` header.
-`network_user_id` supplies the account ID for requests that address a user.
-Current traced request bindings cover index, album, user-list, and activity
-pages, plus featured-level metadata lookup.
-`OpenEgg_NetworkGet` is a test-only probe, not a retail API.
+In `[network]`, set `server_url` to the replacement server root, for example
+`http://127.0.0.1:10061`. Leave it blank to disable requests. `session_id`
+sets the `X-OTG-Identity-SessionId` header and `user_id` supplies its identity.
+These values currently require an existing session; automatic login is not yet
+implemented. The older `[system]` keys `network_base_url`, `network_session_id`,
+and `network_user_id` remain supported.
 
 The `SYSTEM_GetOSDescription()` names `Win32`, `OS X`, `PS3`, and `NGP` are
 grounded in script call sites. The PS4 and Vita TV labels are currently

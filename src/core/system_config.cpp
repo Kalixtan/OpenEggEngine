@@ -120,7 +120,7 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             std::fprintf(stderr, "system config: ignoring malformed line %u in '%s'\n", lineNumber, path.c_str());
             continue;
         }
-        if (!section.empty() && section != "system") continue;
+        if (!section.empty() && section != "system" && section != "network") continue;
         const std::string key = Lower(Trim(line.substr(0, equals)));
         const std::string value = Trim(line.substr(equals + 1));
         bool valid = false;
@@ -144,14 +144,14 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             bool parsed = letterbox;
             valid = ParseBool(value, parsed);
             if (valid) letterbox = parsed;
-        } else if (key == "network_base_url") {
+        } else if (key == "network_base_url" || (section == "network" && key == "server_url")) {
             networkBaseUrl = value;
             valid = value.empty() || value.rfind("http://", 0) == 0 || value.rfind("https://", 0) == 0;
             if (!valid) networkBaseUrl.clear();
-        } else if (key == "network_session_id") {
+        } else if (key == "network_session_id" || (section == "network" && key == "session_id")) {
             networkSessionId = value;
             valid = true;
-        } else if (key == "network_user_id") {
+        } else if (key == "network_user_id" || (section == "network" && key == "user_id")) {
             networkUserId = value;
             valid = true;
         } else {
