@@ -24,7 +24,7 @@ int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(g_networkClient ? g_networkClient->CoordinatorError() : 0); return GM_OK; }
-int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushString(a_thread->GetMachine()->AllocStringObject("")); return GM_OK; }
+int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushNewString(g_networkClient ? g_networkClient->PlatformOnlineId().c_str() : ""); return GM_OK; }
 int GM_CDECL gmf_GoOnline(gmThread*) { if (g_networkClient) g_networkClient->GoOnline(); return GM_OK; }
 int GM_CDECL gmf_GoOffline(gmThread*) { if (g_networkClient) g_networkClient->GoOffline(); return GM_OK; }
 

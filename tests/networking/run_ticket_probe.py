@@ -72,12 +72,12 @@ def main():
                        "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS",
                        "network: initial community data requests complete", "server coordinator online PASS")
         elif args.invalid_ticket:
-            markers += ("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS")
+            markers += ("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS", "ticket platform ID unavailable PASS")
         elif args.expect_hello_failure:
             markers += ("network: ticket login succeeded", "network: identity hello failed (HTTP 503)",
                         "ticket coordinator error PASS", "ticket request rejected PASS")
         else:
-            markers += ("network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
+            markers += ("ticket platform ID PASS", "network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
                         "ticket authenticated request PASS", "ticket coordinator logout PASS")
         missing = [marker for marker in markers if marker not in result.stdout]
         failed_community = args.eula and ("network: featured request failed" in result.stdout or

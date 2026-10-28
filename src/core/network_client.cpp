@@ -21,6 +21,38 @@
 namespace {
 constexpr const char* kRootTableName = "__OpenEggNetworkRequestRoots";
 
+// Desktop ticket files stand in for the PSN online-ID query. This reads only
+// the common identity fields from PS3/Vita ticket versions 2.1 and 3.0.
+std::string TicketOnlineId(const std::string& ticket) {
+    if (ticket.size() < 12) return {};
+    const auto* bytes = reinterpret_cast<const unsigned char*>(ticket.data());
+    const bool version21 = (bytes[0] >> 4) == 2 && bytes[1] == 1;
+    const bool version30 = (bytes[0] >> 4) == 3 && bytes[1] == 0;
+    if (!version21 && !version30) return {};
+    auto read16 = [&](size_t offset) { return (unsigned(bytes[offset]) << 8) | bytes[offset + 1]; };
+    if (read16(6) != ticket.size() - 8 || bytes[8] != 0x30 || bytes[9] != 0) return {};
+    const size_t bodyEnd = 12 + read16(10);
+    if (bodyEnd > ticket.size()) return {};
+    size_t pos = 12;
+    const unsigned types[] = {8, 1, 7, 7, 2, 4};
+    const unsigned fixedSizes[] = {0, 4, 8, 8, 8, 0};
+    for (size_t i = 0; i < 6; ++i) {
+        if (pos > bodyEnd || bodyEnd - pos < 4) return {};
+        const unsigned type = read16(pos);
+        const size_t length = read16(pos + 2);
+        pos += 4;
+        if (type != types[i] || length > bodyEnd - pos || (fixedSizes[i] && length != fixedSizes[i])) return {};
+        if (i == 5) {
+            std::string id = ticket.substr(pos, std::min<size_t>(length, 16));
+            const size_t zero = id.find('\0');
+            if (zero != std::string::npos) id.resize(zero);
+            return id;
+        }
+        pos += length;
+    }
+    return {};
+}
+
 gmVariable JsonToGm(gmMachine& a_machine, const rapidjson::Value& a_value, int a_mode) {
     if (a_value.IsNull()) return gmVariable::s_null;
     if (a_value.IsBool()) return gmVariable(static_cast<gmint>(a_value.GetBool()));
@@ -142,6 +174,7 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
 }
 
 void NetworkClient::SetPlatformTicket(std::string a_ticket) {
+    m_platformOnlineId = TicketOnlineId(a_ticket);
     m_platformTicket = std::move(a_ticket);
     if (!m_platformTicket.empty() && m_worker.joinable()) m_coordinatorState = 4;
 }

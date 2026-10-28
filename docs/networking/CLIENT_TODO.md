@@ -42,6 +42,8 @@ behavior.
       consumers; compare malformed catalogs and platform sign-in timing.
 - [ ] Replace the configurable desktop chat-permission fallback with platform
       restriction data where a platform provider is available.
+- [ ] Replace the ticket-derived online ID with a platform provider when one
+      exists; this desktop fallback does not query PSN sign-in state.
 - [ ] Implement other product regions and later coordinator phases. Match
       retail update timing and malformed EULA edge cases.
 - [ ] Match retail login reset, request purging, malformed responses and error

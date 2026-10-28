@@ -19,6 +19,11 @@ global Main = function(p) {
         errorReported=0,
         init=function() { return true; },
         constructor=function() {
+            if (OnlineCoordinator_GetOnlineID() == "openegg_probe") {
+                GameSystem.trace("ticket platform ID PASS");
+            } else if (OnlineCoordinator_GetOnlineID() == "") {
+                GameSystem.trace("ticket platform ID unavailable PASS");
+            }
             if (OnlineCoordinator_IsOffline() && !OnlineCoordinator_IsDisabled()) {
                 GameSystem.trace("ticket coordinator offline PASS");
             }
