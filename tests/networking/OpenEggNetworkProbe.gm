@@ -309,21 +309,12 @@ global Main = function(p) {
             local leaderboard = Watermelon_Leaderboard_Page(LeaderboardPageReply, "leaderboard", 24, "~level:test-level", "from=0&count=1");
             local boardGet = Watermelon_Leaderboard_Get(LeaderboardReadReply, "get", 29, "~level:test-level");
             local boardAll = Watermelon_Leaderboard_All(LeaderboardReadReply, "all", 30, "~level:test-level");
-            if (boardGet != 1 || boardAll != 1) {
-                GameSystem.trace("leaderboard reads NOT_QUEUED");
-            }
             local near = Watermelon_Leaderboard_Near(LeaderboardNearReply, "near", 25, "~level:test-level", "/~identity:test-user", "count=0");
             local scoreInt = Watermelon_Leaderboard_Post(LeaderboardPostReply, "post_int", 26, "global/~campaign:test-level", 42);
             local scoreString = Watermelon_Leaderboard_Post(LeaderboardPostReply, "post_string", 27, "global/~campaign:test-level", "4294967296");
             local scoreInvalid = Watermelon_Leaderboard_Post(null, null, 28, "global/~campaign:test-level", 1.5);
-            if (scoreInt == 1 && scoreString == 1 && scoreInvalid == 0) {
-                GameSystem.trace("leaderboard post setup PASS");
-            }
-            if (near != 1) {
-                GameSystem.trace("leaderboard near NOT_QUEUED");
-            }
-            if (leaderboard != 1) {
-                GameSystem.trace("leaderboard page NOT_QUEUED");
+            if (leaderboard == 0 && boardGet == 0 && boardAll == 0 && near == 0 && scoreInt == 0 && scoreString == 0 && scoreInvalid == 0) {
+                GameSystem.trace("leaderboard offline gate PASS");
             }
             local metaAll = Watermelon_Metadata_All(MetadataReply, "all", 20, "~identity:test-user");
             local metaGet = Watermelon_Metadata_Get(MetadataReply, "get", 21, "~level:test-level", "featured");

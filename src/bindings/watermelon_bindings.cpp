@@ -213,7 +213,7 @@ int GM_CDECL gmf_LeaderboardPage(gmThread* a_thread) {
         return GM_OK;
     }
     std::string base;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base)) {
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base)) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -238,7 +238,7 @@ int QueueLeaderboardRead(gmThread* a_thread, const char* a_operation) {
         return GM_OK;
     }
     std::string base;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base)) {
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base)) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -267,7 +267,7 @@ int GM_CDECL gmf_LeaderboardPost(gmThread* a_thread) {
     }
     std::string base, score;
     const gmVariable value = a_thread->Param(4);
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base)) {
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base)) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -293,7 +293,7 @@ int GM_CDECL gmf_LeaderboardNear(gmThread* a_thread) {
         return GM_OK;
     }
     std::string base, entrant;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base) ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base) ||
         !ReadOptionalString(a_thread, 4, entrant)) {
         a_thread->PushInt(0);
         return GM_OK;

@@ -27,6 +27,8 @@ behavior.
       publication and retrieval against the local replacement server.
 - [x] Gate metadata requests on identity setup and test raw-text and JSON
       callbacks, including the empty-value GET with its content-type header.
+- [x] Gate leaderboard requests on identity setup; test request paths, score
+      bodies, and large-integer conversion with a local fixture.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.

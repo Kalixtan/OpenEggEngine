@@ -59,6 +59,11 @@ global MetadataFixtureReply = function(data, result, error) {
     else { GameSystem.trace("metadata callback FAIL"); }
 };
 
+global LeaderboardFixtureReply = function(data, result, error) {
+    if (error == 0 && result != null && result.score == "4294967296") { GameSystem.trace("leaderboard " + data + " PASS"); }
+    else { GameSystem.trace("leaderboard callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -86,6 +91,13 @@ global Main = function(p) {
                 Watermelon_Metadata_Get(MetadataFixtureReply, "get", 96, "~level:level-1", "field");
                 Watermelon_Metadata_Put(MetadataFixtureReply, "put", 97, "~level:level-1", "field", "value");
                 Watermelon_Metadata_Put(MetadataFixtureReply, "empty", 98, "~level:level-1", "field", "");
+                Watermelon_Leaderboard_Get(LeaderboardFixtureReply, "get", 101, "~level:level-1");
+                Watermelon_Leaderboard_All(LeaderboardFixtureReply, "all", 102, "~level:level-1");
+                Watermelon_Leaderboard_Page(LeaderboardFixtureReply, "page", 103, "~level:level-1", "count=2");
+                Watermelon_Leaderboard_Near(LeaderboardFixtureReply, "near", 104, "~level:level-1", "/~identity:one", "count=2");
+                Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "integer", 105, "~level:level-1", 42);
+                Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "string", 106, "~level:level-1", "4294967296");
+                if (!Watermelon_Leaderboard_Post(null, null, 107, "~level:level-1", 1.5)) { GameSystem.trace("leaderboard invalid score PASS"); }
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");

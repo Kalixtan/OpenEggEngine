@@ -22,6 +22,7 @@ sounds = set()
 queued = set()
 ratings_favourites = set()
 metadata = set()
+leaderboard = set()
 rating_path = f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}"
 
 
@@ -34,6 +35,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == "/otg/~level:level-1/~leaderboard.post":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body in (b"score=42", b"score=4294967296"):
+                leaderboard.add(body.decode())
+            self.reply(200, b'{"score":4294967296}')
+            return
         if self.path == "/otg/~level:level-1/~metadata:field.put":
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"value" and self.headers.get("Content-Type") == "text/plain":
                 metadata.add("put")
@@ -101,6 +107,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION and (not self.path.endswith("field.put") or self.headers.get("Content-Type") == "text/plain"):
                 metadata.add({"/otg/~level:level-1/~metadata:*.get": "all", "/otg/~level:level-1/~metadata:field.get": "get", "/otg/~level:level-1/~metadata:field.put": "empty"}[self.path])
             self.reply(200, b'{"ok":1}')
+        elif self.path in {"/otg/~level:level-1/~leaderboard.get", "/otg/~level:level-1/~leaderboard.all", "/otg/~level:level-1/~leaderboard.page?count=2", "/otg/~level:level-1/~leaderboard.near?entrant=%2F~identity%3Aone&count=2"}:
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                leaderboard.add(self.path)
+            self.reply(200, b'{"score":4294967296}')
         elif self.path == "/otg/~identity:*.hello":
             self.reply(200)
         else:
@@ -158,9 +168,10 @@ def main():
                        ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS", "sound request queued PASS", "sound compressed PASS", "sound fun prefix PASS", "sound invalid PASS", "sound missing PASS", "queued get route PASS", "queued put route PASS", "queued delete route PASS"))
             expected_queue = {f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.get", f"/otg/~identity:{USER}/~queued:simple.put", f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.delete"}
             expected_ratings = {rating_path + ".get", rating_path + ".put", "/otg/~level:level-1/~favourite:*.all", "/otg/~level:level-1/~favourite:item.put", "/otg/~level:level-1/~favourite:item.delete"}
+            expected_leaderboard = {"/otg/~level:level-1/~leaderboard.get", "/otg/~level:level-1/~leaderboard.all", "/otg/~level:level-1/~leaderboard.page?count=2", "/otg/~level:level-1/~leaderboard.near?entrant=%2F~identity%3Aone&count=2", "score=42", "score=4294967296"}
             if server:
-                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS")
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS")
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:
