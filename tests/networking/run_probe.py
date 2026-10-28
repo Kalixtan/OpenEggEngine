@@ -31,6 +31,7 @@ MARKERS = (
     "activity offline gate PASS",
     "featured offline gate PASS",
     "record offline gate PASS",
+    "level lookup offline gate PASS",
     "rating/favourite offline gate PASS",
     "leaderboard offline gate PASS",
     "metadata offline gate PASS",

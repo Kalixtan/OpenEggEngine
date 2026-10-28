@@ -685,7 +685,7 @@ int GM_CDECL gmf_UnpublishLevel(gmThread* a_thread) {
         return GM_OK;
     }
     std::string levelId;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, levelId)) {
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, levelId)) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -701,7 +701,7 @@ int QueueLevelLookup(gmThread* a_thread, bool a_versions) {
         return GM_OK;
     }
     std::string levelId;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, levelId)) {
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, levelId)) {
         a_thread->PushInt(0);
         return GM_OK;
     }

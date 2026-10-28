@@ -288,6 +288,11 @@ global Main = function(p) {
             local ratingGet = Watermelon_Rating_Get(RatingReply, "rating_get", 31, "~level:test-level");
             local record = Watermelon_Record_Post(RecordReply, "record", 42, "test-level", {score="4294967296", completed=1, playTime=1.25});
             if (record == 0) { GameSystem.trace("record offline gate PASS"); }
+            if (!Watermelon_GetSnapshot(null, null, 43, "test-level") &&
+                !Watermelon_GetLevelVersions(null, null, 44, "test-level") &&
+                !Watermelon_UnpublishLevel(null, null, 45, "test-level")) {
+                GameSystem.trace("level lookup offline gate PASS");
+            }
             local favAll = Watermelon_Favourite_All(FavouriteReply, "favourite_all", 33, "~level:test-level");
             local favPut = Watermelon_Favourite_Put(FavouriteReply, "favourite_put", 34, "~level:test-level", "/~identity:test-user");
             local favDelete = Watermelon_Favourite_Delete(FavouriteReply, "favourite_delete", 35, "~level:test-level", "/~identity:test-user");

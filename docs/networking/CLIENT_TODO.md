@@ -41,6 +41,8 @@ behavior.
       a null callback against a local fixture.
 - [x] Gate record submissions on identity setup; test serialized fields,
       empty records and the traced header value with a local fixture.
+- [x] Gate snapshot, version and unpublish requests on identity setup; test
+      their routes and a publish/update/cleanup cycle on the local server.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.
