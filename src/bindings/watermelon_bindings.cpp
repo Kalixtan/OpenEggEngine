@@ -585,7 +585,7 @@ int GM_CDECL gmf_QueryString2GameMonkey(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetUserIdentityId(gmThread* a_thread) {
-    a_thread->PushNewString("/~identity/local");
+    a_thread->PushNewString(g_networkClient ? g_networkClient->UserId().c_str() : "");
     return GM_OK;
 }
 

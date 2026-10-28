@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKERS = (
+    "configured identity PASS",
     "Watermelon index requests QUEUED",
     "typed index response PASS",
     "wildcard index response PASS",

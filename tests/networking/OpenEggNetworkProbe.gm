@@ -183,6 +183,9 @@ global Main = function(p) {
         Process=p,
         init=function() { return true; },
         constructor=function() {
+            if (Watermelon_GetUserIdentityId() == "test-user") {
+                GameSystem.trace("configured identity PASS");
+            }
             local typed = Watermelon_Index_Page(TypedIndexReply, "typed", 1, "type=level&search=tagged3");
             local wildcard = Watermelon_Index_Page(WildcardIndexReply, "wildcard", 2, "search=tagged3");
             local forbidden = Watermelon_Index_Page(ForbiddenIndexReply, "forbidden", 3, "type=level&search=all");
