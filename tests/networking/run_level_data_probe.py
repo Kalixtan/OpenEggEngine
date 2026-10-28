@@ -25,6 +25,7 @@ metadata = set()
 leaderboard = set()
 albums = set()
 indexes = set()
+activity = set()
 rating_path = f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}"
 
 
@@ -37,6 +38,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == "/otg/~identity:user-1/~activity:*/entry.post":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"":
+                activity.add("post")
+            self.reply(200, b'{"ok":1}')
+            return
         if self.path == "/otg/~level:level-1/~leaderboard.post":
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body in (b"score=42", b"score=4294967296"):
                 leaderboard.add(body.decode())
@@ -121,6 +127,10 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 indexes.add(self.path)
             self.reply(200, b'{"count":0,"items":[]}')
+        elif self.path in {"/otg/~identity:user-1/~stream:news.page?count=2", "/otg/~identity:/~stream:.page"}:
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                activity.add("page" if "user-1" in self.path else "empty")
+            self.reply(200, b'{"ok":1}')
         elif self.path == "/otg/~identity:*.hello":
             self.reply(200)
         else:
@@ -182,8 +192,8 @@ def main():
             expected_albums = {"/otg/~albums/~link:*.page?from=1&count=2", "/otg/~album:album-1/~link:*.page?from=1&count=2", "/otg/~album:/~link:*.page"}
             expected_indexes = {"/otg/~index:level.page?type=level&count=1", "/otg/~index:*.page?count=1"}
             if server:
-                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS")
-            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard or albums != expected_albums or indexes != expected_indexes)) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
+                markers += ("rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "activity page PASS", "activity empty PASS", "activity post PASS")
+            if result.returncode or (server and (seen != {"json", "xml", "invalid", "missing"} or descriptions != {"good", "invalid", "missing"} or sounds != {"compressed", "fun", "invalid", "missing"} or queued != expected_queue or ratings_favourites != expected_ratings or metadata != {"all", "get", "put", "empty"} or leaderboard != expected_leaderboard or albums != expected_albums or indexes != expected_indexes or activity != {"page", "empty", "post"})) or any(m not in result.stdout for m in markers) or "callback FAIL" in result.stdout:
                 raise SystemExit("level data probe failed")
     finally:
         if server:

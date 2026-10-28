@@ -33,6 +33,8 @@ behavior.
       empty album IDs with a local fixture.
 - [x] Gate index pages on identity setup; test typed and wildcard queries,
       authenticated server access and in-flight purge.
+- [x] Gate activity-stream requests on identity setup; test page and empty-body
+      post request construction with a local fixture.
 - [x] Match traced queue key construction: `get` builds a level key, while
       `put` and `delete` use the supplied key directly.
 - [x] Queue, read and remove a synthetic level through the local server.

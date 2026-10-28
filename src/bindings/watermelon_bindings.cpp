@@ -553,8 +553,8 @@ int GM_CDECL gmf_ActivityStreamPage(gmThread* a_thread) {
     }
     std::string identity;
     std::string stream;
-    if (!ReadOptionalString(a_thread, 3, identity) ||
-        !ReadOptionalString(a_thread, 4, stream) || identity.empty() || stream.empty()) {
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, identity) ||
+        !ReadOptionalString(a_thread, 4, stream)) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -578,7 +578,7 @@ int GM_CDECL gmf_ActivityStreamPost(gmThread* a_thread) {
         return GM_OK;
     }
     std::string base, component;
-    if (!g_networkClient || !ReadOptionalString(a_thread, 3, base) ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base) ||
         !ReadOptionalString(a_thread, 4, component)) {
         a_thread->PushInt(0);
         return GM_OK;

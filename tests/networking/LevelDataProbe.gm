@@ -74,6 +74,11 @@ global IndexFixtureReply = function(data, result, error) {
     else { GameSystem.trace("index callback FAIL"); }
 };
 
+global ActivityFixtureReply = function(data, result, error) {
+    if (error == 0 && result != null && result.ok == 1) { GameSystem.trace("activity " + data + " PASS"); }
+    else { GameSystem.trace("activity callback FAIL"); }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -113,6 +118,9 @@ global Main = function(p) {
                 Watermelon_Album_Page(AlbumFixtureReply, "empty", 110, "");
                 Watermelon_Index_Page(IndexFixtureReply, "typed", 111, "type=level&count=1");
                 Watermelon_Index_Page(IndexFixtureReply, "wildcard", 112, "count=1");
+                Watermelon_ActivityStream_Page(ActivityFixtureReply, "page", 113, "user-1", "news", "count=2");
+                Watermelon_ActivityStream_Page(ActivityFixtureReply, "empty", 114, "", "");
+                Watermelon_ActivityStream_Post(ActivityFixtureReply, "post", 115, "~identity:user-1", "entry");
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");
                 Watermelon_Queued_Delete(QueuedRouteReply, "delete", 85, "/~level:simple");
