@@ -85,6 +85,7 @@ private:
     struct PendingRequest {
         int bucket;
         bool purged = false;
+        bool identity = true;
     };
     struct AssetBundle {
         std::string path;

@@ -221,6 +221,8 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     if (a_ticket.empty() || m_loginRequestId != 0) return false;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+        for (auto& entry : m_pending)
+            if (entry.second.identity) entry.second.purged = true;
         m_sessionId.clear();
     }
     m_userId.clear();
@@ -263,22 +265,8 @@ void NetworkClient::GoOffline() {
     if (m_coordinatorState == 1) return;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        auto pending = m_pending.find(m_loginRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
-        pending = m_pending.find(m_helloRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
-        pending = m_pending.find(m_eulaRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
-        pending = m_pending.find(m_friendsUploadRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
-        pending = m_pending.find(m_friendsFetchRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
-        pending = m_pending.find(m_featuredRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
-        pending = m_pending.find(m_newsRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
-        pending = m_pending.find(m_translationRequestId);
-        if (pending != m_pending.end()) pending->second.purged = true;
+        for (auto& entry : m_pending)
+            if (entry.second.identity) entry.second.purged = true;
         m_sessionId.clear();
     }
     m_loginRequestId = 0;
@@ -325,7 +313,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     m_roots->Set(&m_machine, id, gmVariable(context));
     const int bucket = a_callbackMode >= 0 && a_tag.m_type == GM_INT
         ? static_cast<int>(a_tag.m_value.m_int) : a_bucket;
-    m_pending.emplace(id, PendingRequest{bucket, false});
+    m_pending.emplace(id, PendingRequest{bucket, false, a_sendSession});
     m_requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType, a_post, bucket, false, a_sendSession});
     m_wake.notify_one();
     return id;
@@ -416,6 +404,8 @@ void NetworkClient::PumpCallbacks() {
                     const auto& user = session["person"]["id"];
                     {
                         std::lock_guard<std::mutex> lock(m_mutex);
+                        for (auto& entry : m_pending)
+                            if (entry.second.identity) entry.second.purged = true;
                         m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                     }
                     m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
@@ -695,6 +685,7 @@ void NetworkClient::WorkerMain() {
 #if defined(OPENEGG_HAS_CURL)
     for (;;) {
         Request request;
+        std::string sessionId;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
             m_wake.wait(lock, [this] { return m_stopping || !m_requests.empty(); });
@@ -703,6 +694,7 @@ void NetworkClient::WorkerMain() {
             m_requests.pop_front();
             const auto pending = m_pending.find(request.id);
             request.purged = pending != m_pending.end() && pending->second.purged;
+            if (request.sendSession) sessionId = m_sessionId;
         }
 
         Completion completion;
@@ -732,11 +724,6 @@ void NetworkClient::WorkerMain() {
             if (!request.contentType.empty()) {
                 const std::string contentType = "Content-Type: " + request.contentType;
                 headers = curl_slist_append(headers, contentType.c_str());
-            }
-            std::string sessionId;
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                sessionId = m_sessionId;
             }
             if (request.sendSession && !sessionId.empty()) {
                 const std::string cookie = "X-OTG-Identity-SessionId: " + sessionId;

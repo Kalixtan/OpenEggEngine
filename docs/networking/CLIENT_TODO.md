@@ -28,6 +28,8 @@ behavior.
       local replacement server configured to accept unsigned tickets.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       the in-flight transport may still finish, as in the PS3 trace.
+- [x] Cancel identity requests on logout and login transitions while allowing
+      independent global image requests to complete.
 - [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`.
 - [x] Send the identity hello and PS3 SCEA EULA requests after login; cache
       EULA text and digest and poll script acceptance.

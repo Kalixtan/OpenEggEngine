@@ -1,0 +1,36 @@
+global LogoutProbe = table(cancelled=0, image=0);
+
+global LogoutReply = function(data, result, error) {
+    if (error == 1 && result == null) {
+        LogoutProbe.cancelled += 1;
+        if (LogoutProbe.cancelled == 2) { GameSystem.trace("logout identity requests PASS"); }
+    } else { GameSystem.trace("logout identity requests FAIL"); }
+};
+
+global LogoutImageReply = function(data, image, error) {
+    if (error == 0 && image != null && image.isValid()) {
+        GameSystem.trace("logout global image PASS");
+    } else { GameSystem.trace("logout global image FAIL"); }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0, ticks=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                Watermelon_Index_Page(LogoutReply, "slow", 90, "type=level&slow=1");
+                Watermelon_Index_Page(LogoutReply, "queued", 91, "type=level&queued=1");
+                Watermelon_GetContentImage(LogoutImageReply, null, 92, "__IMAGE_URL__");
+            } else if (this.started == 1) {
+                this.ticks += 1;
+                if (this.ticks == 30) {
+                    OnlineCoordinator_GoOffline();
+                    OnlineCoordinator_GoOnline();
+                    GameSystem.trace("logout transition requested");
+                    this.started = 2;
+                }
+            }
+        });
+};
