@@ -28,6 +28,13 @@ global CommunityBrowseReply = function(data, result, error) {
     }
 };
 
+global CommunityLevelReply = function(data, result, error) {
+    if (error == 0 && result != null && result.bpm == 120) {
+        GameSystem.trace("community level download PASS");
+    } else { GameSystem.trace("community level download FAIL", error); }
+    data.levelFinished = 1;
+};
+
 global Main = function(p) {
     return table(Process=p, stage=0, nextTab=0,
         constructor=function() {
@@ -89,9 +96,23 @@ global Main = function(p) {
                     panel.screenshotStatus == this.screen.RESPONSE_RECEIVED &&
                     ?panel.screenshotTexture && panel.screenshotTexture.isValid()) {
                     GameSystem.trace("community thumbnail PASS");
-                    this.screen.terminate();
-                    this.stage = 5;
+                    if (?COMMUNITY_REQUIRE_LEVEL && COMMUNITY_REQUIRE_LEVEL) {
+                        local parts = {};
+                        Watermelon_ParseLevelObjectString(panel.levelVersionID, parts);
+                        if (Watermelon_GetLevelData(CommunityLevelReply, this, 42, parts.levelId, parts.uploadId)) {
+                            this.stage = 6;
+                        } else {
+                            GameSystem.trace("community level queue FAIL");
+                            this.stage = 5;
+                        }
+                    } else {
+                        this.screen.terminate();
+                        this.stage = 5;
+                    }
                 }
+            } else if (this.stage == 6 && ?this.levelFinished) {
+                this.screen.terminate();
+                this.stage = 5;
             }
         });
 };

@@ -22,6 +22,8 @@ behavior.
       with `--expect-populated` in the community probe.
 - [x] Fetch the synthetic level's thumbnail and verify the retail callback
       assigns a valid panel texture (`--expect-thumbnail`).
+- [x] Download the synthetic level using the panel's retail version ID and
+      check its decoded BPM (`--expect-level-data`).
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept the seventh asset-download argument used by patched scripts;
