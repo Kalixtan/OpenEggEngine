@@ -1,0 +1,12 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            Watermelon_Prepare_Screenshot();
+            Watermelon_Prepare_Screenshot();
+            Watermelon_Clear_Prepared_Screenshot();
+            Watermelon_Clear_Prepared_Screenshot();
+            GameSystem.trace("prepared screenshot calls PASS");
+        },
+        init=function() { return true; },
+        update=function() {});
+};

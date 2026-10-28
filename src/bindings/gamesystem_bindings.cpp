@@ -3,6 +3,7 @@
 #include "../core/engine_context.h"
 #include "../core/process_manager.h"
 #include "../core/system_config.h"
+#include "../render/prepared_screenshot.h"
 #include "gmTableObject.h"
 #include "gmCall.h"
 #include "vector2d_bindings.h"
@@ -12,6 +13,7 @@
 #include <cstring>
 #include <chrono>
 #include <cmath>
+#include <new>
 #include <vector>
 
 namespace {
@@ -743,10 +745,32 @@ int GM_CDECL gmf_DumpObject(gmThread* a_thread) {
 
 int GM_CDECL gmf_Watermelon_Prepare_Screenshot(gmThread* a_thread) {
     (void)a_thread;
+    auto& context = GetEngineContext();
+    auto& capture = GetPreparedScreenshot();
+    capture.Clear();
+    if (!context.renderer) return GM_OK;
+    const int width = context.renderer->GetDeviceWidth();
+    const int height = context.renderer->GetDeviceHeight();
+    if (width < 4 || height < 4) return GM_OK;
+    try {
+        std::vector<std::uint8_t> rgba(static_cast<std::size_t>(width) * height * 4);
+        GLint previousReadBuffer = GL_BACK, previousPackAlignment = 4;
+        glGetIntegerv(GL_READ_BUFFER, &previousReadBuffer);
+        glGetIntegerv(GL_PACK_ALIGNMENT, &previousPackAlignment);
+        glReadBuffer(GL_BACK);
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+        glPixelStorei(GL_PACK_ALIGNMENT, previousPackAlignment);
+        glReadBuffer(static_cast<GLenum>(previousReadBuffer));
+        capture.Sample(rgba.data(), width, height);
+    } catch (const std::bad_alloc&) {
+        capture.Clear();
+    }
     return GM_OK;
 }
 int GM_CDECL gmf_Watermelon_Clear_Prepared_Screenshot(gmThread* a_thread) {
     (void)a_thread;
+    GetPreparedScreenshot().Clear();
     return GM_OK;
 }
 
