@@ -141,6 +141,10 @@ global Main = function(p) {
                 Watermelon_Album_Page(AlbumFixtureReply, "empty", 110, "");
                 Watermelon_Index_Page(IndexFixtureReply, "typed", 111, "type=level&count=1");
                 Watermelon_Index_Page(IndexFixtureReply, "wildcard", 112, "count=1");
+                Watermelon_Index_Page(IndexFixtureReply, "flag", 142, "typeX");
+                Watermelon_Index_Page(IndexFixtureReply, "bare", 143, "type");
+                Watermelon_Index_Page(IndexFixtureReply, "duplicate", 144, "type=alpha&type=beta");
+                Watermelon_Index_Page(IndexFixtureReply, "empty type", 145, "type=&type=alpha");
                 Watermelon_Index_Page(IndexFixtureReply, "malformed", 132, "type=broken");
                 Watermelon_Index_Page(IndexFixtureReply, "partial", 133, "type=partial");
                 Watermelon_Index_Page(IndexFixtureReply, "array", 134, "type=array");

@@ -142,7 +142,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 albums.add(self.path)
             self.reply(200, b'{"ok":1}')
-        elif self.path in {"/otg/~index:level.page?type=level&count=1", "/otg/~index:*.page?count=1", *(f"/otg/~index:{name}.page?type={name}" for name in ("broken", "partial", "array", "items", "number", "string", "null", "bool"))}:
+        elif self.path in {"/otg/~index:level.page?type=level&count=1", "/otg/~index:*.page?count=1", "/otg/~index:.page?typeX", "/otg/~index:*.page?type", "/otg/~index:alpha.page?type=alpha&type=beta", "/otg/~index:.page?type=&type=alpha", *(f"/otg/~index:{name}.page?type={name}" for name in ("broken", "partial", "array", "items", "number", "string", "null", "bool"))}:
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 indexes.add(self.path)
             bodies = {
@@ -233,12 +233,13 @@ def main():
             expected_ratings = {rating_path + ".get", rating_path + ".put", "/otg/~level:level-1/~favourite:*.all", "/otg/~level:level-1/~favourite:item.put", "/otg/~level:level-1/~favourite:item.delete"}
             expected_leaderboard = {"/otg/~level:level-1/~leaderboard.get", "/otg/~level:level-1/~leaderboard.all", "/otg/~level:level-1/~leaderboard.page?count=2", "/otg/~level:level-1/~leaderboard.page?broken=1", "/otg/~level:level-1/~leaderboard.near?entrant=%2F~identity%3Aone&count=2", "score=42", "score=4294967296"}
             expected_albums = {"/otg/~albums/~link:*.page?from=1&count=2", "/otg/~album:album-1/~link:*.page?from=1&count=2", "/otg/~album:/~link:*.page"}
-            expected_indexes = {"/otg/~index:level.page?type=level&count=1", "/otg/~index:*.page?count=1", *(f"/otg/~index:{name}.page?type={name}" for name in ("broken", "partial", "array", "items", "number", "string", "null", "bool"))}
+            expected_indexes = {"/otg/~index:level.page?type=level&count=1", "/otg/~index:*.page?count=1", "/otg/~index:.page?typeX", "/otg/~index:*.page?type", "/otg/~index:alpha.page?type=alpha&type=beta", "/otg/~index:.page?type=&type=alpha", *(f"/otg/~index:{name}.page?type={name}" for name in ("broken", "partial", "array", "items", "number", "string", "null", "bool"))}
             expected_lookups = {"/otg/~level:level-1.latest", "/otg/~level:level-1/~version:*.get", "/otg/~level:level-1.delete"}
             expected_social = {"/otg/~identity:/~follow:*.page?count=2", f"/otg/~identity:{USER}/~followers.page?count=2", f"/otg/~identity:{USER}/~follow:*.all", f"/otg/~identity:{USER}/~like:*.page?count=2", *(f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.{op}" for op in ("get", "put", "delete")), *(f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.{op}" for op in ("get", "put", "delete")), f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}.delete"}
             if server:
                 markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard partial PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "index malformed PASS", "index partial PASS", "index partial array PASS", "index item count PASS", "activity page PASS", "activity empty PASS", "activity post PASS", "record values PASS", "record empty PASS", "level lookup snapshot PASS", "level lookup versions PASS", "level lookup unpublish PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
                 markers += tuple(f"index scalar {name} PASS" for name in ("number", "string", "null", "bool"))
+                markers += tuple(f"index {name} PASS" for name in ("flag", "bare", "duplicate", "empty type"))
             checks = {
                 "levels": (seen, {"json", "xml", "invalid", "missing"}),
                 "descriptions": (descriptions, {"good", "invalid", "missing", "partial"}),

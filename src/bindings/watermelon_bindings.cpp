@@ -97,6 +97,13 @@ int GM_CDECL gmf_IndexPage(gmThread* a_thread) {
             type = query.substr(pos + 5, pairEnd - pos - 5);
             break;
         }
+        // Retail's lookup treats a field without '=' as a key one byte
+        // shorter than the field, with an empty value.
+        if (pairEnd - pos == 5 && query.compare(pos, 4, "type") == 0 &&
+            query.find('=', pos) >= pairEnd) {
+            type.clear();
+            break;
+        }
         if (end == std::string::npos) break;
         pos = end + 1;
     }

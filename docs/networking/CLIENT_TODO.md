@@ -33,6 +33,8 @@ behavior.
       empty album IDs with a local fixture.
 - [x] Gate index pages on identity setup; test typed and wildcard queries,
       authenticated server access and in-flight purge.
+- [x] Match the traced first-match and missing-equals edge cases when selecting
+      an index type from query text.
 - [x] Gate activity-stream requests on identity setup; test page and empty-body
       post request construction with a local fixture.
 - [x] Gate following and heart requests on identity setup. Test their paths,
