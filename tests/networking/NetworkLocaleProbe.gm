@@ -1,0 +1,16 @@
+global Main = function(p) {
+    return table(Process=p, checked=0,
+        constructor=function() {
+            if (Network_GetNetworkLanguageCode() == "__EXPECTED__") {
+                GameSystem.trace("network locale PASS");
+            } else { GameSystem.trace("network locale FAIL"); }
+            OnlineCoordinator_GoOnline();
+        },
+        init=function() { return true; },
+        update=function() {
+            if (!this.checked && OnlineCoordinator_IsWaitingForEulaAcceptance()) {
+                this.checked = 1;
+                GameSystem.trace("localized EULA PASS");
+            }
+        });
+};

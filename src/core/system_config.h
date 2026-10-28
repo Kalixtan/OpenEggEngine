@@ -48,6 +48,11 @@ struct SystemConfig {
 
     const char* OsIdName() const;
 
+    // Desktop fallback for the PS3 SCEA account-region language mapping.
+    const char* SceaNetworkLanguage() const {
+        return languageCode == 2 ? "fr" : languageCode == 3 ? "es_mx" : "en";
+    }
+
     static SystemConfig& Get() {
         static SystemConfig instance;
         return instance;

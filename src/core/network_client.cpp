@@ -758,8 +758,7 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, "network: identity hello succeeded\n");
                 // The traced PS3 build uses the SCEA product ID. Its EULA
                 // route maps French and Spanish to their American locales.
-                const int language = SystemConfig::Get().languageCode;
-                const char* locale = language == 2 ? "fr" : language == 3 ? "es_mx" : "en";
+                const char* locale = SystemConfig::Get().SceaNetworkLanguage();
                 m_eulaRequestId = QueueRetailGet(std::string("/otg/ps3/SCEA/") + locale + "/~eula.get",
                     gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 1);
                 if (m_eulaRequestId) m_coordinatorState = 22;

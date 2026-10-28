@@ -111,6 +111,8 @@ behavior.
       EULA text and digest and poll script acceptance.
 - [x] Synchronize an empty desktop platform friend list and expose returned
       friend identities. A real platform friend provider is still needed.
+- [x] Use the same SCEA language fallback for script queries and EULA paths;
+      the desktop setting remains a substitute for the PSN account region.
 - [x] Fetch and refresh featured and news data into rooted script tables.
 - [x] Read the local beta agreement file. A missing file returns null; retail's
       traced missing-file path dereferences a null pointer.
