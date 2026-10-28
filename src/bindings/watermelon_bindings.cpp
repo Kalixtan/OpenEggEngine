@@ -649,6 +649,27 @@ int GM_CDECL gmf_UnpublishLevel(gmThread* a_thread) {
     return GM_OK;
 }
 
+int QueueLevelLookup(gmThread* a_thread, bool a_versions) {
+    if (a_thread->GetNumParams() < 4) {
+        a_thread->PushInt(-1);
+        return GM_OK;
+    }
+    std::string levelId;
+    if (!g_networkClient || !ReadOptionalString(a_thread, 3, levelId)) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    std::string path = "/otg/~level:" + levelId;
+    path += a_versions ? "/~version:*.get" : ".latest";
+    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_GetSnapshot(gmThread* a_thread) { return QueueLevelLookup(a_thread, false); }
+int GM_CDECL gmf_GetLevelVersions(gmThread* a_thread) { return QueueLevelLookup(a_thread, true); }
+
 // =====================================================================
 // LOCAL helpers -- real semantics, used in single-player paths too.
 // =====================================================================
@@ -908,6 +929,8 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     a_machine.RegisterLibraryFunction("Watermelon_FeaturedLevel_Post", gmf_FeaturedLevelPost);
     a_machine.RegisterLibraryFunction("Watermelon_Record_Post", gmf_RecordPost);
     a_machine.RegisterLibraryFunction("Watermelon_UnpublishLevel", gmf_UnpublishLevel);
+    a_machine.RegisterLibraryFunction("Watermelon_GetSnapshot", gmf_GetSnapshot);
+    a_machine.RegisterLibraryFunction("Watermelon_GetLevelVersions", gmf_GetLevelVersions);
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkPost", gmf_OpenEggNetworkPost);
@@ -921,8 +944,6 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
         "Watermelon_GetLevelThumbnail",
         "Watermelon_GetLevelData",
         "Watermelon_SaveLevelAndAssetsToDisk",
-        "Watermelon_GetLevelVersions",
-        "Watermelon_GetSnapshot",
         "Watermelon_GetSoundData",
         "Watermelon_Grief_Post",
         "Watermelon_Get_Friends",

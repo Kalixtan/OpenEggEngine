@@ -98,6 +98,22 @@ global AuthUnpublishDenied = function(data, response, error) {
     }
 };
 
+global AuthSnapshotReply = function(data, response, error) {
+    if (error == 0 && response != null && response.id == "/~level:" + data) {
+        GameSystem.trace("authenticated snapshot PASS");
+    } else {
+        GameSystem.trace("authenticated snapshot FAIL");
+    }
+};
+
+global AuthVersionsReply = function(data, response, error) {
+    if (error == 404 && response == null) {
+        GameSystem.trace("authenticated versions response PASS");
+    } else {
+        GameSystem.trace("authenticated versions response FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -114,6 +130,8 @@ global Main = function(p) {
             if ("__LEVEL_ID__" != "") {
                 Watermelon_LevelHearts_Post(AuthHeartPut, "__LEVEL_ID__", 14, "__LEVEL_ID__");
                 Watermelon_UnpublishLevel(AuthUnpublishDenied, null, 18, "__LEVEL_ID__");
+                Watermelon_GetSnapshot(AuthSnapshotReply, "__LEVEL_ID__", 19, "__LEVEL_ID__");
+                Watermelon_GetLevelVersions(AuthVersionsReply, null, 20, "__LEVEL_ID__");
             }
             if (request == 1) {
                 GameSystem.trace("authenticated request QUEUED");

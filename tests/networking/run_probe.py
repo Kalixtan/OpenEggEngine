@@ -132,7 +132,8 @@ def main():
                             "authenticated unfollow readback PASS")
             if args.level_id:
                 markers += ("authenticated heart PASS", "authenticated heart read PASS", "authenticated unheart PASS",
-                            "authenticated unheart readback PASS", "authenticated unpublish denied PASS")
+                            "authenticated unheart readback PASS", "authenticated unpublish denied PASS",
+                            "authenticated snapshot PASS", "authenticated versions response PASS")
         result = subprocess.run(
             [str(test_engine), str(script_dir),
              probe, "Main"],
