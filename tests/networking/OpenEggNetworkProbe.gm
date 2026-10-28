@@ -142,6 +142,14 @@ global MetadataReply = function(data, response, error) {
     }
 };
 
+global LeaderboardPageReply = function(data, response, error) {
+    if (data == "leaderboard" && response == null && error == 403) {
+        GameSystem.trace("leaderboard page route PASS");
+    } else {
+        GameSystem.trace("leaderboard page route FAIL");
+    }
+};
+
 global Main = function(p) {
     return table(
         Process=p,
@@ -160,6 +168,10 @@ global Main = function(p) {
             }
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
             local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
+            local leaderboard = Watermelon_Leaderboard_Page(LeaderboardPageReply, "leaderboard", 24, "~level:test-level", "from=0&count=1");
+            if (leaderboard != 1) {
+                GameSystem.trace("leaderboard page NOT_QUEUED");
+            }
             local metaAll = Watermelon_Metadata_All(MetadataReply, "all", 20, "~identity:test-user");
             local metaGet = Watermelon_Metadata_Get(MetadataReply, "get", 21, "~level:test-level", "featured");
             local metaPut = Watermelon_Metadata_Put(MetadataReply, "put", 22, "~level:test-level", "featured", "value");
