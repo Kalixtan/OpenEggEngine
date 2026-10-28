@@ -87,9 +87,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    global LEVEL
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", help="Disposable local replacement server")
+    parser.add_argument("--entities-b", action="store_true", help="Publish a level using the newer entity field")
     args = parser.parse_args()
+    if args.entities_b:
+        LEVEL = zlib.compress(b'{"bpm":120,"screenData":[],"entitiesB":[{"entType":"probe"}]}')
     server = None
     if args.server_url:
         if not args.server_url.startswith("http://127.0.0.1:"):
