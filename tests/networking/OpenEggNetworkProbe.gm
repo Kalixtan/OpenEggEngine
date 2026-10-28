@@ -130,20 +130,8 @@ global ActivityPostReply = function(data, response, error) {
     }
 };
 
-global FeaturedMissingUserReply = function(data, response, error) {
-    if (data == "featured" && response == null && error == 404) {
-        GameSystem.trace("featured unknown-user response PASS");
-    } else {
-        GameSystem.trace("featured unknown-user response FAIL");
-    }
-};
-
-global FeaturedPostReply = function(data, response, error) {
-    if (data == "featured_post" && response == null && error == 404) {
-        GameSystem.trace("featured post response PASS");
-    } else {
-        GameSystem.trace("featured post response FAIL");
-    }
+global FeaturedOfflineReply = function(data, response, error) {
+    GameSystem.trace("featured offline callback FAIL");
 };
 
 global InvalidTicketReply = function(data, response, status) {
@@ -311,10 +299,10 @@ global Main = function(p) {
             if (activityPost != 1) {
                 GameSystem.trace("activity post NOT_QUEUED");
             }
-            local featured = Watermelon_FeaturedLevel_Get(FeaturedMissingUserReply, "featured", 9, "test-user");
-            local featuredPost = Watermelon_FeaturedLevel_Post(FeaturedPostReply, "featured_post", 37, "test-level");
-            if (featuredPost != 1) {
-                GameSystem.trace("featured post NOT_QUEUED");
+            local featured = Watermelon_FeaturedLevel_Get(FeaturedOfflineReply, "featured", 9, "test-user");
+            local featuredPost = Watermelon_FeaturedLevel_Post(FeaturedOfflineReply, "featured_post", 37, "test-level");
+            if (featured == 0 && featuredPost == 0) {
+                GameSystem.trace("featured offline gate PASS");
             }
             local ratingGet = Watermelon_Rating_Get(RatingReply, "rating_get", 31, "~level:test-level");
             local record = Watermelon_Record_Post(RecordReply, "record", 42, "test-level", {score="4294967296", completed=1, playTime=1.25});
@@ -370,7 +358,7 @@ global Main = function(p) {
             if (emptyPost == 0) {
                 GameSystem.trace("empty POST NOT_QUEUED");
             }
-            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 1 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
+            if (typed == 1 && wildcard == 1 && forbidden == 1 && albums == 1 && album == 1 && following == 1 && followers == 1 && activity == 1 && featured == 0 && followGet == 1 && followPut == 1 && followDelete == 1 && selfFollow == 0 && queuedPage == 1 && queuedGet == 1 && queuedPut == 1 && queuedDelete == 1 && post != 0) {
                 GameSystem.trace("Watermelon index requests QUEUED");
             } else {
                 GameSystem.trace("Watermelon index requests NOT_QUEUED");

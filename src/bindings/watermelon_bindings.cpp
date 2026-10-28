@@ -593,7 +593,8 @@ int GM_CDECL gmf_FeaturedLevelGet(gmThread* a_thread) {
         return GM_OK;
     }
     std::string authorId;
-    if (!ReadOptionalString(a_thread, 3, authorId) || authorId.empty()) {
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
+        !ReadOptionalString(a_thread, 3, authorId)) {
         a_thread->PushInt(0);
         return GM_OK;
     }
@@ -613,7 +614,7 @@ int GM_CDECL gmf_FeaturedLevelPost(gmThread* a_thread) {
         return GM_OK;
     }
     std::string levelId;
-    if (!g_networkClient || g_networkClient->UserId().empty() ||
+    if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, levelId)) {
         a_thread->PushInt(0);
         return GM_OK;
