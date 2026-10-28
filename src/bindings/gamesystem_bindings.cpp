@@ -749,8 +749,9 @@ int GM_CDECL gmf_Watermelon_Prepare_Screenshot(gmThread* a_thread) {
     auto& capture = GetPreparedScreenshot();
     capture.Clear();
     if (!context.renderer) return GM_OK;
-    const int width = context.renderer->GetDeviceWidth();
-    const int height = context.renderer->GetDeviceHeight();
+    // Retail reads the adjusted viewport dimensions at +0x81a4/+0x81a8.
+    const int width = context.renderer->GetWidth();
+    const int height = context.renderer->GetHeight();
     if (width < 4 || height < 4) return GM_OK;
     try {
         std::vector<std::uint8_t> rgba(static_cast<std::size_t>(width) * height * 4);
