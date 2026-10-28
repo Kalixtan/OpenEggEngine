@@ -1,0 +1,32 @@
+global TransportReply = function(data, result, error) {
+    if (data == "partial" && result == null && error == 200) {
+        GameSystem.trace("transport partial status PASS");
+    } else if (data == "disconnect" && result == null && error == 1) {
+        GameSystem.trace("transport no status PASS");
+    } else if (data == "success" && result != null && error == 0) {
+        GameSystem.trace("transport success PASS");
+    } else { GameSystem.trace("transport callback FAIL"); }
+};
+
+global TransportLevelReply = function(step, result, error) {
+    if (step == 1 && result == null && error == 1) {
+        Watermelon_GetLevelData(TransportLevelReply, 2, 404, "transport", "v1");
+    } else if (step == 2 && result != null && result.bpm == 130 && error == 0) {
+        GameSystem.trace("transport failure not cached PASS");
+    } else { GameSystem.trace("transport level FAIL"); }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            if (!this.started && Watermelon_IsOnline()) {
+                this.started = 1;
+                Watermelon_Index_Page(TransportReply, "partial", 401, "type=level&case=partial");
+                Watermelon_Index_Page(TransportReply, "disconnect", 402, "type=level&case=disconnect");
+                Watermelon_Index_Page(TransportReply, "success", 403, "type=level&case=success");
+                Watermelon_GetLevelData(TransportLevelReply, 1, 404, "transport", "v1");
+            }
+        });
+};

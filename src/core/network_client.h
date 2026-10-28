@@ -88,6 +88,7 @@ private:
         std::string cacheKey;
         bool identity = true;
         bool cacheHit = false;
+        bool transportFailed = false;
     };
     struct PendingRequest {
         int bucket;

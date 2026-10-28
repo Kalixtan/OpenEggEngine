@@ -589,6 +589,11 @@ void NetworkClient::PumpCallbacks() {
 
     for (Completion& completion : completions) {
         const long responseStatus = completion.status;
+        const bool transportFailed = completion.transportFailed;
+        if (transportFailed) {
+            completion.status = 0;
+            completion.body.clear();
+        }
         bool purged = false;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -848,7 +853,7 @@ void NetworkClient::PumpCallbacks() {
                         call.AddParamInt(success ? 0 : 1);
                     } else {
                         gmVariable result = gmVariable::s_null;
-                        int error = purged && responseStatus != 0
+                        int error = (purged || transportFailed) && responseStatus != 0
                             ? static_cast<int>(responseStatus)
                             : (completion.status == 0 ? 1 : static_cast<int>(completion.status));
                         if (callbackMode == 3 || callbackMode == 4 || callbackMode == 7 || callbackMode == 8) error = 1;
@@ -1031,10 +1036,11 @@ void NetworkClient::WorkerMain(bool a_identity) {
             if (headers) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
             const CURLcode result = curl_easy_perform(curl);
-            if (result == CURLE_OK)
-                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &completion.status);
-            else
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &completion.status);
+            if (result != CURLE_OK) {
+                completion.transportFailed = true;
                 std::fprintf(stderr, "network: GET failed: %s\n", curl_easy_strerror(result));
+            }
             curl_slist_free_all(headers);
             curl_easy_cleanup(curl);
         }

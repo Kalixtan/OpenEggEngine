@@ -43,6 +43,8 @@ behavior.
       a null callback against a local fixture.
 - [x] Gate record submissions on identity setup; test serialized fields,
       empty records and the traced header value with a local fixture.
+- [x] Preserve the HTTP status when a response body fails to arrive; reject
+      partial data from the content cache and test a subsequent fetch.
 - [x] Gate snapshot, version and unpublish requests on identity setup; test
       their routes and a publish/update/cleanup cycle on the local server.
 - [x] Convert JSON arrays to integer-keyed tables without adding a `size` key;
