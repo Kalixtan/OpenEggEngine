@@ -13,6 +13,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKERS = (
+    "base key split PASS",
     "query flag parsing PASS",
     "query float format PASS",
     "unloaded EULA values PASS",

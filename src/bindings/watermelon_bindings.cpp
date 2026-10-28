@@ -708,18 +708,17 @@ int GM_CDECL gmf_BaseKeyValue(gmThread* a_thread) {
     GM_STRING_PARAM(str, 0, "");
     GM_TABLE_PARAM(table, 1);
     gmMachine& m = *a_thread->GetMachine();
-    char base[201] = {0};
-    char value[201] = {0};
-    const char* slash = std::strrchr(str, '/');
-    if (slash) {
-        std::snprintf(base, sizeof(base), "%.*s", (int)(slash - str), str);
-        std::snprintf(value, sizeof(value), "%.200s", slash + 1);
-    } else {
-        std::snprintf(value, sizeof(value), "%.200s", str);
-    }
-    table->Set(&m, "key", gmVariable(m.AllocStringObject(str)));
-    table->Set(&m, "value", gmVariable(m.AllocStringObject(value)));
-    table->Set(&m, "base", gmVariable(m.AllocStringObject(base)));
+    const std::string path(str);
+    const size_t slash = path.rfind('/');
+    const size_t colon = path.rfind(':');
+    const size_t start = slash == std::string::npos ? 0 : slash + 1;
+    const bool hasValue = colon != std::string::npos && colon >= start;
+    const std::string base = slash == std::string::npos ? "" : path.substr(0, slash).substr(0, 199);
+    const std::string key = path.substr(start, hasValue ? colon - start : std::string::npos).substr(0, 199);
+    const std::string value = hasValue ? path.substr(colon + 1, 199) : "";
+    table->Set(&m, "key", gmVariable(m.AllocStringObject(key.c_str())));
+    table->Set(&m, "value", gmVariable(m.AllocStringObject(value.c_str())));
+    table->Set(&m, "base", gmVariable(m.AllocStringObject(base.c_str())));
     a_thread->PushTable(table);
     return GM_OK;
 }

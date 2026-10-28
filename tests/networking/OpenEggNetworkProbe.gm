@@ -249,6 +249,11 @@ global Main = function(p) {
         Process=p,
         init=function() { return true; },
         constructor=function() {
+            local keyParts = Watermelon_BaseKeyValue("~identity:abc/~level:xyz", {});
+            local noValue = Watermelon_BaseKeyValue("root:key/leaf", {});
+            if (keyParts.base == "~identity:abc" && keyParts.key == "~level" && keyParts.value == "xyz" && noValue.base == "root:key" && noValue.key == "leaf" && noValue.value == "") {
+                GameSystem.trace("base key split PASS");
+            }
             local parsed = Watermelon_QueryString2GameMonkey("flag&x=1&&x=2&", {});
             if (parsed["flag&x=1&&x=2&"] == 1 && parsed["&x=2&"] == 1 && parsed.x == "2") {
                 GameSystem.trace("query flag parsing PASS");
