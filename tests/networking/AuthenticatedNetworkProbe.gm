@@ -1,5 +1,5 @@
 global AuthIndexReply = function(data, response, error) {
-    if (data == "authenticated" && error == 0 && response.count == 0 && response.items.size == 0) {
+    if (data == "authenticated" && error == 0 && (("__LEVEL_ID__" == "" && response.count == 0 && response.items.size == 0) || ("__LEVEL_ID__" != "" && response.count == 1 && response.items.size == 1))) {
         GameSystem.trace("authenticated index response PASS");
     } else {
         GameSystem.trace("authenticated index response FAIL");
