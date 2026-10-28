@@ -122,6 +122,9 @@ behavior.
       retail; identity and global image requests use separate desktop workers.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
       HTTP errors, and transport errors.
+- [ ] Preserve partially parsed JSON tables: the retail callback allocates a
+      table before parsing and ignores the parser's success flag. OpenEgg only
+      handles errors before the first object value so far.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;
       normal separator and bounded multibyte cases follow the static trace.
 - [ ] Add native-comparison probes for request ordering and callback timing.

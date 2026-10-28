@@ -122,7 +122,15 @@ gmVariable JsonToGm(gmMachine& a_machine, const rapidjson::Value& a_value, int a
 gmVariable ParseRetailJson(gmMachine& a_machine, const std::string& a_body, int a_mode) {
     rapidjson::Document document;
     document.Parse(a_body.data(), a_body.size());
-    if (document.HasParseError()) return gmVariable::s_null;
+    if (document.HasParseError()) {
+        // The retail callback allocates its result table before parsing. For
+        // an object that fails before its first value, that table is empty.
+        // Later errors may retain partial data and still need tracing.
+        if (a_mode != 7 && !a_body.empty() && a_body.front() == '{' &&
+            a_body.find(':') >= document.GetErrorOffset())
+            return gmVariable(a_machine.AllocTableObject());
+        return gmVariable::s_null;
+    }
     return JsonToGm(a_machine, document, a_mode);
 }
 
@@ -702,7 +710,7 @@ void NetworkClient::PumpCallbacks() {
                                 result = gmVariable(m_machine.AllocStringObject(
                                     completion.body.data(), static_cast<int>(completion.body.size())));
                             } else if (callbackMode != 8 && !completion.body.empty()) {
-                                result = ParseRetailJson(m_machine, completion.body, callbackMode == 7 ? 0 : callbackMode);
+                                result = ParseRetailJson(m_machine, completion.body, callbackMode);
                             }
                         }
                         call.AddParam(result);

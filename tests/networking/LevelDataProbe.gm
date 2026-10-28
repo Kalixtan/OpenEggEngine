@@ -70,7 +70,8 @@ global AlbumFixtureReply = function(data, result, error) {
 };
 
 global IndexFixtureReply = function(data, result, error) {
-    if (error == 0 && result != null && result.items.size == 0 && result.count == 0) { GameSystem.trace("index " + data + " PASS"); }
+    if (data == "malformed" && error == 0 && result != null && result.invalid == null) { GameSystem.trace("index malformed PASS"); }
+    else if (error == 0 && result != null && result.items.size == 0 && result.count == 0) { GameSystem.trace("index " + data + " PASS"); }
     else { GameSystem.trace("index callback FAIL"); }
 };
 
@@ -133,6 +134,7 @@ global Main = function(p) {
                 Watermelon_Album_Page(AlbumFixtureReply, "empty", 110, "");
                 Watermelon_Index_Page(IndexFixtureReply, "typed", 111, "type=level&count=1");
                 Watermelon_Index_Page(IndexFixtureReply, "wildcard", 112, "count=1");
+                Watermelon_Index_Page(IndexFixtureReply, "malformed", 132, "type=broken");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "page", 113, "user-1", "news", "count=2");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "empty", 114, "", "");
                 Watermelon_ActivityStream_Post(ActivityFixtureReply, "post", 115, "~identity:user-1", "entry");
