@@ -67,6 +67,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/otg/~identity:*.hello":
             self.reply(200)
+        elif self.path == "/otg/~level:levelABC/~upload:42.get":
+            seen.append("description")
+            self.reply(200, b'{"id":"/~level:levelABC/~upload:42","title":"Synthetic probe"}')
         elif self.path == "/otg/~level:levelABC/~version:42/~content:level/data.get":
             seen.append("readback")
             self.reply(200, LEVEL)
@@ -125,9 +128,9 @@ def main():
             result = subprocess.run([str(temp / engine.name), str(script_dir), "PublishProbe.gm", "Main"], cwd=ROOT, env=env,
                                     text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            markers = ("publish missing ticket PASS", "publish invalid IDs PASS", "publish create queued PASS", "publish create PASS", "publish level readback PASS", "publish update queued PASS",
+            markers = ("publish missing ticket PASS", "publish invalid IDs PASS", "publish create queued PASS", "publish create PASS", "publish description PASS", "publish level readback PASS", "publish update queued PASS",
                        "publish update PASS", "publish cleanup PASS")
-            if result.returncode or any(marker not in result.stdout for marker in markers) or (server and seen != ["create", "readback", "update", "remove"]):
+            if result.returncode or any(marker not in result.stdout for marker in markers) or (server and seen != ["create", "description", "readback", "update", "remove"]):
                 raise SystemExit("publish probe failed")
     finally:
         if server:

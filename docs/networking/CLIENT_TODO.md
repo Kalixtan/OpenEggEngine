@@ -85,6 +85,7 @@ behavior.
       files through `SAVEDATA_SaveAll` is currently a desktop adaptation.
 - [x] Implement level-description callbacks and test success, malformed JSON
       and HTTP failure against a local fixture.
+- [x] Publish a level and fetch its upload description from the local server.
 - [ ] Verify the description URL and server response against retail; implement
       sound loading and compare image cache ownership with retail.
 - [ ] Implement remaining ratings, favourites, and hearts, including
