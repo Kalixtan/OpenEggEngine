@@ -5,9 +5,14 @@ global SAVEDATAHELPER_HasAcceptedEula = function(version) { return 1; };
 
 global CommunityBrowseReply = function(data, result, error) {
     if (error == 0 && result != null) {
-        callback_firstRequest(data, result, error);
+        local proc = GameSystem.getProcess("Platformer_MainMenu5PS3_CommunityScreen");
+        if (data.tab.index == proc.DAILY_BUTTON_INDEX) {
+            callback_dailyLevelRequest(data, result, error);
+        } else {
+            callback_firstRequest(data, result, error);
+        }
         if (?data.numPanels && data.panels != null) {
-            GameSystem.trace("community tab request PASS");
+            GameSystem.trace("community tab request PASS ", data.tab.index, " panels ", data.numPanels);
         } else { GameSystem.trace("community tab result FAIL"); }
         data.probeFinished = 1;
     } else {
@@ -16,7 +21,7 @@ global CommunityBrowseReply = function(data, result, error) {
 };
 
 global Main = function(p) {
-    return table(Process=p, stage=0,
+    return table(Process=p, stage=0, nextTab=0,
         constructor=function() {
             GameMonkeyScript.loadScript("ArrayHelper.gm");
             GameMonkeyScript.loadScript("State.gm");
@@ -52,12 +57,19 @@ global Main = function(p) {
                     return;
                 }
                 this.stage = 2;
-                local tab = this.screen.tabs[this.screen.HITS_BUTTON_INDEX];
-                GameSystem.trace("community browse requesting");
+                this.indices = {this.screen.HITS_BUTTON_INDEX, this.screen.FRIENDS_BUTTON_INDEX,
+                                this.screen.ONLINEALBUMS_BUTTON_INDEX, this.screen.DAILY_BUTTON_INDEX,
+                                this.screen.HOME_BUTTON_INDEX};
+            } else if (this.stage == 2 && this.nextTab < 5) {
+                local tab = this.screen.tabs[this.indices[this.nextTab]];
                 tab.request(null, null, tab.results, CommunityBrowseReply);
-            } else if (this.stage == 2 && ?this.screen.tabs[this.screen.HITS_BUTTON_INDEX].results.probeFinished) {
-                this.screen.terminate();
                 this.stage = 3;
+            } else if (this.stage == 3 && ?this.screen.tabs[this.indices[this.nextTab]].results.probeFinished) {
+                this.nextTab += 1;
+                this.stage = 2;
+            } else if (this.stage == 2 && this.nextTab == 5) {
+                this.screen.terminate();
+                this.stage = 4;
             }
         });
 };

@@ -14,9 +14,11 @@ behavior.
       retain the fallback when offline or the patch helper is unavailable.
 - [x] Initialize the PS3 community screen with retail menu helpers in a
       headless probe; drawing and live browsing are not covered.
-- [x] Run the retail greatest-hits tab request and its result callback against
-      a local replacement server with a fixture account.
+- [x] Run retail greatest-hits, friends, albums, daily and activity tab
+      requests and callbacks against a local server with a fixture account;
+      the tested responses were empty.
 - [ ] Exercise community screen drawing and browsing against a server.
+- [ ] Test tab callbacks and panels with populated server responses.
 - [x] Accept the seventh asset-download argument used by patched scripts;
       the retail wrapper ignores it.
 - [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.
