@@ -1,0 +1,33 @@
+global BudgetState = table(frame=0, lastFrame=-1, thisFrame=0, max=0, count=0);
+
+global BudgetReply = function(data, result, error) {
+    if (BudgetState.lastFrame != BudgetState.frame) {
+        BudgetState.lastFrame = BudgetState.frame;
+        BudgetState.thisFrame = 0;
+    }
+    BudgetState.thisFrame += 1;
+    if (BudgetState.thisFrame > BudgetState.max) { BudgetState.max = BudgetState.thisFrame; }
+    BudgetState.count += 1;
+    if (error != 0 || result == null) { GameSystem.trace("request budget response FAIL"); }
+    if (BudgetState.count == 24) {
+        if (BudgetState.max == 4) { GameSystem.trace("request budget PASS"); }
+        else { GameSystem.trace("request budget FAIL"); }
+    }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            BudgetState.frame += 1;
+            if (this.started == 0 && Watermelon_IsOnline()) {
+                this.started = 1;
+                local i = 0;
+                for (i = 0; i < 24; i += 1) {
+                    Watermelon_GetLevelDescription(BudgetReply, null, 90, "level-1", "good");
+                }
+                GameSystem.trace("request budget queued");
+            }
+        });
+};

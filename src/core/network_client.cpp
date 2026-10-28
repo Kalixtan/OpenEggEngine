@@ -343,7 +343,12 @@ void NetworkClient::PumpCallbacks() {
     std::deque<Completion> completions;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        completions.swap(m_completions);
+        // Retail managers consume at most four completed requests per update.
+        // Desktop currently combines their traffic into a single manager.
+        for (int count = 0; count < 4 && !m_completions.empty(); ++count) {
+            completions.push_back(std::move(m_completions.front()));
+            m_completions.pop_front();
+        }
     }
 
     for (Completion& completion : completions) {

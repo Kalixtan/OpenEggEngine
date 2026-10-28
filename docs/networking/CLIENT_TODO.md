@@ -73,6 +73,8 @@ behavior.
       and the traced record-post header quirk where required for parity.
 - [ ] Match request buckets, purge/cancel behavior, FIFO ordering, retry
       admission, stale status handling, and shutdown draining.
+- [ ] Split identity and Watermelon request managers. The desktop currently
+      applies retail's four-completion update budget to their combined queue.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
       HTTP errors, and transport errors.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;
