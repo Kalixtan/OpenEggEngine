@@ -155,6 +155,8 @@ behavior.
 - [x] Merge nested cloud-save tables in place and compare integer values without
       losing precision; the headless probe covers mixed integer/float values.
       Other type combinations and cyclic tables still need retail comparison.
+- [ ] Audit other `RetailFctiwz` helpers: several return `INT_MIN` for positive
+      overflow, unlike the PowerPC instruction's `INT_MAX` result.
 - [x] Fetch and inflate level data as XML or JSON, with request-state callback
       status; exercised against a synthetic replacement-server level.
 - [x] Fetch level thumbnails and content images into script texture handles;

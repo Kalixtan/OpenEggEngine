@@ -10,6 +10,7 @@
 #include "gamemonkeyscript_bindings.h"
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <climits>
@@ -481,9 +482,11 @@ void MergeTablesTakingMax(gmMachine& machine, gmTableObject* dest, gmTableObject
             if (existing.m_value.m_float >= static_cast<float>(incoming.m_value.m_int)) continue;
         } else if (existing.m_type == GM_INT && incoming.m_type == GM_FLOAT) {
             const double value = incoming.m_value.m_float;
-            // PPC's out-of-range float-to-integer result is not established.
-            if (!(value >= INT_MIN && value <= INT_MAX) ||
-                static_cast<int>(value) <= existing.m_value.m_int) continue;
+            // fctiwz saturates on overflow and yields INT_MIN for NaN.
+            const int converted = std::isnan(value) || value < static_cast<double>(INT_MIN)
+                ? INT_MIN : value > static_cast<double>(INT_MAX)
+                ? INT_MAX : static_cast<int>(value);
+            if (converted <= existing.m_value.m_int) continue;
         } else if (existing.m_type == GM_INT) {
             // Retail compares nonnumeric incoming values against integer zero.
             if (existing.m_value.m_int >= 0) continue;
