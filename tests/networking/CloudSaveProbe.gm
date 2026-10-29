@@ -52,17 +52,17 @@ global Main = function(p) {
         constructor=function() {
             local save = {campaign={asides={track={completion=3, localOnly=5}}},
                           large=16777216, integer=3, decimal=3.25, positive=1, negative=-1,
-                          floatPositive=0.5, floatNegative=-0.5};
+                          floatPositive=0.5, floatNegative=-0.5, text="keep"};
             local original = save.campaign;
             local remote = {campaign={asides={track={completion=4, remoteOnly=9}}},
                             large=16777217, integer=3.9, decimal=4, positive="x", negative="y",
-                            floatPositive="x", floatNegative="y"};
+                            floatPositive="x", floatNegative="y", text=7};
             MergeTablesIntoFirstTakingMax(save, remote);
             if (save.campaign == original && save.campaign.asides.track.completion == 4 &&
                 save.campaign.asides.track.localOnly == 5 && save.campaign.asides.track.remoteOnly == 9 &&
                 save.large == 16777217 && save.integer == 3 && save.decimal == 4 &&
                 save.positive == 1 && save.negative == "y" &&
-                save.floatPositive == 0.5 && save.floatNegative == "y") {
+                save.floatPositive == 0.5 && save.floatNegative == "y" && save.text == "keep") {
                 GameSystem.trace("cloud nested merge PASS");
             } else { GameSystem.trace("cloud nested merge FAIL"); }
             local all = "----BouNdaRy --fOsBKwDjKn --krj6RoYg8n --BqiXa1etbG --vghjJJFy5S --HUoWHHxpJN --IkzsNBtjJy --zzzzzzzzzz";

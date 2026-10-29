@@ -490,6 +490,10 @@ void MergeTablesTakingMax(gmMachine& machine, gmTableObject* dest, gmTableObject
         } else if (existing.m_type == GM_FLOAT) {
             // The retail float comparison also uses zero for nonnumeric values.
             if (existing.m_value.m_float >= 0.0f) continue;
+        } else if (existing.m_type != GM_NULL &&
+                   (incoming.m_type == GM_INT || incoming.m_type == GM_FLOAT)) {
+            // Retail orders nonnumeric value types after numeric types.
+            continue;
         }
         dest->Set(&machine, node->m_key, incoming);
     }
