@@ -257,7 +257,8 @@ behavior.
 - [x] Submit a fixture record and read back a large leaderboard score through
       the local server. Compare the same case with retail before claiming parity.
 - [x] Run the retail offline-score callback against successful and rejected
-      records; check dirty flags and leaderboard readback (`run_offline_record_probe.py`).
+      records; check dirty flags, leaderboard page and current-user near
+      readback (`run_offline_record_probe.py`).
 - [ ] Verify cloud-save edge cases and multipart behavior against retail.
 - [ ] Implement friend, identity, EULA, and online coordinator flows.
 - [ ] Review every currently offline request binding against the tracked

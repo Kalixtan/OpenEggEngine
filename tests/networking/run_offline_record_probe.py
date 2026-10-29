@@ -47,5 +47,6 @@ with tempfile.TemporaryDirectory(prefix="openegg-offline-record-") as name:
                             env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
     print(result.stdout, end="")
     if (result.returncode or "offline score callbacks PASS" not in result.stdout or
-            "offline score leaderboard PASS" not in result.stdout or " FAIL" in result.stdout or "[gm]" in result.stdout):
+            "offline score leaderboard PASS" not in result.stdout or "offline score near PASS" not in result.stdout or
+            " FAIL" in result.stdout or "[gm]" in result.stdout):
         raise SystemExit("offline record probe failed")

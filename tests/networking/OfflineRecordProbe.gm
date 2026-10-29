@@ -1,8 +1,21 @@
+global OfflineNearReply = function(proc, response, error) {
+    if (error == 0 && ?response && ?response[0] && response[0].position == 1 &&
+        response[0].score == "4294967296" &&
+        response[0].entrant.id == "/~identity:" + Watermelon_GetUserIdentityId()) {
+        GameSystem.trace("offline score near PASS");
+    } else { GameSystem.trace("offline score near FAIL"); }
+    GameSystem.quit();
+};
+
 global OfflineLeaderboardReply = function(proc, response, error) {
     if (error == 0 && ?response && ?response.items[0] && response.items[0].score == "4294967296") {
         GameSystem.trace("offline score leaderboard PASS");
-    } else { GameSystem.trace("offline score leaderboard FAIL"); }
-    GameSystem.quit();
+        if (!Watermelon_Leaderboard_Near(OfflineNearReply, proc, 24, "~level:__LEVEL_ID__",
+                                         Watermelon_GetUserIdentityId(), "count=0")) {
+            GameSystem.trace("offline score near setup FAIL");
+            GameSystem.quit();
+        }
+    } else { GameSystem.trace("offline score leaderboard FAIL"); GameSystem.quit(); }
 };
 
 global Main = function(p) {
