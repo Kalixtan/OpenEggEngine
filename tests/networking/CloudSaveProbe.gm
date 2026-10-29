@@ -1,6 +1,21 @@
+global CloudReadAfterDelete = function(data, response, error) {
+    if (data == "deleted" && error == 404 && response == null) {
+        GameSystem.trace("cloud save deleted PASS");
+    } else { GameSystem.trace("cloud save deleted FAIL"); }
+};
+
+global CloudDeleted = function(data, response, error) {
+    if (data == "delete" && error == 0 && Watermelon_GetCloudSave(CloudReadAfterDelete, "deleted")) {
+        GameSystem.trace("cloud save delete PASS");
+    } else { GameSystem.trace("cloud save delete FAIL"); }
+};
+
 global CloudReadAfterPost = function(data, response, error) {
     if (data == "readback" && error == 0 && response != null && response.progress == 7) {
         GameSystem.trace("cloud save readback PASS");
+        if (!Watermelon_PostCloudSave(CloudDeleted, "delete", "{\"onlineID\":\"probe\"}")) {
+            GameSystem.trace("cloud save delete setup FAIL");
+        }
     } else {
         GameSystem.trace("cloud save readback FAIL");
     }

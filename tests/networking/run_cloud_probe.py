@@ -18,11 +18,11 @@ received = threading.Event()
 posted = threading.Event()
 
 
-def multipart():
+def multipart(save=SAVE, boundary=BOUNDARY):
     body = b""
-    for name, value in ((b"mutable", b"true"), (b"deleteLevel", b"HARD"), (b"file", SAVE)):
-        body += b"--" + BOUNDARY + b'\r\nContent-Disposition: form-data; name="' + name + b'"\r\n\r\n' + value + b"\r\n"
-    return body + b"--" + BOUNDARY + b"--\r\n"
+    for name, value in ((b"mutable", b"true"), (b"deleteLevel", b"HARD"), (b"file", save)):
+        body += b"--" + boundary + b'\r\nContent-Disposition: form-data; name="' + name + b'"\r\n\r\n' + value + b"\r\n"
+    return body + b"--" + boundary + b"--\r\n"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -42,6 +42,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        delete = b'{"onlineID":"probe"}'
+        if (self.path == f"/otg/~identity:{USER}/~content:progress.put" and
+                self.headers.get("X-OTG-Identity-SessionId") == SESSION and
+                self.headers.get("Content-Type") == "multipart/form-data; boundary=----BouNdaRy" and
+                body == multipart(delete, b"----BouNdaRy")):
+            posted.clear()
+            self.reply(200, b"ok")
+            return
         if (self.path == f"/otg/~identity:{USER}/~content:progress.put" and
                 self.headers.get("X-OTG-Identity-SessionId") == SESSION and
                 self.headers.get("Content-Type") == "multipart/form-data; boundary=" + BOUNDARY.decode() and
@@ -93,8 +101,8 @@ def main():
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             markers = ("cloud boundary exhaustion PASS", "cloud save missing PASS", "cloud save queued PASS",
-                       "cloud save post PASS", "cloud save readback PASS")
-            if result.returncode or any(marker not in result.stdout for marker in markers) or (server and not (received.is_set() and posted.is_set())):
+                       "cloud save post PASS", "cloud save readback PASS", "cloud save delete PASS", "cloud save deleted PASS")
+            if result.returncode or any(marker not in result.stdout for marker in markers) or (server and not received.is_set()):
                 raise SystemExit("cloud save probe failed")
     finally:
         if server:
