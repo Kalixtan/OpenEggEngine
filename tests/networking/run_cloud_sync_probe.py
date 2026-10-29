@@ -106,6 +106,12 @@ def main():
             print(result.stdout, end="")
             if result.returncode or (server and received != [True]) or "retail cloud sync PASS" not in result.stdout or "[gm]" in result.stdout:
                 raise SystemExit("retail cloud sync probe failed")
+            local = json.loads((temp / "savedata" / "save.json").read_text())
+            world = local["campaign"]["asides"]["world"]
+            if (world["localLevel"]["completion"] != 3 or world["remoteLevel"]["completion"] != 2 or
+                    world["shared"]["completion"] != 4 or
+                    local["unlocks"]["unlockedEntities"] != {"localEntity": 1, "remoteEntity": 1}):
+                raise SystemExit("local cloud save did not retain the merge")
             if args.server_url:
                 request = Request(path + "/data.get", headers={"X-OTG-Identity-SessionId": session})
                 with urlopen(request, timeout=10) as response:

@@ -7,21 +7,39 @@ global SAVE_DATA = {
 global SAVEDATAHELPER_GetSaveData = function() { return SAVE_DATA; };
 global SAVEDATAHELPER_unlockMissingThings = function() {};
 global CLOUD_TEST_SAVE_ACTION = null;
-global SAVEDATAHELPER_SaveToFileAction = function(action) { global CLOUD_TEST_SAVE_ACTION; CLOUD_TEST_SAVE_ACTION = action; };
+global CLOUD_TEST_SAVE_CALLBACK = null;
+global GAMEUPDATEDATA = {
+    registerAction=function(action) { global CLOUD_TEST_SAVE_ACTION; CLOUD_TEST_SAVE_ACTION = action; return true; },
+    isSaveBusy=function() { return false; },
+    startSave=function(callback, overwrite) {
+        global CLOUD_TEST_SAVE_CALLBACK;
+        if (!SAVEDATA_SaveAll()) { GameSystem.trace("retail cloud local save FAIL"); return false; }
+        CLOUD_TEST_SAVE_CALLBACK = callback;
+        return true;
+    }
+};
 
 global Main = function(p) {
     return table(Process=p,
         constructor=function() {
+            GameMonkeyScript.loadScript("Platformer/SaveDataHelper.gm");
+            global SAVEDATAHELPER_GetSaveData = function() { return SAVE_DATA; };
+            global SAVEDATAHELPER_unlockMissingThings = function() {};
             GameMonkeyScript.loadScript("Platformer/CloudSaveHelper.gm");
             this.sync = CLOUDSAVEHELPER_GetSynchObj();
             this.sync.synch();
         },
         init=function() { return true; },
         update=function() {
+            if (?CLOUD_TEST_SAVE_CALLBACK) {
+                local callback = CLOUD_TEST_SAVE_CALLBACK;
+                CLOUD_TEST_SAVE_CALLBACK = null;
+                callback.execute(true);
+            }
             if (?CLOUD_TEST_SAVE_ACTION) {
                 local action = CLOUD_TEST_SAVE_ACTION;
                 CLOUD_TEST_SAVE_ACTION = null;
-                action.execute(true);
+                action.update();
             }
             this.sync.update();
             if (this.lastState != this.sync.state) {
