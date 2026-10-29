@@ -50,6 +50,18 @@ global Main = function(p) {
         Process=p,
         init=function() { return true; },
         constructor=function() {
+            local save = {campaign={asides={track={completion=3, localOnly=5}}},
+                          large=16777216, integer=3, decimal=3.25, positive=1, negative=-1};
+            local original = save.campaign;
+            local remote = {campaign={asides={track={completion=4, remoteOnly=9}}},
+                            large=16777217, integer=3.9, decimal=4, positive="x", negative="y"};
+            MergeTablesIntoFirstTakingMax(save, remote);
+            if (save.campaign == original && save.campaign.asides.track.completion == 4 &&
+                save.campaign.asides.track.localOnly == 5 && save.campaign.asides.track.remoteOnly == 9 &&
+                save.large == 16777217 && save.integer == 3 && save.decimal == 4 &&
+                save.positive == 1 && save.negative == "y") {
+                GameSystem.trace("cloud nested merge PASS");
+            } else { GameSystem.trace("cloud nested merge FAIL"); }
             local all = "----BouNdaRy --fOsBKwDjKn --krj6RoYg8n --BqiXa1etbG --vghjJJFy5S --HUoWHHxpJN --IkzsNBtjJy --zzzzzzzzzz";
             if (Watermelon_PostCloudSave(CloudPosted, "blocked", all) == 0) {
                 GameSystem.trace("cloud boundary exhaustion PASS");

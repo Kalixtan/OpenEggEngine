@@ -100,7 +100,7 @@ def main():
             result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"), "CloudSaveProbe.gm", "Main"],
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            markers = ("cloud boundary exhaustion PASS", "cloud save missing PASS", "cloud save queued PASS",
+            markers = ("cloud nested merge PASS", "cloud boundary exhaustion PASS", "cloud save missing PASS", "cloud save queued PASS",
                        "cloud save post PASS", "cloud save readback PASS", "cloud save delete PASS", "cloud save deleted PASS")
             if result.returncode or any(marker not in result.stdout for marker in markers) or (server and not received.is_set()):
                 raise SystemExit("cloud save probe failed")

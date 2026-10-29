@@ -152,6 +152,9 @@ behavior.
 - [x] Cloud-save GET and multipart POST; tested with a disposable local server
       account and a byte-checking fixture. The test also posts the retail
       script's `onlineID`-only delete payload and verifies a subsequent 404.
+- [x] Merge nested cloud-save tables in place and compare integer values without
+      losing precision; the headless probe covers mixed integer/float values.
+      Other type combinations and cyclic tables still need retail comparison.
 - [x] Fetch and inflate level data as XML or JSON, with request-state callback
       status; exercised against a synthetic replacement-server level.
 - [x] Fetch level thumbnails and content images into script texture handles;

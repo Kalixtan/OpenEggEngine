@@ -443,12 +443,6 @@ int GM_CDECL gmf_MergeTables(gmThread* a_thread) {
     }
     return GM_OK;
 }
-float AsNumber(const gmVariable& a_v, bool& a_ok) {
-    if (a_v.m_type == GM_INT) { a_ok = true; return (float)a_v.m_value.m_int; }
-    if (a_v.m_type == GM_FLOAT) { a_ok = true; return a_v.m_value.m_float; }
-    a_ok = false;
-    return 0.0f;
-}
 int GM_CDECL gmf_PROFILER_WidgetCmd(gmThread* a_thread) { (void)a_thread; return GM_OK; }
 int GM_CDECL gmf_PROFILE_MARKER_PUSH_PROCESS(gmThread* a_thread) { (void)a_thread; return GM_OK; }
 int GM_CDECL gmf_PROFILE_MARKER_POP(gmThread* a_thread) { (void)a_thread; return GM_OK; }
@@ -464,6 +458,40 @@ int GM_CDECL gmf_Memory_ProbeCapacity(gmThread* a_thread) {
     return GM_OK;
 }
 
+void MergeTablesTakingMax(gmMachine& machine, gmTableObject* dest, gmTableObject* src) {
+    if (dest == src) return;
+    gmTableIterator it;
+    for (gmTableNode* node = src->GetFirst(it); node; node = src->GetNext(it)) {
+        const gmVariable incoming = node->m_value;
+        const gmVariable existing = dest->Get(node->m_key);
+        if (incoming.m_type == GM_NULL) continue;
+        if (existing.m_type == GM_TABLE) {
+            if (incoming.m_type == GM_TABLE) {
+                auto* child = static_cast<gmTableObject*>(machine.GetObject(existing.m_value.m_ref));
+                auto* source = static_cast<gmTableObject*>(machine.GetObject(incoming.m_value.m_ref));
+                if (child && source) MergeTablesTakingMax(machine, child, source);
+            }
+            continue;
+        }
+        if (existing.m_type == GM_INT && incoming.m_type == GM_INT) {
+            if (incoming.m_value.m_int <= existing.m_value.m_int) continue;
+        } else if (existing.m_type == GM_FLOAT && incoming.m_type == GM_FLOAT) {
+            if (!(incoming.m_value.m_float > existing.m_value.m_float)) continue;
+        } else if (existing.m_type == GM_FLOAT && incoming.m_type == GM_INT) {
+            if (!(static_cast<float>(incoming.m_value.m_int) > existing.m_value.m_float)) continue;
+        } else if (existing.m_type == GM_INT && incoming.m_type == GM_FLOAT) {
+            const double value = incoming.m_value.m_float;
+            // PPC's out-of-range float-to-integer result is not established.
+            if (!(value >= INT_MIN && value <= INT_MAX) ||
+                static_cast<int>(value) <= existing.m_value.m_int) continue;
+        } else if (existing.m_type == GM_INT) {
+            // Retail compares nonnumeric incoming values against integer zero.
+            if (existing.m_value.m_int >= 0) continue;
+        }
+        dest->Set(&machine, node->m_key, incoming);
+    }
+}
+
 int GM_CDECL gmf_MergeTablesIntoFirstTakingMax(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_CHECK_TABLE_PARAM(dest, 0);
@@ -473,18 +501,7 @@ int GM_CDECL gmf_MergeTablesIntoFirstTakingMax(gmThread* a_thread) {
         gmVariable v = a_thread->Param(i);
         if (v.m_type != GM_TABLE) { GM_EXCEPTION_MSG("MergeTablesIntoFirstTakingMax: expecting a table"); return GM_EXCEPTION; }
         gmTableObject* src = (gmTableObject*)m.GetObject(v.m_value.m_ref);
-        gmTableIterator it;
-        for (gmTableNode* node = src->GetFirst(it); node; node = src->GetNext(it)) {
-            gmVariable existing = dest->Get(node->m_key);
-            bool existingIsNum = false, newIsNum = false;
-            float existingNum = AsNumber(existing, existingIsNum);
-            float newNum = AsNumber(node->m_value, newIsNum);
-            if (existing.m_type != GM_NULL && existingIsNum && newIsNum) {
-                if (newNum > existingNum) dest->Set(&m, node->m_key, node->m_value);
-            } else {
-                dest->Set(&m, node->m_key, node->m_value);
-            }
-        }
+        MergeTablesTakingMax(m, dest, src);
     }
     return GM_OK;
 }
