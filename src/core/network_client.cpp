@@ -36,22 +36,24 @@
 namespace {
 constexpr const char* kRootTableName = "__OpenEggNetworkRequestRoots";
 
-bool CachePatternMatches(const std::string& pattern, const std::string& key) {
-    size_t p = 0, k = 0, wildcard = std::string::npos, retry = 0;
-    while (k < key.size()) {
-        if (p < pattern.size() && pattern[p] == '#') {
-            wildcard = p++;
-            retry = k;
-        } else if (p < pattern.size() && pattern[p] == key[k]) {
-            ++p;
-            ++k;
-        } else if (wildcard != std::string::npos) {
-            p = wildcard + 1;
-            k = ++retry;
-        } else return false;
+bool CachePatternMatches(std::string_view pattern, std::string_view key) {
+    while (!pattern.empty() && !key.empty() && pattern.front() == key.front()) {
+        pattern.remove_prefix(1);
+        key.remove_prefix(1);
     }
-    while (p < pattern.size() && pattern[p] == '#') ++p;
-    return p == pattern.size();
+    if (pattern.empty()) return key.empty();
+    if (pattern.front() != '#') return false;
+    pattern.remove_prefix(1);
+    const bool crossesSlash = !pattern.empty() && pattern.front() == '#';
+    if (crossesSlash) pattern.remove_prefix(1);
+    // Retail accepts the remaining input immediately for a trailing wildcard.
+    if (pattern.empty()) return true;
+    while (!key.empty()) {
+        if (CachePatternMatches(pattern, key)) return true;
+        if (!crossesSlash && key.front() == '/') return false;
+        key.remove_prefix(1);
+    }
+    return false;
 }
 
 std::string ContentCacheKey(const std::string& path, bool post, bool identity,

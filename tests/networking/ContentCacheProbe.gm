@@ -4,13 +4,17 @@ global CacheReply = function(step, result, error) {
         Watermelon_GetLevelData(CacheReply, 2, 201, "cache-level", "v1");
     } else if (step == 2 && result.bpm == 120) {
         GameSystem.trace("cache hit PASS");
-        Watermelon_ForceCachePurgeByFilter("##/~content:image/data");
-        Watermelon_GetLevelData(CacheReply, 3, 202, "cache-level", "v1");
+        Watermelon_ForceCachePurgeByFilter("#/~content:level/data");
+        Watermelon_GetLevelData(CacheReply, 3, 201, "cache-level", "v1");
     } else if (step == 3 && result.bpm == 120) {
+        GameSystem.trace("cache single wildcard boundary PASS");
+        Watermelon_ForceCachePurgeByFilter("##/~content:image/data");
+        Watermelon_GetLevelData(CacheReply, 4, 202, "cache-level", "v1");
+    } else if (step == 4 && result.bpm == 120) {
         GameSystem.trace("cache filter PASS");
         Watermelon_ForceCachePurgeByFilter("##/~content:level/data");
-        Watermelon_GetLevelData(CacheReply, 4, 203, "cache-level", "v1");
-    } else if (step == 4 && result.bpm == 121) {
+        Watermelon_GetLevelData(CacheReply, 5, 203, "cache-level", "v1");
+    } else if (step == 5 && result.bpm == 121) {
         GameSystem.trace("cache purge PASS");
         Watermelon_GetLevelData(CacheMissingReply, 1, 204, "cache-level", "missing");
     } else { GameSystem.trace("cache value FAIL"); }
