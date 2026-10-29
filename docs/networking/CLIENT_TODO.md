@@ -24,6 +24,8 @@ behavior.
       with `--expect-populated` in the community probe.
 - [x] Create a daily panel from the same synthetic fixture and verify the
       retail daily callback (`--expect-daily`).
+- [x] Create an online album panel from the synthetic fixture (`--expect-album`).
+      The fixture has no album thumbnail; its fetch returns 404.
 - [x] Fetch the synthetic level's thumbnail and verify the retail callback
       assigns a valid panel texture (`--expect-thumbnail`).
 - [x] Retain and clear a quarter-size prepared screenshot using adjusted

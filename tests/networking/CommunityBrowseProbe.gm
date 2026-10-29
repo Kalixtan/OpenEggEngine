@@ -20,6 +20,9 @@ global CommunityBrowseReply = function(data, result, error) {
                     ?panel.levelID && panel.authorName == "level_probe_author") {
                     GameSystem.trace("community fixture level PASS ", data.tab.index);
                 }
+                if (panel.type == "album" && panel.displayName == "Probe album" && ?panel.albumID) {
+                    GameSystem.trace("community fixture album PASS ", data.tab.index);
+                }
             }
         } else { GameSystem.trace("community tab result FAIL"); }
         data.probeFinished = 1;
