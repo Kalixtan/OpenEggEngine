@@ -1,0 +1,45 @@
+GameMonkeyScript.loadScript("Main.gm");
+
+global PROBE_RETAIL_MAIN = Main;
+global Main = function(p) {
+    local main = PROBE_RETAIL_MAIN(p);
+    main.originalConstructor = main.constructor;
+    main.constructor = function() {
+        this.originalConstructor();
+        // Use disposable first-run save data and accept the fixture EULA.
+        local saveData = SAVEDATAHELPER_GetSaveData();
+        saveData.screenScale = 1.0;
+        saveData.tutorialCompleted = true;
+        if (?saveData.notifications) { saveData.notifications.levelEndPopups = null; }
+        global gHACK_SKIP_ALL_TUTORIALS_ON_FIRST_RUN = true;
+        GameMonkeyScript.loadScript("Platformer/MainMenu5.gm");
+        global PROBE_RETAIL_MENU = Platformer_MainMenu5;
+        global Platformer_MainMenu5 = function(menuProcess) {
+            local menu = PROBE_RETAIL_MENU(menuProcess);
+            menu.originalUpdate = menu.update;
+            menu.update = function(ms) {
+                this.originalUpdate(ms);
+                if (this.isInited() && !?this.probeStarted) {
+                    this.probeStarted = 1;
+                    GameSystem.trace("full menu initialized PASS");
+                    global SAVEDATAHELPER_HasAcceptedEula = function(version) { return true; };
+                    OnlineCoordinator_GoOnline();
+                }
+                if (OnlineCoordinator_IsOnline() && !?this.probeOnline) {
+                    this.probeOnline = 1;
+                    GameSystem.trace("full menu online PASS");
+                }
+                local screen = GameSystem.getProcess("Platformer_MainMenu5PS3_CommunityScreen");
+                if (OnlineCoordinator_IsOnline() && ?screen && screen.Process != null && screen.isInited() &&
+                    screen.parentProc == this && ?screen.handleOnKeyPress &&
+                    this.processes[this.COMMUNITY_REGION] == screen && !?this.probeCommunity) {
+                    this.probeCommunity = 1;
+                    GameSystem.trace("full menu community attached PASS");
+                    GameSystem.quit();
+                }
+            };
+            return menu;
+        };
+    };
+    return main;
+};

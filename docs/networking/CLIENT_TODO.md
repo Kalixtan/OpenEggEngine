@@ -47,6 +47,8 @@ behavior.
       parent; verify its automatic daily request and tab switch (`--navigate`).
 - [x] Forward headless key events through a minimal parent to the retail PS3
       input handlers and select the greatest-hits tab (`--harness-input`).
+- [x] Start the full retail menu with a disposable save, connect to a local
+      fixture account, and verify that the community process attaches.
 - [ ] Exercise the full menu process with controller input and compare rendered output.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
