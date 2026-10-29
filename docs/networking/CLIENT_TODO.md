@@ -10,6 +10,8 @@ behavior.
 
 ## Current
 
+- [ ] Add API notes for the newly registered networking functions; missing
+      entries currently prevent the API documentation site from building.
 - [x] Construct the patched PS3 community screen when a server is configured;
       retain the fallback when offline or the patch helper is unavailable.
 - [x] Initialize the PS3 community screen with retail menu helpers in a
