@@ -16,6 +16,7 @@ parser.add_argument("--server-url", help="Run a tab request against a local serv
 parser.add_argument("--expect-populated", action="store_true", help="Require the synthetic Probe level in greatest hits")
 parser.add_argument("--expect-daily", action="store_true", help="Require the synthetic Probe level in the daily tab")
 parser.add_argument("--expect-album", action="store_true", help="Require the synthetic album in the online albums tab")
+parser.add_argument("--expect-album-details", action="store_true", help="Check album thumbnail and completion callback")
 parser.add_argument("--expect-thumbnail", action="store_true", help="Require the fixture panel's thumbnail")
 parser.add_argument("--expect-level-data", action="store_true", help="Download the fixture panel's level data")
 parser.add_argument("--expect-queue", action="store_true", help="Add, read and remove the fixture level from the queue")
@@ -38,7 +39,7 @@ if args.update:
     args.draw = True
 if args.draw and (args.offline or args.no_patch):
     parser.error("--draw requires the patched screen")
-if (args.expect_populated or args.expect_daily or args.expect_album or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
+if (args.expect_populated or args.expect_daily or args.expect_album or args.expect_album_details or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
     parser.error("populated checks require --server-url")
 if args.server_url:
     endpoint = urlsplit(args.server_url)
@@ -75,11 +76,13 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
     script_dir = ROOT / "tests/networking"
     script_name = "CommunityBrowseProbe.gm" if args.server_url else "CommunityStartProbe.gm"
-    if args.draw or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
+    if args.draw or args.expect_album_details or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         script_dir = temp / "probe"
         script_dir.mkdir()
         source = (ROOT / "tests/networking" / script_name).read_text()
         setup = "global COMMUNITY_DRAW = 1;\n" if args.draw else ""
+        if args.expect_album_details:
+            setup += "global COMMUNITY_REQUIRE_ALBUM_DETAILS = 1;\n"
         if args.update:
             setup += "global COMMUNITY_UPDATE = 1;\n"
         if args.navigate:
@@ -118,6 +121,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.append("community fixture level PASS  7")
     if args.expect_album:
         markers.append("community fixture album PASS  6")
+    if args.expect_album_details:
+        markers.append("community album details PASS")
     if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community thumbnail PASS")
     if args.expect_level_data or args.expect_queue or args.expect_heart:

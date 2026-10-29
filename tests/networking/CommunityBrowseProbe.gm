@@ -239,10 +239,24 @@ global Main = function(p) {
                 this.nextTab += 1;
                 this.stage = 2;
             } else if (this.stage == 2 && this.nextTab == 5) {
-                if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) {
+                if (?COMMUNITY_REQUIRE_ALBUM_DETAILS && COMMUNITY_REQUIRE_ALBUM_DETAILS) {
+                    this.stage = 12;
+                } else if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) {
                     this.stage = 4;
                 } else {
                     this.finishScreen();
+                }
+            } else if (this.stage == 12) {
+                local panel = this.screen.tabs[this.screen.ONLINEALBUMS_BUTTON_INDEX].results.panels[0];
+                if (?panel && panel.type == "album" && panel.displayName == "Probe album" &&
+                    panel.screenshotStatus == this.screen.RESPONSE_RECEIVED &&
+                    ?panel.screenshotTexture && panel.screenshotTexture.isValid() &&
+                    ?panel.isCompleteTable.completionProgress &&
+                    ?panel.isCompleteTable.completionProgress[0] &&
+                    !panel.isCompleteTable.completionProgress[0] && !panel.isCompleteTable.isComplete) {
+                    GameSystem.trace("community album details PASS");
+                    if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) { this.stage = 4; }
+                    else { this.finishScreen(); }
                 }
             } else if (this.stage == 4) {
                 local panels = this.screen.tabs[this.screen.HITS_BUTTON_INDEX].results.panels;
