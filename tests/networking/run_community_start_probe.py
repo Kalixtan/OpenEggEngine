@@ -21,7 +21,13 @@ parser.add_argument("--expect-heart", action="store_true", help="Like and unlike
 parser.add_argument("--draw", action="store_true", help="Exercise the screen's draw path")
 parser.add_argument("--update", action="store_true", help="Exercise the screen's update with a local server")
 parser.add_argument("--navigate", action="store_true", help="Switch tabs using the retail screen logic")
+parser.add_argument("--input", action="store_true", help="Navigate using the retail PS3 input handlers")
+parser.add_argument("--harness-input", action="store_true", help="Send key events through the headless harness")
 args = parser.parse_args()
+if args.harness_input:
+    args.input = True
+if args.input:
+    args.navigate = True
 if args.navigate:
     args.update = True
 if args.update:
@@ -58,7 +64,10 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         config += f"account_email = {EMAIL}\naccount_password = {PASSWORD}\n"
     (temp / "OpenEgg.ini").write_text(config)
     harness = temp / "harness.txt"
-    harness.write_text(f"wait {600 if args.server_url else 30}\nquit\n")
+    if args.harness_input:
+        harness.write_text(("wait 80\nkey Right 1\nkey Right 1\nkey Return 1\n" * 8) + "wait 120\nquit\n")
+    else:
+        harness.write_text(f"wait {600 if args.server_url else 30}\nquit\n")
     env = os.environ.copy()
     env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
@@ -73,6 +82,10 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
             setup += "global COMMUNITY_UPDATE = 1;\n"
         if args.navigate:
             setup += "global COMMUNITY_NAVIGATE = 1;\n"
+        if args.input:
+            setup += "global COMMUNITY_INPUT = 1;\n"
+        if args.harness_input:
+            setup += "global COMMUNITY_HARNESS_INPUT = 1;\n"
         if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_THUMBNAIL = 1;\n"
         if args.expect_level_data or args.expect_queue or args.expect_heart:
@@ -93,6 +106,10 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.extend(["community update PASS", "community automatic tab PASS"])
     if args.navigate:
         markers.append("community tab navigation PASS")
+    if args.input:
+        markers.append("community input selection PASS")
+    if args.harness_input:
+        markers.append("community harness input PASS")
     if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community fixture level PASS  2")
     if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:

@@ -45,7 +45,9 @@ behavior.
       still has no Commerce backend.
 - [x] Run the retail screen's draw and update callbacks with a minimal menu
       parent; verify its automatic daily request and tab switch (`--navigate`).
-- [ ] Exercise controller-driven community browsing and compare rendered output.
+- [x] Forward headless key events through a minimal parent to the retail PS3
+      input handlers and select the greatest-hits tab (`--harness-input`).
+- [ ] Exercise the full menu process with controller input and compare rendered output.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
       used by patched scripts; the retail wrapper ignores them.
