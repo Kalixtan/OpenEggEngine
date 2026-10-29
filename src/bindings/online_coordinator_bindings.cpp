@@ -94,7 +94,9 @@ int GM_CDECL gmf_Network_GetIsTrophyQueueFull(gmThread* a_thread) { a_thread->Pu
 
 int GM_CDECL gmf_Network_ActivityStreamPost(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
-    if (count < 3) return GM_EXCEPTION;
+    if (count < 2) return GM_EXCEPTION;
+    // Older script revisions pass two arguments; retail's behavior is unknown.
+    if (count == 2) return GM_OK;
     for (int i = 0; i < 3; ++i) {
         if (a_thread->Param(i).m_type == GM_NULL) return GM_EXCEPTION;
     }

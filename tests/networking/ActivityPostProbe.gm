@@ -1,6 +1,7 @@
 global Main = function(p) {
     return table(Process=p,
         constructor=function() {
+            Network_ActivityStreamPost("legacy message", "legacy url");
             Network_ActivityStreamPost(2, "message", "format");
             Network_ActivityStreamPost(2, "message", "format", "url");
             Network_ActivityStreamPost(2, "message", "format", "url", "small");

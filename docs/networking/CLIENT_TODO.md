@@ -34,7 +34,8 @@ behavior.
 - [x] Like, read, unlike, and recheck the panel's level against the local
       server (`--expect-heart`). Its separate rating-delete request gets 404.
 - [x] Accept the patched scripts' six-argument activity call. The traced PS3
-      platform helper does not post anything.
+      platform helper does not post anything. The desktop also retains a
+      two-argument fallback for older scripts; its retail behavior is unknown.
 - [x] Return the PS3 browser stub's `-4` result for launch and finish.
 - [x] Update the supplied Near gift table with the traced field names. Empty
       values are a desktop fallback; retail's unwritten buffer contents are unknown.
