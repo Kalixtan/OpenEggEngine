@@ -33,6 +33,8 @@ behavior.
       lookup reports it missing (`--expect-queue`).
 - [x] Like, read, unlike, and recheck the panel's level against the local
       server (`--expect-heart`). Its separate rating-delete request gets 404.
+- [x] Accept the patched scripts' six-argument activity call. The traced PS3
+      platform helper does not post anything.
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument

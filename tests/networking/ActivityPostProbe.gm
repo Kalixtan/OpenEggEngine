@@ -1,0 +1,13 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            Network_ActivityStreamPost(2, "message", "format");
+            Network_ActivityStreamPost(2, "message", "format", "url");
+            Network_ActivityStreamPost(2, "message", "format", "url", "small");
+            Network_ActivityStreamPost(2, "message", "format", "url", "small", "large");
+            Network_ActivityStreamPost(2, "message", "format", "url", "small", "large", 9);
+            GameSystem.trace("activity post wrapper PASS");
+        },
+        init=function() { return true; },
+        update=function() {});
+};

@@ -89,6 +89,8 @@ global CommunityHeartReply = function(data, result, error) {
         }
     } else if (data.heartStage == 1 && error == 0) {
         GameSystem.trace("community heart post PASS");
+        Network_ActivityStreamPost(2, {user="fixture"}, "fixture activity", "level", "small", "large");
+        GameSystem.trace("community activity wrapper PASS");
         data.heartStage = 2;
         if (!Watermelon_LevelHearts_Get(CommunityHeartReply, data, 52, data.queueLevelId)) {
             GameSystem.trace("community heart read setup FAIL");
