@@ -114,12 +114,13 @@ int GM_CDECL gmf_Network_WebBrowserFinish(gmThread* a_thread) {
 
 int GM_CDECL gmf_Network_NearDeleteGift(gmThread* a_thread) { (void)a_thread; return GM_OK; }
 int GM_CDECL gmf_Network_NearGetExternalGiftDetails(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(2);
+    if (a_thread->GetNumParams() < 2) return GM_EXCEPTION;
+    GM_TABLE_PARAM(out, 1);
     gmMachine& m = *a_thread->GetMachine();
-    gmTableObject* out = m.AllocTableObject();
-    out->Set(&m, "id", gmVariable(m.AllocStringObject("")));
+    // The PS3 helper leaves its output buffers unwritten; their contents are unknown.
+    out->Set(&m, "name", gmVariable(m.AllocStringObject("")));
     out->Set(&m, "description", gmVariable(m.AllocStringObject("")));
-    out->Set(&m, "message", gmVariable(m.AllocStringObject("")));
+    out->Set(&m, "data", gmVariable(m.AllocStringObject("")));
     a_thread->PushTable(out);
     return GM_OK;
 }

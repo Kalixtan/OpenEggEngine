@@ -36,6 +36,8 @@ behavior.
 - [x] Accept the patched scripts' six-argument activity call. The traced PS3
       platform helper does not post anything.
 - [x] Return the PS3 browser stub's `-4` result for launch and finish.
+- [x] Update the supplied Near gift table with the traced field names. Empty
+      values are a desktop fallback; retail's unwritten buffer contents are unknown.
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
