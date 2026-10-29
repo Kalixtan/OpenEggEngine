@@ -1,0 +1,38 @@
+global OfflineLeaderboardReply = function(proc, response, error) {
+    if (error == 0 && ?response && ?response.items[0] && response.items[0].score == "4294967296") {
+        GameSystem.trace("offline score leaderboard PASS");
+    } else { GameSystem.trace("offline score leaderboard FAIL"); }
+    GameSystem.quit();
+};
+
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            GameMonkeyScript.loadScript("Platformer/LoginPopup.gm");
+            this.good = {saveDataRef={scoreTable={dirty=true}}, saveTable={startSave=false}, isLast=true};
+            this.bad = {saveDataRef={scoreTable={dirty=true}}, saveTable={startSave=false}, isLast=true};
+            OnlineCoordinator_GoOnline();
+        },
+        init=function() { return true; },
+        update=function() {
+            if (!?this.started && Watermelon_IsOnline()) {
+                this.started = 1;
+                local record = {score="4294967296", completed=1, tokenCount=1, playTime=10, deaths=0, golded=0};
+                if (!Watermelon_Record_Post(callback_LoginOfflineScoreSync, this.good, 21, "__LEVEL_ID__", record) ||
+                    !Watermelon_Record_Post(callback_LoginOfflineScoreSync, this.bad, 22, "zzzzzzzz", record)) {
+                    GameSystem.trace("offline score setup FAIL");
+                    GameSystem.quit();
+                }
+            }
+            if (?this.started && !?this.checked && this.good.saveTable.startSave && this.bad.saveTable.startSave) {
+                this.checked = 1;
+                if (!this.good.saveDataRef.scoreTable.dirty && this.bad.saveDataRef.scoreTable.dirty) {
+                    GameSystem.trace("offline score callbacks PASS");
+                    if (!Watermelon_Leaderboard_Page(OfflineLeaderboardReply, this, 23, "~level:__LEVEL_ID__", "from=0&count=1")) {
+                        GameSystem.trace("offline score leaderboard setup FAIL");
+                        GameSystem.quit();
+                    }
+                } else { GameSystem.trace("offline score callbacks FAIL"); GameSystem.quit(); }
+            }
+        });
+};
