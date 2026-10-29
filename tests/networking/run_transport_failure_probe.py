@@ -23,6 +23,18 @@ stall_expired = threading.Event()
 
 
 class FailureHandler(Handler):
+    def do_POST(self):
+        if self.path == "/raw-post-redirect":
+            self.send_response(307)
+            self.send_header("Location", f"http://127.0.0.1:{redirect_target_port}/leak")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        elif self.path == "/leak":
+            leaked_requests.append(self.headers.get("X-OTG-Identity-SessionId"))
+            self.reply(200)
+        else:
+            super().do_POST()
+
     def truncated(self, body, status=200):
         self.send_response(status)
         self.send_header("Content-Length", str(len(body) + 100))
@@ -35,6 +47,16 @@ class FailureHandler(Handler):
         if self.path == "/leak":
             leaked_requests.append(self.headers.get("X-OTG-Identity-SessionId"))
             self.reply(200, b'{"count":7}')
+        elif self.path in ("/otg/~index:level.page?type=level&case=authority-redirect",
+                            "/otg/~index:level.page?type=level&case=duplicate-redirect",
+                            "/raw-redirect"):
+            self.send_response(302)
+            target = f"//127.0.0.1:{redirect_target_port}/leak"
+            self.send_header("Location", target)
+            if self.path.endswith("=duplicate-redirect"):
+                self.send_header("Location", "/redirected")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
         elif self.path in ("/otg/~index:level.page?type=level&case=redirect",
                             "/otg/~index:level.page?type=level&case=cross-redirect"):
             self.send_response(302)
@@ -134,7 +156,9 @@ def main():
             markers = ("transport partial status PASS", "transport no status PASS", "transport success PASS",
                        "transport failure not cached PASS", "transport HTTP error cached PASS",
                        "transport stalled error PASS", "transport after stall PASS",
-                       "transport identity redirect PASS", "transport cross redirect blocked PASS")
+                       "transport identity redirect PASS", "transport cross redirect blocked PASS",
+                       "transport authority redirect blocked PASS", "transport duplicate redirect blocked PASS",
+                       "transport raw redirect blocked PASS", "transport raw post redirect blocked PASS")
             if process.returncode or stalled != [True] or len(level_requests) != 2 or len(error_requests) != 1 or redirect_requests != [SESSION] or leaked_requests or any(marker not in output for marker in markers) or " FAIL" in output:
                 raise SystemExit("transport failure probe failed")
     finally:

@@ -14,7 +14,19 @@ global TransportReply = function(data, result, error) {
         GameSystem.trace("transport identity redirect PASS");
     } else if (data == "cross redirect" && result == null && error == 302) {
         GameSystem.trace("transport cross redirect blocked PASS");
+    } else if (data == "relative authority" && result == null && error == 302) {
+        GameSystem.trace("transport authority redirect blocked PASS");
+    } else if (data == "duplicate location" && result == null && error == 302) {
+        GameSystem.trace("transport duplicate redirect blocked PASS");
     } else { GameSystem.trace("transport callback FAIL"); }
+};
+
+global TransportRawReply = function(data, body, status) {
+    if (data == "raw redirect" && status == 302) {
+        GameSystem.trace("transport raw redirect blocked PASS");
+    } else if (data == "raw post redirect" && status == 307) {
+        GameSystem.trace("transport raw post redirect blocked PASS");
+    } else { GameSystem.trace("transport raw redirect FAIL"); }
 };
 
 global TransportLevelReply = function(step, result, error) {
@@ -46,6 +58,10 @@ global Main = function(p) {
                 Watermelon_Index_Page(TransportReply, "stalled", 406, "type=level&case=stall");
                 Watermelon_Index_Page(TransportReply, "redirect", 408, "type=level&case=redirect");
                 Watermelon_Index_Page(TransportReply, "cross redirect", 409, "type=level&case=cross-redirect");
+                Watermelon_Index_Page(TransportReply, "relative authority", 410, "type=level&case=authority-redirect");
+                Watermelon_Index_Page(TransportReply, "duplicate location", 411, "type=level&case=duplicate-redirect");
+                OpenEgg_NetworkGet("/raw-redirect", TransportRawReply, "raw redirect");
+                OpenEgg_NetworkPost("/raw-post-redirect", "fixture secret", "text/plain", TransportRawReply, "raw post redirect");
                 Watermelon_GetLevelData(TransportLevelReply, 1, 404, "transport", "v1");
                 Watermelon_GetLevelData(TransportHttpErrorReply, 1, 405, "transport-error", "v1");
             }
