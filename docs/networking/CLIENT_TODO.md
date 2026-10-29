@@ -35,6 +35,7 @@ behavior.
       server (`--expect-heart`). Its separate rating-delete request gets 404.
 - [x] Accept the patched scripts' six-argument activity call. The traced PS3
       platform helper does not post anything.
+- [x] Return the PS3 browser stub's `-4` result for launch and finish.
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument

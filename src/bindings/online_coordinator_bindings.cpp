@@ -102,10 +102,13 @@ int GM_CDECL gmf_Network_ActivityStreamPost(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_Network_WebBrowserLaunch(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1);
-    GM_STRING_PARAM(url, 0, "");
-    std::fprintf(stderr, "[Network_WebBrowserLaunch] %s (no-op, no in-game browser)\n", url);
-    a_thread->PushInt(0);
+    if (a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+    a_thread->PushInt(-4);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_Network_WebBrowserFinish(gmThread* a_thread) {
+    a_thread->PushInt(-4);
     return GM_OK;
 }
 
@@ -190,7 +193,7 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_WebBrowserLaunch", gmf_Network_WebBrowserLaunch);
     a_machine.RegisterLibraryFunction("Network_WebBrowserIsAvailable", gmf_NetworkUnavailable);
     a_machine.RegisterLibraryFunction("Network_WebBrowserIsRunning", gmf_NetworkUnavailable);
-    a_machine.RegisterLibraryFunction("Network_WebBrowserFinish", gmf_NetworkUnavailable);
+    a_machine.RegisterLibraryFunction("Network_WebBrowserFinish", gmf_Network_WebBrowserFinish);
     a_machine.RegisterLibraryFunction("Network_NearLaunchApp", gmf_NetworkNoOp);
     a_machine.RegisterLibraryFunction("Network_NearSendGift", gmf_NetworkUnavailable);
     a_machine.RegisterLibraryFunction("Network_NearDeleteGift", gmf_Network_NearDeleteGift);

@@ -7,6 +7,11 @@ global Main = function(p) {
             Network_ActivityStreamPost(2, "message", "format", "url", "small", "large");
             Network_ActivityStreamPost(2, "message", "format", "url", "small", "large", 9);
             GameSystem.trace("activity post wrapper PASS");
+            if (!Network_WebBrowserIsAvailable() && !Network_WebBrowserIsRunning() &&
+                Network_WebBrowserLaunch("https://example.test/") == -4 &&
+                Network_WebBrowserLaunch(7, "ignored") == -4 && Network_WebBrowserFinish() == -4) {
+                GameSystem.trace("browser wrapper PASS");
+            } else { GameSystem.trace("browser wrapper FAIL"); }
         },
         init=function() { return true; },
         update=function() {});
