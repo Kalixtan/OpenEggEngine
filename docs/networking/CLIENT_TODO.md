@@ -49,6 +49,10 @@ behavior.
       input handlers and select the greatest-hits tab (`--harness-input`).
 - [x] Start the full retail menu with a disposable save, connect to a local
       fixture account, and verify that the community process attaches.
+- [x] Dismiss first-run popups with headless key events and select greatest
+      hits through the full menu, receiving a response from the local server
+      (`run_full_menu_probe.py --input`). Tutorial and EULA are bypassed in
+      the disposable test save.
 - [ ] Exercise the full menu process with controller input and compare rendered output.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument

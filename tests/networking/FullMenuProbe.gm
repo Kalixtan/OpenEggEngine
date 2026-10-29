@@ -35,6 +35,25 @@ global Main = function(p) {
                     this.processes[this.COMMUNITY_REGION] == screen && !?this.probeCommunity) {
                     this.probeCommunity = 1;
                     GameSystem.trace("full menu community attached PASS");
+                    if (?FULL_MENU_INPUT && FULL_MENU_INPUT) {
+                        this.probeOnKeyPress = this.onKeyPress;
+                        this.onKeyPress = function(key) {
+                            local community = this.processes[this.COMMUNITY_REGION];
+                            if (this.currentRegion == this.COMMUNITY_REGION && key == JOYSTICK0_ACCEPT &&
+                                community.selectedButton == community.hitsButton &&
+                                community.currentTab != community.HITS_BUTTON_INDEX) {
+                                this.probeInput = 1;
+                            }
+                            this.probeOnKeyPress(key);
+                        };
+                    } else { GameSystem.quit(); }
+                }
+                if (?FULL_MENU_INPUT && FULL_MENU_INPUT && ?this.probeInput &&
+                    this.currentRegion == this.COMMUNITY_REGION && ?screen &&
+                    screen.currentTab == screen.HITS_BUTTON_INDEX &&
+                    screen.tabs[screen.HITS_BUTTON_INDEX].status == screen.RESPONSE_RECEIVED &&
+                    screen.tabs[screen.HITS_BUTTON_INDEX].complete) {
+                    GameSystem.trace("full menu input navigation PASS");
                     GameSystem.quit();
                 }
             };
