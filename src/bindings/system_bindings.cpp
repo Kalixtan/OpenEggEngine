@@ -476,9 +476,9 @@ void MergeTablesTakingMax(gmMachine& machine, gmTableObject* dest, gmTableObject
         if (existing.m_type == GM_INT && incoming.m_type == GM_INT) {
             if (incoming.m_value.m_int <= existing.m_value.m_int) continue;
         } else if (existing.m_type == GM_FLOAT && incoming.m_type == GM_FLOAT) {
-            if (!(incoming.m_value.m_float > existing.m_value.m_float)) continue;
+            if (existing.m_value.m_float >= incoming.m_value.m_float) continue;
         } else if (existing.m_type == GM_FLOAT && incoming.m_type == GM_INT) {
-            if (!(static_cast<float>(incoming.m_value.m_int) > existing.m_value.m_float)) continue;
+            if (existing.m_value.m_float >= static_cast<float>(incoming.m_value.m_int)) continue;
         } else if (existing.m_type == GM_INT && incoming.m_type == GM_FLOAT) {
             const double value = incoming.m_value.m_float;
             // PPC's out-of-range float-to-integer result is not established.
@@ -487,6 +487,9 @@ void MergeTablesTakingMax(gmMachine& machine, gmTableObject* dest, gmTableObject
         } else if (existing.m_type == GM_INT) {
             // Retail compares nonnumeric incoming values against integer zero.
             if (existing.m_value.m_int >= 0) continue;
+        } else if (existing.m_type == GM_FLOAT) {
+            // The retail float comparison also uses zero for nonnumeric values.
+            if (existing.m_value.m_float >= 0.0f) continue;
         }
         dest->Set(&machine, node->m_key, incoming);
     }
