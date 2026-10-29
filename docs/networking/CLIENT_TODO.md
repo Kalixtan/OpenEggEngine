@@ -160,6 +160,8 @@ behavior.
       The save scheduler and unlock handling are simulated (`run_cloud_sync_probe.py`).
 - [x] Check the script's mismatched-ID and server-error paths do not write a
       local save; the mismatched-ID case also leaves the server save intact.
+- [x] Sign in with a disposable account and run first-time cloud sync with no
+      server save; verify the new local and remote saves (`--case initial`).
 - [ ] Audit other `RetailFctiwz` helpers: several return `INT_MIN` for positive
       overflow, unlike the PowerPC instruction's `INT_MAX` result.
 - [x] Fetch and inflate level data as XML or JSON, with request-state callback

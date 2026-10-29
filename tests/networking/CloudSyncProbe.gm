@@ -11,6 +11,7 @@ global CLOUD_TEST_SAVE_CALLBACK = null;
 global GAMEUPDATEDATA = {
     registerAction=function(action) { global CLOUD_TEST_SAVE_ACTION; CLOUD_TEST_SAVE_ACTION = action; return true; },
     isSaveBusy=function() { return false; },
+    abortLoad=function() {},
     startSave=function(callback, overwrite) {
         global CLOUD_TEST_SAVE_CALLBACK;
         if (!SAVEDATA_SaveAll()) { GameSystem.trace("retail cloud local save FAIL"); return false; }
@@ -28,10 +29,20 @@ global Main = function(p) {
             GameMonkeyScript.loadScript("Platformer/CloudSaveHelper.gm");
             if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "mismatched-id") { SAVE_DATA.onlineID = "different-user"; }
             this.sync = CLOUDSAVEHELPER_GetSynchObj();
-            this.sync.synch();
+            if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "initial") {
+                SAVE_DATA.onlineID = null;
+                global REQUIRED_QUOTA_TO_EDIT = 0;
+                OnlineCoordinator_GoOnline();
+            } else { this.sync.synch(); }
         },
         init=function() { return true; },
         update=function() {
+            global CLOUD_TEST_SAVE_CALLBACK;
+            global CLOUD_TEST_SAVE_ACTION;
+            if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "initial" && !?this.started && Watermelon_IsOnline()) {
+                this.started = 1;
+                this.sync.synch();
+            }
             if (?CLOUD_TEST_SAVE_CALLBACK) {
                 local callback = CLOUD_TEST_SAVE_CALLBACK;
                 CLOUD_TEST_SAVE_CALLBACK = null;
@@ -58,7 +69,10 @@ global Main = function(p) {
                 GameSystem.quit();
             } else if (this.sync.isDone()) {
                 local world = SAVE_DATA.campaign.asides.world;
-                if (world.localLevel.completion == 3 && world.remoteLevel.completion == 2 &&
+                if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "initial" && SAVE_DATA.onlineID == "openegg_probe" &&
+                    world.localLevel.completion == 3 && world.shared.completion == 1 && !?world.remoteLevel) {
+                    GameSystem.trace("retail cloud initial sync PASS");
+                } else if (world.localLevel.completion == 3 && world.remoteLevel.completion == 2 &&
                     world.shared.completion == 4 && SAVE_DATA.unlocks.unlockedEntities.localEntity == 1 &&
                     SAVE_DATA.unlocks.unlockedEntities.remoteEntity == 1) {
                     GameSystem.trace("retail cloud sync PASS");

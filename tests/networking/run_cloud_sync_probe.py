@@ -62,7 +62,7 @@ def main():
     parser.add_argument("--server-url", help="Disposable local replacement server")
     parser.add_argument("--user-id", help="Fixture account ID")
     parser.add_argument("--session-id", help="Fixture account session")
-    parser.add_argument("--case", choices=("success", "mismatched-id", "server-error"), default="success")
+    parser.add_argument("--case", choices=("success", "mismatched-id", "server-error", "initial"), default="success")
     args = parser.parse_args()
     server = None
     if args.server_url:
@@ -72,17 +72,28 @@ def main():
         if (endpoint.scheme != "http" or endpoint.hostname != "127.0.0.1" or not endpoint.port or
                 endpoint.username is not None or endpoint.password is not None or
                 endpoint.path not in ("", "/") or endpoint.query or endpoint.fragment or
-                not args.user_id or not args.session_id):
+                (args.case != "initial" and (not args.user_id or not args.session_id))):
             parser.error("local server URL and disposable fixture identity are required")
         url, user, session = args.server_url.rstrip("/"), args.user_id, args.session_id
+        if args.case == "initial":
+            from run_account_login_probe import EMAIL, PASSWORD
+            login = Request(url + "/identity/login/account",
+                            data=json.dumps({"email": EMAIL, "password": PASSWORD}).encode(),
+                            headers={"Content-Type": "application/json"})
+            with urlopen(login, timeout=20) as response:
+                identity = json.load(response)["session"]
+            user, session = identity["person"]["id"], identity["id"]
         path = f"{url}/otg/~identity:{user}/~content:progress"
         headers = {"X-OTG-Identity-SessionId": session,
                    "Content-Type": "multipart/form-data; boundary=" + BOUNDARY.decode()}
-        request = Request(path + ".put", data=multipart(json.dumps(remote).encode()), headers=headers)
-        with urlopen(request, timeout=10) as response:
-            if response.status != 200:
-                raise SystemExit("fixture cloud save could not be seeded")
+        if args.case != "initial":
+            request = Request(path + ".put", data=multipart(json.dumps(remote).encode()), headers=headers)
+            with urlopen(request, timeout=10) as response:
+                if response.status != 200:
+                    raise SystemExit("fixture cloud save could not be seeded")
     else:
+        if args.case == "initial":
+            parser.error("initial requires a disposable replacement server account")
         get_status = 503 if args.case == "server-error" else 200
         server = ThreadingHTTPServer(("127.0.0.1", 0), SyncHandler)
         server.daemon_threads = True
@@ -99,10 +110,14 @@ def main():
             data = engine.parent / "game_data"
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
-            (temp / "OpenEgg.ini").write_text(
-                f"[network]\nserver_url = {url}\nuser_id = {user}\nsession_id = {session}\n")
+            config = f"[network]\nserver_url = {url}\n"
+            if args.case == "initial":
+                config += f"account_email = {EMAIL}\naccount_password = {PASSWORD}\n"
+            else:
+                config += f"user_id = {user}\nsession_id = {session}\n"
+            (temp / "OpenEgg.ini").write_text(config)
             harness = temp / "harness.txt"
-            harness.write_text("wait 240\nquit\n")
+            harness.write_text(f"wait {900 if args.case == 'initial' else 240}\nquit\n")
             env = os.environ.copy()
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
@@ -112,14 +127,14 @@ def main():
             (script_dir / "CloudSyncProbe.gm").write_text(f'global CLOUD_TEST_CASE = "{args.case}";\n' + source)
             result = subprocess.run([str(temp / engine.name), str(script_dir),
                                      "CloudSyncProbe.gm", "Main"], env=env, text=True,
-                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
             print(result.stdout, end="")
             marker = {"success": "retail cloud sync PASS", "mismatched-id": "retail cloud mismatch PASS",
-                      "server-error": "retail cloud server error PASS"}[args.case]
+                      "server-error": "retail cloud server error PASS", "initial": "retail cloud initial sync PASS"}[args.case]
             expected_posts = [True] if args.case == "success" else []
             if result.returncode or (server and received != expected_posts) or marker not in result.stdout or "[gm]" in result.stdout:
                 raise SystemExit("retail cloud sync probe failed")
-            if args.case != "success":
+            if args.case not in ("success", "initial"):
                 if (temp / "savedata" / "save.json").exists():
                     raise SystemExit("failed cloud sync unexpectedly wrote a local save")
                 if args.server_url:
@@ -130,18 +145,18 @@ def main():
                 return
             local = json.loads((temp / "savedata" / "save.json").read_text())
             world = local["campaign"]["asides"]["world"]
-            if (world["localLevel"]["completion"] != 3 or world["remoteLevel"]["completion"] != 2 or
-                    world["shared"]["completion"] != 4 or
-                    local["unlocks"]["unlockedEntities"] != {"localEntity": 1, "remoteEntity": 1}):
+            expected_world = ({"localLevel": {"completion": 3}, "shared": {"completion": 1}}
+                              if args.case == "initial" else
+                              {"localLevel": {"completion": 3}, "remoteLevel": {"completion": 2}, "shared": {"completion": 4}})
+            expected_unlocks = ({"localEntity": 1} if args.case == "initial" else {"localEntity": 1, "remoteEntity": 1})
+            if world != expected_world or local["unlocks"]["unlockedEntities"] != expected_unlocks:
                 raise SystemExit("local cloud save did not retain the merge")
             if args.server_url:
                 request = Request(path + "/data.get", headers={"X-OTG-Identity-SessionId": session})
                 with urlopen(request, timeout=10) as response:
                     saved = json.load(response)
                 world = saved["campaign"]["asides"]["world"]
-                if (world["localLevel"]["completion"] != 3 or world["remoteLevel"]["completion"] != 2 or
-                        world["shared"]["completion"] != 4 or
-                        saved["unlocks"]["unlockedEntities"] != {"localEntity": 1, "remoteEntity": 1}):
+                if world != expected_world or saved["unlocks"]["unlockedEntities"] != expected_unlocks:
                     raise SystemExit("replacement server cloud save did not retain the merge")
     finally:
         if server:
