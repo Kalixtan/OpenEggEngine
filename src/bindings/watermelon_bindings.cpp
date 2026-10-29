@@ -919,7 +919,7 @@ int GM_CDECL gmf_GetFriends(gmThread* a_thread) {
 
 // These four resource wrappers read slots 0-4 without checking for extra arguments.
 int GM_CDECL gmf_GetLevelDescription(gmThread* a_thread) {
-    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(5);
     std::string level, upload;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, upload)) {
@@ -934,7 +934,7 @@ int GM_CDECL gmf_GetLevelDescription(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetSoundData(gmThread* a_thread) {
-    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(5);
     std::string level, version;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
@@ -949,7 +949,7 @@ int GM_CDECL gmf_GetSoundData(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
-    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(5);
     std::string level, version;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
@@ -965,7 +965,7 @@ int GM_CDECL gmf_GetLevelData(gmThread* a_thread) {
 
 int GM_CDECL gmf_SaveLevelAndAssetsToDisk(gmThread* a_thread) {
     // Both retail arity branches pass only the first six arguments.
-    if (GM_NUM_PARAMS < 6) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(6);
     std::string level, version, output;
     if (!g_networkClient || !ReadOptionalString(a_thread, 3, level) ||
         !ReadOptionalString(a_thread, 4, version) || !ReadOptionalString(a_thread, 5, output)) {
@@ -978,7 +978,7 @@ int GM_CDECL gmf_SaveLevelAndAssetsToDisk(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_GetLevelThumbnail(gmThread* a_thread) {
-    if (GM_NUM_PARAMS < 5) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(5);
     std::string level, version;
     if (!g_networkClient || !g_networkClient->IdentityReady() ||
         !ReadOptionalString(a_thread, 3, level) || !ReadOptionalString(a_thread, 4, version)) {
