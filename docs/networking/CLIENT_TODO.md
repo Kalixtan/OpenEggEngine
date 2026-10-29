@@ -38,6 +38,8 @@ behavior.
 - [x] Return the PS3 browser stub's `-4` result for launch and finish.
 - [x] Update the supplied Near gift table with the traced field names. Empty
       values are a desktop fallback; retail's unwritten buffer contents are unknown.
+- [x] Return the traced integer result from the store launch wrapper; desktop
+      still has no Commerce backend.
 - [ ] Exercise community screen drawing and browsing against a server.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument

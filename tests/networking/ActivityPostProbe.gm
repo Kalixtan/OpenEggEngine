@@ -18,6 +18,9 @@ global Main = function(p) {
                 details.description == "" && details.data == "") {
                 GameSystem.trace("near gift table PASS");
             } else { GameSystem.trace("near gift table FAIL"); }
+            if (Network_StoreLaunch() == 0) {
+                GameSystem.trace("store launch result PASS");
+            } else { GameSystem.trace("store launch result FAIL"); }
         },
         init=function() { return true; },
         update=function() {});
