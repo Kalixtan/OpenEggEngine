@@ -14,6 +14,7 @@ parser.add_argument("--offline", action="store_true", help="Check the offline fa
 parser.add_argument("--no-patch", action="store_true", help="Check fallback without the patch archive")
 parser.add_argument("--server-url", help="Run a tab request against a local server with the fixture account")
 parser.add_argument("--expect-populated", action="store_true", help="Require the synthetic Probe level in greatest hits")
+parser.add_argument("--expect-daily", action="store_true", help="Require the synthetic Probe level in the daily tab")
 parser.add_argument("--expect-thumbnail", action="store_true", help="Require the fixture panel's thumbnail")
 parser.add_argument("--expect-level-data", action="store_true", help="Download the fixture panel's level data")
 parser.add_argument("--expect-queue", action="store_true", help="Add, read and remove the fixture level from the queue")
@@ -36,7 +37,7 @@ if args.update:
     args.draw = True
 if args.draw and (args.offline or args.no_patch):
     parser.error("--draw requires the patched screen")
-if (args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
+if (args.expect_populated or args.expect_daily or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
     parser.error("populated checks require --server-url")
 if args.server_url:
     endpoint = urlsplit(args.server_url)
@@ -112,6 +113,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.append("community harness input PASS")
     if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community fixture level PASS  2")
+    if args.expect_daily:
+        markers.append("community fixture level PASS  7")
     if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community thumbnail PASS")
     if args.expect_level_data or args.expect_queue or args.expect_heart:

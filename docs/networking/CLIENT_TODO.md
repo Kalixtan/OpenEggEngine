@@ -22,6 +22,8 @@ behavior.
 - [x] Create greatest-hits and activity panels from a synthetic server level;
       seed it with the server's `OpenEggCommunityFixture` tool and require it
       with `--expect-populated` in the community probe.
+- [x] Create a daily panel from the same synthetic fixture and verify the
+      retail daily callback (`--expect-daily`).
 - [x] Fetch the synthetic level's thumbnail and verify the retail callback
       assigns a valid panel texture (`--expect-thumbnail`).
 - [x] Retain and clear a quarter-size prepared screenshot using adjusted
