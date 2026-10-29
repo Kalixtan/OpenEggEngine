@@ -15,7 +15,7 @@ behavior.
 - [x] Construct the patched PS3 community screen when a server is configured;
       retain the fallback when offline or the patch helper is unavailable.
 - [x] Initialize the PS3 community screen with retail menu helpers in a
-      headless probe; drawing and live browsing are not covered.
+      headless probe.
 - [x] Run retail greatest-hits, friends, albums, daily and activity tab
       requests and callbacks against a local server with a fixture account;
       the tested responses were empty.
@@ -43,7 +43,9 @@ behavior.
       values are a desktop fallback; retail's unwritten buffer contents are unknown.
 - [x] Return the traced integer result from the store launch wrapper; desktop
       still has no Commerce backend.
-- [ ] Exercise community screen drawing and browsing against a server.
+- [x] Run the retail screen's draw callback while local-server requests run;
+      the isolated probe disables the screen's update method.
+- [ ] Exercise interactive community browsing and compare rendered output.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
       used by patched scripts; the retail wrapper ignores them.

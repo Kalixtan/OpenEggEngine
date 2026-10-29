@@ -5,6 +5,7 @@ global Main = function(p) {
     return table(Process=p,
         constructor=function() {
             GameMonkeyScript.loadScript("ArrayHelper.gm");
+            if (?COMMUNITY_DRAW && COMMUNITY_DRAW) { ColourManager.load("Platformer/colours.dat"); }
             GameMonkeyScript.loadScript("State.gm");
             GameMonkeyScript.loadScript("Platformer/KeyToStringMap.gm");
             GameMonkeyScript.loadScript("VideoHelper.gm");
@@ -16,9 +17,19 @@ global Main = function(p) {
 
             local screen = GameSystem.runProcess("Platformer_MainMenu5PS3_CommunityScreen");
             if (screen != null && screen.Process != null) {
-                // The menu normally sets the stencil region and supplies fonts.
+                // The menu normally sets the stencil region and loads its palette.
                 screen.region = 1;
-                screen.preDraw = null;
+                if (?COMMUNITY_DRAW && COMMUNITY_DRAW) {
+                    screen.update = null;
+                    screen.originalPreDraw = screen.preDraw;
+                    screen.probeDraws = 0;
+                    screen.preDraw = function() {
+                        this.originalPreDraw();
+                        this.probeDraws += 1;
+                    };
+                }
+                else { screen.preDraw = null; }
+                this.frames = 0;
                 this.screen = screen;
             }
             if (?COMMONCOMMUNITYSTUFF_InitCommonCommunityScreenStuff && screen != null &&
@@ -31,11 +42,20 @@ global Main = function(p) {
         init=function() { return true; },
         update=function() {
             if (?this.screen && this.screen.isInited()) {
-                if (this.screen.tabs != null && this.screen.navBar.buttons[0] != null &&
-                    this.screen.selectedButton != null && this.screen.homeTab != null && ?this.screen.isPaused) {
-                    GameSystem.trace("community screen init PASS");
-                } else { GameSystem.trace("community screen init FAIL"); }
-                this.screen.terminate(); this.screen = null;
+                if (this.frames == 0) {
+                    if (this.screen.tabs != null && this.screen.navBar.buttons[0] != null &&
+                        this.screen.selectedButton != null && this.screen.homeTab != null && ?this.screen.isPaused) {
+                        GameSystem.trace("community screen init PASS");
+                    } else { GameSystem.trace("community screen init FAIL"); }
+                }
+                this.frames += 1;
+                if (!(?COMMUNITY_DRAW && COMMUNITY_DRAW) || this.frames >= 4) {
+                    if (?COMMUNITY_DRAW && COMMUNITY_DRAW) {
+                        if (this.screen.probeDraws >= 3) { GameSystem.trace("community draw PASS"); }
+                        else { GameSystem.trace("community draw FAIL"); }
+                    }
+                    this.screen.terminate(); this.screen = null;
+                }
             }
         });
 };

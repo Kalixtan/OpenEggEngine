@@ -18,7 +18,10 @@ parser.add_argument("--expect-thumbnail", action="store_true", help="Require the
 parser.add_argument("--expect-level-data", action="store_true", help="Download the fixture panel's level data")
 parser.add_argument("--expect-queue", action="store_true", help="Add, read and remove the fixture level from the queue")
 parser.add_argument("--expect-heart", action="store_true", help="Like and unlike the fixture level")
+parser.add_argument("--draw", action="store_true", help="Exercise the screen's draw path")
 args = parser.parse_args()
+if args.draw and (args.offline or args.no_patch):
+    parser.error("--draw requires the patched screen")
 if (args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
     parser.error("populated checks require --server-url")
 if args.server_url:
@@ -53,11 +56,13 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
     script_dir = ROOT / "tests/networking"
     script_name = "CommunityBrowseProbe.gm" if args.server_url else "CommunityStartProbe.gm"
-    if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
+    if args.draw or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         script_dir = temp / "probe"
         script_dir.mkdir()
         source = (ROOT / "tests/networking" / script_name).read_text()
-        setup = "global COMMUNITY_REQUIRE_THUMBNAIL = 1;\n"
+        setup = "global COMMUNITY_DRAW = 1;\n" if args.draw else ""
+        if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
+            setup += "global COMMUNITY_REQUIRE_THUMBNAIL = 1;\n"
         if args.expect_level_data or args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_LEVEL = 1;\n"
         if args.expect_queue or args.expect_heart:
@@ -70,6 +75,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
     print(result.stdout, end="")
     markers = [f"community tab request PASS  {index}  panels " for index in (2, 1, 6, 7, 0)] if args.server_url else ["community fallback PASS"] if args.offline or args.no_patch else [
         "community screen constructor PASS", "community screen init PASS"]
+    if args.draw:
+        markers.append("community draw PASS")
     if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community fixture level PASS  2")
     if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:

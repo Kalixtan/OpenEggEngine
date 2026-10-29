@@ -120,6 +120,7 @@ global Main = function(p) {
     return table(Process=p, stage=0, nextTab=0,
         constructor=function() {
             GameMonkeyScript.loadScript("ArrayHelper.gm");
+            if (?COMMUNITY_DRAW && COMMUNITY_DRAW) { ColourManager.load("Platformer/colours.dat"); }
             GameMonkeyScript.loadScript("State.gm");
             GameMonkeyScript.loadScript("Platformer/KeyToStringMap.gm");
             GameMonkeyScript.loadScript("VideoHelper.gm");
@@ -132,6 +133,14 @@ global Main = function(p) {
             OnlineCoordinator_GoOnline();
         },
         init=function() { return true; },
+        finishScreen=function() {
+            if (?COMMUNITY_DRAW && COMMUNITY_DRAW) {
+                if (this.screen.probeDraws >= 3) { GameSystem.trace("community draw PASS"); }
+                else { GameSystem.trace("community draw FAIL"); }
+            }
+            this.screen.terminate();
+            this.stage = 5;
+        },
         update=function() {
             if (this.stage == 0 && Watermelon_IsOnline()) {
                 GameSystem.trace("community browse online");
@@ -142,7 +151,14 @@ global Main = function(p) {
                     return;
                 }
                 this.screen.region = 1;
-                this.screen.preDraw = null;
+                if (?COMMUNITY_DRAW && COMMUNITY_DRAW) {
+                    this.screen.originalPreDraw = this.screen.preDraw;
+                    this.screen.probeDraws = 0;
+                    this.screen.preDraw = function() {
+                        this.originalPreDraw();
+                        this.probeDraws += 1;
+                    };
+                } else { this.screen.preDraw = null; }
                 this.screen.update = null;
                 this.stage = 1;
             } else if (this.stage == 1 && this.screen.isInited()) {
@@ -167,8 +183,7 @@ global Main = function(p) {
                 if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) {
                     this.stage = 4;
                 } else {
-                    this.screen.terminate();
-                    this.stage = 5;
+                    this.finishScreen();
                 }
             } else if (this.stage == 4) {
                 local panels = this.screen.tabs[this.screen.HITS_BUTTON_INDEX].results.panels;
@@ -189,8 +204,7 @@ global Main = function(p) {
                             this.stage = 5;
                         }
                     } else {
-                        this.screen.terminate();
-                        this.stage = 5;
+                        this.finishScreen();
                     }
                 }
             } else if (this.stage == 6 && ?this.levelFinished) {
@@ -202,8 +216,7 @@ global Main = function(p) {
                         this.stage = 5;
                     }
                 } else {
-                    this.screen.terminate();
-                    this.stage = 5;
+                    this.finishScreen();
                 }
             } else if (this.stage == 7 && ?this.queueFinished) {
                 if (?COMMUNITY_REQUIRE_HEART && COMMUNITY_REQUIRE_HEART) {
@@ -213,12 +226,10 @@ global Main = function(p) {
                         GameSystem.trace("community heart missing setup FAIL");
                     }
                 } else {
-                    this.screen.terminate();
-                    this.stage = 5;
+                    this.finishScreen();
                 }
             } else if (this.stage == 8 && ?this.heartFinished) {
-                this.screen.terminate();
-                this.stage = 5;
+                this.finishScreen();
             }
         });
 };
