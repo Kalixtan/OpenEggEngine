@@ -43,9 +43,9 @@ behavior.
       values are a desktop fallback; retail's unwritten buffer contents are unknown.
 - [x] Return the traced integer result from the store launch wrapper; desktop
       still has no Commerce backend.
-- [x] Run the retail screen's draw callback while local-server requests run;
-      the isolated probe disables the screen's update method.
-- [ ] Exercise interactive community browsing and compare rendered output.
+- [x] Run the retail screen's draw and update callbacks with a minimal menu
+      parent; verify its automatic daily request and tab switch (`--navigate`).
+- [ ] Exercise controller-driven community browsing and compare rendered output.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
       used by patched scripts; the retail wrapper ignores them.

@@ -19,7 +19,15 @@ parser.add_argument("--expect-level-data", action="store_true", help="Download t
 parser.add_argument("--expect-queue", action="store_true", help="Add, read and remove the fixture level from the queue")
 parser.add_argument("--expect-heart", action="store_true", help="Like and unlike the fixture level")
 parser.add_argument("--draw", action="store_true", help="Exercise the screen's draw path")
+parser.add_argument("--update", action="store_true", help="Exercise the screen's update with a local server")
+parser.add_argument("--navigate", action="store_true", help="Switch tabs using the retail screen logic")
 args = parser.parse_args()
+if args.navigate:
+    args.update = True
+if args.update:
+    if not args.server_url:
+        parser.error("--update requires --server-url")
+    args.draw = True
 if args.draw and (args.offline or args.no_patch):
     parser.error("--draw requires the patched screen")
 if (args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
@@ -61,6 +69,10 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         script_dir.mkdir()
         source = (ROOT / "tests/networking" / script_name).read_text()
         setup = "global COMMUNITY_DRAW = 1;\n" if args.draw else ""
+        if args.update:
+            setup += "global COMMUNITY_UPDATE = 1;\n"
+        if args.navigate:
+            setup += "global COMMUNITY_NAVIGATE = 1;\n"
         if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_THUMBNAIL = 1;\n"
         if args.expect_level_data or args.expect_queue or args.expect_heart:
@@ -77,6 +89,10 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         "community screen constructor PASS", "community screen init PASS"]
     if args.draw:
         markers.append("community draw PASS")
+    if args.update:
+        markers.extend(["community update PASS", "community automatic tab PASS"])
+    if args.navigate:
+        markers.append("community tab navigation PASS")
     if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community fixture level PASS  2")
     if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:

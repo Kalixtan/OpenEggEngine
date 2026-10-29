@@ -138,6 +138,10 @@ global Main = function(p) {
                 if (this.screen.probeDraws >= 3) { GameSystem.trace("community draw PASS"); }
                 else { GameSystem.trace("community draw FAIL"); }
             }
+            if (?COMMUNITY_UPDATE && COMMUNITY_UPDATE) {
+                if (this.screen.probeUpdates >= 3) { GameSystem.trace("community update PASS"); }
+                else { GameSystem.trace("community update FAIL"); }
+            }
             this.screen.terminate();
             this.stage = 5;
         },
@@ -151,6 +155,17 @@ global Main = function(p) {
                     return;
                 }
                 this.screen.region = 1;
+                if (?COMMUNITY_UPDATE && COMMUNITY_UPDATE) {
+                    this.screen.parentProc = {homeYOfs=0, currentRegion=1};
+                    this.screen.isCurrentRegion = function() { return this.parentProc.currentRegion == this.region; };
+                    this.screen.setOrigin(vector2D(0, 0), 0);
+                    this.screen.originalUpdate = this.screen.update;
+                    this.screen.probeUpdates = 0;
+                    this.screen.update = function(elapsed) {
+                        this.originalUpdate(elapsed);
+                        this.probeUpdates += 1;
+                    };
+                } else { this.screen.update = null; }
                 if (?COMMUNITY_DRAW && COMMUNITY_DRAW) {
                     this.screen.originalPreDraw = this.screen.preDraw;
                     this.screen.probeDraws = 0;
@@ -159,7 +174,6 @@ global Main = function(p) {
                         this.probeDraws += 1;
                     };
                 } else { this.screen.preDraw = null; }
-                this.screen.update = null;
                 this.stage = 1;
             } else if (this.stage == 1 && this.screen.isInited()) {
                 GameSystem.trace("community browse initialized");
@@ -168,10 +182,25 @@ global Main = function(p) {
                     this.stage = 3;
                     return;
                 }
-                this.stage = 2;
                 this.indices = {this.screen.HITS_BUTTON_INDEX, this.screen.FRIENDS_BUTTON_INDEX,
                                 this.screen.ONLINEALBUMS_BUTTON_INDEX, this.screen.DAILY_BUTTON_INDEX,
                                 this.screen.HOME_BUTTON_INDEX};
+                if (?COMMUNITY_UPDATE && COMMUNITY_UPDATE) { this.stage = 9; }
+                else { this.stage = 2; }
+            } else if (this.stage == 9 &&
+                       this.screen.tabs[this.screen.DAILY_BUTTON_INDEX].status == this.screen.RESPONSE_RECEIVED &&
+                       this.screen.tabs[this.screen.DAILY_BUTTON_INDEX].complete) {
+                GameSystem.trace("community automatic tab PASS");
+                if (?COMMUNITY_NAVIGATE && COMMUNITY_NAVIGATE) { this.stage = 10; }
+                else { this.stage = 2; }
+            } else if (this.stage == 10 && OnlineCoordinator_IsOnline()) {
+                this.screen.selectTab(this.screen.HITS_BUTTON_INDEX, null, false);
+                this.stage = 11;
+            } else if (this.stage == 11 && this.screen.currentTab == this.screen.HITS_BUTTON_INDEX &&
+                       this.screen.tabs[this.screen.HITS_BUTTON_INDEX].status == this.screen.RESPONSE_RECEIVED &&
+                       this.screen.tabs[this.screen.HITS_BUTTON_INDEX].complete) {
+                GameSystem.trace("community tab navigation PASS");
+                this.stage = 2;
             } else if (this.stage == 2 && this.nextTab < 5) {
                 local tab = this.screen.tabs[this.indices[this.nextTab]];
                 tab.request(null, null, tab.results, CommunityBrowseReply);
