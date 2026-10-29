@@ -17,6 +17,7 @@ parser.add_argument("--expect-populated", action="store_true", help="Require the
 parser.add_argument("--expect-daily", action="store_true", help="Require the synthetic Probe level in the daily tab")
 parser.add_argument("--expect-album", action="store_true", help="Require the synthetic album in the online albums tab")
 parser.add_argument("--expect-album-details", action="store_true", help="Check album thumbnail and completion callback")
+parser.add_argument("--expect-album-complete", action="store_true", help="Submit a completion and refresh the album callback")
 parser.add_argument("--expect-thumbnail", action="store_true", help="Require the fixture panel's thumbnail")
 parser.add_argument("--expect-level-data", action="store_true", help="Download the fixture panel's level data")
 parser.add_argument("--expect-queue", action="store_true", help="Add, read and remove the fixture level from the queue")
@@ -27,6 +28,8 @@ parser.add_argument("--navigate", action="store_true", help="Switch tabs using t
 parser.add_argument("--input", action="store_true", help="Navigate using the retail PS3 input handlers")
 parser.add_argument("--harness-input", action="store_true", help="Send key events through the headless harness")
 args = parser.parse_args()
+if args.expect_album_complete:
+    args.expect_album_details = True
 if args.harness_input:
     args.input = True
 if args.input:
@@ -83,6 +86,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         setup = "global COMMUNITY_DRAW = 1;\n" if args.draw else ""
         if args.expect_album_details:
             setup += "global COMMUNITY_REQUIRE_ALBUM_DETAILS = 1;\n"
+        if args.expect_album_complete:
+            setup += "global COMMUNITY_REQUIRE_ALBUM_COMPLETE = 1;\n"
         if args.update:
             setup += "global COMMUNITY_UPDATE = 1;\n"
         if args.navigate:
@@ -123,6 +128,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.append("community fixture album PASS  6")
     if args.expect_album_details:
         markers.append("community album details PASS")
+    if args.expect_album_complete:
+        markers.extend(["community album completion record PASS", "community album completed PASS"])
     if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
         markers.append("community thumbnail PASS")
     if args.expect_level_data or args.expect_queue or args.expect_heart:

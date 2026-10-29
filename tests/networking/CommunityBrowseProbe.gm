@@ -38,6 +38,13 @@ global CommunityLevelReply = function(data, result, error) {
     data.levelFinished = 1;
 };
 
+global CommunityAlbumRecordReply = function(data, result, error) {
+    if (error == 0) {
+        GameSystem.trace("community album completion record PASS");
+        data.albumRecordFinished = 1;
+    } else { GameSystem.trace("community album completion record FAIL", error); }
+};
+
 global CommunityQueueCleared = function(data, result, error) {
     if (error == 404 && result == null) { GameSystem.trace("community queue cleared PASS"); }
     else { GameSystem.trace("community queue cleared FAIL", error); }
@@ -255,6 +262,28 @@ global Main = function(p) {
                     ?panel.isCompleteTable.completionProgress[0] &&
                     !panel.isCompleteTable.completionProgress[0] && !panel.isCompleteTable.isComplete) {
                     GameSystem.trace("community album details PASS");
+                    if (?COMMUNITY_REQUIRE_ALBUM_COMPLETE && COMMUNITY_REQUIRE_ALBUM_COMPLETE) {
+                        local level = this.screen.tabs[this.screen.HITS_BUTTON_INDEX].results.panels[0];
+                        local parts = {};
+                        Watermelon_ParseLevelObjectString(level.levelVersionID, parts);
+                        if (Watermelon_Record_Post(CommunityAlbumRecordReply, this, 78, parts.levelId,
+                            {score="4294967296", completed=1, tokenCount=1, playTime=10, deaths=0, golded=0})) {
+                            this.stage = 13;
+                        } else { GameSystem.trace("community album completion setup FAIL"); }
+                    } else if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) { this.stage = 4; }
+                    else { this.finishScreen(); }
+                }
+            } else if (this.stage == 13 && ?this.albumRecordFinished) {
+                local panel = this.screen.tabs[this.screen.ONLINEALBUMS_BUTTON_INDEX].results.panels[0];
+                panel.isCompleteTable.completionProgress = null;
+                if (Watermelon_Album_Page(WATERMELONHELPER_callback_AlbumCompletion, panel.isCompleteTable,
+                    77, panel.albumID, "count=20&decorate=completed")) { this.stage = 14; }
+                else { GameSystem.trace("community album refresh setup FAIL"); }
+            } else if (this.stage == 14) {
+                local panel = this.screen.tabs[this.screen.ONLINEALBUMS_BUTTON_INDEX].results.panels[0];
+                if (?panel.isCompleteTable.completionProgress && panel.isCompleteTable.completionProgress[0] &&
+                    panel.isCompleteTable.isComplete) {
+                    GameSystem.trace("community album completed PASS");
                     if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) { this.stage = 4; }
                     else { this.finishScreen(); }
                 }

@@ -27,6 +27,8 @@ behavior.
 - [x] Create an online album panel from the synthetic fixture (`--expect-album`),
       load its thumbnail, and check its incomplete level callback
       (`--expect-album-details`).
+- [x] Submit a completion record and refresh the retail album callback; the
+      fixture level changes from incomplete to complete (`--expect-album-complete`).
 - [x] Fetch the synthetic level's thumbnail and verify the retail callback
       assigns a valid panel texture (`--expect-thumbnail`).
 - [x] Retain and clear a quarter-size prepared screenshot using adjusted
