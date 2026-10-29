@@ -1,0 +1,44 @@
+global SAVE_DATA = {
+    version=1, onlineID="openegg_probe",
+    unlocks={unlockedEntities={localEntity=1}},
+    campaign={asides={world={localLevel={completion=3}, shared={completion=1}}}, bsides={}},
+    editor={editorTrophyLevels={}}
+};
+global SAVEDATAHELPER_GetSaveData = function() { return SAVE_DATA; };
+global SAVEDATAHELPER_unlockMissingThings = function() {};
+global CLOUD_TEST_SAVE_ACTION = null;
+global SAVEDATAHELPER_SaveToFileAction = function(action) { global CLOUD_TEST_SAVE_ACTION; CLOUD_TEST_SAVE_ACTION = action; };
+
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            GameMonkeyScript.loadScript("Platformer/CloudSaveHelper.gm");
+            this.sync = CLOUDSAVEHELPER_GetSynchObj();
+            this.sync.synch();
+        },
+        init=function() { return true; },
+        update=function() {
+            if (?CLOUD_TEST_SAVE_ACTION) {
+                local action = CLOUD_TEST_SAVE_ACTION;
+                CLOUD_TEST_SAVE_ACTION = null;
+                action.execute(true);
+            }
+            this.sync.update();
+            if (this.lastState != this.sync.state) {
+                GameSystem.trace("retail cloud sync state", this.sync.state);
+                this.lastState = this.sync.state;
+            }
+            if (this.sync.hasError()) {
+                GameSystem.trace("retail cloud sync FAIL", this.sync.hasError());
+                GameSystem.quit();
+            } else if (this.sync.isDone()) {
+                local world = SAVE_DATA.campaign.asides.world;
+                if (world.localLevel.completion == 3 && world.remoteLevel.completion == 2 &&
+                    world.shared.completion == 4 && SAVE_DATA.unlocks.unlockedEntities.localEntity == 1 &&
+                    SAVE_DATA.unlocks.unlockedEntities.remoteEntity == 1) {
+                    GameSystem.trace("retail cloud sync PASS");
+                } else { GameSystem.trace("retail cloud sync merge FAIL"); }
+                GameSystem.quit();
+            }
+        });
+};
