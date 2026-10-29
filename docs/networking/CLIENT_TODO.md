@@ -162,6 +162,8 @@ behavior.
       local save; the mismatched-ID case also leaves the server save intact.
 - [x] Sign in with a disposable account and run first-time cloud sync with no
       server save; verify the new local and remote saves (`--case initial`).
+- [x] Run the retail cloud-delete script with a seeded server save; verify its
+      removal and the resulting local save (`--case delete`).
 - [ ] Audit other `RetailFctiwz` helpers: several return `INT_MIN` for positive
       overflow, unlike the PowerPC instruction's `INT_MAX` result.
 - [x] Fetch and inflate level data as XML or JSON, with request-state callback

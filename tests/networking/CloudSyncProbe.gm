@@ -33,6 +33,8 @@ global Main = function(p) {
                 SAVE_DATA.onlineID = null;
                 global REQUIRED_QUOTA_TO_EDIT = 0;
                 OnlineCoordinator_GoOnline();
+            } else if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "delete") {
+                this.sync.deleteCloudSave();
             } else { this.sync.synch(); }
         },
         init=function() { return true; },
@@ -69,7 +71,10 @@ global Main = function(p) {
                 GameSystem.quit();
             } else if (this.sync.isDone()) {
                 local world = SAVE_DATA.campaign.asides.world;
-                if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "initial" && SAVE_DATA.onlineID == "openegg_probe" &&
+                if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "delete" && SAVE_DATA.onlineID == "openegg_probe" &&
+                    world.localLevel.completion == 3 && world.shared.completion == 1 && !?world.remoteLevel) {
+                    GameSystem.trace("retail cloud delete PASS");
+                } else if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "initial" && SAVE_DATA.onlineID == "openegg_probe" &&
                     world.localLevel.completion == 3 && world.shared.completion == 1 && !?world.remoteLevel) {
                     GameSystem.trace("retail cloud initial sync PASS");
                 } else if (world.localLevel.completion == 3 && world.remoteLevel.completion == 2 &&

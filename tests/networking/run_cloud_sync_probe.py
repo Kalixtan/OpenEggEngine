@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import threading
 from urllib.parse import urlsplit
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from run_cloud_probe import BOUNDARY, Handler, ROOT, SESSION, USER, multipart
@@ -23,6 +24,7 @@ remote = {"onlineID": "openegg_probe", "version": 1,
           "editor": {"editorTrophyLevels": {}}}
 received = []
 get_status = 200
+test_case = "success"
 
 
 class SyncHandler(Handler):
@@ -34,6 +36,7 @@ class SyncHandler(Handler):
             self.reply(404)
 
     def do_POST(self):
+        global get_status
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if (self.path != f"/otg/~identity:{USER}/~content:progress.put" or
                 self.headers.get("X-OTG-Identity-SessionId") != SESSION):
@@ -45,25 +48,31 @@ class SyncHandler(Handler):
                   for part in message.iter_parts()}
         try:
             save = json.loads(fields["file"])
-            world = save["campaign"]["asides"]["world"]
-            valid = (fields["mutable"] == b"true" and fields["deleteLevel"] == b"HARD" and
-                     save["onlineID"] == "openegg_probe" and world["localLevel"]["completion"] == 3 and
-                     world["remoteLevel"]["completion"] == 2 and world["shared"]["completion"] == 4 and
-                     save["unlocks"]["unlockedEntities"] == {"localEntity": 1, "remoteEntity": 1})
+            if test_case == "delete":
+                valid = save == {"onlineID": "openegg_probe"}
+            else:
+                world = save["campaign"]["asides"]["world"]
+                valid = (save["onlineID"] == "openegg_probe" and world["localLevel"]["completion"] == 3 and
+                         world["remoteLevel"]["completion"] == 2 and world["shared"]["completion"] == 4 and
+                         save["unlocks"]["unlockedEntities"] == {"localEntity": 1, "remoteEntity": 1})
+            valid = valid and fields["mutable"] == b"true" and fields["deleteLevel"] == b"HARD"
         except (KeyError, TypeError, ValueError):
             valid = False
         received.append(valid)
+        if valid and test_case == "delete":
+            get_status = 404
         self.reply(200 if valid else 400)
 
 
 def main():
-    global get_status
+    global get_status, test_case
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", help="Disposable local replacement server")
     parser.add_argument("--user-id", help="Fixture account ID")
     parser.add_argument("--session-id", help="Fixture account session")
-    parser.add_argument("--case", choices=("success", "mismatched-id", "server-error", "initial"), default="success")
+    parser.add_argument("--case", choices=("success", "mismatched-id", "server-error", "initial", "delete"), default="success")
     args = parser.parse_args()
+    test_case = args.case
     server = None
     if args.server_url:
         if args.case == "server-error":
@@ -130,11 +139,12 @@ def main():
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90)
             print(result.stdout, end="")
             marker = {"success": "retail cloud sync PASS", "mismatched-id": "retail cloud mismatch PASS",
-                      "server-error": "retail cloud server error PASS", "initial": "retail cloud initial sync PASS"}[args.case]
-            expected_posts = [True] if args.case == "success" else []
+                      "server-error": "retail cloud server error PASS", "initial": "retail cloud initial sync PASS",
+                      "delete": "retail cloud delete PASS"}[args.case]
+            expected_posts = [True] if args.case in ("success", "delete") else []
             if result.returncode or (server and received != expected_posts) or marker not in result.stdout or "[gm]" in result.stdout:
                 raise SystemExit("retail cloud sync probe failed")
-            if args.case not in ("success", "initial"):
+            if args.case not in ("success", "initial", "delete"):
                 if (temp / "savedata" / "save.json").exists():
                     raise SystemExit("failed cloud sync unexpectedly wrote a local save")
                 if args.server_url:
@@ -146,13 +156,21 @@ def main():
             local = json.loads((temp / "savedata" / "save.json").read_text())
             world = local["campaign"]["asides"]["world"]
             expected_world = ({"localLevel": {"completion": 3}, "shared": {"completion": 1}}
-                              if args.case == "initial" else
+                              if args.case in ("initial", "delete") else
                               {"localLevel": {"completion": 3}, "remoteLevel": {"completion": 2}, "shared": {"completion": 4}})
-            expected_unlocks = ({"localEntity": 1} if args.case == "initial" else {"localEntity": 1, "remoteEntity": 1})
+            expected_unlocks = ({"localEntity": 1} if args.case in ("initial", "delete") else {"localEntity": 1, "remoteEntity": 1})
             if world != expected_world or local["unlocks"]["unlockedEntities"] != expected_unlocks:
                 raise SystemExit("local cloud save did not retain the merge")
             if args.server_url:
                 request = Request(path + "/data.get", headers={"X-OTG-Identity-SessionId": session})
+                if args.case == "delete":
+                    try:
+                        urlopen(request, timeout=10).close()
+                    except HTTPError as error:
+                        if error.code == 404:
+                            return
+                        raise
+                    raise SystemExit("retail cloud delete left the server save intact")
                 with urlopen(request, timeout=10) as response:
                     saved = json.load(response)
                 world = saved["campaign"]["asides"]["world"]
