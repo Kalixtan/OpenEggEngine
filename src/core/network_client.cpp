@@ -254,7 +254,9 @@ struct HeaderContext {
     CURL* curl;
     bool rawResponse;
     bool followRedirects;
+    bool restrictRedirects;
     bool hasLocation = false;
+    bool safeLocation = false;
     bool skippedErrorBody = false;
 };
 
@@ -262,14 +264,33 @@ size_t ReceiveHeaders(char* data, size_t size, size_t count, void* context) {
     if (size != 0 && count > std::numeric_limits<size_t>::max() / size) return 0;
     const size_t bytes = size * count;
     auto& headers = *static_cast<HeaderContext*>(context);
-    if (bytes >= 5 && std::string_view(data, 5) == "HTTP/") headers.hasLocation = false;
-    if (bytes >= 9 && curl_strnequal(data, "Location:", 9)) headers.hasLocation = true;
-    if (!headers.rawResponse && ((bytes == 2 && data[0] == '\r' && data[1] == '\n') ||
-                                 (bytes == 1 && data[0] == '\n'))) {
+    if (bytes >= 5 && std::string_view(data, 5) == "HTTP/") {
+        headers.hasLocation = false;
+        headers.safeLocation = false;
+    }
+    if (bytes >= 9 && curl_strnequal(data, "Location:", 9)) {
+        std::string_view location(data + 9, bytes - 9);
+        while (!location.empty() && (location.front() == ' ' || location.front() == '\t')) location.remove_prefix(1);
+        while (!location.empty() && (location.back() == '\r' || location.back() == '\n' ||
+                                     location.back() == ' ' || location.back() == '\t')) location.remove_suffix(1);
+        // Only root-relative redirects can be followed without risking disclosure
+        // of the identity header to another host. Retail's header policy is unknown.
+        const bool safeLocation = !location.empty() && location.front() == '/' &&
+            (location.size() == 1 || (location[1] != '/' && location[1] != '\\')) &&
+            location.find('\\') == std::string_view::npos &&
+            std::none_of(location.begin(), location.end(), [](unsigned char c) { return c < 0x20 || c == 0x7f; });
+        headers.safeLocation = safeLocation && (!headers.hasLocation || headers.safeLocation);
+        headers.hasLocation = true;
+    }
+    if ((bytes == 2 && data[0] == '\r' && data[1] == '\n') ||
+        (bytes == 1 && data[0] == '\n')) {
         long status = 0;
         curl_easy_getinfo(headers.curl, CURLINFO_RESPONSE_CODE, &status);
-        const bool redirect = headers.followRedirects && headers.hasLocation && status >= 300 && status < 400;
-        if (status >= 200 && status != 200 && status != 201 && !redirect) {
+        const bool redirect = headers.followRedirects && headers.hasLocation &&
+            (!headers.restrictRedirects || headers.safeLocation) && status >= 300 && status < 400;
+        const bool unsafeRedirect = headers.restrictRedirects && headers.hasLocation &&
+            !headers.safeLocation && status >= 300 && status < 400;
+        if (unsafeRedirect || (!headers.rawResponse && status >= 200 && status != 200 && status != 201 && !redirect)) {
             headers.skippedErrorBody = true;
             return 0;
         }
@@ -1042,7 +1063,7 @@ void NetworkClient::WorkerMain(bool a_identity) {
         }
         CURL* curl = curl_easy_init();
         if (curl) {
-            HeaderContext responseHeaders{curl, request.rawResponse, !request.sendSession};
+            HeaderContext responseHeaders{curl, request.rawResponse, true, request.sendSession};
             curl_easy_setopt(curl, CURLOPT_URL, request.url.c_str());
             curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, ReceiveHeaders);
             curl_easy_setopt(curl, CURLOPT_HEADERDATA, &responseHeaders);
@@ -1051,16 +1072,14 @@ void NetworkClient::WorkerMain(bool a_identity) {
             curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
             curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 5000L);
             curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 30000L);
-            // The global image client has no identity header. Retail enables
-            // redirects; identity requests still need their header policy traced.
-            if (!request.sendSession) {
-                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+            // Retail enables redirects. Identity requests are restricted to
+            // root-relative locations until retail's header policy is known.
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 #if LIBCURL_VERSION_NUM >= 0x075500
-                curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
+            curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
 #else
-                curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+            curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 #endif
-            }
 
             if (request.post) {
                 curl_easy_setopt(curl, CURLOPT_POST, 1L);
@@ -1087,7 +1106,7 @@ void NetworkClient::WorkerMain(bool a_identity) {
                 // A later body error cannot turn those into transport failures.
                 completion.transportFailed = completion.status == 0 ||
                     completion.status == 200 || completion.status == 201 ||
-                    (!request.sendSession && completion.status >= 300 && completion.status < 400);
+                    (completion.status >= 300 && completion.status < 400);
                 std::fprintf(stderr, "network: GET failed: %s\n", curl_easy_strerror(result));
             }
             curl_slist_free_all(headers);

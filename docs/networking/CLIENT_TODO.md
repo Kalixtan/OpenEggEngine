@@ -151,7 +151,9 @@ behavior.
 - [x] Use a separate configurable image base URL and omit the identity session
       header on global content-image requests.
 - [x] Follow HTTP redirects for global image requests. Identity-request
-      redirect and header behavior still needs comparison with retail.
+      redirects follow root-relative locations only, keeping the session header
+      on the same origin. Other identity redirects are rejected until retail's
+      redirect callback and header policy are understood.
 - [x] Load a featured image URL returned by a disposable replacement server.
 - [x] Publish and update a synthetic level using saved resource tickets;
       read it back and remove it on a disposable local server.

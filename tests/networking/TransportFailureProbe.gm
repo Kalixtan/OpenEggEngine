@@ -10,6 +10,10 @@ global TransportReply = function(data, result, error) {
         Watermelon_Index_Page(TransportReply, "after stall", 407, "type=level&case=after-stall");
     } else if (data == "after stall" && result != null && error == 0) {
         GameSystem.trace("transport after stall PASS");
+    } else if (data == "redirect" && result != null && result.count == 7 && error == 0) {
+        GameSystem.trace("transport identity redirect PASS");
+    } else if (data == "cross redirect" && result == null && error == 302) {
+        GameSystem.trace("transport cross redirect blocked PASS");
     } else { GameSystem.trace("transport callback FAIL"); }
 };
 
@@ -40,6 +44,8 @@ global Main = function(p) {
                 Watermelon_Index_Page(TransportReply, "disconnect", 402, "type=level&case=disconnect");
                 Watermelon_Index_Page(TransportReply, "success", 403, "type=level&case=success");
                 Watermelon_Index_Page(TransportReply, "stalled", 406, "type=level&case=stall");
+                Watermelon_Index_Page(TransportReply, "redirect", 408, "type=level&case=redirect");
+                Watermelon_Index_Page(TransportReply, "cross redirect", 409, "type=level&case=cross-redirect");
                 Watermelon_GetLevelData(TransportLevelReply, 1, 404, "transport", "v1");
                 Watermelon_GetLevelData(TransportHttpErrorReply, 1, 405, "transport-error", "v1");
             }

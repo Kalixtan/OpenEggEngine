@@ -9,11 +9,14 @@ import tempfile
 import threading
 import zlib
 
-from run_level_data_probe import Handler, ROOT
+from run_level_data_probe import Handler, ROOT, SESSION
 from run_ticket_probe import ticket
 
 level_requests = []
 error_requests = []
+redirect_requests = []
+leaked_requests = []
+redirect_target_port = 0
 stall_started = threading.Event()
 release_stall = threading.Event()
 stall_expired = threading.Event()
@@ -29,7 +32,21 @@ class FailureHandler(Handler):
         self.close_connection = True
 
     def do_GET(self):
-        if self.path == "/otg/~index:level.page?type=level&case=partial":
+        if self.path == "/leak":
+            leaked_requests.append(self.headers.get("X-OTG-Identity-SessionId"))
+            self.reply(200, b'{"count":7}')
+        elif self.path in ("/otg/~index:level.page?type=level&case=redirect",
+                            "/otg/~index:level.page?type=level&case=cross-redirect"):
+            self.send_response(302)
+            target = ("/redirected" if self.path.endswith("=redirect") else
+                      f"http://127.0.0.1:{redirect_target_port}/leak")
+            self.send_header("Location", target)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        elif self.path == "/redirected":
+            redirect_requests.append(self.headers.get("X-OTG-Identity-SessionId"))
+            self.reply(200, b'{"count":7}')
+        elif self.path == "/otg/~index:level.page?type=level&case=partial":
             self.truncated(b'{"count":')
         elif self.path == "/otg/~index:level.page?type=level&case=disconnect":
             self.close_connection = True
@@ -64,6 +81,12 @@ class FailureHandler(Handler):
 
 
 def main():
+    global redirect_target_port
+    target = ThreadingHTTPServer(("127.0.0.1", 0), FailureHandler)
+    target.daemon_threads = True
+    target_thread = threading.Thread(target=target.serve_forever, daemon=True)
+    target_thread.start()
+    redirect_target_port = target.server_port
     server = ThreadingHTTPServer(("127.0.0.1", 0), FailureHandler)
     server.daemon_threads = True
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -110,14 +133,18 @@ def main():
             print(output, end="")
             markers = ("transport partial status PASS", "transport no status PASS", "transport success PASS",
                        "transport failure not cached PASS", "transport HTTP error cached PASS",
-                       "transport stalled error PASS", "transport after stall PASS")
-            if process.returncode or stalled != [True] or len(level_requests) != 2 or len(error_requests) != 1 or any(marker not in output for marker in markers) or " FAIL" in output:
+                       "transport stalled error PASS", "transport after stall PASS",
+                       "transport identity redirect PASS", "transport cross redirect blocked PASS")
+            if process.returncode or stalled != [True] or len(level_requests) != 2 or len(error_requests) != 1 or redirect_requests != [SESSION] or leaked_requests or any(marker not in output for marker in markers) or " FAIL" in output:
                 raise SystemExit("transport failure probe failed")
     finally:
         release_stall.set()
         server.shutdown()
         server.server_close()
         thread.join()
+        target.shutdown()
+        target.server_close()
+        target_thread.join()
 
 
 if __name__ == "__main__":
