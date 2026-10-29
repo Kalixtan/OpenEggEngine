@@ -22,13 +22,14 @@ remote = {"onlineID": "openegg_probe", "version": 1,
                                                 "shared": {"completion": 4}}}, "bsides": {}},
           "editor": {"editorTrophyLevels": {}}}
 received = []
+get_status = 200
 
 
 class SyncHandler(Handler):
     def do_GET(self):
         if (self.path == f"/otg/~identity:{USER}/~content:progress/data.get" and
                 self.headers.get("X-OTG-Identity-SessionId") == SESSION):
-            self.reply(200, json.dumps(remote).encode())
+            self.reply(get_status, json.dumps(remote).encode() if get_status == 200 else b"")
         else:
             self.reply(404)
 
@@ -56,13 +57,17 @@ class SyncHandler(Handler):
 
 
 def main():
+    global get_status
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", help="Disposable local replacement server")
     parser.add_argument("--user-id", help="Fixture account ID")
     parser.add_argument("--session-id", help="Fixture account session")
+    parser.add_argument("--case", choices=("success", "mismatched-id", "server-error"), default="success")
     args = parser.parse_args()
     server = None
     if args.server_url:
+        if args.case == "server-error":
+            parser.error("server-error requires the local HTTP fixture")
         endpoint = urlsplit(args.server_url)
         if (endpoint.scheme != "http" or endpoint.hostname != "127.0.0.1" or not endpoint.port or
                 endpoint.username is not None or endpoint.password is not None or
@@ -78,6 +83,7 @@ def main():
             if response.status != 200:
                 raise SystemExit("fixture cloud save could not be seeded")
     else:
+        get_status = 503 if args.case == "server-error" else 200
         server = ThreadingHTTPServer(("127.0.0.1", 0), SyncHandler)
         server.daemon_threads = True
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -100,12 +106,28 @@ def main():
             env = os.environ.copy()
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-            result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
+            script_dir = temp / "probe"
+            script_dir.mkdir()
+            source = (ROOT / "tests/networking/CloudSyncProbe.gm").read_text()
+            (script_dir / "CloudSyncProbe.gm").write_text(f'global CLOUD_TEST_CASE = "{args.case}";\n' + source)
+            result = subprocess.run([str(temp / engine.name), str(script_dir),
                                      "CloudSyncProbe.gm", "Main"], env=env, text=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            if result.returncode or (server and received != [True]) or "retail cloud sync PASS" not in result.stdout or "[gm]" in result.stdout:
+            marker = {"success": "retail cloud sync PASS", "mismatched-id": "retail cloud mismatch PASS",
+                      "server-error": "retail cloud server error PASS"}[args.case]
+            expected_posts = [True] if args.case == "success" else []
+            if result.returncode or (server and received != expected_posts) or marker not in result.stdout or "[gm]" in result.stdout:
                 raise SystemExit("retail cloud sync probe failed")
+            if args.case != "success":
+                if (temp / "savedata" / "save.json").exists():
+                    raise SystemExit("failed cloud sync unexpectedly wrote a local save")
+                if args.server_url:
+                    request = Request(path + "/data.get", headers={"X-OTG-Identity-SessionId": session})
+                    with urlopen(request, timeout=10) as response:
+                        if json.load(response) != remote:
+                            raise SystemExit("failed cloud sync changed the server save")
+                return
             local = json.loads((temp / "savedata" / "save.json").read_text())
             world = local["campaign"]["asides"]["world"]
             if (world["localLevel"]["completion"] != 3 or world["remoteLevel"]["completion"] != 2 or

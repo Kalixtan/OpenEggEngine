@@ -26,6 +26,7 @@ global Main = function(p) {
             global SAVEDATAHELPER_GetSaveData = function() { return SAVE_DATA; };
             global SAVEDATAHELPER_unlockMissingThings = function() {};
             GameMonkeyScript.loadScript("Platformer/CloudSaveHelper.gm");
+            if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "mismatched-id") { SAVE_DATA.onlineID = "different-user"; }
             this.sync = CLOUDSAVEHELPER_GetSynchObj();
             this.sync.synch();
         },
@@ -47,7 +48,13 @@ global Main = function(p) {
                 this.lastState = this.sync.state;
             }
             if (this.sync.hasError()) {
-                GameSystem.trace("retail cloud sync FAIL", this.sync.hasError());
+                if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "mismatched-id" &&
+                    this.sync.hasError() == SYNCERROR_GET_CALL_FAILED_MISMATCHED_ID) {
+                    GameSystem.trace("retail cloud mismatch PASS");
+                } else if (?CLOUD_TEST_CASE && CLOUD_TEST_CASE == "server-error" &&
+                           this.sync.hasError() == SYNCERROR_GET_CALL_FAILED_RESPONSE) {
+                    GameSystem.trace("retail cloud server error PASS");
+                } else { GameSystem.trace("retail cloud sync FAIL", this.sync.hasError()); }
                 GameSystem.quit();
             } else if (this.sync.isDone()) {
                 local world = SAVE_DATA.campaign.asides.world;
