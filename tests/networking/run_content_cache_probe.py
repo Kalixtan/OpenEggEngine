@@ -97,9 +97,10 @@ def main():
             print(result.stdout, end="")
             markers = (("cache empty candidate PASS", "cache eviction PASS") if args.eviction else
                        ("global image cache hit PASS", "global image cache isolation PASS") if args.global_image else
-                       ("cache hit PASS", "cache single wildcard boundary PASS", "cache filter PASS", "cache purge PASS", "cache error hit PASS", "cache error purge PASS"))
+                       ("cache hit PASS", "cache single wildcard boundary PASS", "cache filter PASS", "cache purge PASS",
+                        "cache single wildcard match PASS", "cache trailing wildcard PASS", "cache error hit PASS", "cache error purge PASS"))
             request_ok = (eviction_requests == ["aaa", "bbb", "ccc", "ccc", "ccc"] if args.eviction else
-                          len(global_requests) == 1 if args.global_image else len(requests) == 2 and len(missing_requests) == 2)
+                          len(global_requests) == 1 if args.global_image else len(requests) == 4 and len(missing_requests) == 2)
             if result.returncode or not request_ok or any(marker not in result.stdout for marker in markers) or "FAIL" in result.stdout:
                 raise SystemExit("content cache probe failed")
     finally:

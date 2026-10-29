@@ -16,6 +16,14 @@ global CacheReply = function(step, result, error) {
         Watermelon_GetLevelData(CacheReply, 5, 203, "cache-level", "v1");
     } else if (step == 5 && result.bpm == 121) {
         GameSystem.trace("cache purge PASS");
+        Watermelon_ForceCachePurgeByFilter("~level:cache-level/#/~content:level/data");
+        Watermelon_GetLevelData(CacheReply, 6, 203, "cache-level", "v1");
+    } else if (step == 6 && result.bpm == 122) {
+        GameSystem.trace("cache single wildcard match PASS");
+        Watermelon_ForceCachePurgeByFilter("~level:cache-level/#");
+        Watermelon_GetLevelData(CacheReply, 7, 203, "cache-level", "v1");
+    } else if (step == 7 && result.bpm == 123) {
+        GameSystem.trace("cache trailing wildcard PASS");
         Watermelon_GetLevelData(CacheMissingReply, 1, 204, "cache-level", "missing");
     } else { GameSystem.trace("cache value FAIL"); }
 };
