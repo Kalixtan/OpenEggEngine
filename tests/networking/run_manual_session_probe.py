@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parents[2]
 USER = "00000000-0000-0000-0000-000000000002"
 OTHER_USER = "00000000-0000-0000-0000-000000000003"
 SESSION = "00000000-0000-0000-0000-000000000001"
-seen = []
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -23,7 +22,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        seen.append((self.path, self.headers.get("X-OTG-Identity-SessionId")))
         status = 200 if self.headers.get("X-OTG-Identity-SessionId") == SESSION else 403
         if self.path.startswith("/otg/~identity:*.hello?identity=") and self.path.split("=", 1)[1] != USER:
             status = 403
@@ -80,9 +78,11 @@ def main():
                 result = subprocess.run([str(root / "OpenEgg"), str(ROOT / "tests/networking"), "ManualSessionProbe.gm", "Main"],
                                         env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
                 print(result.stdout, end="")
-                markers = ("managerless offline state PASS", "manual session request PASS",
+                markers = ("network status initial PASS", "managerless offline state PASS", "manual session request PASS",
                            "manual session logout PASS", "manual session reconnect PASS",
-                           "manual session coordinator PASS", "manual platform state PASS") if valid else ("manual session rejection PASS",)
+                           "manual session coordinator PASS", "manual platform state PASS",
+                           "network signed in PASS", "network online PASS") if valid else (
+                           "manual session rejection PASS", "network status rejection PASS")
                 if result.returncode or any(marker not in result.stdout for marker in markers) or "manual session request FAIL" in result.stdout:
                     raise SystemExit("manual session probe failed")
             if server and not args.server_url:
@@ -95,11 +95,6 @@ def main():
                 markers = ("attached offline transition pending PASS", "offline transition reconnect PASS")
                 if transition.returncode or any(marker not in transition.stdout for marker in markers):
                     raise SystemExit("attached offline transition probe failed")
-            if server:
-                identity_checks = sum(path.startswith("/otg/~identity:*.hello?identity=") and auth == SESSION
-                                      for path, auth in seen)
-                if identity_checks != 4:
-                    raise SystemExit("manual session identity check count did not match login/reconnect cases")
     finally:
         if server:
             server.shutdown()

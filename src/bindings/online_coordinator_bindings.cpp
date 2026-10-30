@@ -31,6 +31,16 @@ int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
 int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(g_networkClient ? g_networkClient->CoordinatorError() : 0); return GM_OK; }
 int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushNewString(g_networkClient ? g_networkClient->PlatformOnlineId().c_str() : ""); return GM_OK; }
 int GM_CDECL gmf_NetworkPlatformOnline(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->DesktopPlatformOnline()); return GM_OK; }
+int GM_CDECL gmf_NetworkIsSignedIn(gmThread* a_thread) {
+    const int state = g_networkClient ? g_networkClient->DesktopNetworkState() : 0;
+    a_thread->PushInt(state > 2);
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkIsOnline(gmThread* a_thread) {
+    const int state = g_networkClient ? g_networkClient->DesktopNetworkState() : 0;
+    a_thread->PushInt(state > 3);
+    return GM_OK;
+}
 int GM_CDECL gmf_NetworkAccountRestricted(gmThread* a_thread) {
     a_thread->PushInt(SystemConfig::Get().networkAccountRestricted);
     return GM_OK;
@@ -246,8 +256,8 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_TrophyUnlock", gmf_Network_TrophyUnlock);
     a_machine.RegisterLibraryFunction("Network_TrophySetup", gmf_Network_TrophySetup);
     a_machine.RegisterLibraryFunction("Network_GetIsTrophyQueueFull", gmf_Network_GetIsTrophyQueueFull);
-    a_machine.RegisterLibraryFunction("Network_IsSignedIn", gmf_NetworkPlatformOnline);
-    a_machine.RegisterLibraryFunction("Network_IsOnline", gmf_NetworkPlatformOnline);
+    a_machine.RegisterLibraryFunction("Network_IsSignedIn", gmf_NetworkIsSignedIn);
+    a_machine.RegisterLibraryFunction("Network_IsOnline", gmf_NetworkIsOnline);
     a_machine.RegisterLibraryFunction("Network_IsAccountRestricted", gmf_NetworkAccountRestricted);
     a_machine.RegisterLibraryFunction("Network_IsChatRestricted", gmf_NetworkChatRestricted);
     a_machine.RegisterLibraryFunction("Network_ActivityStreamPost", gmf_Network_ActivityStreamPost);

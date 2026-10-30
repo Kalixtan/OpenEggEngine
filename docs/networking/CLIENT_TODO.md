@@ -280,10 +280,9 @@ behavior.
 - [ ] Implement and probe the applicable account, trophy, store, DLC, language,
       SNS, activity, and Near behavior.
 - [ ] Match online/offline state and error transitions exposed to scripts.
-- [ ] Separate `Network_IsSignedIn` and `Network_IsOnline`. Ghidra shows the
-      shared state starts at 0 (`FUN_00177274`), then `FUN_00176800` sets it to
-      4 when its platform query returns 3. The getters test `>2` and `>3`; trace
-      intermediate transitions before replacing the desktop boolean fallback.
+- [x] Match the traced `Network_IsSignedIn` (`>2`) and `Network_IsOnline`
+      (`>3`) tests. Desktop maps authenticated sessions to state 4; PSN's
+      intermediate state 3 still needs a platform provider and retail capture.
 
 ## Verification
 
