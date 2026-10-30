@@ -563,6 +563,9 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     const auto cached = cache.find(cacheKey);
     const bool cacheHit = !cacheKey.empty() && cached != cache.end();
     // Retail resolves cache hits before trying the 32-slot worker ring.
+    auto& requests = a_sendSession ? m_identityRequests : m_globalRequests;
+    if (!cacheHit)
+        m_wake.wait(lock, [&] { return m_stopping || requests.size() < 32; });
     if (m_stopping || m_nextId <= 0 || m_nextId == std::numeric_limits<int>::max())
         return 0;
 
@@ -583,9 +586,9 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
         cachedCompletions.push_back({id, cached->second.status, cached->second.body,
                                      cacheKey, a_sendSession, true});
     } else {
-        auto& admission = a_sendSession ? m_identityAdmission : m_globalAdmission;
-        admission.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType,
-                             a_post, bucket, false, a_sendSession, cacheKey, a_callbackMode < 0});
+        requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType,
+                            a_post, bucket, false, a_sendSession, cacheKey, a_callbackMode < 0});
+        m_wake.notify_all();
     }
     return id;
 }
@@ -647,37 +650,8 @@ void NetworkClient::StoreCache(const Completion& completion) {
 
 void NetworkClient::PumpCallbacks() {
     std::deque<Completion> completions;
-    std::deque<Completion> admissionFailures;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        bool admitted = false;
-        const auto admit = [&](std::deque<Request>& admission,
-                               std::deque<Request>& requests, bool identity) {
-            int budget = 4;
-            while (budget-- > 0 && !admission.empty()) {
-                Request request = std::move(admission.front());
-                admission.pop_front();
-                const auto pending = m_pending.find(request.id);
-                const bool purged = pending != m_pending.end() && pending->second.purged;
-                if (purged || requests.size() == 32) {
-                    // Retail manager invokes this request's callback when it
-                    // cannot enter the 32-slot worker ring. No HTTP status exists.
-                    Completion failed;
-                    failed.id = request.id;
-                    failed.cacheKey = request.cacheKey;
-                    failed.identity = identity;
-                    admissionFailures.push_back(std::move(failed));
-                } else {
-                    requests.push_back(std::move(request));
-                    admitted = true;
-                }
-            }
-        };
-        admit(m_identityAdmission, m_identityRequests, true);
-        admit(m_globalAdmission, m_globalRequests, false);
-        if (admitted) m_wake.notify_all();
-        completions.swap(admissionFailures);
-
         // The retail owner shares four completion slots across its managers.
         int budget = 4;
         for (bool identity : {true, false}) {

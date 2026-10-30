@@ -12,7 +12,7 @@ import zlib
 ROOT = Path(__file__).resolve().parents[2]
 USER = "00000000-0000-0000-0000-000000000002"
 SESSION = "00000000-0000-0000-0000-000000000001"
-entered, release, staged = threading.Event(), threading.Event(), threading.Event()
+entered, release, resumed = threading.Event(), threading.Event(), threading.Event()
 global_received = threading.Event()
 seen = []
 
@@ -77,14 +77,14 @@ try:
                    SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
         process = subprocess.Popen([str(root / "OpenEgg"), str(script), "QueueCapacityProbe.gm", "Main"],
                                    env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        lines, nonblocking = [], []
+        lines, blocked = [], []
         def read_output():
             for line in process.stdout:
                 lines.append(line)
-                if "send queue staged PASS" in line:
-                    staged.set()
+                if "send queue resumed PASS" in line:
+                    resumed.set()
                 if "global queue admission PASS" in line:
-                    nonblocking.append(entered.is_set() and global_received.wait(3))
+                    blocked.append(entered.is_set() and global_received.wait(3) and not resumed.wait(0.2))
                     release.set()
         reader = threading.Thread(target=read_output)
         reader.start()
@@ -99,14 +99,11 @@ try:
             reader.join()
         output = "".join(lines)
         print(output, end="")
-        markers = ("four request update budget PASS", "send queue full PASS", "cache queue admission PASS", "global queue admission PASS", "send queue staged PASS", "full queue callback PASS", "send queue drained PASS", "capacity worker completion PASS", "capacity cached completion PASS")
-        if (process.returncode or nonblocking != [True] or any(marker not in output for marker in markers) or
-                output.find("global queue admission PASS") > output.find("send queue staged PASS") or
-                output.find("capacity cached completion PASS") > output.find("capacity worker completion PASS") or
-                sum("queued=1" in path for path in seen) != 32 or any("extra=1" in path for path in seen) or
+        markers = ("send queue full PASS", "cache queue admission PASS", "global queue admission PASS", "send queue resumed PASS", "send queue drained PASS", "capacity worker completion PASS", "capacity cached completion PASS")
+        if (process.returncode or blocked != [True] or any(marker not in output for marker in markers) or
+                output.find("capacity worker completion PASS") > output.find("capacity cached completion PASS") or
+                sum("queued=1" in path for path in seen) != 32 or not any("extra=1" in path for path in seen) or
                 seen.count("/otg/~level:capacity/~version:v1/~content:level/data.get") != 1):
-            print(f"admission: events={nonblocking}, queued={sum('queued=1' in path for path in seen)}, extra={sum('extra=1' in path for path in seen)}")
-            print(f"signals: slow={entered.is_set()}, image={global_received.is_set()}, staged={staged.is_set()}; slow paths={[path for path in seen if 'slow=1' in path]}")
             raise SystemExit("queue capacity probe failed")
 finally:
     release.set()

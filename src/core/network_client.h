@@ -129,8 +129,6 @@ private:
     std::string m_userId;
     std::mutex m_mutex;
     std::condition_variable m_wake;
-    std::deque<Request> m_identityAdmission;
-    std::deque<Request> m_globalAdmission;
     std::deque<Request> m_identityRequests;
     std::deque<Request> m_globalRequests;
     std::deque<Completion> m_identityCompletions;
