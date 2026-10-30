@@ -296,6 +296,8 @@ behavior.
       equivalents and keep Sony-only APIs explicitly unsupported where needed.
 - [ ] Implement and probe the applicable account, trophy, store, DLC, language,
       SNS, activity, and Near behavior.
+- [x] Return retail's `Network_TrophyUnlock` rejection (`-1`) without a
+      desktop trophy backend; probe setup, rejection and empty queue state.
 - [x] Use bundled Russian and CJK font resources for the traced language-font
       setup and clear calls. Desktop uses glyph fallback; retail's resource
       cache and paired font lists remain different.

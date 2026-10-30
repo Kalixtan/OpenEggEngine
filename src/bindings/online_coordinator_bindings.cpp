@@ -150,8 +150,8 @@ int GM_CDECL gmf_NetworkNoOp(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_Network_TrophyUnlock(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_INT_PARAM(trophyId, 0, 0);
-    std::fprintf(stderr, "[Network_TrophyUnlock] trophy %d (no-op, no trophy backend)\n", trophyId);
-    a_thread->PushInt(0);
+    std::fprintf(stderr, "[Network_TrophyUnlock] trophy %d rejected (no trophy backend)\n", trophyId);
+    a_thread->PushInt(-1);
     return GM_OK;
 }
 int GM_CDECL gmf_Network_TrophySetup(gmThread* a_thread) { (void)a_thread; return GM_OK; }

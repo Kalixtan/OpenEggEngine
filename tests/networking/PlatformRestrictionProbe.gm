@@ -5,6 +5,10 @@ global Main = function(p) {
                 Network_IsAccountRestricted() == __ACCOUNT_EXPECTED__) {
                 GameSystem.trace("platform restriction PASS");
             } else { GameSystem.trace("platform restriction FAIL"); }
+            Network_TrophySetup();
+            if (Network_TrophyUnlock(1) == -1 && Network_GetIsTrophyQueueFull() == 0) {
+                GameSystem.trace("desktop trophy queue rejection PASS");
+            } else { GameSystem.trace("desktop trophy queue rejection FAIL"); }
         },
         init=function() { return true; }, update=function() {});
 };

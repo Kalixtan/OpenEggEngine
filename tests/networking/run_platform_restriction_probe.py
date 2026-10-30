@@ -29,5 +29,7 @@ with tempfile.TemporaryDirectory(prefix="openegg-restriction-") as directory:
             result = subprocess.run([str(root / "OpenEgg"), str(data), "PlatformRestrictionProbe.gm", "Main"],
                                     env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            if result.returncode or "platform restriction PASS" not in result.stdout:
+            if (result.returncode or "platform restriction PASS" not in result.stdout or
+                    "desktop trophy queue rejection PASS" not in result.stdout or
+                    "desktop trophy queue rejection FAIL" in result.stdout):
                 raise SystemExit("platform restriction probe failed")
