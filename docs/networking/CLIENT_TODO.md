@@ -281,8 +281,9 @@ behavior.
       SNS, activity, and Near behavior.
 - [ ] Match online/offline state and error transitions exposed to scripts.
 - [x] Match the traced `Network_IsSignedIn` (`>2`) and `Network_IsOnline`
-      (`>3`) tests. Desktop maps authenticated sessions to state 4; PSN's
-      intermediate state 3 still needs a platform provider and retail capture.
+      (`>3`) tests. Retail initializes the shared state to 0, writes 4 on
+      online status/event, and writes 2 on disconnect. No writer of state 3
+      was found; desktop maps an authenticated replacement-server session to 4.
 
 ## Verification
 
