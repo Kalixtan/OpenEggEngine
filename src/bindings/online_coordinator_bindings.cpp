@@ -301,10 +301,12 @@ int GM_CDECL gmf_Network_IsDLCAvailable(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(dlcPack, 0, "");
     bool available = false;
-    if (SystemConfig::Get().debugAllDlcAvailable && dlcPack[0] != '\0') {
+    if (dlcPack[0] != '\0') {
         // Retail's local DLC ID parser uses base 0 and ignores trailing text.
         const long pack = std::strtol(dlcPack, nullptr, 0);
-        available = pack >= 1 && pack <= 15;
+        available = pack >= 1 && pack <= 15 &&
+            (SystemConfig::Get().debugAllDlcAvailable ||
+             SystemConfig::Get().availableDlcPacks.count(static_cast<int>(pack)) != 0);
     }
     a_thread->PushInt(available ? 1 : 0);
     return GM_OK;

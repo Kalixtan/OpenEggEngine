@@ -1,4 +1,5 @@
 #pragma once
+#include <set>
 #include <string>
 
 enum class OsId {
@@ -20,6 +21,8 @@ struct SystemConfig {
     // Development convenience: report the fifteen known DLC pack IDs as
     // available to scripts. This does not add content or emulate Sony DRM.
     bool debugAllDlcAvailable = false;
+    // Optional locally enabled DLC pack IDs (1 through 15), independent of PSN.
+    std::set<int> availableDlcPacks;
 
     // Desktop presentation option. When enabled, preserve the configured
     // game aspect ratio and draw black bars in the unused window area.

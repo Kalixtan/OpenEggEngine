@@ -28,6 +28,10 @@ desktop renderer did. In that mode, viewport and script-facing aspect-ratio
 queries follow the current window dimensions, so UI and world framing adapt
 to different window shapes. The default is `true`.
 
+For offline DLC checks, `debug_all_dlc_available = true` reports all known
+pack IDs available. Or set `dlc_available_packs = 1, 4, 12` to enable specific
+IDs. These local overrides do not grant PSN entitlements or supply DLC files.
+
 In `[network]`, set `server_url` to the replacement server root, for example
 `http://127.0.0.1:10061`. Leave it blank to disable requests. For an existing
 session, set `session_id` and `user_id`; OpenEgg validates their match with the

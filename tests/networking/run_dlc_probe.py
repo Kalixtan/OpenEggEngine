@@ -25,13 +25,19 @@ with tempfile.TemporaryDirectory(prefix="openegg-dlc-") as directory:
                GE3_HARNESS=str(harness), SDL_AUDIODRIVER="dummy",
                LIBGL_ALWAYS_SOFTWARE="1")
     template = (ROOT / "tests/networking/DlcProbe.gm").read_text()
-    for enabled in (False, True):
+    cases = (
+        ("none", "debug_all_dlc_available = false\n"),
+        ("subset", "dlc_available_packs = 1, 3, 15\n"),
+        ("invalid", "dlc_available_packs = 1, 99\n"),
+        ("all", "debug_all_dlc_available = true\n"),
+    )
+    for mode, setting in cases:
         (root / "OpenEgg.ini").write_text(
-            f"[system]\ndebug_all_dlc_available = {'true' if enabled else 'false'}\n")
-        scripts = root / f"scripts-{enabled}"
+            f"[system]\n{setting}")
+        scripts = root / f"scripts-{mode}"
         scripts.mkdir()
         (scripts / "DlcProbe.gm").write_text(
-            template.replace("__DEBUG_ENABLED__", "true" if enabled else "false"))
+            template.replace("__DLC_MODE__", f'"{mode}"'))
         result = subprocess.run(
             [str(root / ENGINE.name), str(scripts), "DlcProbe.gm", "Main"],
             cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,

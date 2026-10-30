@@ -1,6 +1,7 @@
 #include "system_config.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cctype>
 #include <cstdio>
 #include <filesystem>
@@ -41,6 +42,27 @@ bool ParseBool(const std::string& value, bool& out) {
         return true;
     }
     return false;
+}
+
+bool ParseDlcPacks(const std::string& value, std::set<int>& out) {
+    std::set<int> parsed;
+    size_t start = 0;
+    while (start < value.size()) {
+        const size_t end = value.find(',', start);
+        const std::string item = Trim(value.substr(start, end == std::string::npos
+            ? std::string::npos : end - start));
+        int pack = 0;
+        const auto result = std::from_chars(item.data(), item.data() + item.size(), pack);
+        if (item.empty() || result.ec != std::errc() || result.ptr != item.data() + item.size() ||
+            pack < 1 || pack > 15)
+            return false;
+        parsed.insert(pack);
+        if (end == std::string::npos) break;
+        start = end + 1;
+        if (start == value.size()) return false;
+    }
+    out = std::move(parsed);
+    return true;
 }
 
 bool IsTicketHex(const std::string& value) {
@@ -161,6 +183,10 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             bool parsed = debugAllDlcAvailable;
             valid = ParseBool(value, parsed);
             if (valid) debugAllDlcAvailable = parsed;
+        } else if (section == "system" && key == "dlc_available_packs") {
+            std::set<int> parsed;
+            valid = value.empty() || ParseDlcPacks(value, parsed);
+            if (valid) availableDlcPacks = std::move(parsed);
         } else if (key == "letterbox" || key == "letterboxing") {
             bool parsed = letterbox;
             valid = ParseBool(value, parsed);

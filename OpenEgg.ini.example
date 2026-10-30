@@ -20,6 +20,10 @@ retail_build = true
 ; This only affects Network_IsDLCAvailable(); it does not provide assets.
 debug_all_dlc_available = false
 
+; Optional per-pack desktop availability override (IDs 1..15), e.g. 1, 4, 12.
+; This reports availability to scripts only; it does not provide DLC content.
+dlc_available_packs =
+
 ; Preserve the game's configured aspect ratio and draw black bars when the
 ; host window has a different aspect ratio. Set false to fill the whole window.
 letterbox = true

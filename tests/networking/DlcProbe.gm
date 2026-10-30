@@ -3,7 +3,7 @@ global Main = function(p) {
         constructor=function() {
             Network_RunDLCCheck();
             local pass = Network_IsDLCCheckComplete() == 1;
-            if (__DEBUG_ENABLED__) {
+            if (__DLC_MODE__ == "all") {
                 pass = pass &&
                 Network_IsDLCAvailable("1") == 1 &&
                 Network_IsDLCAvailable("0x1") == 1 &&
@@ -17,6 +17,13 @@ global Main = function(p) {
                 Network_IsDLCAvailable("0x10") == 0 &&
                 Network_IsDLCAvailable("09") == 0 &&
                 Network_IsDLCAvailable("n/a") == 0;
+            } else if (__DLC_MODE__ == "subset") {
+                pass = pass && Network_IsDLCAvailable("1") == 1 &&
+                    Network_IsDLCAvailable("1tail") == 1 &&
+                    Network_IsDLCAvailable("0x3") == 1 &&
+                    Network_IsDLCAvailable("15") == 1 &&
+                    Network_IsDLCAvailable("2") == 0 &&
+                    Network_IsDLCAvailable("16") == 0;
             } else {
                 pass = pass && Network_IsDLCAvailable("1") == 0 &&
                     Network_IsDLCAvailable("0x1") == 0;
