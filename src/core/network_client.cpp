@@ -843,8 +843,9 @@ void NetworkClient::PumpCallbacks() {
             rapidjson::Document response;
             response.Parse(completion.body.data(), completion.body.size());
             if (!response.HasParseError() && response.IsObject() &&
-                response.HasMember("openegg_authorized") &&
-                (!response["openegg_authorized"].IsBool() || !response["openegg_authorized"].GetBool())) {
+                (!response.HasMember("openegg_authorized") ||
+                 !response["openegg_authorized"].IsBool() ||
+                 !response["openegg_authorized"].GetBool())) {
                 {
                     std::lock_guard<std::mutex> lock(m_mutex);
                     m_sessionId.clear();

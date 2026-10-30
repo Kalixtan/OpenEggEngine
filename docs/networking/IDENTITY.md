@@ -24,13 +24,14 @@ Set `psn_online_id` and either `psn_ticket_hex` or `ticket_file` in
 `OpenEgg.ini`. The Online ID must start with a letter and contain 3–16 letters,
 digits, hyphens, or underscores. Treat the ticket as a secret. Remote ticket
 login requires HTTPS; plain HTTP is allowed only on loopback for development. A
-server configured to accept unsigned tickets cannot verify account ownership;
+server configured with authentication disabled cannot verify account ownership;
 use that setting only with a disposable local test server. The manual
 `session_id` and `user_id` test bypass is accepted only for loopback servers.
 
 After a verified login, OpenEgg stores the replacement-server session and
 server user ID in the INI. It validates the session against the Online ID and
 renews it for one year on use. The server allows this only for sessions minted
-from genuine PS3/Vita PSN tickets; unsigned local test tickets cannot create or
-renew long-lived sessions. This lets later runs connect without a PSN ticket.
+from verified PS3/Vita tickets. Local integration fixtures exercise the ticket
+path but do not verify a user-provided ticket or prove ownership of a real PSN
+identity. Later runs can connect without a PSN ticket after real verification.
 Keep the INI private; the saved session is a bearer credential.

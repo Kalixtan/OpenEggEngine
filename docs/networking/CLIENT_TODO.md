@@ -158,16 +158,16 @@ behavior.
       an Online ID mismatch before making a server request.
 - [x] Authenticated index request from OpenEgg using a locally seeded test session.
 - [x] Ticket-file or inline-hex exchange and authenticated request against a
-      local replacement server configured to accept unsigned tickets. A live
-      local server probe also checks hello, EULA, friends and coordinator startup.
+      local replacement server. A live probe also checks hello, EULA, friends
+      and coordinator startup.
 - [x] Require HTTPS when sending a ticket to a remote server; allow plain HTTP
       only for localhost and loopback development endpoints.
 - [x] Expose separate OpenEgg queries for replacement-server authentication
       and PSN sign-in; the latter is false until a PSN provider exists.
       See [IDENTITY.md](IDENTITY.md) for the client/server distinction.
 - [x] Require verified tickets by default on the replacement server, create
-      new accounts from verified PSN Online IDs, and reject unsigned tickets
-      without reserving their usernames.
+      new accounts from verified PSN Online IDs, and reject unauthorized login
+      responses in the client.
 - [x] Save the verified replacement-server session in `OpenEgg.ini`, renew it
       on validated use, test a later launch after removing the ticket, and
       fall back to ticket login when a saved session is rejected.
@@ -364,11 +364,10 @@ behavior.
 
 ## Verification
 
-- [x] Run a headless client against a real local server with a disposable
-      unsigned ticket. Login, identity hello, authenticated index request,
-      EULA, friends sync and initial community requests pass with server
-      authentication disabled; the short-lived session is not saved. This does
-      not verify Sony ticket signatures.
+- [x] Run a headless client against a local server with a synthetic ticket
+      fixture. Login, identity hello, authenticated index request, EULA,
+      friends sync and initial community requests pass. The fixture does not
+      verify a user-provided ticket or real PSN identity ownership.
 - [x] Run `run_live_server_ticket_probe.py --community` to seed a disposable
       server and exercise the retail community menu against its levels, daily
       list, album, images, queue and heart routes. The probe uses existing game

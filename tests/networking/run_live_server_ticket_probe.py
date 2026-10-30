@@ -26,7 +26,11 @@ def main():
                         help="publish, update and remove a synthetic level on the server")
     parser.add_argument("--cloud-sync", action="store_true",
                         help="merge local save data with the disposable server account")
+    parser.add_argument("--strict-auth", action="store_true",
+                        help="keep server authentication enabled and require the test ticket to fail")
     args = parser.parse_args()
+    if args.strict_auth and (args.community or args.publish or args.cloud_sync):
+        parser.error("--strict-auth is a rejection-only probe")
     engine = ROOT / "build" / "OpenEgg"
     if not engine.is_file():
         raise SystemExit(f"OpenEgg executable not found: {engine}")
@@ -85,14 +89,16 @@ def main():
             "ThreadCount": 2,
             "UseForwardedIp": False,
         }))
-        (state_dir / "gameServer.json").write_text(json.dumps({
+        game_config = json.dumps({
             "Version": 8,
-            "RequireAuthentication": False,
+            "RequireAuthentication": args.strict_auth,
             "AccountCreation": True,
             "EulaText": "Welcome back to Sound Shapes!",
             "SourceCodeUrl": "",
             "LevelPublishLimit": 200,
-        }))
+        })
+        (state_dir / "gameServer.json").write_text(game_config)
+        (publish_dir / "gameServer.json").write_text(game_config)
 
         server = subprocess.Popen(
             ["dotnet", str(publish_dir / "SoundShapesServer.dll")],
@@ -143,18 +149,28 @@ def main():
 
             login = run_probe("TicketLoginProbe.gm")
             print(login.stdout, end="")
-            login_markers = (
+            login_markers = ((
+                "network: ticket login failed (HTTP 403)",
+                "ticket coordinator error PASS",
+            ) if args.strict_auth else (
                 "network: ticket login succeeded",
                 "network: identity hello succeeded",
                 "ticket authenticated request PASS",
-            )
+            ))
             missing = [marker for marker in login_markers if marker not in login.stdout]
             if login.returncode or missing:
                 raise SystemExit(f"client/server login failed; missing markers: {missing}")
+            if args.strict_auth:
+                if "network: ticket login succeeded" in login.stdout:
+                    raise SystemExit("strict auth probe accepted the synthetic ticket")
+                if "server_session_id = " in ini.read_text() or "server_user_id = " in ini.read_text():
+                    raise SystemExit("strict auth probe saved a session for the rejected ticket")
+                print("strict server rejected synthetic ticket PASS")
+                return
             if "network: replacement-server session saved to OpenEgg.ini" in login.stdout:
-                raise SystemExit("unsigned dev ticket incorrectly received a remembered session")
+                raise SystemExit("non-remembered fixture ticket unexpectedly saved a session")
             if "server_session_id = " in ini.read_text():
-                raise SystemExit("unsigned dev ticket unexpectedly persisted a server session")
+                raise SystemExit("fixture ticket unexpectedly persisted a server session")
 
             services = run_probe("ServerEulaProbe.gm")
             print(services.stdout, end="")
@@ -209,7 +225,7 @@ def main():
                 suffix += " and level publish"
             if args.cloud_sync:
                 suffix += " and cloud sync"
-            print(f"live local ticket login{suffix} PASS (unsigned ticket, short session)")
+            print(f"live local ticket login{suffix} PASS (test fixture ticket)")
         finally:
             server.terminate()
             try:
