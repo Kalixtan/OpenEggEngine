@@ -4,6 +4,7 @@
 #include <charconv>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -15,6 +16,8 @@
 #if defined(_WIN32)
 #define NOMINMAX
 #include <windows.h>
+#else
+#include <unistd.h>
 #endif
 
 namespace {
@@ -95,8 +98,6 @@ bool IsCountryCode(const std::string& value) {
 bool RewriteNetworkSettings(const std::string& iniPath,
                             const std::vector<std::pair<std::string, std::optional<std::string>>>& updates) {
     const std::filesystem::path path = std::filesystem::u8path(iniPath);
-    std::filesystem::path temporary = path;
-    temporary += ".tmp";
     std::ifstream input(path, std::ios::binary);
     std::ostringstream retained;
     std::string line;
@@ -139,23 +140,50 @@ bool RewriteNetworkSettings(const std::string& iniPath,
             if (value) output += key + " = " + *value + "\n";
     }
 
+#if defined(_WIN32)
+    std::filesystem::path temporary = path;
+    temporary += ".tmp";
     {
         std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
         if (!file || !file.write(output.data(), static_cast<std::streamsize>(output.size())) || !file.flush())
             return false;
     }
-
     std::error_code error;
     std::filesystem::permissions(temporary,
         std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
         std::filesystem::perm_options::replace, error);
-#if defined(_WIN32)
     if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
         return false;
 #else
-    if (error) return false;
+    std::string temporaryName = path.string() + ".tmp.XXXXXX";
+    std::vector<char> temporaryBuffer(temporaryName.begin(), temporaryName.end());
+    temporaryBuffer.push_back('\0');
+    const int descriptor = mkstemp(temporaryBuffer.data());
+    if (descriptor < 0) return false;
+    const std::filesystem::path temporary(temporaryBuffer.data());
+    size_t written = 0;
+    bool writeSucceeded = true;
+    while (written < output.size()) {
+        const ssize_t count = write(descriptor, output.data() + written, output.size() - written);
+        if (count <= 0) {
+            writeSucceeded = false;
+            break;
+        }
+        written += static_cast<size_t>(count);
+    }
+    if (writeSucceeded && fsync(descriptor) != 0) writeSucceeded = false;
+    if (close(descriptor) != 0) writeSucceeded = false;
+    if (!writeSucceeded) {
+        std::error_code removeError;
+        std::filesystem::remove(temporary, removeError);
+        return false;
+    }
+    std::error_code error;
     std::filesystem::rename(temporary, path, error);
-    if (error) return false;
+    if (error) {
+        std::filesystem::remove(temporary, error);
+        return false;
+    }
 #endif
     return true;
 }
