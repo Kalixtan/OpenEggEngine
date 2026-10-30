@@ -43,6 +43,10 @@ int GM_CDECL gmf_NetworkStoreIsAvailable(gmThread* a_thread) {
     a_thread->PushInt(1);
     return GM_OK;
 }
+int GM_CDECL gmf_NetworkStoreDownloadFinished(gmThread* a_thread) {
+    a_thread->PushInt(1);
+    return GM_OK;
+}
 int GM_CDECL gmf_NetworkStoreNoOp(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_NetworkStoreLaunch(gmThread* a_thread) {
     a_thread->PushInt(0);
@@ -239,7 +243,7 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_StoreEndDownload", gmf_NetworkStoreNoOp);
     a_machine.RegisterLibraryFunction("Network_StoreGetProductTable", gmf_NetworkStoreGetProductTable);
     a_machine.RegisterLibraryFunction("Network_StoreSetIconPosition", gmf_NetworkStoreSetIconPosition);
-    a_machine.RegisterLibraryFunction("Network_StoreGetIsDownloadFinished", gmf_NetworkStoreUnavailable);
+    a_machine.RegisterLibraryFunction("Network_StoreGetIsDownloadFinished", gmf_NetworkStoreDownloadFinished);
     a_machine.RegisterLibraryFunction("Network_StoreGetHasContentToInstall", gmf_NetworkStoreUnavailable);
     a_machine.RegisterLibraryFunction("Network_StoreBeginInstallContent", gmf_NetworkStoreNoOp);
     a_machine.RegisterLibraryFunction("Network_StoreEndInstallContent", gmf_NetworkStoreNoOp);

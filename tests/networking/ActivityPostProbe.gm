@@ -25,6 +25,9 @@ global Main = function(p) {
             if (Network_StoreIsAvailable() == 1) {
                 GameSystem.trace("store availability PASS");
             } else { GameSystem.trace("store availability FAIL"); }
+            if (Network_StoreGetIsDownloadFinished() == 1) {
+                GameSystem.trace("store download status PASS");
+            } else { GameSystem.trace("store download status FAIL"); }
         },
         init=function() { return true; },
         update=function() {});
