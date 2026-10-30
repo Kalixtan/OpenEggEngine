@@ -193,8 +193,8 @@ behavior.
       server save; verify the new local and remote saves (`--case initial`).
 - [x] Run the retail cloud-delete script with a seeded server save; verify its
       removal and the resulting local save (`--case delete`).
-- [ ] Audit other `RetailFctiwz` helpers: several return `INT_MIN` for positive
-      overflow, unlike the PowerPC instruction's `INT_MAX` result.
+- [x] Share the traced `fctiwz` conversion across sequencer, shape, audio,
+      video, and renderer callers; positive overflow returns `INT_MAX`.
 - [x] Fetch and inflate level data as XML or JSON, with request-state callback
       status; exercised against a synthetic replacement-server level.
 - [x] Fetch level thumbnails and content images into script texture handles;
