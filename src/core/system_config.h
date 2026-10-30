@@ -43,6 +43,8 @@ struct SystemConfig {
     std::string networkAccountPassword;
     // Desktop fallback for PSN's chat restriction query.
     bool networkCommunityAllowed = true;
+    // Desktop stand-in for PSN's account content-rating query.
+    bool networkAccountRestricted = false;
 
     // Reads optional settings from OpenEgg.ini beside the executable.
     // Missing or invalid values leave the retail-compatible defaults above.

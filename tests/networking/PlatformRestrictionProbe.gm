@@ -1,7 +1,8 @@
 global Main = function(p) {
     return table(Process=p,
         constructor=function() {
-            if (Network_IsChatRestricted() == __EXPECTED__ && !Network_IsAccountRestricted()) {
+            if (Network_IsChatRestricted() == __CHAT_EXPECTED__ &&
+                Network_IsAccountRestricted() == __ACCOUNT_EXPECTED__) {
                 GameSystem.trace("platform restriction PASS");
             } else { GameSystem.trace("platform restriction FAIL"); }
         },

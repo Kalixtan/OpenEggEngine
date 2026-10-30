@@ -182,6 +182,10 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             bool parsed = networkCommunityAllowed;
             valid = ParseBool(value, parsed);
             if (valid) networkCommunityAllowed = parsed;
+        } else if (section == "network" && key == "account_restricted") {
+            bool parsed = networkAccountRestricted;
+            valid = ParseBool(value, parsed);
+            if (valid) networkAccountRestricted = parsed;
         } else {
             continue;
         }

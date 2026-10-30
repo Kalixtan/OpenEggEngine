@@ -56,3 +56,7 @@ product_region = SCEA
 ; Desktop fallback for the PSN chat restriction check. Set false to disable
 ; community features. This does not change server-side permissions.
 community_allowed = true
+
+; Desktop stand-in for the PSN account content-rating check.
+; Set true to exercise the restricted-account script path.
+account_restricted = false
