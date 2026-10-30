@@ -26,7 +26,8 @@ def main():
         temp = Path(temporary)
         publish_dir = temp / "server"
         publish = subprocess.run(
-            ["dotnet", "publish", str(project), "-c", "Release", "-o", str(publish_dir)],
+            ["dotnet", "publish", str(project), "-c", "Release", "-o", str(publish_dir),
+             "--artifacts-path", str(temp / "artifacts")],
             cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             timeout=180, check=False,
         )
