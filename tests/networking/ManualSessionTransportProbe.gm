@@ -1,0 +1,12 @@
+global Main = function(p) {
+    return table(Process=p,
+        init=function() { return true; },
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (OnlineCoordinator_GetLastError() == -12 &&
+                OnlineCoordinator_IsOffline() &&
+                !OpenEgg_Network_IsReplacementServerAuthenticated()) {
+                GameSystem.trace("remote manual session blocked PASS");
+            }
+        });
+};

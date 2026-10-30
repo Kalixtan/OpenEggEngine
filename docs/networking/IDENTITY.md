@@ -16,3 +16,5 @@ Set `psn_online_id` and either `psn_ticket_hex` or `ticket_file` in
 `OpenEgg.ini`. Treat the ticket as a secret. Ticket login requires HTTPS for
 remote servers; plain HTTP is allowed only on loopback for development. A
 server configured to accept unsigned tickets cannot verify account ownership.
+The manual `session_id` and `user_id` test bypass is accepted only for loopback
+servers.

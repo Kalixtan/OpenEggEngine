@@ -120,15 +120,14 @@ std::string TicketOnlineId(const std::string& ticket, std::string& country) {
     return {};
 }
 
-bool AllowsTicketTransport(const std::string& url) {
+bool IsLoopbackUrl(const std::string& url) {
     std::string normalized = url;
     std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
-    if (normalized.rfind("https://", 0) == 0) return true;
-    if (normalized.rfind("http://", 0) != 0) return false;
-
-    const size_t start = 7;
+    const size_t start = normalized.rfind("http://", 0) == 0 ? 7 :
+        normalized.rfind("https://", 0) == 0 ? 8 : std::string::npos;
+    if (start == std::string::npos) return false;
     const size_t end = normalized.find_first_of("/?#", start);
     const std::string authority = normalized.substr(start,
         end == std::string::npos ? std::string::npos : end - start);
@@ -136,12 +135,20 @@ bool AllowsTicketTransport(const std::string& url) {
 
     const auto isHost = [&authority](const std::string& host) {
         if (authority == host) return true;
-        if (authority.size() <= host.size() || authority.compare(0, host.size(), host) != 0 ||
+        if (authority.size() <= host.size() + 1 || authority.compare(0, host.size(), host) != 0 ||
             authority[host.size()] != ':') return false;
         return std::all_of(authority.begin() + static_cast<std::ptrdiff_t>(host.size() + 1),
             authority.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
     };
     return isHost("localhost") || isHost("127.0.0.1") || isHost("[::1]");
+}
+
+bool AllowsTicketTransport(const std::string& url) {
+    std::string normalized = url;
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return normalized.rfind("https://", 0) == 0 || IsLoopbackUrl(normalized);
 }
 
 class PartialJsonHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, PartialJsonHandler> {
@@ -481,18 +488,23 @@ void NetworkClient::GoOnline() {
         if (BeginTicketLogin(m_platformTicket)) m_coordinatorState = 18;
         else m_coordinatorError = -12;
     } else if (m_platformTicket.empty() && !m_manualSessionId.empty() && !m_manualUserId.empty()) {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            for (auto& entry : m_pending)
-                if (entry.second.identity) entry.second.purged = true;
-            m_sessionId = m_manualSessionId;
+        if (!IsLoopbackUrl(m_baseUrl)) {
+            m_coordinatorError = -12;
+            std::fprintf(stderr, "network: manual sessions are restricted to loopback servers\n");
+        } else {
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                for (auto& entry : m_pending)
+                    if (entry.second.identity) entry.second.purged = true;
+                m_sessionId = m_manualSessionId;
+            }
+            m_userId = m_manualUserId;
+            m_identityReady = false;
+            m_manualValidationRequestId = QueueRetailGet("/otg/~identity:*.hello?identity=" + m_userId,
+                gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+            if (m_manualValidationRequestId) m_coordinatorState = 18;
+            else m_coordinatorError = -12;
         }
-        m_userId = m_manualUserId;
-        m_identityReady = false;
-        m_manualValidationRequestId = QueueRetailGet("/otg/~identity:*.hello?identity=" + m_userId,
-            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
-        if (m_manualValidationRequestId) m_coordinatorState = 18;
-        else m_coordinatorError = -12;
     } else {
         m_coordinatorError = -12;
         std::fprintf(stderr, "network: a PSN ticket is required for online login\n");

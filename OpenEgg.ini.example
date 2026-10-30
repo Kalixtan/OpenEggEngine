@@ -48,8 +48,9 @@ psn_ticket_hex =
 ; using psn_ticket_hex.
 ticket_file =
 
-; Optional manual session for local testing only. Normal login uses the ticket
-; above. Treat the session ID as a password and keep OpenEgg.ini private.
+; Optional manual session for loopback testing only. OpenEgg rejects these
+; values for remote servers. Normal login uses the ticket above. Treat the
+; session ID as a password and keep OpenEgg.ini private.
 session_id =
 user_id =
 

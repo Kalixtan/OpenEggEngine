@@ -164,6 +164,7 @@ behavior.
 - [x] Expose separate OpenEgg queries for replacement-server authentication
       and PSN sign-in; the latter is false until a PSN provider exists.
       See [IDENTITY.md](IDENTITY.md) for the client/server distinction.
+- [x] Restrict the manual session test bypass to loopback endpoints.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       an in-flight response can retain its HTTP status, as in the PS3 trace.
 - [x] Compare raw bucket payloads for purge, including float and string values.
