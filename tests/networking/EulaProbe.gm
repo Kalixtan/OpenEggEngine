@@ -63,6 +63,11 @@ global Main = function(p) {
                     !OpenEgg_Network_IsPSNSignedIn()) {
                     GameSystem.trace("replacement auth distinct from PSN PASS");
                 }
+                if (Network_IsSignedIn() && Network_IsOnline() &&
+                    OpenEgg_Network_IsReplacementServerAuthenticated() &&
+                    !OpenEgg_Network_IsPSNSignedIn()) {
+                    GameSystem.trace("retail network state does not claim PSN PASS");
+                }
                 if (OnlineCoordinator_IsReadyGoOffline()) {
                     GameSystem.trace("ready offline while online PASS");
                 } else {
