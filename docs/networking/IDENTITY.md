@@ -1,8 +1,9 @@
 # Online identity
 
 OpenEgg sends the configured ticket to the replacement server. It does not
-connect to PSN. The server uses the ticket's Online ID as the account name and
-requires a valid signature by default to prove ownership. OpenEgg rejects
+connect to PSN. The server uses the ticket's Online ID as the account identity
+and requires a valid signature by default to prove ownership. That identity is
+stored separately from the editable server display name. OpenEgg rejects
 sessions the server marks unauthorized.
 
 `Network_IsSignedIn()` and `Network_IsOnline()` keep the retail script-facing

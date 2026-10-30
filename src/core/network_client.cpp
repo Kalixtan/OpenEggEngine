@@ -873,9 +873,13 @@ void NetworkClient::PumpCallbacks() {
                         person["display_name"].IsString();
                     const std::string displayName = hasDisplayName
                         ? person["display_name"].GetString() : std::string();
+                    const bool hasPsnOnlineId = person.HasMember("openegg_psn_online_id") &&
+                        person["openegg_psn_online_id"].IsString();
+                    const std::string accountOnlineId = hasPsnOnlineId
+                        ? person["openegg_psn_online_id"].GetString() : displayName;
                     const auto& expectedOnlineId = SystemConfig::Get().networkPsnOnlineId;
-                    if (expectedOnlineId.empty() || !hasDisplayName ||
-                        !SameOnlineId(displayName, expectedOnlineId)) {
+                    if (expectedOnlineId.empty() || !hasDisplayName || accountOnlineId.empty() ||
+                        !SameOnlineId(accountOnlineId, expectedOnlineId)) {
                         m_coordinatorError = -12;
                         m_coordinatorState = 4;
                         std::fprintf(stderr, "network: server identity does not match psn_online_id\n");
@@ -887,7 +891,7 @@ void NetworkClient::PumpCallbacks() {
                             m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                         }
                         m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
-                        if (hasDisplayName) m_platformOnlineId = displayName;
+                        if (hasPsnOnlineId || hasDisplayName) m_platformOnlineId = accountOnlineId;
                         if (response.HasMember("openegg_remembered_session") &&
                             response["openegg_remembered_session"].IsBool() &&
                             response["openegg_remembered_session"].GetBool()) {

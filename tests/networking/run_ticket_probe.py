@@ -34,7 +34,8 @@ class SessionProbeHandler(BaseHTTPRequestHandler):
         self._record()
         self.rfile.read(int(self.headers.get("Content-Length", "0")))
         body = (b'{"session":{"id":"remembered-session","person":{"id":"remembered-user-id",'
-                b'"display_name":"openegg_probe"}},"openegg_authorized":true,'
+                b'"display_name":"renamed_display_name",'
+                b'"openegg_psn_online_id":"openegg_probe"}},"openegg_authorized":true,'
                 b'"openegg_remembered_session":true}')
         self.send_response(201)
         self.send_header("Content-Type", "application/json")
