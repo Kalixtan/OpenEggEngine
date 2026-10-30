@@ -540,7 +540,6 @@ void NetworkClient::GoOffline() {
     m_manualValidationRequestId = 0;
     m_helloRequestId = 0;
     m_eulaRequestId = 0;
-    m_friendsUploadRequestId = 0;
     m_friendsFetchRequestId = 0;
     m_featuredRequestId = 0;
     m_newsRequestId = 0;
@@ -848,17 +847,6 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, "network: EULA failed (HTTP %ld)\n", completion.status);
             }
         }
-        if (completion.id == m_friendsUploadRequestId) {
-            m_friendsUploadRequestId = 0;
-            if (completion.status == 200 || completion.status == 201) {
-                m_friendsFetchRequestId = QueueRetailGet("/otg/~identity:" + m_userId + "/~friends.all",
-                    gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
-                if (!m_friendsFetchRequestId) m_coordinatorError = -12;
-            } else {
-                m_coordinatorError = -12;
-                std::fprintf(stderr, "network: friends upload failed (HTTP %ld)\n", completion.status);
-            }
-        }
         if (completion.id == m_friendsFetchRequestId) {
             m_friendsFetchRequestId = 0;
             m_friends.clear();
@@ -1025,10 +1013,10 @@ void NetworkClient::UpdateCoordinator() {
 
     if (m_coordinatorState == 24) {
         if (!m_friendsReady) {
-            // Desktop has no PSN friend provider yet; send an empty list.
-            m_friendsUploadRequestId = QueueRetailPost("/identity/person/" + m_userId + "/data/psn/friends-list",
-                "", "text/plain", gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
-            if (!m_friendsUploadRequestId) m_coordinatorError = -12;
+            // Desktop has no PSN contacts; the replacement server supplies its friend list.
+            m_friendsFetchRequestId = QueueRetailGet("/otg/~identity:" + m_userId + "/~friends.all",
+                gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+            if (!m_friendsFetchRequestId) m_coordinatorError = -12;
         }
         m_coordinatorState = 25;
         return;

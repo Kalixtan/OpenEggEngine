@@ -153,7 +153,6 @@ private:
     int m_manualValidationRequestId = 0;
     int m_helloRequestId = 0;
     int m_eulaRequestId = 0;
-    int m_friendsUploadRequestId = 0;
     int m_friendsFetchRequestId = 0;
     int m_featuredRequestId = 0;
     int m_newsRequestId = 0;

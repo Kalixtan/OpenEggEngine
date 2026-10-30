@@ -88,7 +88,7 @@ def main():
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
                        "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS",
                        "network: initial community data requests complete", "server coordinator online PASS",
-                       "replacement auth distinct from PSN PASS")
+                       "server friend mapping PASS", "replacement auth distinct from PSN PASS")
         elif args.identity_mismatch:
             markers += ("ticket platform ID unavailable PASS", "network: ticket Online ID does not match psn_online_id",
                         "ticket coordinator error PASS")

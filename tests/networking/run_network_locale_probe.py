@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 seen = set()
+friend_uploads = set()
 
 
 def reply(handler, status, body):
@@ -26,12 +27,12 @@ def reply(handler, status, body):
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        if self.path == "/identity/login/token/psn":
+        if self.path == f"/identity/person/{USER}/data/psn/friends-list":
+            friend_uploads.add(self.path)
+            reply(self, 200, b"")
+        elif self.path == "/identity/login/token/psn":
             body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode()
             reply(self, 201, body)
-        elif self.path == f"/identity/person/{USER}/data/psn/friends-list":
-            seen.add(self.path)
-            reply(self, 200, b"")
         else:
             reply(self, 404, b"")
 
@@ -100,7 +101,6 @@ try:
             print(result.stdout, end="")
             expected_paths = {
                 f"/otg/ps3/{region}/{expected}/~eula.get",
-                f"/identity/person/{USER}/data/psn/friends-list",
                 f"/otg/~identity:{USER}/~friends.all",
                 "/otg/global/featured/~metadata:*.get", "/otg/global/news/~metadata:*.get",
                 f"/otg/global/featured/{expected}/~metadata:*.get",
@@ -110,10 +110,12 @@ try:
             if (result.returncode or "network locale PASS" not in result.stdout or
                     "localized EULA PASS" not in result.stdout or
                     "localized community requests PASS" not in result.stdout or
-                    " FAIL" in result.stdout or "[gm]" in result.stdout or not expected_paths.issubset(seen)):
+                    " FAIL" in result.stdout or "[gm]" in result.stdout or friend_uploads or
+                    not expected_paths.issubset(seen)):
                 missing = sorted(expected_paths - seen)
                 raise SystemExit(f"network locale probe failed for {region}/{language}; missing {missing}")
             print(f"localized paths PASS: {region} language {language} -> {expected}")
+            friend_uploads.clear()
 finally:
     server.shutdown()
     server.server_close()

@@ -17,8 +17,8 @@ behavior.
 - [x] Initialize the PS3 community screen with retail menu helpers in a
       headless probe.
 - [x] Fetch all five retail tabs from the replacement server; its fixture
-      populates greatest hits, albums, daily and activity while friends stays
-      empty. Verify level/image, queue/heart, draw and update paths headlessly.
+      populates greatest hits, albums, daily, activity and one mutual friend.
+      Verify level/image, queue/heart, draw and update paths headlessly.
 - [x] Create greatest-hits and activity panels from a synthetic server level;
       seed it with the server's `OpenEggCommunityFixture` tool and require it
       with `--expect-populated` in the community probe.
@@ -175,8 +175,8 @@ behavior.
       load the ticket from a file or raw hex in `OpenEgg.ini`.
 - [x] Send the identity hello and region-specific PS3 EULA request after login; cache
       EULA text and digest and poll script acceptance.
-- [x] Synchronize an empty desktop platform friend list and expose returned
-      friend identities. A real platform friend provider is still needed.
+- [x] Fetch replacement-server friend identities without uploading an empty
+      PSN contact list. The server derives desktop friends from mutual follows.
 - [x] Use the configured publisher region and retail locale mapping for EULA,
       translation, and localized community requests. Desktop language stands
       in for the PSN account region.

@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 received = threading.Event()
-friends_uploaded = threading.Event()
 friends_fetched = threading.Event()
 featured_fetched = threading.Event()
 news_fetched = threading.Event()
@@ -63,13 +62,7 @@ def translation_catalog():
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        payload = self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        if self.path == f"/identity/person/{USER}/data/psn/friends-list":
-            if (payload == b"" and self.headers.get("Content-Type") == "text/plain" and
-                    self.headers.get("X-OTG-Identity-SessionId") == SESSION):
-                friends_uploaded.set()
-            self.reply(503 if friends_fail == "upload" else 200, b"")
-            return
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
         body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER +
                 '","display_name":"openegg_probe"}}}').encode()
         self.reply(201, body)
@@ -121,7 +114,7 @@ def main():
     global fail, friends_fail, community_fail, translation_body, translation_invalid, network_region, network_locale
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fail", action="store_true", help="Return an HTTP error for EULA")
-    parser.add_argument("--friends-fail", choices=("upload", "fetch"), help="Return an error during friends sync")
+    parser.add_argument("--friends-fail", choices=("fetch",), help="Return an error fetching replacement-server friends")
     parser.add_argument("--community-fail", action="store_true", help="Return errors for featured and news")
     parser.add_argument("--translation-body", action="store_true", help="Send a nonempty MO translation catalog")
     parser.add_argument("--translation-invalid", action="store_true", help="Send a malformed catalog")
@@ -177,7 +170,7 @@ def main():
                         "replacement auth distinct from PSN PASS",
                         "ready offline while waiting PASS", "ready offline while online PASS",
                         "ready offline while offline PASS"))
-            requests_ok = fail or (friends_uploaded.is_set() and (friends_fail == "upload" or friends_fetched.is_set()))
+            requests_ok = fail or friends_fetched.is_set()
             if not fail and not friends_fail:
                 requests_ok = requests_ok and featured_fetched.is_set() and news_fetched.is_set()
                 requests_ok = requests_ok and featured_localized.is_set() and news_localized.is_set() and translation_fetched.is_set()
