@@ -113,15 +113,27 @@ global AuthSnapshotReply = function(data, response, error) {
 global AuthRecordLeaderboard = function(data, response, error) {
     if (error == 0 && tableCount(response.items) > 0 && response.items[0].score == "4294967296") {
         GameSystem.trace("authenticated record readback PASS");
+        Watermelon_Leaderboard_Near(AuthRecordNear, data, 23, "~level:" + data,
+                                    "/~identity:" + Watermelon_GetUserIdentityId(), "count=0");
     } else {
         GameSystem.trace("authenticated record readback FAIL");
+    }
+};
+
+global AuthRecordNear = function(data, response, error) {
+    if (error == 0 && tableCount(response) == 1 && response[0].position == 1 &&
+        response[0].score == "4294967296" &&
+        response[0].entrant.id == "/~identity:" + Watermelon_GetUserIdentityId()) {
+        GameSystem.trace("authenticated record near PASS");
+    } else {
+        GameSystem.trace("authenticated record near FAIL");
     }
 };
 
 global AuthRecordReply = function(data, response, error) {
     if (error == 0) {
         GameSystem.trace("authenticated record post PASS");
-        Watermelon_Leaderboard_Page(AuthRecordLeaderboard, null, 22, "~level:" + data, "from=0&count=1");
+        Watermelon_Leaderboard_Page(AuthRecordLeaderboard, data, 22, "~level:" + data, "from=0&count=1");
     } else {
         GameSystem.trace("authenticated record post FAIL");
     }
