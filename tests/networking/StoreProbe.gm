@@ -1,0 +1,28 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            if (Network_StoreIsAvailable() == 1 && Network_StoreIsRunning() == 0 &&
+                Network_StoreIsInitialized() == 0 && Network_StoreGetLastError() == 0 &&
+                Network_StoreGetCheckoutResult() == 0 && Network_StoreGetIsDownloadFinished() == 1) {
+                GameSystem.trace("store initial state PASS");
+            } else { GameSystem.trace("store initial state FAIL"); }
+            if (Network_StoreLaunch() == 0 && Network_StoreIsRunning() == 1 &&
+                Network_StoreIsInitialized() == 0 && Network_StoreGetLastError() == 1) {
+                GameSystem.trace("store launch failure state PASS");
+            } else { GameSystem.trace("store launch failure state FAIL"); }
+            Network_StoreBeginCheckout("fixture-product");
+            if (Network_StoreGetCheckoutResult() == 2 && Network_StoreIsCheckoutRunning() == 0) {
+                GameSystem.trace("store checkout failure state PASS");
+            } else { GameSystem.trace("store checkout failure state FAIL"); }
+            Network_StoreBeginDownload("fixture-product");
+            if (Network_StoreGetCheckoutResult() == 2 && Network_StoreGetIsDownloadFinished() == 1) {
+                GameSystem.trace("store download failure state PASS");
+            } else { GameSystem.trace("store download failure state FAIL"); }
+            Network_StoreFinish();
+            if (Network_StoreIsRunning() == 0 && Network_StoreGetLastError() == 0) {
+                GameSystem.trace("store finish state PASS");
+            } else { GameSystem.trace("store finish state FAIL"); }
+        },
+        init=function() { return true; },
+        update=function() {});
+};

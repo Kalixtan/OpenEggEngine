@@ -10,6 +10,11 @@
 namespace {
 
 NetworkClient* g_networkClient = nullptr;
+// Desktop has no Commerce backend; retain the retail-visible failure state.
+int g_storeState = 0;
+int g_storeLastError = 0;
+int g_storeOperationState = 0;
+int g_storeOperationResult = 0;
 int CoordinatorState() { return g_networkClient ? g_networkClient->CoordinatorState() : 1; }
 int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(CoordinatorState() == 30); return GM_OK; }
 int GM_CDECL gmf_IsOffline(gmThread* a_thread) { int state = CoordinatorState(); a_thread->PushInt(state == 2 || state == 4); return GM_OK; }
@@ -49,12 +54,49 @@ int GM_CDECL gmf_NetworkStoreDownloadFinished(gmThread* a_thread) {
 }
 int GM_CDECL gmf_NetworkStoreNoOp(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_NetworkStoreLaunch(gmThread* a_thread) {
+    g_storeState = 1;
+    g_storeLastError = 1;
     a_thread->PushInt(0);
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreFinish(gmThread*) {
+    g_storeState = 0;
+    g_storeLastError = 0;
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreIsRunning(gmThread* a_thread) {
+    a_thread->PushInt(g_storeState != 0);
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreIsInitialized(gmThread* a_thread) {
+    a_thread->PushInt(g_storeState == 2);
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreIsCheckoutRunning(gmThread* a_thread) {
+    a_thread->PushInt(g_storeOperationState == 1);
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreBeginCheckout(gmThread*) {
+    g_storeOperationResult = 2;
+    g_storeOperationState = 0;
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreEndCheckout(gmThread*) {
+    g_storeOperationState = 0;
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreBeginDownload(gmThread*) {
+    g_storeOperationResult = 2;
+    g_storeOperationState = 0;
+    return GM_OK;
+}
+int GM_CDECL gmf_NetworkStoreEndDownload(gmThread*) {
+    g_storeOperationState = 0;
     return GM_OK;
 }
 int GM_CDECL gmf_NetworkStoreSetIconPosition(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_NetworkStoreGetLastError(gmThread* a_thread) {
-    a_thread->PushInt(1);
+    a_thread->PushInt(g_storeLastError);
     return GM_OK;
 }
 int GM_CDECL gmf_NetworkStoreGetNumProducts(gmThread* a_thread) {
@@ -62,7 +104,7 @@ int GM_CDECL gmf_NetworkStoreGetNumProducts(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_NetworkStoreGetCheckoutResult(gmThread* a_thread) {
-    a_thread->PushInt(2);
+    a_thread->PushInt(g_storeOperationResult);
     return GM_OK;
 }
 int GM_CDECL gmf_NetworkStoreGetLongDescription(gmThread* a_thread) {
@@ -228,19 +270,19 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_IsDLCAvailable", gmf_Network_IsDLCAvailable);
 
     a_machine.RegisterLibraryFunction("Network_StoreIsAvailable", gmf_NetworkStoreIsAvailable);
-    a_machine.RegisterLibraryFunction("Network_StoreIsRunning", gmf_NetworkStoreUnavailable);
+    a_machine.RegisterLibraryFunction("Network_StoreIsRunning", gmf_NetworkStoreIsRunning);
     a_machine.RegisterLibraryFunction("Network_StoreLaunch", gmf_NetworkStoreLaunch);
-    a_machine.RegisterLibraryFunction("Network_StoreFinish", gmf_NetworkStoreNoOp);
-    a_machine.RegisterLibraryFunction("Network_StoreIsInitialized", gmf_NetworkStoreUnavailable);
+    a_machine.RegisterLibraryFunction("Network_StoreFinish", gmf_NetworkStoreFinish);
+    a_machine.RegisterLibraryFunction("Network_StoreIsInitialized", gmf_NetworkStoreIsInitialized);
     a_machine.RegisterLibraryFunction("Network_StoreGetNumProducts", gmf_NetworkStoreGetNumProducts);
     a_machine.RegisterLibraryFunction("Network_StoreGetLastError", gmf_NetworkStoreGetLastError);
     a_machine.RegisterLibraryFunction("Network_StoreGetLongDescription", gmf_NetworkStoreGetLongDescription);
-    a_machine.RegisterLibraryFunction("Network_StoreBeginCheckout", gmf_NetworkStoreNoOp);
-    a_machine.RegisterLibraryFunction("Network_StoreIsCheckoutRunning", gmf_NetworkStoreUnavailable);
+    a_machine.RegisterLibraryFunction("Network_StoreBeginCheckout", gmf_NetworkStoreBeginCheckout);
+    a_machine.RegisterLibraryFunction("Network_StoreIsCheckoutRunning", gmf_NetworkStoreIsCheckoutRunning);
     a_machine.RegisterLibraryFunction("Network_StoreGetCheckoutResult", gmf_NetworkStoreGetCheckoutResult);
-    a_machine.RegisterLibraryFunction("Network_StoreEndCheckout", gmf_NetworkStoreNoOp);
-    a_machine.RegisterLibraryFunction("Network_StoreBeginDownload", gmf_NetworkStoreNoOp);
-    a_machine.RegisterLibraryFunction("Network_StoreEndDownload", gmf_NetworkStoreNoOp);
+    a_machine.RegisterLibraryFunction("Network_StoreEndCheckout", gmf_NetworkStoreEndCheckout);
+    a_machine.RegisterLibraryFunction("Network_StoreBeginDownload", gmf_NetworkStoreBeginDownload);
+    a_machine.RegisterLibraryFunction("Network_StoreEndDownload", gmf_NetworkStoreEndDownload);
     a_machine.RegisterLibraryFunction("Network_StoreGetProductTable", gmf_NetworkStoreGetProductTable);
     a_machine.RegisterLibraryFunction("Network_StoreSetIconPosition", gmf_NetworkStoreSetIconPosition);
     a_machine.RegisterLibraryFunction("Network_StoreGetIsDownloadFinished", gmf_NetworkStoreDownloadFinished);
