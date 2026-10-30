@@ -22,6 +22,9 @@ global Main = function(p) {
             if (Network_StoreIsRunning() == 0 && Network_StoreGetLastError() == 0) {
                 GameSystem.trace("store finish state PASS");
             } else { GameSystem.trace("store finish state FAIL"); }
+            if (Network_StoreGetCheckoutResult() == 2) {
+                GameSystem.trace("store finish preserves operation result PASS");
+            } else { GameSystem.trace("store finish preserves operation result FAIL"); }
         },
         init=function() { return true; },
         update=function() {});

@@ -14,6 +14,7 @@ markers = (
     "store checkout failure state PASS",
     "store download failure state PASS",
     "store finish state PASS",
+    "store finish preserves operation result PASS",
 )
 
 with tempfile.TemporaryDirectory(prefix="openegg-store-") as name:
