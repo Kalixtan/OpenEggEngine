@@ -99,6 +99,11 @@ bool RewriteNetworkSettings(const std::string& iniPath,
                             const std::vector<std::pair<std::string, std::optional<std::string>>>& updates) {
     const std::filesystem::path path = std::filesystem::u8path(iniPath);
     std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        std::error_code existsError;
+        const bool alreadyExists = std::filesystem::exists(path, existsError);
+        if (existsError || alreadyExists) return false;
+    }
     std::ostringstream retained;
     std::string line;
     std::string section;
