@@ -308,6 +308,8 @@ behavior.
       SNS, activity, and Near behavior.
 - [x] Return retail's `Network_TrophyUnlock` rejection (`-1`) without a
       desktop trophy backend; probe setup, rejection and empty queue state.
+- [x] Check the zero-initialized `Network_GetServiceSnsState()` value. Any
+      external or indirect state writer remains unresolved.
 - [x] Use bundled Russian and CJK font resources for the traced language-font
       setup and clear calls. Desktop uses glyph fallback; retail's resource
       cache and paired font lists remain different.

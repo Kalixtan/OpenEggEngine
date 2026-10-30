@@ -5,6 +5,9 @@ global Main = function(p) {
                 Network_IsAccountRestricted() == __ACCOUNT_EXPECTED__) {
                 GameSystem.trace("platform restriction PASS");
             } else { GameSystem.trace("platform restriction FAIL"); }
+            if (Network_GetServiceSnsState() == 0) {
+                GameSystem.trace("default SNS state PASS");
+            } else { GameSystem.trace("default SNS state FAIL"); }
             Network_TrophySetup();
             if (Network_TrophyUnlock(1) == -1 && Network_GetIsTrophyQueueFull() == 0) {
                 GameSystem.trace("desktop trophy queue rejection PASS");

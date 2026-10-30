@@ -9,7 +9,13 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix="openegg-restriction-") as directory:
     root = Path(directory)
-    shutil.copy2(ROOT / "build/OpenEgg", root / "OpenEgg")
+    engine = ROOT / "build/OpenEgg"
+    shutil.copy2(engine, root / "OpenEgg")
+    for archive in engine.parent.glob("*.psarc"):
+        (root / archive.name).symlink_to(archive)
+    game_data = engine.parent / "game_data"
+    if game_data.is_dir():
+        (root / "game_data").symlink_to(game_data, target_is_directory=True)
     harness = root / "harness.txt"
     harness.write_text("wait 30\nquit\n")
     env = os.environ.copy()
@@ -30,6 +36,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-restriction-") as directory:
                                     env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             if (result.returncode or "platform restriction PASS" not in result.stdout or
+                    "default SNS state PASS" not in result.stdout or
+                    "default SNS state FAIL" in result.stdout or
                     "desktop trophy queue rejection PASS" not in result.stdout or
                     "desktop trophy queue rejection FAIL" in result.stdout):
                 raise SystemExit("platform restriction probe failed")
