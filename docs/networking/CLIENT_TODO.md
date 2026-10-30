@@ -62,12 +62,11 @@ behavior.
 - [x] Start the full retail menu with a disposable save and account on the
       replacement server; verify login, hello, EULA, localized requests, and
       community attachment headlessly.
-- [x] Dismiss first-run popups with headless key events and select greatest
-      hits through the full menu against a fixture server, receiving a response
-      (`run_full_menu_probe.py --input`). Tutorial and EULA are bypassed in
-      the disposable test save.
-- [ ] Finish controller navigation against the replacement server. Login and
-      community attachment pass, but this run missed the tab-selection marker.
+- [ ] Test controller navigation from the full menu. The `--input` attempt
+      does not select a community tab: retail forwards keys only to the active
+      screen, while home-to-community movement uses a swipe. Login, online
+      state and community attachment pass; the isolated community input probe
+      covers tab selection separately.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
       used by patched scripts; the retail wrapper ignores them.
