@@ -1,0 +1,27 @@
+global OfflineQueueReply = function(data, result, error) {
+    if (data == "inflight" && error == 200) {
+        GameSystem.trace("offline active request cancelled PASS");
+    } else if (data == "queued" && error == 1) {
+        GameSystem.trace("offline queued request cancelled PASS");
+    } else {
+        GameSystem.trace("offline request cancellation FAIL");
+    }
+};
+
+global Main = function(p) {
+    return table(Process=p, started=0, ticks=0,
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        init=function() { return true; },
+        update=function() {
+            if (!this.started && Watermelon_IsOnline()) {
+                this.started = 1;
+                Watermelon_Index_Page(OfflineQueueReply, "inflight", 1, "type=level&search=all");
+                Watermelon_Index_Page(OfflineQueueReply, "queued", 2, "type=level&search=all");
+            }
+            if (this.started == 1 && ++this.ticks == 30) {
+                this.started = 2;
+                OnlineCoordinator_GoOffline();
+                GameSystem.trace("offline queue transition requested");
+            }
+        });
+};
