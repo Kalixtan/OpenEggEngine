@@ -42,9 +42,9 @@ INI and ticket private. Remote ticket login requires HTTPS; plain HTTP is
 allowed only for loopback development servers. Replacement-server
 authentication is distinct from PSN sign-in. After a verified ticket login,
 OpenEgg stores the server session in `server_session_id` and `server_user_id`
-in the INI. It validates and renews that session on later launches, so the
-ticket can be removed after the first login. Remote session validation also
-requires HTTPS.
+in the INI. It also retains the ticket country for later account reports.
+OpenEgg validates and renews the session on later launches, so the ticket can
+be removed after the first login. Remote session validation also requires HTTPS.
 
 `image_base_url` sets the base for relative image URLs, and `product_region`
 selects the EULA and translation region. `community_allowed` and

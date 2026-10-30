@@ -18,6 +18,7 @@ SESSION = "00000000-0000-0000-0000-000000000001"
 USER = "00000000-0000-0000-0000-000000000002"
 ITEM = "/~level:levelABC/~upload:42----BouNdaRy"
 received = threading.Event()
+report_countries = []
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -30,7 +31,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if self.path == "/identity/login/token/psn":
-            self.reply(201, ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode())
+            self.reply(201, ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER +
+                              '","display_name":"openegg_probe","openegg_psn_online_id":"openegg_probe"}},'
+                              '"openegg_authorized":true,"openegg_remembered_session":true}').encode())
             return
         content_type = self.headers.get("Content-Type", "")
         if (self.path != "/otg/~grief:*.post" or self.headers.get("X-OTG-Identity-SessionId") != SESSION or
@@ -44,13 +47,14 @@ class Handler(BaseHTTPRequestHandler):
         if (names == ["reportLanguageId", "reporterCountryCode", "item", "reportReasonId", "platformId", "consoleId"] and
                 values == [b"1", b"gb", ITEM.encode(), b"1", b"1", b""] and
                 all(part.get_filename() is None for part in parts)):
+            report_countries.append(values[1])
             received.set()
             self.reply(200, b"{}")
         else:
             self.reply(400)
 
     def do_GET(self):
-        self.reply(200 if self.path == "/otg/~identity:*.hello" else 404)
+        self.reply(200 if self.path.startswith("/otg/~identity:*.hello") else 404)
 
     def log_message(self, *args):
         pass
@@ -93,12 +97,30 @@ def main():
             env = os.environ.copy()
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-            result = subprocess.run([str(temp / engine.name), str(script_dir), "GriefProbe.gm", "Main"], cwd=ROOT, env=env,
-                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+            command = [str(temp / engine.name), str(script_dir), "GriefProbe.gm", "Main"]
+            result = subprocess.run(command, cwd=ROOT, env=env, text=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             markers = ("grief offline PASS", "grief boundary exhaustion PASS", "grief queued PASS", "grief response PASS")
             if result.returncode or (server and not received.is_set()) or any(marker not in result.stdout for marker in markers):
                 raise SystemExit("grief probe failed")
+            if server:
+                ini = temp / "OpenEgg.ini"
+                config = ini.read_text()
+                if "psn_country = gb" not in config or f"server_session_id = {SESSION}" not in config:
+                    raise SystemExit("grief probe failed; ticket country or saved session was not stored")
+                (temp / "ticket.bin").unlink()
+                ini.write_text("\n".join(line for line in config.splitlines()
+                                          if not line.lstrip().startswith(("ticket_file =", "psn_ticket_hex ="))) + "\n")
+                received.clear()
+                second = subprocess.run(command, cwd=ROOT, env=env, text=True,
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+                print(second.stdout, end="")
+                if (second.returncode or not received.is_set() or
+                        "network: remembered server session validated" not in second.stdout or
+                        "network: ticket login succeeded" in second.stdout or
+                        report_countries != [b"gb", b"gb"]):
+                    raise SystemExit("grief probe failed; later run did not use saved ticket country")
     finally:
         if server:
             server.shutdown()

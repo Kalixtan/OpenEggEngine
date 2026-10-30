@@ -44,6 +44,8 @@ struct SystemConfig {
     std::string networkSavedUserId;
     // PSN Online ID used to bind server login to the same visible identity.
     std::string networkPsnOnlineId;
+    // Country from the accepted ticket, retained for later server sessions.
+    std::string networkPsnCountry;
     // Optional binary ticket, either inline hex or in a separate file.
     std::string networkTicketHex;
     std::string networkTicketFile;
@@ -56,6 +58,7 @@ struct SystemConfig {
     // Missing or invalid values leave the retail-compatible defaults above.
     bool LoadFromIni(const std::string& path);
     bool SaveReplacementSession(const std::string& sessionId, const std::string& userId);
+    bool SavePsnCountry(const std::string& country);
 
     const char* OsIdName() const;
 

@@ -357,6 +357,7 @@ NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
       m_sessionId(std::move(a_sessionId)), m_userId(std::move(a_userId)),
       m_savedSessionId(SystemConfig::Get().networkSavedSessionId),
       m_savedUserId(SystemConfig::Get().networkSavedUserId),
+      m_platformCountry(SystemConfig::Get().networkPsnCountry),
       m_manualSessionId(m_sessionId), m_manualUserId(m_userId) {
     while (!m_baseUrl.empty() && m_baseUrl.back() == '/') m_baseUrl.pop_back();
     m_roots = m_machine.AllocTableObject();
@@ -894,6 +895,9 @@ void NetworkClient::PumpCallbacks() {
                         }
                         m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
                         if (hasPsnOnlineId || hasDisplayName) m_platformOnlineId = accountOnlineId;
+                        if (!m_platformCountry.empty() &&
+                            !SystemConfig::Get().SavePsnCountry(m_platformCountry))
+                            std::fprintf(stderr, "network: could not save PSN country to OpenEgg.ini\n");
                         if (response.HasMember("openegg_remembered_session") &&
                             response["openegg_remembered_session"].IsBool() &&
                             response["openegg_remembered_session"].GetBool()) {

@@ -6,9 +6,12 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <system_error>
+#include <utility>
+#include <vector>
 #if defined(_WIN32)
 #define NOMINMAX
 #include <windows.h>
@@ -81,6 +84,80 @@ bool IsOnlineId(const std::string& value) {
         return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
                (c >= '0' && c <= '9') || c == '-' || c == '_';
     });
+}
+
+bool IsCountryCode(const std::string& value) {
+    return value.size() == 2 && std::all_of(value.begin(), value.end(), [](unsigned char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    });
+}
+
+bool RewriteNetworkSettings(const std::string& iniPath,
+                            const std::vector<std::pair<std::string, std::optional<std::string>>>& updates) {
+    const std::filesystem::path path = std::filesystem::u8path(iniPath);
+    std::filesystem::path temporary = path;
+    temporary += ".tmp";
+    std::ifstream input(path, std::ios::binary);
+    std::ostringstream retained;
+    std::string line;
+    std::string section;
+    while (std::getline(input, line)) {
+        std::string content = Trim(line);
+        if (!content.empty() && (content.front() == ';' || content.front() == '#')) {
+            retained << line << '\n';
+            continue;
+        }
+        if (content.size() >= 2 && content.front() == '[' && content.back() == ']') {
+            section = Lower(Trim(content.substr(1, content.size() - 2)));
+            retained << line << '\n';
+            continue;
+        }
+        if (section == "network") {
+            const size_t comment = content.find_first_of(";#");
+            if (comment != std::string::npos) content = Trim(content.substr(0, comment));
+            const size_t equals = content.find('=');
+            if (equals != std::string::npos) {
+                const std::string key = Lower(Trim(content.substr(0, equals)));
+                if (std::any_of(updates.begin(), updates.end(), [&](const auto& update) {
+                        return update.first == key;
+                    }))
+                    continue;
+            }
+        }
+        retained << line << '\n';
+    }
+    if (input.bad()) return false;
+
+    std::string output = retained.str();
+    const bool hasValues = std::any_of(updates.begin(), updates.end(), [](const auto& update) {
+        return update.second.has_value();
+    });
+    if (hasValues) {
+        if (!output.empty() && output.back() != '\n') output.push_back('\n');
+        output += "\n[network]\n";
+        for (const auto& [key, value] : updates)
+            if (value) output += key + " = " + *value + "\n";
+    }
+
+    {
+        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
+        if (!file || !file.write(output.data(), static_cast<std::streamsize>(output.size())) || !file.flush())
+            return false;
+    }
+
+    std::error_code error;
+    std::filesystem::permissions(temporary,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+        std::filesystem::perm_options::replace, error);
+#if defined(_WIN32)
+    if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        return false;
+#else
+    if (error) return false;
+    std::filesystem::rename(temporary, path, error);
+    if (error) return false;
+#endif
+    return true;
 }
 
 bool ParseOsId(const std::string& value, OsId& out) {
@@ -227,6 +304,9 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (section == "network" && key == "psn_online_id") {
             valid = IsOnlineId(value);
             if (valid) networkPsnOnlineId = value;
+        } else if (section == "network" && key == "psn_country") {
+            valid = value.empty() || IsCountryCode(value);
+            if (valid) networkPsnCountry = Lower(value);
         } else if (section == "network" && key == "psn_ticket_hex") {
             valid = IsTicketHex(value);
             if (valid) networkTicketHex = value;
@@ -255,64 +335,20 @@ bool SystemConfig::SaveReplacementSession(const std::string& sessionId, const st
         sessionId.find_first_of("\r\n") != std::string::npos ||
         userId.find_first_of("\r\n") != std::string::npos)
         return false;
-
-    const std::filesystem::path path = std::filesystem::u8path(m_iniPath);
-    std::filesystem::path temporary = path;
-    temporary += ".tmp";
-    std::ifstream input(path, std::ios::binary);
-    std::ostringstream retained;
-    std::string line;
-    std::string section;
-    while (std::getline(input, line)) {
-        std::string content = Trim(line);
-        if (!content.empty() && (content.front() == ';' || content.front() == '#')) {
-            retained << line << '\n';
-            continue;
-        }
-        if (content.size() >= 2 && content.front() == '[' && content.back() == ']') {
-            section = Lower(Trim(content.substr(1, content.size() - 2)));
-            retained << line << '\n';
-            continue;
-        }
-        if (section == "network") {
-            const size_t comment = content.find_first_of(";#");
-            if (comment != std::string::npos) content = Trim(content.substr(0, comment));
-            const size_t equals = content.find('=');
-            if (equals != std::string::npos) {
-                const std::string key = Lower(Trim(content.substr(0, equals)));
-                if (key == "server_session_id" || key == "server_user_id") continue;
-            }
-        }
-        retained << line << '\n';
-    }
-    if (input.bad()) return false;
-
-    std::string output = retained.str();
-    if (!clearing) {
-        if (output.empty() || output.back() != '\n') output.push_back('\n');
-        output += "\n[network]\nserver_session_id = " + sessionId +
-            "\nserver_user_id = " + userId + "\n";
-    }
-
-    {
-        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
-        if (!file || !file.write(output.data(), static_cast<std::streamsize>(output.size())) || !file.flush())
-            return false;
-    }
-
-    std::error_code error;
-    std::filesystem::permissions(temporary,
-        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
-        std::filesystem::perm_options::replace, error);
-#if defined(_WIN32)
-    if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-        return false;
-#else
-    if (error) return false;
-    std::filesystem::rename(temporary, path, error);
-    if (error) return false;
-#endif
+    std::vector<std::pair<std::string, std::optional<std::string>>> updates = {
+        {"server_session_id", clearing ? std::nullopt : std::optional<std::string>(sessionId)},
+        {"server_user_id", clearing ? std::nullopt : std::optional<std::string>(userId)},
+    };
+    if (!RewriteNetworkSettings(m_iniPath, updates)) return false;
     networkSavedSessionId = clearing ? std::string() : sessionId;
     networkSavedUserId = clearing ? std::string() : userId;
+    return true;
+}
+
+bool SystemConfig::SavePsnCountry(const std::string& country) {
+    if (m_iniPath.empty() || !IsCountryCode(country)) return false;
+    const std::string normalized = Lower(country);
+    if (!RewriteNetworkSettings(m_iniPath, {{"psn_country", normalized}})) return false;
+    networkPsnCountry = normalized;
     return true;
 }

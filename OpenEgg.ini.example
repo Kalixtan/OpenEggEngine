@@ -42,6 +42,9 @@ image_base_url = https://s3.amazonaws.com
 ; This identity remains fixed if the server display name changes.
 psn_online_id =
 
+; Filled from the accepted ticket; retained for later online reports.
+psn_country =
+
 ; Optional PSN ticket from a retail session. Use either a path or inline hex.
 ; This sends the ticket to the replacement server; it does not connect to PSN.
 ; OpenEgg's server requires a valid signature by default. Use unsigned tickets

@@ -229,8 +229,10 @@ behavior.
 - [x] Publish, read back, update and remove a user-supplied retail JSON level
       on a disposable server; the level is not included in the repository.
 - [x] Send a report for a synthetic level on a disposable local server.
+- [x] Save the accepted ticket country and use it for reports after later
+      launches that rely on a saved server session.
 - [ ] Compare account country, language and console-ID reporting with retail;
-      desktop currently uses the supplied ticket and configured language.
+      desktop still uses configured language and sends no console ID.
 - [ ] Compare publish failures, multipart boundaries and ticket ownership
       against retail. Desktop tickets currently reload their named files.
 - [ ] Compare level XML/JSON conversion and malformed input with retail;
