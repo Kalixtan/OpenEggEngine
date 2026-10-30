@@ -4,6 +4,8 @@ OpenEgg uses a replacement server. It does not sign in to PSN, provide PSN
 services, or verify that an Online ID belongs to the person using it unless a
 server accepts and verifies a PSN ticket. Ticket login is the intended account
 setup; saved server sessions are kept in `OpenEgg.ini`.
+Only a verified PS3/Vita PSN ticket can create or renew the long-lived saved
+session. Unsigned local test tickets receive short-lived sessions only.
 
 | Service | Current desktop behavior |
 | --- | --- |
