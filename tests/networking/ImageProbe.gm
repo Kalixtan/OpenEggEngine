@@ -20,6 +20,9 @@ global Main = function(p) {
         update=function() {
             if (this.started == 0 && Watermelon_IsOnline()) {
                 this.started = 1;
+                if (Watermelon_GetLevelThumbnail(null, null, 38, "level-1", "no-callback")) {
+                    GameSystem.trace("thumbnail null callback queued PASS");
+                }
                 if (Watermelon_GetLevelThumbnail(ImageReply, "thumbnail", 31, "level-1", "version-1", "ignored") &&
                     Watermelon_GetContentImage(ImageReply, "content", 32, "~communityTab:1/~content:thumbnail/data?foo=bar") &&
                     Watermelon_GetContentImage(ImageReply, "absolute", 33, "__ABSOLUTE_URL__") &&

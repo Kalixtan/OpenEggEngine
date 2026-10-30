@@ -103,6 +103,10 @@ behavior.
 - [x] Match `FUN_001d45e8` behavior across its request wrappers: a null
       callback reports acceptance without queuing HTTP. Fixture counts cover
       index, metadata, rating, leaderboard, following and level lookups.
+- [x] Keep specialized level-content and heart helpers on their own path.
+      Retail helpers `0x001d48e8`–`0x001d59b4` dispatch through `0x001821cc`
+      without the generic null-callback guard; headless probes check level,
+      sound, description, thumbnail and heart requests with null callbacks.
 - [x] Gate record submissions on identity setup; test serialized fields,
       empty records and the traced header value with a local fixture.
 - [x] Preserve the HTTP status when a response body fails to arrive; reject

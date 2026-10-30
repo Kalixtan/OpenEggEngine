@@ -98,6 +98,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, zlib.compress(xml))
             elif version == "invalid":
                 self.reply(200, b"invalid compressed data")
+            elif version == "null-callback":
+                self.reply(200, zlib.compress(b'{"bpm":120,"screenData":[],"entities":[]}'))
             else:
                 self.reply(404)
         elif self.path.startswith("/otg/~level:level-1/~version:") and self.path.endswith("/~content:sound/data.get"):
@@ -109,6 +111,8 @@ class Handler(BaseHTTPRequestHandler):
                 text = "\n".join(["FunctionObjectRecorderV4", str(len(signatures)), *signatures, "0", "60000", "0", ""])
                 self.reply(200, zlib.compress(text.encode()))
             elif version == "fun":
+                self.reply(200, b"Fun raw payload")
+            elif version == "null-callback":
                 self.reply(200, b"Fun raw payload")
             elif version == "invalid":
                 self.reply(200, b"not compressed")
@@ -124,6 +128,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, b'{invalid')
             elif upload == "partial":
                 self.reply(200, b'{"title":"Retained","other":')
+            elif upload == "null-callback":
+                self.reply(200, b'{"title":"Fixture"}')
             else:
                 self.reply(404)
         elif self.path.startswith(f"/otg/~identity:{USER}/~queued:"):
@@ -236,7 +242,7 @@ def main():
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
             markers = (("server level data PASS", "server sound data PASS", "server queue roundtrip PASS") if args.server_url else
-                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS", "sound request queued PASS", "sound compressed PASS", "sound fun prefix PASS", "sound invalid PASS", "sound missing PASS", "queued get route PASS", "queued put route PASS", "queued delete route PASS"))
+                       ("level requests queued PASS", "level JSON PASS", "level XML PASS", "level invalid data PASS", "level missing PASS", "level null callback queued PASS", "description requests queued PASS", "description JSON PASS", "description malformed PASS", "description missing PASS", "description null callback queued PASS", "sound request queued PASS", "sound compressed PASS", "sound fun prefix PASS", "sound invalid PASS", "sound missing PASS", "sound null callback queued PASS", "queued get route PASS", "queued put route PASS", "queued delete route PASS"))
             expected_queue = {f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.get", f"/otg/~identity:{USER}/~queued:simple.put", f"/otg/~identity:{USER}/~queued:%2F~level%3Asimple.delete", f"/otg/~identity:{USER}/~queued:*.page?count=2"}
             expected_ratings = {rating_path + ".get", rating_path + ".put", "/otg/~level:level-1/~favourite:*.all", "/otg/~level:level-1/~favourite:item.put", "/otg/~level:level-1/~favourite:item.delete"}
             expected_leaderboard = {"/otg/~level:level-1/~leaderboard.get", "/otg/~level:level-1/~leaderboard.all", "/otg/~level:level-1/~leaderboard.page?count=2", "/otg/~level:level-1/~leaderboard.page?broken=1", "/otg/~level:level-1/~leaderboard.near?entrant=%2F~identity%3Aone&count=2", "score=42", "score=4294967296"}
@@ -249,10 +255,11 @@ def main():
                 markers += tuple(f"index scalar {name} PASS" for name in ("number", "string", "null", "bool"))
                 markers += tuple(f"index {name} PASS" for name in ("flag", "bare", "duplicate", "empty type"))
                 markers += ("snapshot null callback PASS", "versions null callback PASS")
+                markers += ("heart null callbacks queued PASS",)
             checks = {
-                "levels": (seen, {"json", "xml", "invalid", "missing"}),
-                "descriptions": (descriptions, {"good", "invalid", "missing", "partial"}),
-                "sounds": (sounds, {"compressed", "fun", "invalid", "missing"}),
+                "levels": (seen, {"json", "xml", "invalid", "missing", "null-callback"}),
+                "descriptions": (descriptions, {"good", "invalid", "missing", "partial", "null-callback"}),
+                "sounds": (sounds, {"compressed", "fun", "invalid", "missing", "null-callback"}),
                 "queue": (queued, expected_queue),
                 "ratings and favourites": (ratings_favourites, expected_ratings),
                 "metadata": (metadata, {"all", "get", "put", "empty"}),
@@ -277,6 +284,17 @@ def main():
                 for path in ("/otg/~level:level-1.latest", "/otg/~level:level-1/~version:*.get"):
                     if level_lookup_counts[path] != 1:
                         print(f"level lookup null callback: expected one request to {path}, got {level_lookup_counts[path]}")
+                        failed = True
+                heart_paths = (
+                    f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.get",
+                    f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.put",
+                    f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.delete",
+                    f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}.delete",
+                )
+                for path in heart_paths:
+                    count = request_counts[("GET", path)]
+                    if count != 2:
+                        print(f"heart null callback: expected two GET {path}, got {count}")
                         failed = True
                 once = (
                     ("GET", f"/otg/~index:level.page?type=level&count=1"),

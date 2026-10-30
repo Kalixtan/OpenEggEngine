@@ -19,6 +19,7 @@ USER = "00000000-0000-0000-0000-000000000002"
 seen = set()
 bad_headers = []
 content_requests = 0
+thumbnail_requests = 0
 
 
 def chunk(name, data):
@@ -44,7 +45,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(201, data)
 
     def do_GET(self):
-        global content_requests
+        global content_requests, thumbnail_requests
         if self.path == "/redirect":
             seen.add("redirect")
             if self.headers.get("X-OTG-Identity-SessionId") is not None:
@@ -56,6 +57,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         paths = {
             "/otg/~level:level-1/~version:version-1/~content:image/data.get": "thumbnail",
+            "/otg/~level:level-1/~version:no-callback/~content:image/data.get": "thumbnail",
             "/~communityTab:1/~content:thumbnail/data?foo=bar": "content",
             "/absolute-image": "absolute", "/invalid": "invalid", "/missing": "missing",
             "/redirected-image": "redirect-target"
@@ -63,6 +65,8 @@ class Handler(BaseHTTPRequestHandler):
         name = paths.get(self.path)
         if name:
             seen.add(name)
+            if name == "thumbnail":
+                thumbnail_requests += 1
             expected_session = SESSION if name == "thumbnail" else None
             if self.headers.get("X-OTG-Identity-SessionId") != expected_session:
                 bad_headers.append(name)
@@ -127,8 +131,8 @@ def main():
             print(result.stdout, end="")
             names = {"thumbnail", "content", "absolute", "invalid", "missing", "redirect", "redirect-target"}
             markers = (["server featured image PASS" if args.featured else "server image PASS"] if args.server_url else
-                       ["image requests queued PASS", "image cached-invalid PASS"] + [f"image {name} PASS" for name in names if name != "redirect-target"])
-            if (result.returncode or (server and (seen != names or bad_headers or content_requests != 2)) or
+                       ["image requests queued PASS", "image cached-invalid PASS", "thumbnail null callback queued PASS"] + [f"image {name} PASS" for name in names if name != "redirect-target"])
+            if (result.returncode or (server and (seen != names or bad_headers or content_requests != 2 or thumbnail_requests != 2)) or
                     any(marker not in result.stdout for marker in markers)):
                 raise SystemExit("image probe failed")
     finally:
