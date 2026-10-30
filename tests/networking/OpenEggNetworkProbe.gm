@@ -245,6 +245,25 @@ global Main = function(p) {
             if (levelParts.levelId == "abc" && levelParts.uploadId == "123" && singleColon.levelId == "level:abc" && singleColon.uploadId == "abc" && noColon.levelId == "" && noColon.uploadId == "") {
                 GameSystem.trace("level object split PASS");
             }
+            local extraColon = Watermelon_ParseLevelObjectString("prefix:outer:inner/~version:123", {});
+            local loneColon = Watermelon_ParseLevelObjectString("prefix:value", {});
+            local leadingColon = Watermelon_ParseLevelObjectString(":value", {});
+            local longLevel = Watermelon_ParseLevelObjectString(
+                "/~level:" +
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "/~version:" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", {});
+            if (extraColon.levelId == "inner" && extraColon.uploadId == "123" &&
+                loneColon.levelId == "refix:value" && loneColon.uploadId == "value" &&
+                leadingColon.levelId == ":value" && leadingColon.uploadId == "value" &&
+                STRINGHELPER_GetLength(longLevel.levelId) == 99 &&
+                STRINGHELPER_GetLength(longLevel.uploadId) == 99) {
+                GameSystem.trace("level object split edge cases PASS");
+            }
             local keyParts = Watermelon_BaseKeyValue("~identity:abc/~level:xyz", {});
             local noValue = Watermelon_BaseKeyValue("root:key/leaf", {});
             if (keyParts.base == "~identity:abc" && keyParts.key == "~level" && keyParts.value == "xyz" && noValue.base == "root:key" && noValue.key == "leaf" && noValue.value == "") {

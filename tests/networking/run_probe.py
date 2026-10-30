@@ -17,6 +17,7 @@ MARKERS = (
     "base key multibyte boundary PASS",
     "score edge values PASS",
     "level object split PASS",
+    "level object split edge cases PASS",
     "base key split PASS",
     "query flag parsing PASS",
     "query float format PASS",
