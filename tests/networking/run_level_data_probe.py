@@ -25,6 +25,7 @@ queued_counts = Counter()
 request_counts = Counter()
 ratings_favourites = set()
 metadata = set()
+metadata_requests = Counter()
 leaderboard = set()
 albums = set()
 indexes = set()
@@ -65,6 +66,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, b'{"score":4294967296}')
             return
         if self.path == "/otg/~level:level-1/~metadata:field.put":
+            metadata_requests[("POST", self.headers.get("Content-Type", ""), body)] += 1
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"value" and self.headers.get("Content-Type") == "text/plain":
                 metadata.add("put")
             self.reply(200, b'{"ok":1}')
@@ -144,8 +146,12 @@ class Handler(BaseHTTPRequestHandler):
                 ratings_favourites.add(self.path)
             self.reply(200, b'{"ok":1}')
         elif self.path in {"/otg/~level:level-1/~metadata:*.get", "/otg/~level:level-1/~metadata:field.get", "/otg/~level:level-1/~metadata:field.put"}:
-            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and (not self.path.endswith("field.put") or self.headers.get("Content-Type") == "text/plain"):
-                metadata.add({"/otg/~level:level-1/~metadata:*.get": "all", "/otg/~level:level-1/~metadata:field.get": "get", "/otg/~level:level-1/~metadata:field.put": "empty"}[self.path])
+            if self.path.endswith("field.put"):
+                metadata_requests[("GET", self.headers.get("Content-Type", ""), b"")] += 1
+                if self.headers.get("X-OTG-Identity-SessionId") == SESSION and self.headers.get("Content-Type") == "text/plain":
+                    metadata.add("empty")
+            elif self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                metadata.add({"/otg/~level:level-1/~metadata:*.get": "all", "/otg/~level:level-1/~metadata:field.get": "get"}[self.path])
             self.reply(200, b'{"ok":1}')
         elif self.path in {"/otg/~level:level-1/~leaderboard.get", "/otg/~level:level-1/~leaderboard.all", "/otg/~level:level-1/~leaderboard.page?count=2", "/otg/~level:level-1/~leaderboard.page?broken=1", "/otg/~level:level-1/~leaderboard.near?entrant=%2F~identity%3Aone&count=2"}:
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
@@ -305,6 +311,7 @@ def main():
                     ("GET", f"/otg/~index:level.page?type=level&count=1"),
                     ("GET", f"/otg/~level:level-1/~metadata:field.get"),
                     ("POST", f"/otg/~level:level-1/~metadata:field.put"),
+                    ("GET", f"/otg/~level:level-1/~metadata:field.put"),
                     ("GET", rating_path + ".get"),
                     ("POST", rating_path + ".put"),
                     ("GET", f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.put"),
@@ -313,6 +320,15 @@ def main():
                     if request_counts[key] != 1:
                         print(f"null callback: expected one {key[0]} {key[1]}, got {request_counts[key]}")
                         failed = True
+                expected_metadata_requests = Counter({("POST", "text/plain", b"value"): 1,
+                                                      ("GET", "text/plain", b""): 1})
+                if metadata_requests != expected_metadata_requests:
+                    print(f"metadata methods/bodies: expected {expected_metadata_requests}, got {metadata_requests}")
+                    failed = True
+                empty_metadata_put = ("GET", "/otg/~level:level-1/~metadata:field.put")
+                if request_counts[empty_metadata_put] != 1:
+                    print(f"empty metadata PUT operation: expected one GET request, got {request_counts[empty_metadata_put]}")
+                    failed = True
                 leaderboard_post = ("POST", "/otg/~level:level-1/~leaderboard.post")
                 if request_counts[leaderboard_post] != 2:
                     print(f"null callback: expected two score posts, got {request_counts[leaderboard_post]}")

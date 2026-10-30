@@ -175,6 +175,7 @@ int QueueMetadata(gmThread* a_thread, int a_operation) {
     path += "~metadata:" + (a_operation == 0 ? std::string("*") : EncodeRetailUrl(key)) +
             (a_operation == 2 ? ".put" : ".get");
     int id;
+    // Retail chooses POST by nonzero body length, even for a PUT operation.
     if (a_operation == 2 && !value.empty()) {
         id = QueueScriptPost(path, value, "text/plain", a_thread->Param(0),
             a_thread->Param(1), a_thread->Param(2), 0, 0);
