@@ -1001,10 +1001,7 @@ void NetworkClient::UpdateCoordinator() {
         return;
     }
     if (m_coordinatorState == 28) {
-        static const char* locales[] = {"ja", "en", "fr", "es", "de", "it", "nl", "pt", "ru", "ko",
-                                        "zh_hant", "zh", "fi", "sv", "da", "no", "pl", "pt_br", "en_gb", "es_mx"};
-        const int code = SystemConfig::Get().languageCode;
-        const char* locale = code >= 0 && code < 20 ? locales[code] : "en";
+        const char* locale = SystemConfig::Get().NetworkLanguage();
         m_featuredReady = false;
         m_newsReady = false;
         m_translationReady = false;
