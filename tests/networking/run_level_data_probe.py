@@ -216,11 +216,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--server-url", help="Disposable local replacement server")
     parser.add_argument("--level-id", help="Fixture level ID")
+    parser.add_argument("--version-id", help="Current level version timestamp for the server probe")
     args = parser.parse_args()
     server = None
     if args.server_url:
-        if not args.server_url.startswith("http://127.0.0.1:") or not args.level_id or not args.level_id.isalnum():
-            parser.error("local server URL and fixture level ID required")
+        if (not args.server_url.startswith("http://127.0.0.1:") or not args.level_id or
+                not args.level_id.isalnum() or not args.version_id or not args.version_id.isdecimal()):
+            parser.error("local server URL, fixture level ID, and current numeric version ID required")
         url = args.server_url.rstrip("/")
     else:
         server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -251,7 +253,9 @@ def main():
                 probe = "ServerLevelDataProbe.gm"
                 script_dir = temp / "probe"
                 script_dir.mkdir()
-                source = (ROOT / "tests/networking" / probe).read_text().replace("__LEVEL_ID__", args.level_id)
+                source = ((ROOT / "tests/networking" / probe).read_text()
+                          .replace("__LEVEL_ID__", args.level_id)
+                          .replace("__VERSION_ID__", args.version_id))
                 (script_dir / probe).write_text(source)
             result = subprocess.run([str(temp / engine.name), str(script_dir), probe, "Main"],
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)

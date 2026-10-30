@@ -42,8 +42,8 @@ global Main = function(p) {
                 this.started = 1;
                 Audio.startPlayingScript();
                 Watermelon_Queued_Put(ServerQueuePut, null, 93, "/~level:__LEVEL_ID__");
-                Watermelon_GetSoundData(ServerSoundReply, null, 2, "__LEVEL_ID__", "probe");
-                Watermelon_GetLevelData(ServerLevelReply, null, 1, "__LEVEL_ID__", "probe");
+                Watermelon_GetSoundData(ServerSoundReply, null, 2, "__LEVEL_ID__", "__VERSION_ID__");
+                Watermelon_GetLevelData(ServerLevelReply, null, 1, "__LEVEL_ID__", "__VERSION_ID__");
             }
         }
     );
