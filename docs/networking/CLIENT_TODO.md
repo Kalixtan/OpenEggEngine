@@ -279,6 +279,9 @@ behavior.
       equivalents and keep Sony-only APIs explicitly unsupported where needed.
 - [ ] Implement and probe the applicable account, trophy, store, DLC, language,
       SNS, activity, and Near behavior.
+- [x] Match retail's base-0 DLC pack ID parsing in the desktop debug fallback,
+      including hexadecimal, octal, sign, and trailing-text cases. PSN
+      entitlement checks still require a platform provider.
 - [ ] Match online/offline state and error transitions exposed to scripts.
 - [x] Match the traced `Network_IsSignedIn` (`>2`) and `Network_IsOnline`
       (`>3`) tests. Retail initializes the shared state to 0, writes 4 on
