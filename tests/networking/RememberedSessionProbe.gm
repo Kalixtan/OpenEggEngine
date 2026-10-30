@@ -11,6 +11,11 @@ global Main = function(p) {
             if (this.ready == 0 && OpenEgg_Network_IsReplacementServerAuthenticated()) {
                 this.ready = 1;
                 GameSystem.trace("remembered identity ready PASS");
+                if (OnlineCoordinator_GetOnlineID() == "openegg_probe" &&
+                    Watermelon_GetUserIdentityId() != "" &&
+                    Watermelon_GetUserIdentityId() != OnlineCoordinator_GetOnlineID()) {
+                    GameSystem.trace("PSN ID maps to server account PASS");
+                }
             }
             if (this.rejected == 0 && OnlineCoordinator_GetLastError() == -12) {
                 this.rejected = 1;

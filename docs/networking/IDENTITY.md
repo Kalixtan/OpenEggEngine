@@ -20,6 +20,10 @@ PSN connection. Use these OpenEgg queries to tell the states apart:
   login and identity validation.
 - `OpenEgg_Network_IsPSNSignedIn()` is false; OpenEgg has no PSN provider.
 
+`OnlineCoordinator_GetOnlineID()` returns the configured PSN Online ID.
+`Watermelon_GetUserIdentityId()` returns the replacement server's internal user
+ID; scripts should use it for Watermelon request paths.
+
 Set `psn_online_id` and either `psn_ticket_hex` or `ticket_file` in
 `OpenEgg.ini`. The Online ID must start with a letter and contain 3–16 letters,
 digits, hyphens, or underscores. Treat the ticket as a secret. Remote ticket

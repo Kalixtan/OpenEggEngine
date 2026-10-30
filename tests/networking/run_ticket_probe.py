@@ -237,6 +237,7 @@ def main():
         if args.expect_session_saved:
             markers = ("network: ticket login succeeded",
                        "network: replacement-server session saved to OpenEgg.ini",
+                       "PSN ID maps to server account PASS",
                        "network: remembered server session validated",
                        "remembered identity ready PASS")
         elif args.expect_session_rejected:
@@ -245,7 +246,8 @@ def main():
         elif args.expect_session_recovered:
             markers = ("network: remembered session failed; trying configured ticket",
                        "network: replacement-server session saved to OpenEgg.ini",
-                       "network: ticket login succeeded", "remembered identity ready PASS")
+                       "network: ticket login succeeded", "remembered identity ready PASS",
+                       "PSN ID maps to server account PASS")
         elif args.expect_invalid_server_identity:
             markers = ("network: remembered session failed; trying configured ticket",
                        "network: server identity does not match psn_online_id",
@@ -284,6 +286,7 @@ def main():
                         "ticket request rejected PASS")
         else:
             markers += ("ticket platform ID PASS", "network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
+                        "PSN ID maps to server account PASS",
                         "ticket authenticated request PASS", "ticket coordinator logout PASS")
         missing = [marker for marker in markers if marker not in combined_output]
         failed_community = args.eula and ("network: featured request failed" in combined_output or

@@ -62,6 +62,13 @@ global Main = function(p) {
                     GameSystem.trace("ticket identity FAIL");
                     return;
                 }
+                if (OnlineCoordinator_GetOnlineID() == "openegg_probe" &&
+                    Watermelon_GetUserIdentityId() != "" &&
+                    Watermelon_GetUserIdentityId() != OnlineCoordinator_GetOnlineID()) {
+                    GameSystem.trace("PSN ID maps to server account PASS");
+                } else {
+                    GameSystem.trace("PSN ID maps to server account FAIL");
+                }
                 Watermelon_Index_Page(TicketLoginReply, null, 1, "type=level&search=all&count=1");
             }
         }
