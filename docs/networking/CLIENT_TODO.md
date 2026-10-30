@@ -40,8 +40,8 @@ behavior.
       description wrappers; headless fixtures check each request.
 - [x] Queue the panel's level, read it back, remove it, and confirm a later
       lookup reports it missing (`--expect-queue`).
-- [x] Like, read, unlike, and recheck the panel's level against the local
-      server (`--expect-heart`). Its separate rating-delete request gets 404.
+- [x] Like, read, and unlike a fixture level through the replacement server
+      (`--expect-heart`); this checks the server route, not retail route parity.
 - [x] Accept the patched scripts' six-argument activity call. The traced PS3
       platform helper does not post anything. The desktop also retains a
       two-argument fallback for older scripts; its retail behavior is unknown.
@@ -278,6 +278,9 @@ behavior.
       playback and image cache ownership with retail.
 - [ ] Implement remaining ratings, favourites, and hearts, including
       their retail routes and methods.
+- [ ] Resolve LevelHearts route mismatch: retail builds `/~level:<id>.<op>`,
+      OpenEgg uses `~identity:<user>/~like:...`, and `.delete` overlaps with
+      unpublish. The separate rating-delete request has no callback.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated
       server results. Record submission currently rejects unsupported values and
       oversized tables instead of reproducing the retail buffer edge cases.
