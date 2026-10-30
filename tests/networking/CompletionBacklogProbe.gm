@@ -1,5 +1,5 @@
-global OverflowReply = function(data, result, error) {
-    if (error != 0 || result == null) { GameSystem.trace("completion overflow callback FAIL"); }
+global BacklogReply = function(data, result, error) {
+    if (error != 0 || result == null) { GameSystem.trace("completion backlog callback FAIL"); }
     data.received += 1;
 };
 
@@ -12,16 +12,16 @@ global Main = function(p) {
                 this.started = 1;
                 local i = 0;
                 for (i=0; i<100; i+=1) {
-                    Watermelon_Index_Page(OverflowReply, this, 301, "type=level&overflow=1");
+                    Watermelon_Index_Page(BacklogReply, this, 301, "type=level&backlog=1");
                 }
-                GameSystem.trace("completion overflow queued");
+                GameSystem.trace("completion backlog queued");
             } else if (this.started == 1) {
                 this.ticks += 1;
                 if (this.ticks == 180) {
                     this.started = 2;
-                    GameSystem.trace("completion overflow callbacks " + this.received);
-                    if (this.received >= 32 && this.received < 100) { GameSystem.trace("completion overflow PASS"); }
-                    else { GameSystem.trace("completion overflow FAIL"); }
+                    GameSystem.trace("completion backlog callbacks " + this.received);
+                    if (this.received == 100) { GameSystem.trace("completion backlog PASS"); }
+                    else { GameSystem.trace("completion backlog FAIL"); }
                 }
             }
         });

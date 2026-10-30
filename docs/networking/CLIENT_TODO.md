@@ -130,8 +130,14 @@ behavior.
       worker completions, following the traced manager paths.
 - [x] Share the four-completion update budget across identity and global
       requests; exercise both queues in the headless budget probe.
-- [x] Limit each worker completion ring to 32 entries. The traced worker
-      ignores insertion failure; the overflow probe exercises that path.
+- [x] Limit each worker completion ring to 32 entries; traced worker ignores
+      insertion failure. Headless backlog probe checks paced callback delivery.
+- [ ] Reproduce a completion-ring overflow and its lost-request lifetime;
+      worker may outpace manager updates, which standard headless probes do not.
+- [x] Stage requests before worker admission. Retail `HttpManagerUpdate`
+      admits up to four per update; a full 32-entry ring calls back with no
+      HTTP status, which the retail thunk reports as error `1`. A headless
+      saturation probe checks asynchronous rejection and cached/global work.
 - [x] Follow the traced cache replacement order and zero-length first-entry
       eviction behavior; the latter has a local pool-pressure test.
 - [x] Match traced queue key construction: `get` builds a level key, while
@@ -236,7 +242,7 @@ behavior.
 - [ ] Compare cache enable flags, wildcard edges, capacity and pool eviction
       against retail. The default rule state is inferred from the PS3 trace.
 - [x] Bound identity and global worker queues to 32 pending requests each;
-      waiting admission follows the retail enqueue retry path.
+      stage new requests and admit up to four per update (see request-core item).
 - [ ] Verify request manager update ordering and shutdown draining against
       retail; identity and global image requests use separate desktop workers.
 - [ ] Verify the lifetime of requests whose completion ring insertion fails.

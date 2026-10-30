@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the fixed-size worker completion ring under a sustained backlog."""
+"""Check request admission and callback delivery under a backlog."""
 from http.server import ThreadingHTTPServer
 import os
 from pathlib import Path
@@ -15,9 +15,9 @@ from run_ticket_probe import ticket
 received = []
 
 
-class OverflowHandler(Handler):
+class BacklogHandler(Handler):
     def do_GET(self):
-        if self.path == "/otg/~index:level.page?type=level&overflow=1":
+        if self.path == "/otg/~index:level.page?type=level&backlog=1":
             received.append(self.path)
             self.reply(200, b'{"items":[]}')
         else:
@@ -25,12 +25,12 @@ class OverflowHandler(Handler):
 
 
 def main():
-    server = ThreadingHTTPServer(("127.0.0.1", 0), OverflowHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), BacklogHandler)
     server.daemon_threads = True
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        with tempfile.TemporaryDirectory(prefix="openegg-overflow-") as name:
+        with tempfile.TemporaryDirectory(prefix="openegg-backlog-") as name:
             temp = Path(name)
             engine = ROOT / "build/OpenEgg"
             shutil.copy2(engine, temp / engine.name)
@@ -47,12 +47,12 @@ def main():
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
             result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
-                                     "CompletionOverflowProbe.gm", "Main"], env=env, text=True,
+                                     "CompletionBacklogProbe.gm", "Main"], env=env, text=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            count = re.search(r"completion overflow callbacks (\d+)", result.stdout)
-            if result.returncode or len(received) != 100 or not count or not 32 <= int(count.group(1)) < 100 or "completion overflow PASS" not in result.stdout or "FAIL" in result.stdout:
-                raise SystemExit("completion overflow probe failed")
+            count = re.search(r"completion backlog callbacks (\d+)", result.stdout)
+            if result.returncode or len(received) != 100 or not count or int(count.group(1)) != 100 or "completion backlog PASS" not in result.stdout or "FAIL" in result.stdout:
+                raise SystemExit("completion backlog probe failed")
     finally:
         server.shutdown()
         server.server_close()
