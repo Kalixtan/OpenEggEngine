@@ -54,13 +54,15 @@ behavior.
       parent; verify its automatic daily request and tab switch (`--navigate`).
 - [x] Forward headless key events through a minimal parent to the retail PS3
       input handlers and select the greatest-hits tab (`--harness-input`).
-- [x] Start the full retail menu with a disposable save, connect to a local
-      fixture account, and verify that the community process attaches.
+- [x] Start the full retail menu with a disposable save and account on the
+      replacement server; verify login, hello, EULA, localized requests, and
+      community attachment headlessly.
 - [x] Dismiss first-run popups with headless key events and select greatest
-      hits through the full menu, receiving a response from the local server
+      hits through the full menu against a fixture server, receiving a response
       (`run_full_menu_probe.py --input`). Tutorial and EULA are bypassed in
       the disposable test save.
-- [ ] Exercise the full menu process with controller input and compare rendered output.
+- [ ] Finish controller navigation against the replacement server. Login and
+      community attachment pass, but this run missed the tab-selection marker.
 - [ ] Test other tab callbacks and panels with populated server responses.
 - [x] Accept extra asset-download arguments, including the seventh argument
       used by patched scripts; the retail wrapper ignores them.
