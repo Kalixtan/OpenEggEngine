@@ -299,7 +299,12 @@ behavior.
       records; check dirty flags, leaderboard page and current-user near
       readback (`run_offline_record_probe.py`).
 - [ ] Verify cloud-save edge cases and multipart behavior against retail.
-- [ ] Implement friend, identity, EULA, and online coordinator flows.
+- [x] Implement desktop friend, identity, EULA, and online coordinator flows;
+      cover login, EULA, friend requests, manual sessions, and offline/online
+      transitions with headless probes.
+- [ ] Compare those desktop flows with retail PS3 ticket, identity, EULA, and
+      platform-state behavior; local replacement-server fixtures do not prove
+      retail parity.
 - [ ] Review every currently offline request binding against the tracked
       `Watermelon` and `Network` symbol entries in
       `src/core/retail_symbols.inc` and its corresponding PS3 trace.
