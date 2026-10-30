@@ -376,6 +376,9 @@ behavior.
 - [x] Run `run_live_server_ticket_probe.py --publish` against a fresh server
       for level create, featured metadata, description/readback, snapshot,
       update and cleanup.
+- [x] Run `run_live_server_ticket_probe.py --cloud-sync` against the seeded
+      account; the retail cloud-save flow reads, merges and writes progress
+      through the live server.
 - [ ] Establish a reproducible authenticated test account and session for the
       local replacement server.
 - [ ] Capture comparable request/response logs from retail and OpenEgg for each

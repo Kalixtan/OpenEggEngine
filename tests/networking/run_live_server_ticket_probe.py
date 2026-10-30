@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise OpenEgg login; --community and --publish add live server checks."""
+"""Exercise OpenEgg login and selected live server workflows."""
 
 import argparse
 import json
@@ -24,6 +24,8 @@ def main():
                         help="seed a disposable community and run the retail menu probe")
     parser.add_argument("--publish", action="store_true",
                         help="publish, update and remove a synthetic level on the server")
+    parser.add_argument("--cloud-sync", action="store_true",
+                        help="merge local save data with the disposable server account")
     args = parser.parse_args()
     engine = ROOT / "build" / "OpenEgg"
     if not engine.is_file():
@@ -53,7 +55,7 @@ def main():
         state_dir.mkdir()
         server_env = os.environ.copy()
         server_env["BUNKUM_DATA_FOLDER"] = str(state_dir)
-        if args.community:
+        if args.community or args.cloud_sync:
             fixture_project = (ROOT / "networking" / "SoundShapesServer" / "tools" /
                                "OpenEggCommunityFixture" / "OpenEggCommunityFixture.csproj")
             fixture_dir = temp / "fixture"
@@ -191,9 +193,22 @@ def main():
                 if publish_level.returncode:
                     raise SystemExit("live level publish probe failed")
 
+            if args.cloud_sync:
+                cloud = subprocess.run(
+                    [sys.executable, str(ROOT / "tests" / "networking" / "run_cloud_sync_probe.py"),
+                     "--server-url", f"http://127.0.0.1:{port}", "--case", "initial"],
+                    cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    timeout=120, check=False,
+                )
+                print(cloud.stdout, end="")
+                if cloud.returncode:
+                    raise SystemExit("live cloud-save probe failed")
+
             suffix = " and community browse" if args.community else " and community session"
             if args.publish:
                 suffix += " and level publish"
+            if args.cloud_sync:
+                suffix += " and cloud sync"
             print(f"live local ticket login{suffix} PASS (unsigned ticket, short session)")
         finally:
             server.terminate()
