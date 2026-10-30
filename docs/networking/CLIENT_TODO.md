@@ -242,8 +242,9 @@ behavior.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;
       normal separator and bounded multibyte cases follow the static trace.
 - [ ] Compare `Watermelon_UrlEncode`'s native escape table and too-small-buffer
-      result. Ghidra traces a 512-byte buffer through `cellHttpUtilEscapeUri`;
-      desktop uses a byte-wise allow-list.
+      result. Ghidra shows a zeroed 512-byte buffer passed through an adapter
+      to `cellHttpUtilEscapeUri`; its output length sizes the returned string.
+      The system-library escape and failure behavior remain unknown.
 - [ ] Add native-comparison probes for request ordering and callback timing.
 
 ## Watermelon APIs
