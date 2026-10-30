@@ -36,6 +36,9 @@ struct SystemConfig {
     std::string networkSessionId;
     // Optional identity ID paired with a manually supplied session ID.
     std::string networkUserId;
+    // Server-issued session remembered after ticket login.
+    std::string networkSavedSessionId;
+    std::string networkSavedUserId;
     // PSN Online ID used to bind server login to the same visible identity.
     std::string networkPsnOnlineId;
     // Optional binary ticket, either inline hex or in a separate file.
@@ -49,6 +52,7 @@ struct SystemConfig {
     // Reads optional settings from OpenEgg.ini beside the executable.
     // Missing or invalid values leave the retail-compatible defaults above.
     bool LoadFromIni(const std::string& path);
+    bool SaveReplacementSession(const std::string& sessionId, const std::string& userId);
 
     const char* OsIdName() const;
 
@@ -72,4 +76,7 @@ struct SystemConfig {
         static SystemConfig instance;
         return instance;
     }
+
+private:
+    std::string m_iniPath;
 };

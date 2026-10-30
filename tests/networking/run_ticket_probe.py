@@ -42,6 +42,10 @@ def main():
     parser.add_argument("--expect-hello-failure", action="store_true", help="Check a failed hello response")
     parser.add_argument("--expect-auth-rejection", action="store_true",
                         help="Check that the server rejects the unsigned fixture ticket")
+    parser.add_argument("--expect-session-saved", action="store_true",
+                        help="Check ticket login persistence and reuse on the next launch")
+    parser.add_argument("--expect-session-rejected", action="store_true",
+                        help="Check that a rejected saved session is removed from the INI")
     parser.add_argument("--insecure-transport", action="store_true",
                         help="Reject ticket login over remote plaintext HTTP")
     parser.add_argument("--eula", action="store_true", help="Check EULA retrieval from the local server")
@@ -65,7 +69,9 @@ def main():
         config = "[network]\nserver_url = " + args.server_url.rstrip("/") + "\n"
         expected_id = "different_id" if args.identity_mismatch else "openegg_probe"
         config += "psn_online_id = " + expected_id + "\n"
-        if args.ticket_in_ini:
+        if args.expect_session_rejected:
+            config += "server_session_id = expired-session\nserver_user_id = remembered-user-id\n"
+        elif args.ticket_in_ini:
             config += "psn_ticket_hex = " + ticket_data.hex() + "\n"
         else:
             (temp / "ticket.bin").write_bytes(ticket_data)
@@ -77,16 +83,47 @@ def main():
         env = os.environ.copy()
         env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt",
                    GE3_HARNESS=str(harness), SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-        probe = "ServerEulaProbe.gm" if args.eula else "TicketLoginProbe.gm"
-        result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
-                                 probe, "Main"], cwd=ROOT, env=env,
+        probe = ("RememberedSessionProbe.gm" if args.expect_session_saved or args.expect_session_rejected else
+                 "ServerEulaProbe.gm" if args.eula else "TicketLoginProbe.gm")
+        command = [str(temp / engine.name), str(ROOT / "tests/networking"), probe, "Main"]
+        result = subprocess.run(command, cwd=ROOT, env=env,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
-        print(result.stdout, end="")
+        combined_output = result.stdout
+        second_result = None
+        if args.expect_session_saved:
+            saved_config = (temp / "OpenEgg.ini").read_text()
+            for setting, expected in (("server_session_id", "remembered-session"),
+                                      ("server_user_id", "remembered-user-id")):
+                if f"{setting} = {expected}" not in saved_config:
+                    raise SystemExit(f"ticket probe failed; {setting} was not saved")
+            if os.name != "nt" and (temp / "OpenEgg.ini").stat().st_mode & 0o777 != 0o600:
+                raise SystemExit("ticket probe failed; saved session file is not private")
+            config_lines = [line for line in saved_config.splitlines()
+                            if not line.lstrip().startswith(("ticket_file =", "psn_ticket_hex ="))]
+            (temp / "OpenEgg.ini").write_text("\n".join(config_lines) + "\n")
+            (temp / "ticket.bin").unlink(missing_ok=True)
+            second_result = subprocess.run(command, cwd=ROOT, env=env,
+                                           text=True, stdout=subprocess.PIPE,
+                                           stderr=subprocess.STDOUT, timeout=30)
+            combined_output += second_result.stdout
+        elif args.expect_session_rejected:
+            result_config = (temp / "OpenEgg.ini").read_text()
+            if "server_session_id =" in result_config or "server_user_id =" in result_config:
+                raise SystemExit("ticket probe failed; rejected session remained in OpenEgg.ini")
+        print(combined_output, end="")
         markers = ("ticket coordinator offline PASS", "ticket coordinator cancel PASS",
                    "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
         if not args.identity_mismatch and not args.invalid_ticket and not args.insecure_transport and not args.expect_auth_rejection:
             markers += ("ticket coordinator connecting PASS",)
-        if args.eula:
+        if args.expect_session_saved:
+            markers = ("network: ticket login succeeded",
+                       "network: replacement-server session saved to OpenEgg.ini",
+                       "network: remembered server session validated",
+                       "remembered identity ready PASS")
+        elif args.expect_session_rejected:
+            markers = ("network: remembered server session validation failed (HTTP 403)",
+                       "remembered identity rejected PASS")
+        elif args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
                        "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS",
                        "network: initial community data requests complete", "server coordinator online PASS",
@@ -110,15 +147,17 @@ def main():
         else:
             markers += ("ticket platform ID PASS", "network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
                         "ticket authenticated request PASS", "ticket coordinator logout PASS")
-        missing = [marker for marker in markers if marker not in result.stdout]
-        failed_community = args.eula and ("network: featured request failed" in result.stdout or
-                                          "network: news request failed" in result.stdout)
-        if result.returncode or missing or failed_community or (args.invalid_ticket and "ticket identity PASS" in result.stdout):
+        missing = [marker for marker in markers if marker not in combined_output]
+        failed_community = args.eula and ("network: featured request failed" in combined_output or
+                                          "network: news request failed" in combined_output)
+        if result.returncode or (second_result and second_result.returncode) or missing or failed_community or (args.invalid_ticket and "ticket identity PASS" in combined_output):
             raise SystemExit(f"ticket probe failed; missing markers: {missing}")
-        if args.expect_auth_rejection and ("network: ticket login succeeded" in result.stdout or
-                                           "ticket identity PASS" in result.stdout):
+        if args.expect_session_saved and "network: ticket login succeeded" in second_result.stdout:
+            raise SystemExit("ticket probe failed; second launch repeated ticket login")
+        if args.expect_auth_rejection and ("network: ticket login succeeded" in combined_output or
+                                           "ticket identity PASS" in combined_output):
             raise SystemExit("ticket rejection probe failed; unauthorized session was accepted")
-        if args.expect_auth_rejection and not any(marker in result.stdout for marker in (
+        if args.expect_auth_rejection and not any(marker in combined_output for marker in (
                 "network: replacement server rejected this PSN ticket",
                 "network: ticket login failed (HTTP 403)")):
             raise SystemExit("ticket rejection probe failed; expected authorization rejection was not reported")

@@ -19,3 +19,8 @@ remote servers; plain HTTP is allowed only on loopback for development. A
 server configured to accept unsigned tickets cannot verify account ownership;
 use that setting only with a disposable local test server. The manual
 `session_id` and `user_id` test bypass is accepted only for loopback servers.
+
+After a verified login, OpenEgg stores the replacement-server session and
+server user ID in the INI. It validates the session against the Online ID and
+renews it for one year on use. This lets later runs connect without a PSN
+ticket. Keep the INI private; the saved session is a bearer credential.

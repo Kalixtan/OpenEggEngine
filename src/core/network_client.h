@@ -84,6 +84,7 @@ private:
         bool sendSession = true;
         std::string cacheKey;
         bool rawResponse = false;
+        bool validateSavedSession = false;
     };
     struct Completion {
         int id = 0;
@@ -118,7 +119,9 @@ private:
               const gmVariable& a_callbackData, const gmVariable& a_tag,
               int a_bucket, int a_callbackMode, bool a_post = false,
               const std::string& a_body = {}, const std::string& a_contentType = {},
-              const std::string& a_resourceKey = {}, bool a_sendSession = true);
+              const std::string& a_resourceKey = {}, bool a_sendSession = true,
+              bool a_validateSavedSession = false);
+    int QueueSavedSessionValidation();
     bool BeginTicketLogin(const std::string& a_ticket);
 
     gmMachine& m_machine;
@@ -126,6 +129,8 @@ private:
     std::string m_baseUrl;
     std::string m_sessionId;
     std::string m_userId;
+    std::string m_savedSessionId;
+    std::string m_savedUserId;
     std::mutex m_mutex;
     std::condition_variable m_wake;
     std::deque<Request> m_identityRequests;
@@ -151,6 +156,7 @@ private:
     int m_nextAssetBundleId = 1;
     int m_loginRequestId = 0;
     int m_manualValidationRequestId = 0;
+    int m_savedValidationRequestId = 0;
     int m_helloRequestId = 0;
     int m_eulaRequestId = 0;
     int m_friendsFetchRequestId = 0;

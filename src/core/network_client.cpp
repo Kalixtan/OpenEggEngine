@@ -343,6 +343,8 @@ NetworkClient::NetworkClient(gmMachine& a_machine, std::string a_baseUrl,
                              std::string a_sessionId, std::string a_userId)
     : m_machine(a_machine), m_baseUrl(std::move(a_baseUrl)),
       m_sessionId(std::move(a_sessionId)), m_userId(std::move(a_userId)),
+      m_savedSessionId(SystemConfig::Get().networkSavedSessionId),
+      m_savedUserId(SystemConfig::Get().networkSavedUserId),
       m_manualSessionId(m_sessionId), m_manualUserId(m_userId) {
     while (!m_baseUrl.empty() && m_baseUrl.back() == '/') m_baseUrl.pop_back();
     m_roots = m_machine.AllocTableObject();
@@ -449,6 +451,8 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
         m_sessionId.clear();
     }
     m_userId.clear();
+    m_identityReady = false;
+    m_desktopPlatformOnline = false;
     m_loginRequestId = QueueRetailPost("/identity/login/token/psn", a_ticket,
         "application/octet-stream", gmVariable::s_null, gmVariable::s_null,
         gmVariable::s_null, 0, 0);
@@ -484,7 +488,26 @@ void NetworkClient::GoOnline() {
     m_managerAttached = true;
     m_chatPermissions = SystemConfig::Get().networkCommunityAllowed;
     m_coordinatorError = 0;
-    if (!m_platformTicket.empty()) {
+    if (!m_savedSessionId.empty() && !m_savedUserId.empty() &&
+        !SystemConfig::Get().networkPsnOnlineId.empty()) {
+        if (!AllowsTicketTransport(m_baseUrl)) {
+            m_coordinatorError = -12;
+            std::fprintf(stderr, "network: saved server sessions require HTTPS for remote servers\n");
+            return;
+        }
+        m_platformOnlineId = SystemConfig::Get().networkPsnOnlineId;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            for (auto& entry : m_pending)
+                if (entry.second.identity) entry.second.purged = true;
+            m_sessionId = m_savedSessionId;
+        }
+        m_userId = m_savedUserId;
+        m_identityReady = false;
+        m_savedValidationRequestId = QueueSavedSessionValidation();
+        if (m_savedValidationRequestId) m_coordinatorState = 18;
+        else m_coordinatorError = -12;
+    } else if (!m_platformTicket.empty()) {
         if (BeginTicketLogin(m_platformTicket)) m_coordinatorState = 18;
         else m_coordinatorError = -12;
     } else if (m_platformTicket.empty() && !m_manualSessionId.empty() && !m_manualUserId.empty()) {
@@ -538,6 +561,7 @@ void NetworkClient::GoOffline() {
     }
     m_loginRequestId = 0;
     m_manualValidationRequestId = 0;
+    m_savedValidationRequestId = 0;
     m_helloRequestId = 0;
     m_eulaRequestId = 0;
     m_friendsFetchRequestId = 0;
@@ -556,7 +580,8 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
                          const gmVariable& a_callbackData, const gmVariable& a_tag,
                          int a_bucket, int a_callbackMode, bool a_post,
                          const std::string& a_body, const std::string& a_contentType,
-                         const std::string& a_resourceKey, bool a_sendSession) {
+                         const std::string& a_resourceKey, bool a_sendSession,
+                         bool a_validateSavedSession) {
     const bool absolute = a_callbackMode == 4 &&
         (a_path.rfind("http://", 0) == 0 || a_path.rfind("https://", 0) == 0);
     if (m_baseUrl.empty() || !(a_sendSession ? m_worker.joinable() : m_globalWorker.joinable()) || a_path.empty() ||
@@ -597,10 +622,18 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
                                      cacheKey, a_sendSession, true});
     } else {
         requests.push_back({id, absolute ? a_path : m_baseUrl + a_path, a_body, a_contentType,
-                            a_post, bucket, false, a_sendSession, cacheKey, a_callbackMode < 0});
+                            a_post, bucket, false, a_sendSession, cacheKey, a_callbackMode < 0,
+                            a_validateSavedSession});
         m_wake.notify_all();
     }
     return id;
+}
+
+int NetworkClient::QueueSavedSessionValidation() {
+    const std::string path = "/otg/~identity:*.hello?identity=" + m_savedUserId +
+        "&online_id=" + SystemConfig::Get().networkPsnOnlineId;
+    return Queue(path, gmVariable::s_null, gmVariable::s_null, gmVariable::s_null,
+                 0, 0, false, {}, {}, {}, true, true);
 }
 
 void NetworkClient::Purge(int a_bucket) {
@@ -754,6 +787,44 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, "network: configured session validation failed (HTTP %ld)\n", completion.status);
             }
         }
+        if (completion.id == m_savedValidationRequestId) {
+            m_savedValidationRequestId = 0;
+            if (completion.status == 200 || completion.status == 201) {
+                m_identityReady = true;
+                m_desktopPlatformOnline = true;
+                std::fprintf(stderr, "network: remembered server session validated\n");
+                m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
+                    gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+                if (m_helloRequestId) m_coordinatorState = 20;
+                else m_coordinatorError = -12;
+            } else {
+                {
+                    std::lock_guard<std::mutex> lock(m_mutex);
+                    m_sessionId.clear();
+                }
+                m_userId.clear();
+                m_identityReady = false;
+                m_desktopPlatformOnline = false;
+                if (completion.status == 401 || completion.status == 403) {
+                    SystemConfig::Get().SaveReplacementSession({}, {});
+                    m_savedSessionId.clear();
+                    m_savedUserId.clear();
+                }
+                if (!m_platformTicket.empty()) {
+                    if (BeginTicketLogin(m_platformTicket)) {
+                        m_coordinatorState = 18;
+                        std::fprintf(stderr, "network: remembered session failed; trying configured ticket\n");
+                    } else {
+                        m_coordinatorError = -12;
+                    }
+                } else {
+                    m_coordinatorError = -12;
+                    m_coordinatorState = 4;
+                    std::fprintf(stderr, "network: remembered server session validation failed (HTTP %ld)\n",
+                                 completion.status);
+                }
+            }
+        }
         if (completion.id == m_loginRequestId) {
             m_loginRequestId = 0;
             rapidjson::Document response;
@@ -770,6 +841,9 @@ void NetworkClient::PumpCallbacks() {
                 m_desktopPlatformOnline = false;
                 m_coordinatorError = -12;
                 m_coordinatorState = 4;
+                SystemConfig::Get().SaveReplacementSession({}, {});
+                m_savedSessionId.clear();
+                m_savedUserId.clear();
                 std::fprintf(stderr, "network: replacement server rejected this PSN ticket\n");
                 continue;
             }
@@ -802,6 +876,17 @@ void NetworkClient::PumpCallbacks() {
                         }
                         m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
                         if (hasDisplayName) m_platformOnlineId = displayName;
+                        if (response.HasMember("openegg_remembered_session") &&
+                            response["openegg_remembered_session"].IsBool() &&
+                            response["openegg_remembered_session"].GetBool()) {
+                            if (SystemConfig::Get().SaveReplacementSession(m_sessionId, m_userId)) {
+                                m_savedSessionId = m_sessionId;
+                                m_savedUserId = m_userId;
+                                std::fprintf(stderr, "network: replacement-server session saved to OpenEgg.ini\n");
+                            } else {
+                                std::fprintf(stderr, "network: could not save replacement-server session to OpenEgg.ini\n");
+                            }
+                        }
                         m_identityReady = true;
                         m_desktopPlatformOnline = true;
                         std::fprintf(stderr, "network: ticket login succeeded\n");
@@ -1165,6 +1250,12 @@ void NetworkClient::WorkerMain(bool a_identity) {
             if (!request.contentType.empty()) {
                 const std::string contentType = "Content-Type: " + request.contentType;
                 headers = curl_slist_append(headers, contentType.c_str());
+            }
+            if (request.validateSavedSession) {
+                headers = curl_slist_append(headers, "X-OpenEgg-Validate-Session: 1");
+            }
+            if (request.post && request.url.find("/identity/login/token/psn") != std::string::npos) {
+                headers = curl_slist_append(headers, "X-OpenEgg-Remember-Session: 1");
             }
             if (request.sendSession && !sessionId.empty()) {
                 const std::string cookie = "X-OTG-Identity-SessionId: " + sessionId;

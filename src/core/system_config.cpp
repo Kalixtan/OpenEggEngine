@@ -5,7 +5,13 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
+#include <system_error>
+#if defined(_WIN32)
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -113,6 +119,7 @@ const char* SystemConfig::OsIdName() const {
 }
 
 bool SystemConfig::LoadFromIni(const std::string& path) {
+    m_iniPath = path;
     std::ifstream input(std::filesystem::u8path(path));
     if (!input) return false;
 
@@ -178,6 +185,12 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (key == "network_user_id" || (section == "network" && key == "user_id")) {
             networkUserId = value;
             valid = true;
+        } else if (section == "network" && key == "server_session_id") {
+            networkSavedSessionId = value;
+            valid = !value.empty();
+        } else if (section == "network" && key == "server_user_id") {
+            networkSavedUserId = value;
+            valid = !value.empty();
         } else if (section == "network" && key == "ticket_file") {
             networkTicketFile = value;
             valid = true;
@@ -203,5 +216,73 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
                          key.c_str(), lineNumber, path.c_str());
         }
     }
+    return true;
+}
+
+bool SystemConfig::SaveReplacementSession(const std::string& sessionId, const std::string& userId) {
+    const bool clearing = sessionId.empty() && userId.empty();
+    if (m_iniPath.empty() || sessionId.empty() != userId.empty() ||
+        sessionId.find_first_of("\r\n") != std::string::npos ||
+        userId.find_first_of("\r\n") != std::string::npos)
+        return false;
+
+    const std::filesystem::path path = std::filesystem::u8path(m_iniPath);
+    std::filesystem::path temporary = path;
+    temporary += ".tmp";
+    std::ifstream input(path, std::ios::binary);
+    std::ostringstream retained;
+    std::string line;
+    std::string section;
+    while (std::getline(input, line)) {
+        std::string content = Trim(line);
+        if (!content.empty() && (content.front() == ';' || content.front() == '#')) {
+            retained << line << '\n';
+            continue;
+        }
+        if (content.size() >= 2 && content.front() == '[' && content.back() == ']') {
+            section = Lower(Trim(content.substr(1, content.size() - 2)));
+            retained << line << '\n';
+            continue;
+        }
+        if (section == "network") {
+            const size_t comment = content.find_first_of(";#");
+            if (comment != std::string::npos) content = Trim(content.substr(0, comment));
+            const size_t equals = content.find('=');
+            if (equals != std::string::npos) {
+                const std::string key = Lower(Trim(content.substr(0, equals)));
+                if (key == "server_session_id" || key == "server_user_id") continue;
+            }
+        }
+        retained << line << '\n';
+    }
+    if (input.bad()) return false;
+
+    std::string output = retained.str();
+    if (!clearing) {
+        if (output.empty() || output.back() != '\n') output.push_back('\n');
+        output += "\n[network]\nserver_session_id = " + sessionId +
+            "\nserver_user_id = " + userId + "\n";
+    }
+
+    {
+        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
+        if (!file || !file.write(output.data(), static_cast<std::streamsize>(output.size())) || !file.flush())
+            return false;
+    }
+
+    std::error_code error;
+    std::filesystem::permissions(temporary,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+        std::filesystem::perm_options::replace, error);
+#if defined(_WIN32)
+    if (!MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        return false;
+#else
+    if (error) return false;
+    std::filesystem::rename(temporary, path, error);
+    if (error) return false;
+#endif
+    networkSavedSessionId = clearing ? std::string() : sessionId;
+    networkSavedUserId = clearing ? std::string() : userId;
     return true;
 }

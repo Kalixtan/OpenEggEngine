@@ -49,6 +49,12 @@ psn_ticket_hex =
 ; using psn_ticket_hex.
 ticket_file =
 
+; Managed by OpenEgg after verified ticket login. This replacement-server
+; session is refreshed on use so later launches do not need to contact PSN.
+; Treat this file like a password because the session is a bearer credential.
+server_session_id =
+server_user_id =
+
 ; Optional manual session for loopback testing only. OpenEgg rejects these
 ; values for remote servers. Normal login uses the ticket above. Treat the
 ; session ID as a password and keep OpenEgg.ini private.

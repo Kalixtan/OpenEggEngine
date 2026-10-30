@@ -1,0 +1,21 @@
+global Main = function(p) {
+    return table(
+        Process = p,
+        ready = 0,
+        rejected = 0,
+        init = function() { return true; },
+        constructor = function() {
+            OnlineCoordinator_GoOnline();
+        },
+        update = function() {
+            if (this.ready == 0 && OpenEgg_Network_IsReplacementServerAuthenticated()) {
+                this.ready = 1;
+                GameSystem.trace("remembered identity ready PASS");
+            }
+            if (this.rejected == 0 && OnlineCoordinator_GetLastError() == -12) {
+                this.rejected = 1;
+                GameSystem.trace("remembered identity rejected PASS");
+            }
+        }
+    );
+};
