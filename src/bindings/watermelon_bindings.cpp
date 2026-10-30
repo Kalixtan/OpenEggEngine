@@ -54,15 +54,21 @@ std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200
     char buffer[0x200];
     if (a_capacity > sizeof(buffer)) a_capacity = sizeof(buffer);
     size_t out = 0;
-    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(a_text.c_str());
-         *p && out + 4 < a_capacity; ++p) {
+    constexpr char hex[] = "0123456789ABCDEF";
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(a_text.c_str()); *p; ++p) {
         const unsigned char c = *p;
-        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+        const bool unreserved = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                                (c >= '0' && c <= '9') || c == '-' || c == '_' ||
+                                c == '.' || c == '~';
+        const size_t encodedSize = unreserved ? 1 : 3;
+        // cellHttpUtilEscapeUri receives the full output size, including its NUL.
+        if (out + encodedSize + 1 > a_capacity) break;
+        if (unreserved) {
             buffer[out++] = static_cast<char>(c);
         } else {
-            out += static_cast<size_t>(std::snprintf(buffer + out, sizeof(buffer) - out,
-                                                     "%%%02X", c));
+            buffer[out++] = '%';
+            buffer[out++] = hex[c >> 4];
+            buffer[out++] = hex[c & 0x0f];
         }
     }
     buffer[out] = '\0';

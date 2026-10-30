@@ -1,0 +1,41 @@
+global Main = function(p) {
+    return table(Process=p,
+        init=function() { return true; },
+        constructor=function() {
+            local input = "";
+            local i = 0;
+            while (i < 511) { input += "a"; i += 1; }
+
+            local encoded = Watermelon_UrlEncode(input);
+            if (STRINGHELPER_GetLength(encoded) == 511 &&
+                STRINGHELPER_GetChar(510, encoded) == "a") {
+                GameSystem.trace("url encode 511-byte buffer PASS");
+            } else {
+                GameSystem.trace("url encode 511-byte buffer FAIL");
+            }
+
+            input += "a";
+            encoded = Watermelon_UrlEncode(input);
+            if (STRINGHELPER_GetLength(encoded) == 511 &&
+                STRINGHELPER_GetChar(510, encoded) == "a") {
+                GameSystem.trace("url encode overflow prefix PASS");
+            } else {
+                GameSystem.trace("url encode overflow prefix FAIL");
+            }
+
+            encoded = Watermelon_UrlEncode("/");
+            if (encoded == "%2F") {
+                GameSystem.trace("url encode path separator PASS");
+            } else {
+                GameSystem.trace("url encode path separator FAIL");
+            }
+
+            encoded = Watermelon_UrlEncode("");
+            if (STRINGHELPER_GetLength(encoded) == 0) {
+                GameSystem.trace("url encode empty input PASS");
+            } else {
+                GameSystem.trace("url encode empty input FAIL");
+            }
+        },
+        update=function() {});
+};

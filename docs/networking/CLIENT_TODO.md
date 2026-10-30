@@ -241,6 +241,9 @@ behavior.
       OpenEgg retains values parsed before an error, but has no retail capture.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;
       normal separator and bounded multibyte cases follow the static trace.
+- [ ] Compare `Watermelon_UrlEncode`'s native escape table and too-small-buffer
+      result. Ghidra traces a 512-byte buffer through `cellHttpUtilEscapeUri`;
+      desktop uses a byte-wise allow-list.
 - [ ] Add native-comparison probes for request ordering and callback timing.
 
 ## Watermelon APIs
