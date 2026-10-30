@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <cmath>
@@ -117,6 +118,30 @@ std::string TicketOnlineId(const std::string& ticket, std::string& country) {
         pos += length;
     }
     return {};
+}
+
+bool AllowsTicketTransport(const std::string& url) {
+    std::string normalized = url;
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    if (normalized.rfind("https://", 0) == 0) return true;
+    if (normalized.rfind("http://", 0) != 0) return false;
+
+    const size_t start = 7;
+    const size_t end = normalized.find_first_of("/?#", start);
+    const std::string authority = normalized.substr(start,
+        end == std::string::npos ? std::string::npos : end - start);
+    if (authority.empty() || authority.find('@') != std::string::npos) return false;
+
+    const auto isHost = [&authority](const std::string& host) {
+        if (authority == host) return true;
+        if (authority.size() <= host.size() || authority.compare(0, host.size(), host) != 0 ||
+            authority[host.size()] != ':') return false;
+        return std::all_of(authority.begin() + static_cast<std::ptrdiff_t>(host.size() + 1),
+            authority.end(), [](unsigned char c) { return std::isdigit(c) != 0; });
+    };
+    return isHost("localhost") || isHost("127.0.0.1") || isHost("[::1]");
 }
 
 class PartialJsonHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, PartialJsonHandler> {
@@ -406,6 +431,10 @@ bool NetworkClient::QueueAssetBundle(const std::string& level, const std::string
 
 bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     if (a_ticket.empty() || m_loginRequestId != 0) return false;
+    if (!AllowsTicketTransport(m_baseUrl)) {
+        std::fprintf(stderr, "network: ticket login requires HTTPS for remote servers\n");
+        return false;
+    }
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         for (auto& entry : m_pending)
@@ -448,8 +477,9 @@ void NetworkClient::GoOnline() {
     m_managerAttached = true;
     m_chatPermissions = SystemConfig::Get().networkCommunityAllowed;
     m_coordinatorError = 0;
-    if (!m_platformTicket.empty() && BeginTicketLogin(m_platformTicket)) {
-        m_coordinatorState = 18;
+    if (!m_platformTicket.empty()) {
+        if (BeginTicketLogin(m_platformTicket)) m_coordinatorState = 18;
+        else m_coordinatorError = -12;
     } else if (m_platformTicket.empty() && !m_manualSessionId.empty() && !m_manualUserId.empty()) {
         {
             std::lock_guard<std::mutex> lock(m_mutex);

@@ -157,7 +157,10 @@ behavior.
       an Online ID mismatch before making a server request.
 - [x] Authenticated index request from OpenEgg using a locally seeded test session.
 - [x] Ticket-file or inline-hex exchange and authenticated request against a
-      local replacement server configured to accept unsigned tickets.
+      local replacement server configured to accept unsigned tickets. A live
+      local server probe also checks hello, EULA, friends and coordinator startup.
+- [x] Require HTTPS when sending a ticket to a remote server; allow plain HTTP
+      only for localhost and loopback development endpoints.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       an in-flight response can retain its HTTP status, as in the PS3 trace.
 - [x] Compare raw bucket payloads for purge, including float and string values.

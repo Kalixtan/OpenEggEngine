@@ -40,10 +40,15 @@ def main():
     parser.add_argument("--ticket-in-ini", action="store_true", help="Store the ticket as inline INI hex")
     parser.add_argument("--identity-mismatch", action="store_true", help="Reject a ticket for a different Online ID")
     parser.add_argument("--expect-hello-failure", action="store_true", help="Check a failed hello response")
+    parser.add_argument("--insecure-transport", action="store_true",
+                        help="Reject ticket login over remote plaintext HTTP")
     parser.add_argument("--eula", action="store_true", help="Check EULA retrieval from the local server")
     parser.add_argument("--community-disabled", action="store_true", help="Disable desktop community permissions")
     args = parser.parse_args()
-    if not args.server_url.startswith("http://127.0.0.1:"):
+    if args.insecure_transport:
+        if not args.server_url.startswith("http://openegg-probe.invalid"):
+            parser.error("insecure transport probe must use the reserved .invalid hostname")
+    elif not args.server_url.startswith("http://127.0.0.1:"):
         parser.error("fixture must use a local 127.0.0.1 server")
     with tempfile.TemporaryDirectory(prefix="openegg-ticket-") as name:
         temp = Path(name)
@@ -77,7 +82,7 @@ def main():
         print(result.stdout, end="")
         markers = ("ticket coordinator offline PASS", "ticket coordinator cancel PASS",
                    "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
-        if not args.identity_mismatch and not args.invalid_ticket:
+        if not args.identity_mismatch and not args.invalid_ticket and not args.insecure_transport:
             markers += ("ticket coordinator connecting PASS",)
         if args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
@@ -89,6 +94,11 @@ def main():
         elif args.invalid_ticket:
             markers += ("network: ticket Online ID does not match psn_online_id",
                         "ticket coordinator error PASS", "ticket platform ID unavailable PASS")
+        elif args.insecure_transport:
+            markers += ("network: ticket login requires HTTPS for remote servers",
+                        "ticket coordinator error PASS")
+            if "network: ticket login succeeded" in result.stdout:
+                raise SystemExit("ticket transport probe failed; insecure login reached server")
         elif args.expect_hello_failure:
             markers += ("network: ticket login succeeded", "network: identity hello failed (HTTP 503)",
                         "ticket coordinator error PASS", "ticket request rejected PASS")

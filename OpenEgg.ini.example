@@ -26,7 +26,8 @@ letterbox = true
 
 [network]
 ; Replacement server root, for example http://127.0.0.1:10061.
-; Leave blank to disable requests.
+; Remote servers require HTTPS for ticket login. Plain HTTP is allowed only
+; for loopback development servers. Leave blank to disable requests.
 server_url =
 
 ; Base URL for relative community image keys. Retail uses Amazon S3.
