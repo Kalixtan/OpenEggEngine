@@ -280,10 +280,10 @@ behavior.
 - [ ] Implement and probe the applicable account, trophy, store, DLC, language,
       SNS, activity, and Near behavior.
 - [ ] Match online/offline state and error transitions exposed to scripts.
-- [ ] Separate `Network_IsSignedIn` and `Network_IsOnline`. Retail tests the same
-      `DAT_00f6858c` value against different thresholds (>2 and >3); the desktop
-      currently maps both functions to one boolean. Trace the state transitions
-      before replacing that fallback.
+- [ ] Separate `Network_IsSignedIn` and `Network_IsOnline`. Ghidra shows the
+      shared state starts at 0 (`FUN_00177274`), then `FUN_00176800` sets it to
+      4 when its platform query returns 3. The getters test `>2` and `>3`; trace
+      intermediate transitions before replacing the desktop boolean fallback.
 
 ## Verification
 
