@@ -1173,6 +1173,11 @@ int GM_CDECL gmf_OpenEggNetworkTranslation(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_OpenEggNetworkCoordinatorState(gmThread* a_thread) {
+    a_thread->PushInt(g_networkClient ? g_networkClient->CoordinatorState() : 1);
+    return GM_OK;
+}
+
 int GM_CDECL gmf_OpenEggNetworkPost(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(5);
     GM_STRING_PARAM(path, 0, "");
@@ -1261,6 +1266,7 @@ void RegisterWatermelonBindings(gmMachine& a_machine, NetworkClient& a_networkCl
     // Local test hook. Not part of the retail GameMonkey API.
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkGet", gmf_OpenEggNetworkGet);
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkTranslation", gmf_OpenEggNetworkTranslation);
+    a_machine.RegisterLibraryFunction("OpenEgg_NetworkCoordinatorState", gmf_OpenEggNetworkCoordinatorState);
     a_machine.RegisterLibraryFunction("OpenEgg_NetworkPost", gmf_OpenEggNetworkPost);
 
     a_machine.RegisterLibraryFunction("Watermelon_GetBetaParticipationAgreement", gmf_GetBetaParticipationAgreement);

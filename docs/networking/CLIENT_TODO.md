@@ -71,6 +71,8 @@ behavior.
       The check does not prove that the supplied identity owns the session.
 - [x] Sign in to a registered replacement-server account using INI credentials;
       this desktop exchange is separate from retail PSN ticket login.
+- [x] Match `GoOffline`'s state-2 result when no identity manager is attached;
+      the headless manual-session probe checks the state before reconnecting.
 - [x] `Watermelon_Index_Page`, album pages, user-list pages,
       `Watermelon_ActivityStream_Page`, and `Watermelon_FeaturedLevel_Get`.
 - [x] Following get/put/delete route construction and self-follow short
@@ -206,7 +208,9 @@ behavior.
       malformed EULA edge cases. Desktop language remains a proxy.
 - [ ] Match retail login reset, request purging, malformed responses and error
       transitions. Test genuine platform tickets against a suitable server.
-- [ ] Implement and verify the retail ticket login and coordinator state flow.
+- [ ] Trace and match the attached-manager transport-not-ready `GoOffline`
+      branch and native PSN startup states. Ticket login tests use synthetic
+      tickets; they do not verify PSN sign-in behavior.
 
 ## Request core
 

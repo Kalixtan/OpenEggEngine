@@ -75,7 +75,9 @@ def main():
                 result = subprocess.run([str(root / "OpenEgg"), str(ROOT / "tests/networking"), "ManualSessionProbe.gm", "Main"],
                                         env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
                 print(result.stdout, end="")
-                markers = ("manual session request PASS", "manual session logout PASS", "manual session reconnect PASS", "manual session coordinator PASS", "manual platform state PASS") if valid else ("manual session rejection PASS",)
+                markers = ("managerless offline state PASS", "manual session request PASS",
+                           "manual session logout PASS", "manual session reconnect PASS",
+                           "manual session coordinator PASS", "manual platform state PASS") if valid else ("manual session rejection PASS",)
                 if result.returncode or any(marker not in result.stdout for marker in markers) or "manual session request FAIL" in result.stdout:
                     raise SystemExit("manual session probe failed")
             if server and sum(path == f"/otg/~identity:{USER}/~metadata:*.get" and auth == SESSION for path, auth in seen) != 2:

@@ -508,6 +508,7 @@ const std::string* NetworkClient::FindNetworkTranslation(const std::string& key)
 
 void NetworkClient::GoOffline() {
     if (m_coordinatorState == 1) return;
+    const bool managerAttached = m_managerAttached;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         for (auto& entry : m_pending)
@@ -527,7 +528,9 @@ void NetworkClient::GoOffline() {
     m_userId.clear();
     m_identityReady = false;
     m_coordinatorError = 0;
-    m_coordinatorState = 4;
+    // Retail uses state 2 when coordinator +0x08 has no manager, otherwise
+    // it consults that manager's transport readiness before choosing 2 or 4.
+    m_coordinatorState = managerAttached ? 4 : 2;
 }
 
 int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback,

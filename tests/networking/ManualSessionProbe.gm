@@ -14,7 +14,15 @@ global ManualReply = function(data, result, error) {
 
 global Main = function(p) {
     return table(Process=p, stage=0,
-        constructor=function() { OnlineCoordinator_GoOnline(); },
+        constructor=function() {
+            if (OpenEgg_NetworkCoordinatorState() == 4) {
+                OnlineCoordinator_GoOffline();
+                if (OpenEgg_NetworkCoordinatorState() == 2) {
+                    GameSystem.trace("managerless offline state PASS");
+                }
+            }
+            OnlineCoordinator_GoOnline();
+        },
         init=function() { return true; },
         update=function() {
             if (this.stage == 0 && Watermelon_IsOnline()) {
