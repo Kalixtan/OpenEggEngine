@@ -490,7 +490,7 @@ void NetworkClient::GoOnline() {
         }
         m_userId = m_manualUserId;
         m_identityReady = false;
-        m_manualValidationRequestId = QueueRetailGet("/otg/~identity:" + m_userId + "/~metadata:*.get",
+        m_manualValidationRequestId = QueueRetailGet("/otg/~identity:*.hello?identity=" + m_userId,
             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
         if (m_manualValidationRequestId) m_coordinatorState = 18;
         else m_coordinatorError = -12;

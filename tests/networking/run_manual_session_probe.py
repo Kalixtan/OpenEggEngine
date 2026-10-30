@@ -11,6 +11,7 @@ import threading
 
 ROOT = Path(__file__).resolve().parents[2]
 USER = "00000000-0000-0000-0000-000000000002"
+OTHER_USER = "00000000-0000-0000-0000-000000000003"
 SESSION = "00000000-0000-0000-0000-000000000001"
 seen = []
 
@@ -24,6 +25,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         seen.append((self.path, self.headers.get("X-OTG-Identity-SessionId")))
         status = 200 if self.headers.get("X-OTG-Identity-SessionId") == SESSION else 403
+        if self.path.startswith("/otg/~identity:*.hello?identity=") and self.path.split("=", 1)[1] != USER:
+            status = 403
         body = (b'{"friends":[]}' if self.path.endswith("/~friends.all") else
                 b"" if self.path.endswith("/~translation.get") else b'{"items":[]}') if status == 200 else b""
         self.send_response(status)
@@ -69,7 +72,9 @@ def main():
             env = os.environ.copy()
             env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                        SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-            cases = [(args.session_id, args.user_id, True)] if args.server_url else [(SESSION, USER, True), ("invalid", USER, False)]
+            cases = ([(args.session_id, args.user_id, True), (args.session_id, OTHER_USER, False)]
+                     if args.server_url else
+                     [(SESSION, USER, True), ("invalid", USER, False), (SESSION, OTHER_USER, False)])
             for session, user, valid in cases:
                 (root / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nsession_id = {session}\nuser_id = {user}\n")
                 result = subprocess.run([str(root / "OpenEgg"), str(ROOT / "tests/networking"), "ManualSessionProbe.gm", "Main"],
@@ -91,11 +96,11 @@ def main():
                 if transition.returncode or any(marker not in transition.stdout for marker in markers):
                     raise SystemExit("attached offline transition probe failed")
             if server:
-                actual_logins = sum(path == f"/otg/~identity:{USER}/~metadata:*.get" and auth == SESSION
-                                    for path, auth in seen)
-                allowed_logins = (2,) if args.server_url else (3, 4)
-                if actual_logins not in allowed_logins:
-                    raise SystemExit("manual session was not checked on every login")
+                identity_checks = sum(path.startswith("/otg/~identity:*.hello?identity=") and auth == SESSION
+                                      for path, auth in seen)
+                expected_checks = 2 if args.server_url else 4
+                if identity_checks != expected_checks:
+                    raise SystemExit("manual session identity check count did not match login/reconnect cases")
     finally:
         if server:
             server.shutdown()

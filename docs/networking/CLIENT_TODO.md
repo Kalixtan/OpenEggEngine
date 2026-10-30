@@ -68,7 +68,8 @@ behavior.
 - [x] JSON, raw-text, and large-integer callback conversion paths.
 - [x] Configurable server URL, session ID, and user ID.
 - [x] Start the coordinator with a configured session after a server check.
-      The check does not prove that the supplied identity owns the session.
+      The replacement server checks the supplied identity against the session
+      on `~identity:*.hello`; ordinary retail hello requests remain unchanged.
 - [x] Sign in to a registered replacement-server account using INI credentials;
       this desktop exchange is separate from retail PSN ticket login.
 - [x] Match `GoOffline`'s state-2 result when no identity manager is attached;
