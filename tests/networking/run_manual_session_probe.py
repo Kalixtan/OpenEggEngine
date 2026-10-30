@@ -98,8 +98,7 @@ def main():
             if server:
                 identity_checks = sum(path.startswith("/otg/~identity:*.hello?identity=") and auth == SESSION
                                       for path, auth in seen)
-                expected_checks = 2 if args.server_url else 4
-                if identity_checks != expected_checks:
+                if identity_checks != 4:
                     raise SystemExit("manual session identity check count did not match login/reconnect cases")
     finally:
         if server:
