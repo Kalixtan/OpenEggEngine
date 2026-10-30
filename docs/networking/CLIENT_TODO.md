@@ -1,7 +1,7 @@
 # OpenEgg networking worklist
 
-Early implementation. Only a small read path has been exercised against the
-replacement server; this list is not a parity claim.
+Early implementation. Many request paths have local fixture coverage, but those
+tests do not establish full retail parity.
 
 The local Ghidra worklist reports 202 of 204 research items checked (99%).
 That is checklist completion, not semantic coverage: the 127 API entries have
@@ -280,6 +280,10 @@ behavior.
 - [ ] Implement and probe the applicable account, trophy, store, DLC, language,
       SNS, activity, and Near behavior.
 - [ ] Match online/offline state and error transitions exposed to scripts.
+- [ ] Separate `Network_IsSignedIn` and `Network_IsOnline`. Retail tests the same
+      `DAT_00f6858c` value against different thresholds (>2 and >3); the desktop
+      currently maps both functions to one boolean. Trace the state transitions
+      before replacing that fallback.
 
 ## Verification
 
