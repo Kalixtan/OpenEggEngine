@@ -63,7 +63,8 @@ class SessionProbeHandler(BaseHTTPRequestHandler):
             return
         body = b"[]" if self.path.endswith("~friends.all") else b"{}"
         if "~eula.get" in self.path:
-            body = b"Welcome back to Sound Shapes!"
+            body = (b"Registration code: probe-code" if self.server.unauthorized_response
+                    else b"Welcome back to Sound Shapes!")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -182,7 +183,8 @@ def main():
         env = os.environ.copy()
         env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt",
                    GE3_HARNESS=str(harness), SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-        probe = ("RememberedSessionProbe.gm" if args.expect_session_saved or args.expect_session_rejected or
+        probe = ("UnauthorizedEulaProbe.gm" if args.unauthorized_response else
+                 "RememberedSessionProbe.gm" if args.expect_session_saved or args.expect_session_rejected or
                  args.expect_session_recovered or args.expect_invalid_server_identity else
                  "ServerEulaProbe.gm" if args.eula else "TicketLoginProbe.gm")
         command = [str(temp / engine.name), str(ROOT / "tests/networking"), probe, "Main"]
@@ -255,11 +257,13 @@ def main():
                        "network: server identity does not match psn_online_id",
                        "remembered identity rejected PASS")
         elif args.missing_authorized_flag:
-            markers = ("network: replacement server rejected this PSN ticket",
+            markers = ("network: login response omitted a valid authorization flag",
                        "ticket coordinator error PASS")
         elif args.unauthorized_response:
-            markers = ("network: replacement server rejected this PSN ticket",
-                       "ticket coordinator error PASS")
+            markers = ("network: ticket needs authorization",
+                       "network: server authorization message ready",
+                       "server registration message visible PASS",
+                       "unauthorized EULA acceptance stays offline PASS")
         elif args.expect_invalid_online_id:
             markers = ("system config: invalid psn_online_id value",
                        "network: psn_online_id is required with a ticket",

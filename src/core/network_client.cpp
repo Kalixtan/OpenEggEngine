@@ -404,6 +404,12 @@ NetworkClient::~NetworkClient() {
     m_machine.GetGlobals()->Set(&m_machine, kRootTableName, gmVariable::s_null);
 }
 
+void NetworkClient::ShowMessage(const std::string& title, const std::string& message) {
+    if (message.empty() || message == m_lastPopupMessage) return;
+    m_lastPopupMessage = message;
+    if (m_messageHandler) m_messageHandler(title, message);
+}
+
 int NetworkClient::QueueGet(const std::string& a_path, const gmVariable& a_callback,
                             const gmVariable& a_callbackData) {
     return Queue(a_path, a_callback, a_callbackData, gmVariable::s_null, 0, -1);
@@ -479,6 +485,7 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     m_userId.clear();
     m_identityReady = false;
     m_replacementServerOnline = false;
+    m_loginAuthorized = false;
     m_loginUsesAccount = false;
     m_loginRequestId = QueueRetailPost("/identity/login/token/psn", a_ticket,
         "application/octet-stream", gmVariable::s_null, gmVariable::s_null,
@@ -504,6 +511,7 @@ bool NetworkClient::BeginAccountLogin() {
     m_platformOnlineId.clear();
     m_identityReady = false;
     m_replacementServerOnline = false;
+    m_loginAuthorized = false;
     m_loginUsesAccount = true;
     m_loginRequestId = QueueRetailPost("/identity/login/account",
         AccountLoginBody(config.networkAccountEmail, config.networkAccountPassword),
@@ -549,6 +557,8 @@ void NetworkClient::GoOnline() {
         if (accountEmail.empty() || accountPassword.empty()) {
             m_coordinatorError = -12;
             std::fprintf(stderr, "network: both account_email and account_password are required\n");
+            ShowMessage("Server sign-in",
+                "Add account_email and account_password to the [network] section of OpenEgg.ini, then restart OpenEgg.");
             return;
         }
         if (BeginAccountLogin()) m_coordinatorState = 18;
@@ -596,6 +606,8 @@ void NetworkClient::GoOnline() {
     } else {
         m_coordinatorError = -12;
         std::fprintf(stderr, "network: configure server account credentials or a PSN ticket\n");
+        ShowMessage("Server sign-in",
+            "No sign-in details are configured. Add account_email and account_password to the [network] section of OpenEgg.ini.");
     }
 }
 
@@ -634,6 +646,7 @@ void NetworkClient::GoOffline() {
     m_newsRequestId = 0;
     m_translationRequestId = 0;
     m_userId.clear();
+    m_loginAuthorized = false;
     m_identityReady = false;
     m_replacementServerOnline = false;
     m_coordinatorError = 0;
@@ -837,6 +850,7 @@ void NetworkClient::PumpCallbacks() {
         if (completion.id == m_manualValidationRequestId) {
             m_manualValidationRequestId = 0;
             if (completion.status == 200 || completion.status == 201) {
+                m_loginAuthorized = true;
                 m_identityReady = true;
                 m_replacementServerOnline = true;
                 m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
@@ -857,6 +871,7 @@ void NetworkClient::PumpCallbacks() {
         if (completion.id == m_savedValidationRequestId) {
             m_savedValidationRequestId = 0;
             if (completion.status == 200 || completion.status == 201) {
+                m_loginAuthorized = true;
                 m_identityReady = true;
                 m_replacementServerOnline = true;
                 std::fprintf(stderr, "network: remembered server session validated\n");
@@ -870,6 +885,7 @@ void NetworkClient::PumpCallbacks() {
                     m_sessionId.clear();
                 }
                 m_userId.clear();
+                m_loginAuthorized = false;
                 m_identityReady = false;
                 m_replacementServerOnline = false;
                 if (completion.status == 401 || completion.status == 403) {
@@ -901,28 +917,20 @@ void NetworkClient::PumpCallbacks() {
             response.Parse(completion.body.data(), completion.body.size());
             if (!response.HasParseError() && response.IsObject() &&
                 (!response.HasMember("openegg_authorized") ||
-                 !response["openegg_authorized"].IsBool() ||
-                 !response["openegg_authorized"].GetBool())) {
-                {
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    m_sessionId.clear();
-                }
-                m_userId.clear();
-                m_identityReady = false;
-                m_replacementServerOnline = false;
+                 !response["openegg_authorized"].IsBool())) {
                 m_coordinatorError = -12;
                 m_coordinatorState = 4;
-                SystemConfig::Get().SaveReplacementSession({}, {});
-                m_savedSessionId.clear();
-                m_savedUserId.clear();
-                std::fprintf(stderr, accountLogin
-                    ? "network: replacement server rejected account login\n"
-                    : "network: replacement server rejected this PSN ticket\n");
+                std::fprintf(stderr, "network: login response omitted a valid authorization flag\n");
+                if (accountLogin)
+                    ShowMessage("Server sign-in", "The server returned an invalid sign-in response.");
                 continue;
             }
             if ((completion.status == 200 || completion.status == 201) &&
                 !response.HasParseError() && response.IsObject() &&
                 response.HasMember("session") && response["session"].IsObject()) {
+                m_loginAuthorized = response.HasMember("openegg_authorized") &&
+                    response["openegg_authorized"].IsBool() &&
+                    response["openegg_authorized"].GetBool();
                 const auto& session = response["session"];
                 if (session.HasMember("id") && session["id"].IsString() &&
                     session.HasMember("person") && session["person"].IsObject() &&
@@ -968,7 +976,7 @@ void NetworkClient::PumpCallbacks() {
                         if (!m_platformCountry.empty() &&
                             !SystemConfig::Get().SavePsnCountry(m_platformCountry))
                             std::fprintf(stderr, "network: could not save PSN country to OpenEgg.ini\n");
-                        if (response.HasMember("openegg_remembered_session") &&
+                        if (m_loginAuthorized && response.HasMember("openegg_remembered_session") &&
                             response["openegg_remembered_session"].IsBool() &&
                             response["openegg_remembered_session"].GetBool()) {
                             if (SystemConfig::Get().SaveReplacementSession(m_sessionId, m_userId)) {
@@ -979,11 +987,13 @@ void NetworkClient::PumpCallbacks() {
                                 std::fprintf(stderr, "network: could not save replacement-server session to OpenEgg.ini\n");
                             }
                         }
-                        m_identityReady = true;
-                        m_replacementServerOnline = true;
+                        m_identityReady = m_loginAuthorized;
+                        m_replacementServerOnline = m_loginAuthorized;
                         std::fprintf(stderr, accountLogin
-                            ? "network: replacement account login succeeded\n"
-                            : "network: ticket login succeeded\n");
+                            ? (m_loginAuthorized ? "network: replacement account login succeeded\n"
+                                                 : "network: replacement account needs authorization\n")
+                            : (m_loginAuthorized ? "network: ticket login succeeded\n"
+                                                 : "network: ticket needs authorization\n"));
                         m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
                         if (m_helloRequestId) {
@@ -1006,6 +1016,12 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, accountLogin
                     ? "network: replacement account login failed (HTTP %ld)\n"
                     : "network: ticket login failed (HTTP %ld)\n", completion.status);
+                if (accountLogin) {
+                    ShowMessage("Server sign-in", completion.status == 403
+                        ? "The server rejected these account details or this account is not enabled for game access."
+                        : "The server could not sign you in (HTTP " +
+                            std::to_string(completion.status) + "). Check the server URL and try again.");
+                }
             }
         }
         if (completion.id == m_helloRequestId) {
@@ -1045,6 +1061,9 @@ void NetworkClient::PumpCallbacks() {
                 m_eulaText.push_back('\n');
                 m_eulaReady = true;
                 std::fprintf(stderr, "network: EULA received\n");
+                if (!m_loginAuthorized) {
+                    std::fprintf(stderr, "network: server authorization message ready\n");
+                }
             } else {
                 m_coordinatorError = -12;
                 m_coordinatorState = 4;
@@ -1287,6 +1306,18 @@ void NetworkClient::UpdateCoordinator() {
         call.AddParamString(m_eulaVersion.c_str());
         call.End();
         if (call.DidReturnVariable()) call.GetReturnedInt(accepted);
+    }
+    if (!m_loginAuthorized && accepted) {
+        m_coordinatorError = -12;
+        m_coordinatorState = 4;
+        m_identityReady = false;
+        m_replacementServerOnline = false;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_sessionId.clear();
+        }
+        m_userId.clear();
+        return;
     }
     m_coordinatorState = accepted ? 24 : 23;
 }

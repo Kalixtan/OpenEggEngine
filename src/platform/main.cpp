@@ -173,6 +173,12 @@ int main(int argc, char** argv) {
     }
 
     GmVm vm;
+    if (!std::getenv("GE3_HEADLESS")) {
+        vm.Network().SetMessageHandler([&hostFrontend](const std::string& title,
+                                                       const std::string& message) {
+            hostFrontend->ShowErrorMessage(title.c_str(), message.c_str());
+        });
+    }
     vm.Files().AddRoot(dataRoot, archiveRoot);
     if (!vm.Files().Resolve(entryScript)) {
         const char* message =

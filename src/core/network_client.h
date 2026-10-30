@@ -3,12 +3,14 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <map>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <array>
+#include <utility>
 #include <vector>
 
 class gmMachine;
@@ -50,6 +52,9 @@ public:
     void SetPlatformTicket(std::string a_ticket);
     void GoOnline();
     void GoOffline();
+    void SetMessageHandler(std::function<void(const std::string&, const std::string&)> handler) {
+        m_messageHandler = std::move(handler);
+    }
     int CoordinatorState() const { return m_coordinatorState; }
     int CoordinatorError() const { return m_coordinatorError; }
     bool IdentityReady() const { return m_identityReady; }
@@ -73,6 +78,8 @@ public:
     void PumpCallbacks();
 
 private:
+    void ShowMessage(const std::string& title, const std::string& message);
+
     struct Request {
         int id = 0;
         std::string url;
@@ -166,6 +173,9 @@ private:
     int m_translationRequestId = 0;
     std::string m_platformTicket;
     bool m_loginUsesAccount = false;
+    bool m_loginAuthorized = false;
+    std::function<void(const std::string&, const std::string&)> m_messageHandler;
+    std::string m_lastPopupMessage;
     std::string m_manualSessionId;
     std::string m_manualUserId;
     std::string m_platformOnlineId;
