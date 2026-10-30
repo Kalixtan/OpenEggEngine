@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 from compare_probe import BASELINE, PROBE, ROOT, read_readings
 from probe_expectations import expected_readings
@@ -44,8 +45,9 @@ def main():
         if any(case.startswith(prefix)
                for prefix in plan.get("awaitingRetailPrefixes", [])))
     retail_crash = plan.get("retailCrash", {})
-    if not set(retail_crash) <= awaiting_retail <= expected:
-        parser.error("retailCrash readings must be declared in awaitingRetail")
+    retail_hang = set(plan.get("retailHang", []))
+    if not (set(retail_crash) | retail_hang) <= awaiting_retail <= expected:
+        parser.error("retailCrash and retailHang readings must be declared in awaitingRetail")
     if not expected:
         parser.error("probe has no declared readings")
     if b"global Main" not in probe:
@@ -75,6 +77,9 @@ def main():
     tty_log = log_dir / f"{args.probe.stem}-retail-tty.log"
     env = os.environ.copy()
     env["QT_QPA_PLATFORM"] = "offscreen"
+    started = time.monotonic()
+    capture_result = None
+    timed_out = False
     try:
         for target, data, _ in support:
             target.write_bytes(data)
@@ -82,10 +87,12 @@ def main():
         args.tty.unlink(missing_ok=True)
         with boot_log.open("wb") as output:
             try:
-                subprocess.run([str(args.rpcs3), "--no-gui", str(args.eboot.resolve())],
-                               env=env, stdout=output, stderr=subprocess.STDOUT,
-                               timeout=args.timeout, check=False)
+                capture_result = subprocess.run(
+                    [str(args.rpcs3), "--no-gui", str(args.eboot.resolve())],
+                    env=env, stdout=output, stderr=subprocess.STDOUT,
+                    timeout=args.timeout, check=False)
             except subprocess.TimeoutExpired:
+                timed_out = True
                 pass  # The game keeps running after the probe has finished.
     finally:
         main_path.write_bytes(original)
@@ -99,10 +106,16 @@ def main():
         print(f"no RPCS3 TTY log; see {boot_log}", file=sys.stderr)
         return 1
     tty_log.write_bytes(args.tty.read_bytes())
+    elapsed = time.monotonic() - started
+    process_state = f"timed out after {args.timeout}s" if timed_out else (
+        f"exited {capture_result.returncode}" if capture_result else "no process result")
+    print(f"RPCS3 {process_state} ({elapsed:.1f}s)")
     retail_fault = "VM: Access violation" in boot_log.read_text(errors="replace")
     tty_text = tty_log.read_text(errors="replace")
     readings, duplicates = read_readings(tty_log)
-    expected_capture = expected - awaiting_retail if retail_fault and retail_crash else expected
+    expected_fault_capture = expected - awaiting_retail if retail_fault and retail_crash else expected
+    expected_hang_capture = expected - retail_hang if timed_out and retail_hang else expected
+    expected_capture = expected_fault_capture & expected_hang_capture
     if (retail_fault and not retail_crash) or set(readings) != expected_capture or duplicates:
         missing = len(expected_capture - set(readings))
         extra = len(set(readings) - expected)
@@ -121,6 +134,8 @@ def main():
                                      for key, value in sorted(readings.items())))
     if retail_fault:
         print(f"captured {len(readings)} readings before expected retail fault")
+    elif timed_out and retail_hang:
+        print(f"captured {len(readings)} readings before expected retail hang")
     else:
         print(f"captured {len(readings)} retail readings to {args.baseline}")
     return 0

@@ -1,0 +1,14 @@
+{
+  "frames": 0,
+  "scenes": {},
+  "extra": [
+    "basekey.before",
+    "basekey.utf8overflow.key"
+  ],
+  "awaitingRetail": [
+    "basekey.utf8overflow.key"
+  ],
+  "retailHang": [
+    "basekey.utf8overflow.key"
+  ]
+}
