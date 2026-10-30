@@ -1,8 +1,9 @@
 # Online identity
 
 OpenEgg sends the configured ticket to the replacement server. It does not
-connect to PSN. The server uses the ticket's Online ID as the account name;
-ticket signature checks must be enabled on the server to prove ownership.
+connect to PSN. The server uses the ticket's Online ID as the account name and
+requires a valid signature by default to prove ownership. OpenEgg rejects
+sessions the server marks unauthorized.
 
 `Network_IsSignedIn()` and `Network_IsOnline()` keep the retail script-facing
 state for an authenticated replacement-server session. They do not report a
@@ -15,6 +16,6 @@ PSN connection. Use these OpenEgg queries to tell the states apart:
 Set `psn_online_id` and either `psn_ticket_hex` or `ticket_file` in
 `OpenEgg.ini`. Treat the ticket as a secret. Ticket login requires HTTPS for
 remote servers; plain HTTP is allowed only on loopback for development. A
-server configured to accept unsigned tickets cannot verify account ownership.
-The manual `session_id` and `user_id` test bypass is accepted only for loopback
-servers.
+server configured to accept unsigned tickets cannot verify account ownership;
+use that setting only with a disposable local test server. The manual
+`session_id` and `user_id` test bypass is accepted only for loopback servers.

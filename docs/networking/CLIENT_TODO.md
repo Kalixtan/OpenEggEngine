@@ -164,6 +164,9 @@ behavior.
 - [x] Expose separate OpenEgg queries for replacement-server authentication
       and PSN sign-in; the latter is false until a PSN provider exists.
       See [IDENTITY.md](IDENTITY.md) for the client/server distinction.
+- [x] Require verified tickets by default on the replacement server, create
+      new accounts from verified PSN Online IDs, and reject unsigned tickets
+      without reserving their usernames.
 - [x] Restrict the manual session test bypass to loopback endpoints.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       an in-flight response can retain its HTTP status, as in the PS3 trace.

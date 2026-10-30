@@ -40,7 +40,8 @@ psn_online_id =
 
 ; Optional PSN ticket from a retail session. Use either a path or inline hex.
 ; This sends the ticket to the replacement server; it does not connect to PSN.
-; Whether signatures are required depends on that server's configuration.
+; OpenEgg's server requires a valid signature by default. Use unsigned tickets
+; only with a disposable local test server.
 ; Treat ticket data as a secret and keep OpenEgg.ini private.
 psn_ticket_hex =
 

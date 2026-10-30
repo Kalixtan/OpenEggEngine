@@ -31,15 +31,16 @@ to different window shapes. The default is `true`.
 In `[network]`, set `server_url` to the replacement server root, for example
 `http://127.0.0.1:10061`. Leave it blank to disable requests. For an existing
 session, set `session_id` and `user_id`; OpenEgg validates their match with the
-server before starting its online flow. Alternatively, set `account_email` and
-`account_password` for the desktop account-login endpoint. Credentials require
-HTTPS except on localhost; the INI stores the password as plain text.
+server before starting its online flow. For normal login, set `psn_online_id`
+and either `ticket_file` or `psn_ticket_hex`. The ticket proves the configured
+Online ID to the replacement server; OpenEgg does not connect to PSN. Keep the
+INI and ticket private. Remote ticket login requires HTTPS; plain HTTP is
+allowed only for loopback development servers. Replacement-server
+authentication is distinct from PSN sign-in.
 
-`ticket_file` enables experimental platform-ticket login; it takes precedence
-over account login. PSN sign-in and platform friend data remain unavailable on
-desktop. `image_base_url` sets the base for relative image URLs, and
-`product_region` selects the EULA and translation region. `community_allowed`
-and `account_restricted` are desktop fallbacks, not server permissions. Older
+`image_base_url` sets the base for relative image URLs, and `product_region`
+selects the EULA and translation region. `community_allowed` and
+`account_restricted` are desktop fallbacks, not server permissions. Older
 `[system]` keys `network_base_url`, `network_session_id`, and `network_user_id`
 remain supported.
 
