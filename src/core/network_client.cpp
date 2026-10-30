@@ -21,8 +21,12 @@
 #include "stb_image.h"
 
 #include <algorithm>
+#include <charconv>
+#include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <limits>
@@ -126,41 +130,6 @@ std::string TicketOnlineId(const std::string& ticket, std::string& country) {
     return {};
 }
 
-gmVariable JsonToGm(gmMachine& a_machine, const rapidjson::Value& a_value, int a_mode) {
-    if (a_value.IsNull()) return gmVariable::s_null;
-    if (a_value.IsBool()) return gmVariable(static_cast<gmint>(a_value.GetBool()));
-    if (a_value.IsInt64()) {
-        const int64_t value = a_value.GetInt64();
-        if (a_mode == 2 && value >= 0x100000000LL)
-            return gmVariable(a_machine.AllocStringObject(std::to_string(value).c_str()));
-        return gmVariable(static_cast<gmint>(value));
-    }
-    if (a_value.IsUint64()) {
-        const uint64_t value = a_value.GetUint64();
-        if (a_mode == 2 && value >= 0x100000000ULL)
-            return gmVariable(a_machine.AllocStringObject(std::to_string(value).c_str()));
-        return gmVariable(static_cast<gmint>(value));
-    }
-    if (a_value.IsNumber()) return gmVariable(static_cast<float>(a_value.GetDouble()));
-    if (a_value.IsString())
-        return gmVariable(a_machine.AllocStringObject(a_value.GetString(),
-                                                       static_cast<int>(a_value.GetStringLength())));
-
-    gmTableObject* table = a_machine.AllocTableObject();
-    if (a_value.IsArray()) {
-        int index = 0;
-        for (const rapidjson::Value& element : a_value.GetArray())
-            table->Set(&a_machine, index++, JsonToGm(a_machine, element, a_mode));
-    } else if (a_value.IsObject()) {
-        for (auto member = a_value.MemberBegin(); member != a_value.MemberEnd(); ++member) {
-            const gmVariable key(a_machine.AllocStringObject(
-                member->name.GetString(), static_cast<int>(member->name.GetStringLength())));
-            table->Set(&a_machine, key, JsonToGm(a_machine, member->value, a_mode));
-        }
-    }
-    return gmVariable(table);
-}
-
 class PartialJsonHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, PartialJsonHandler> {
 public:
     PartialJsonHandler(gmMachine& machine, int mode)
@@ -169,21 +138,30 @@ public:
     gmVariable Result() const { return gmVariable(m_root); }
     bool Null() { return Add(gmVariable::s_null); }
     bool Bool(bool value) { return Add(gmVariable(static_cast<gmint>(value))); }
-    bool Int(int value) { return Add(gmVariable(static_cast<gmint>(value))); }
-    bool Uint(unsigned value) { return Uint64(value); }
-    bool Int64(int64_t value) {
-        if (m_mode == 2 && value >= 0x100000000LL)
-            return Add(gmVariable(m_machine.AllocStringObject(std::to_string(value).c_str())));
-        return Add(gmVariable(static_cast<gmint>(value)));
-    }
-    bool Uint64(uint64_t value) {
-        if (m_mode == 2 && value >= 0x100000000ULL)
-            return Add(gmVariable(m_machine.AllocStringObject(std::to_string(value).c_str())));
-        return Add(gmVariable(static_cast<gmint>(value)));
-    }
     bool Double(double value) { return Add(gmVariable(static_cast<float>(value))); }
     bool String(const char* value, rapidjson::SizeType length, bool) {
         return Add(gmVariable(m_machine.AllocStringObject(value, static_cast<int>(length))));
+    }
+    bool RawNumber(const char* value, rapidjson::SizeType length, bool) {
+        const std::string_view token(value, length);
+        if (token.find_first_of(".eE") == std::string_view::npos) {
+            int64_t integer = 0;
+            const auto parsed = std::from_chars(token.data(), token.data() + token.size(), integer);
+            if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size()) return false;
+            if (m_mode == 2 && integer >= 0x100000000LL)
+                return Add(gmVariable(m_machine.AllocStringObject(std::to_string(integer).c_str())));
+            return Add(gmVariable(static_cast<gmint>(integer)));
+        }
+
+        const std::string number(token);
+        char* end = nullptr;
+        errno = 0;
+        const double parsed = std::strtod(number.c_str(), &end);
+        const bool rangeOverflow = errno == ERANGE &&
+            (parsed == std::numeric_limits<double>::max() ||
+             parsed == std::numeric_limits<double>::lowest());
+        if (end != number.c_str() + number.size() || rangeOverflow || !std::isfinite(parsed)) return false;
+        return Double(parsed);
     }
     bool Key(const char* value, rapidjson::SizeType length, bool) {
         if (m_stack.empty()) return false;
@@ -229,26 +207,49 @@ private:
     std::vector<Frame> m_stack;
 };
 
-gmVariable ParseRetailJson(gmMachine& a_machine, const std::string& a_body, int a_mode) {
-    rapidjson::Document document;
-    document.Parse(a_body.data(), a_body.size());
-    if (document.HasParseError()) {
-        // Retail writes values as parser callbacks run and keeps the table
-        // after a parse error.
-        if (!a_body.empty()) {
-            PartialJsonHandler partial(a_machine, a_mode);
-            rapidjson::MemoryStream stream(a_body.data(), a_body.size());
-            rapidjson::Reader reader;
-            reader.Parse(stream, partial);
-            return partial.Result();
-        }
-        return gmVariable::s_null;
+gmVariable JsonToGm(gmMachine& a_machine, const rapidjson::Value& a_value, int a_mode) {
+    if (a_value.IsNull()) return gmVariable::s_null;
+    if (a_value.IsBool()) return gmVariable(static_cast<gmint>(a_value.GetBool()));
+    if (a_value.IsInt64()) {
+        const int64_t value = a_value.GetInt64();
+        if (a_mode == 2 && value >= 0x100000000LL)
+            return gmVariable(a_machine.AllocStringObject(std::to_string(value).c_str()));
+        return gmVariable(static_cast<gmint>(value));
     }
-    // The common retail callback always returns the destination table.
-    // A root scalar has no table key, so the parser cannot insert it.
-    if (!document.IsObject() && !document.IsArray())
-        return gmVariable(a_machine.AllocTableObject());
-    return JsonToGm(a_machine, document, a_mode);
+    if (a_value.IsUint64()) {
+        const uint64_t value = a_value.GetUint64();
+        if (a_mode == 2 && value >= 0x100000000ULL)
+            return gmVariable(a_machine.AllocStringObject(std::to_string(value).c_str()));
+        return gmVariable(static_cast<gmint>(value));
+    }
+    if (a_value.IsNumber()) return gmVariable(static_cast<float>(a_value.GetDouble()));
+    if (a_value.IsString())
+        return gmVariable(a_machine.AllocStringObject(a_value.GetString(),
+                                                       static_cast<int>(a_value.GetStringLength())));
+
+    gmTableObject* table = a_machine.AllocTableObject();
+    if (a_value.IsArray()) {
+        int index = 0;
+        for (const rapidjson::Value& element : a_value.GetArray())
+            table->Set(&a_machine, index++, JsonToGm(a_machine, element, a_mode));
+    } else if (a_value.IsObject()) {
+        for (auto member = a_value.MemberBegin(); member != a_value.MemberEnd(); ++member) {
+            const gmVariable key(a_machine.AllocStringObject(
+                member->name.GetString(), static_cast<int>(member->name.GetStringLength())));
+            table->Set(&a_machine, key, JsonToGm(a_machine, member->value, a_mode));
+        }
+    }
+    return gmVariable(table);
+}
+
+gmVariable ParseRetailJson(gmMachine& a_machine, const std::string& a_body, int a_mode) {
+    PartialJsonHandler partial(a_machine, a_mode);
+    rapidjson::MemoryStream stream(a_body.data(), a_body.size());
+    rapidjson::Reader reader;
+    reader.Parse<rapidjson::kParseNumbersAsStringsFlag>(stream, partial);
+    // Retail keeps values already written by parser callbacks when later input
+    // fails. A root scalar has no table key, leaving this result empty.
+    return partial.Result();
 }
 
 #if defined(OPENEGG_HAS_CURL)

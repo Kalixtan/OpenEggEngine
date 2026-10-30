@@ -119,6 +119,9 @@ behavior.
       retail scripts count their entries with `tableCount`.
 - [x] Return an empty result table for scalar JSON roots, and preserve parsed
       fields on malformed level-description responses.
+- [x] Reject JSON integer and floating-point overflow before storing the
+      offending value; headless probes check positive/negative integer limits,
+      float overflow, underflow, and retention of earlier fields.
 - [x] Cache the default image, level and sound content paths and support
       identity-cache filter purge. Local tests cover hits, errors and purge.
 - [x] Match the traced slash boundary for single and double wildcard cache
@@ -247,8 +250,8 @@ behavior.
 - [ ] Match callback status and JSON modes for malformed JSON, empty bodies,
       HTTP errors, and transport errors.
 - [ ] Compare partial JSON tables and array handling with retail for malformed
-      tokens, truncated strings, nesting, numeric limits and trailing bytes.
-      OpenEgg retains values parsed before an error, but has no retail capture.
+      tokens, truncated strings, deep nesting, other numeric boundaries and
+      trailing bytes. Earlier values remain after parser errors.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;
       normal separator and bounded multibyte cases follow the static trace.
 - [ ] Compare `Watermelon_UrlEncode`'s native escape table and too-small-buffer
