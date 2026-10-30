@@ -143,6 +143,8 @@ private:
     std::thread m_globalWorker;
     bool m_stopping = false;
     bool m_identityRequestInFlight = false;
+    bool m_identityWorkerStopRequested = false;
+    bool m_identityWorkerStopped = false;
     bool m_offlineTransitionPending = false;
     bool m_reconnectAfterOfflineTransition = false;
     int m_nextId = 1;

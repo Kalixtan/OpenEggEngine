@@ -513,11 +513,16 @@ const std::string* NetworkClient::FindNetworkTranslation(const std::string& key)
 void NetworkClient::GoOffline() {
     if (m_coordinatorState == 1) return;
     const bool managerAttached = m_managerAttached;
+    const bool stopWorker = managerAttached && m_worker.joinable();
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         for (auto& entry : m_pending)
             if (entry.second.identity) entry.second.purged = true;
         m_sessionId.clear();
+        m_offlineTransitionPending = stopWorker;
+        m_identityWorkerStopRequested = stopWorker;
+        m_identityWorkerStopped = false;
+        m_reconnectAfterOfflineTransition = false;
     }
     m_loginRequestId = 0;
     m_accountLogin = false;
@@ -532,11 +537,9 @@ void NetworkClient::GoOffline() {
     m_userId.clear();
     m_identityReady = false;
     m_coordinatorError = 0;
-    m_offlineTransitionPending = managerAttached && m_worker.joinable();
-    m_reconnectAfterOfflineTransition = false;
-    // Retail polls the attached transport without waiting. State 2 is held
-    // until queued and in-flight identity requests have drained.
-    m_coordinatorState = m_offlineTransitionPending || !managerAttached ? 2 : 4;
+    if (stopWorker) m_wake.notify_all();
+    // State 2 remains until the identity worker stops and is restarted.
+    m_coordinatorState = stopWorker || !managerAttached ? 2 : 4;
 }
 
 int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback,
@@ -554,6 +557,7 @@ int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback
     }
 
     std::unique_lock<std::mutex> lock(m_mutex);
+    if (a_sendSession && (m_offlineTransitionPending || m_identityWorkerStopRequested)) return 0;
     const std::string cacheKey = ContentCacheKey(a_path, a_post, a_sendSession, a_resourceKey);
     const Cache& cache = a_sendSession ? m_identityCache : m_globalCache;
     const auto cached = cache.find(cacheKey);
@@ -977,16 +981,24 @@ void NetworkClient::PumpCallbacks() {
 }
 
 void NetworkClient::UpdateCoordinator() {
+    std::thread stoppedWorker;
+    bool restartWorker = false;
     bool reconnect = false;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_offlineTransitionPending && m_identityRequests.empty() && !m_identityRequestInFlight) {
+        if (m_offlineTransitionPending && m_identityWorkerStopped) {
+            stoppedWorker = std::move(m_worker);
+            restartWorker = true;
+            m_identityWorkerStopRequested = false;
+            m_identityWorkerStopped = false;
             m_offlineTransitionPending = false;
             m_coordinatorState = 4;
             reconnect = m_reconnectAfterOfflineTransition;
             m_reconnectAfterOfflineTransition = false;
         }
     }
+    if (stoppedWorker.joinable()) stoppedWorker.join();
+    if (restartWorker) m_worker = std::thread(&NetworkClient::WorkerMain, this, true);
     if (reconnect) GoOnline();
 
     if (m_coordinatorState == 24) {
@@ -1065,8 +1077,16 @@ void NetworkClient::WorkerMain(bool a_identity) {
         std::string sessionId;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
-            m_wake.wait(lock, [&] { return m_stopping || !requests.empty(); });
+            m_wake.wait(lock, [&] {
+                return m_stopping || !requests.empty() ||
+                    (a_identity && m_identityWorkerStopRequested);
+            });
             if (m_stopping) return;
+            if (a_identity && m_identityWorkerStopRequested) {
+                m_identityWorkerStopped = true;
+                m_wake.notify_all();
+                return;
+            }
             request = std::move(requests.front());
             requests.pop_front();
             if (a_identity) m_identityRequestInFlight = true;
