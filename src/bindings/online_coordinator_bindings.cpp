@@ -39,6 +39,15 @@ int GM_CDECL gmf_NetworkIsSignedIn(gmThread* a_thread) {
     a_thread->PushInt(state > 2);
     return GM_OK;
 }
+// Replacement-server identity is separate from a PSN connection.
+int GM_CDECL gmf_OpenEggReplacementServerAuthenticated(gmThread* a_thread) {
+    a_thread->PushInt(g_networkClient && g_networkClient->IdentityReady());
+    return GM_OK;
+}
+int GM_CDECL gmf_OpenEggPsnSignedIn(gmThread* a_thread) {
+    a_thread->PushInt(0);
+    return GM_OK;
+}
 int GM_CDECL gmf_NetworkIsOnline(gmThread* a_thread) {
     const int state = g_networkClient ? g_networkClient->DesktopNetworkState() : 0;
     a_thread->PushInt(state > 3);
@@ -325,6 +334,9 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_GetIsTrophyQueueFull", gmf_Network_GetIsTrophyQueueFull);
     a_machine.RegisterLibraryFunction("Network_IsSignedIn", gmf_NetworkIsSignedIn);
     a_machine.RegisterLibraryFunction("Network_IsOnline", gmf_NetworkIsOnline);
+    a_machine.RegisterLibraryFunction("OpenEgg_Network_IsReplacementServerAuthenticated",
+                                      gmf_OpenEggReplacementServerAuthenticated);
+    a_machine.RegisterLibraryFunction("OpenEgg_Network_IsPSNSignedIn", gmf_OpenEggPsnSignedIn);
     a_machine.RegisterLibraryFunction("Network_IsAccountRestricted", gmf_NetworkAccountRestricted);
     a_machine.RegisterLibraryFunction("Network_IsChatRestricted", gmf_NetworkChatRestricted);
     a_machine.RegisterLibraryFunction("Network_ActivityStreamPost", gmf_Network_ActivityStreamPost);

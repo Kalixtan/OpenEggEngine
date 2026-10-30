@@ -20,6 +20,10 @@ global Main = function(p) {
             } else if (this.checked == 2 && OnlineCoordinator_IsOnline() && Watermelon_IsOnline()) {
                 this.checked = 3;
                 GameSystem.trace("server coordinator online PASS");
+                if (OpenEgg_Network_IsReplacementServerAuthenticated() &&
+                    !OpenEgg_Network_IsPSNSignedIn()) {
+                    GameSystem.trace("replacement auth distinct from PSN PASS");
+                }
             }
         }
     );

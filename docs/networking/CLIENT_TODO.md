@@ -161,6 +161,9 @@ behavior.
       local server probe also checks hello, EULA, friends and coordinator startup.
 - [x] Require HTTPS when sending a ticket to a remote server; allow plain HTTP
       only for localhost and loopback development endpoints.
+- [x] Expose separate OpenEgg queries for replacement-server authentication
+      and PSN sign-in; the latter is false until a PSN provider exists.
+      See [IDENTITY.md](IDENTITY.md) for the client/server distinction.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       an in-flight response can retain its HTTP status, as in the PS3 trace.
 - [x] Compare raw bucket payloads for purge, including float and string values.

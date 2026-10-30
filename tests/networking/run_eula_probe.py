@@ -174,6 +174,7 @@ def main():
                        ("network: invalid translation catalog", "coordinator online PASS") if translation_invalid else
                        ("EULA text and digest PASS", "EULA acceptance PASS", "friends snapshot PASS", "community data PASS",
                         "localized community data PASS", "coordinator online PASS", "coordinator offline PASS",
+                        "replacement auth distinct from PSN PASS",
                         "ready offline while waiting PASS", "ready offline while online PASS",
                         "ready offline while offline PASS"))
             requests_ok = fail or (friends_uploaded.is_set() and (friends_fail == "upload" or friends_fetched.is_set()))

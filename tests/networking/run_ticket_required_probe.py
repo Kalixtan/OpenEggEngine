@@ -60,6 +60,7 @@ def main():
                                     timeout=30)
             print(result.stdout, end="")
             if (result.returncode or "ticket required PASS" not in result.stdout or
+                    "offline auth states PASS" not in result.stdout or
                     "[gm]" in result.stdout or requests):
                 raise SystemExit(f"ticket requirement probe failed; requests={requests}")
     finally:

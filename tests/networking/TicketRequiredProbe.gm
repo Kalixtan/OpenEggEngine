@@ -1,7 +1,13 @@
 global Main = function(p) {
     return table(Process=p,
         init=function() { return true; },
-        constructor=function() { OnlineCoordinator_GoOnline(); },
+        constructor=function() {
+            OnlineCoordinator_GoOnline();
+            if (!OpenEgg_Network_IsReplacementServerAuthenticated() &&
+                !OpenEgg_Network_IsPSNSignedIn()) {
+                GameSystem.trace("offline auth states PASS");
+            }
+        },
         update=function() {
             if (OnlineCoordinator_GetLastError() == -12 &&
                 OnlineCoordinator_IsOffline() &&
