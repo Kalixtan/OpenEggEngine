@@ -156,6 +156,7 @@ def main():
                 "network: ticket login succeeded",
                 "network: identity hello succeeded",
                 "ticket authenticated request PASS",
+                "ticket replacement session cleared PASS",
             ))
             missing = [marker for marker in login_markers if marker not in login.stdout]
             if login.returncode or missing:

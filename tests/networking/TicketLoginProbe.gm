@@ -6,6 +6,10 @@ global TicketLoginReply = function(data, response, error) {
             if (!Watermelon_IsOnline()) {
                 GameSystem.trace("ticket coordinator logout PASS");
             }
+            if (!OpenEgg_Network_IsReplacementServerAuthenticated() &&
+                !Network_IsSignedIn() && !Network_IsOnline()) {
+                GameSystem.trace("ticket replacement session cleared PASS");
+            }
         }
     } else if (OnlineCoordinator_GetLastError() == -12) {
         GameSystem.trace("ticket request rejected PASS");

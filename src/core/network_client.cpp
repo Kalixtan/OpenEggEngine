@@ -585,6 +585,7 @@ void NetworkClient::GoOffline() {
     m_translationRequestId = 0;
     m_userId.clear();
     m_identityReady = false;
+    m_replacementServerOnline = false;
     m_coordinatorError = 0;
     if (stopWorker) m_wake.notify_all();
     // State 2 remains until the identity worker stops and is restarted.

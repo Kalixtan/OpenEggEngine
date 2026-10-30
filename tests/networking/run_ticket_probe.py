@@ -290,7 +290,8 @@ def main():
             markers += ("ticket platform ID PASS", "network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
                         "PSN ID maps to server account PASS",
                         "replacement auth distinct from PSN PASS",
-                        "ticket authenticated request PASS", "ticket coordinator logout PASS")
+                        "ticket authenticated request PASS", "ticket coordinator logout PASS",
+                        "ticket replacement session cleared PASS")
         missing = [marker for marker in markers if marker not in combined_output]
         failed_community = args.eula and ("network: featured request failed" in combined_output or
                                           "network: news request failed" in combined_output)

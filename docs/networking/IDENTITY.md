@@ -18,6 +18,10 @@ PSN connection. `OnlineCoordinator_IsLoggedIntoPlatform()` remains false
 because OpenEgg has no PSN sign-in provider. Use these OpenEgg queries to tell
 the states apart:
 
+The two `Network_*` values become true after replacement-server login and clear
+when `OnlineCoordinator_GoOffline()` ends the active session. The remembered
+server token remains in the INI for the next `GoOnline()` request.
+
 - `OpenEgg_Network_IsReplacementServerAuthenticated()` is true after server
   login and identity validation.
 - `OpenEgg_Network_IsPSNSignedIn()` is false; OpenEgg has no PSN provider.

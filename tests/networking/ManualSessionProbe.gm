@@ -7,8 +7,9 @@ global ManualReply = function(data, result, error) {
         if (OnlineCoordinator_IsOffline() && !Watermelon_IsOnline()) {
             GameSystem.trace("manual session logout PASS");
         }
-        if (Network_IsSignedIn() && Network_IsOnline()) {
-            GameSystem.trace("replacement service state retained offline PASS");
+        if (!Network_IsSignedIn() && !Network_IsOnline() &&
+            !OpenEgg_Network_IsReplacementServerAuthenticated()) {
+            GameSystem.trace("replacement service state cleared offline PASS");
         }
         OnlineCoordinator_GoOnline();
         data.stage = 2;
