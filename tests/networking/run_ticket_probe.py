@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test an unsigned local ticket against a server with authentication disabled."""
+"""Probe PSN ticket login against a local OpenEgg server."""
 import argparse
 import os
 from pathlib import Path
@@ -34,12 +34,14 @@ def ticket():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("server_url", help="Local server with RequireAuthentication=false")
+    parser.add_argument("server_url", help="Local server URL")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--invalid-ticket", action="store_true", help="Check rejection of a malformed ticket")
     parser.add_argument("--ticket-in-ini", action="store_true", help="Store the ticket as inline INI hex")
     parser.add_argument("--identity-mismatch", action="store_true", help="Reject a ticket for a different Online ID")
     parser.add_argument("--expect-hello-failure", action="store_true", help="Check a failed hello response")
+    parser.add_argument("--expect-auth-rejection", action="store_true",
+                        help="Check that the server rejects the unsigned fixture ticket")
     parser.add_argument("--insecure-transport", action="store_true",
                         help="Reject ticket login over remote plaintext HTTP")
     parser.add_argument("--eula", action="store_true", help="Check EULA retrieval from the local server")
@@ -82,7 +84,7 @@ def main():
         print(result.stdout, end="")
         markers = ("ticket coordinator offline PASS", "ticket coordinator cancel PASS",
                    "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
-        if not args.identity_mismatch and not args.invalid_ticket and not args.insecure_transport:
+        if not args.identity_mismatch and not args.invalid_ticket and not args.insecure_transport and not args.expect_auth_rejection:
             markers += ("ticket coordinator connecting PASS",)
         if args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
@@ -92,6 +94,8 @@ def main():
         elif args.identity_mismatch:
             markers += ("ticket platform ID unavailable PASS", "network: ticket Online ID does not match psn_online_id",
                         "ticket coordinator error PASS")
+        elif args.expect_auth_rejection:
+            markers += ("ticket coordinator error PASS",)
         elif args.invalid_ticket:
             markers += ("network: ticket Online ID does not match psn_online_id",
                         "ticket coordinator error PASS", "ticket platform ID unavailable PASS")
@@ -111,6 +115,13 @@ def main():
                                           "network: news request failed" in result.stdout)
         if result.returncode or missing or failed_community or (args.invalid_ticket and "ticket identity PASS" in result.stdout):
             raise SystemExit(f"ticket probe failed; missing markers: {missing}")
+        if args.expect_auth_rejection and ("network: ticket login succeeded" in result.stdout or
+                                           "ticket identity PASS" in result.stdout):
+            raise SystemExit("ticket rejection probe failed; unauthorized session was accepted")
+        if args.expect_auth_rejection and not any(marker in result.stdout for marker in (
+                "network: replacement server rejected this PSN ticket",
+                "network: ticket login failed (HTTP 403)")):
+            raise SystemExit("ticket rejection probe failed; expected authorization rejection was not reported")
 
 
 if __name__ == "__main__":
