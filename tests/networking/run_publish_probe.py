@@ -35,7 +35,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if self.path == "/identity/login/token/psn":
-            response = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
+            response = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode()
             self.reply(201, response)
             return
         if self.path == f"/otg/~identity:{USER}/~metadata:featuredlevel.put":
@@ -134,7 +134,7 @@ def main():
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             (temp / "ticket.bin").write_bytes(ticket())
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nticket_file = ticket.bin\n")
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\npsn_online_id = openegg_probe\nticket_file = ticket.bin\n")
             savedata = temp / "savedata"
             savedata.mkdir()
             for filename, content in (("level.bin", LEVEL), ("image.bin", IMAGE), ("sound.bin", SOUND)):

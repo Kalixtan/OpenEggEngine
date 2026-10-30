@@ -27,7 +27,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        self.reply(201, ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode())
+        self.reply(201, ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode())
 
     def do_GET(self):
         if self.path.startswith("/otg/~index:level.page?"):
@@ -65,7 +65,7 @@ try:
             (temp / "game_data").symlink_to(data, target_is_directory=True)
         url = f"http://127.0.0.1:{server.server_port}"
         (temp / "ticket.bin").write_bytes(ticket())
-        (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nticket_file = ticket.bin\n")
+        (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\npsn_online_id = openegg_probe\nticket_file = ticket.bin\n")
         script = temp / "probe"
         script.mkdir()
         source = (ROOT / "tests/networking/LogoutPurgeProbe.gm").read_text().replace("__IMAGE_URL__", url + "/image.png")

@@ -84,7 +84,7 @@ class Handler(BaseHTTPRequestHandler):
         if len(body) != len(ticket()) or body[:2] != b"\x20\x01" or b"openegg_probe" not in body:
             self.reply(400)
             return
-        data = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
+        data = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode()
         self.reply(201, data)
 
     def do_GET(self):
@@ -241,7 +241,7 @@ def main():
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             (temp / "ticket.bin").write_bytes(ticket())
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nticket_file = ticket.bin\n")
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\npsn_online_id = openegg_probe\nticket_file = ticket.bin\n")
             harness = temp / "harness.txt"
             harness.write_text("wait 240\nquit\n")
             env = os.environ.copy()

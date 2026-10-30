@@ -40,7 +40,7 @@ def main():
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             (temp / "ticket.bin").write_bytes(ticket())
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = http://127.0.0.1:{server.server_port}\nticket_file = ticket.bin\n")
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = http://127.0.0.1:{server.server_port}\npsn_online_id = openegg_probe\nticket_file = ticket.bin\n")
             harness = temp / "harness.txt"
             harness.write_text("wait 300\nquit\n")
             env = os.environ.copy()

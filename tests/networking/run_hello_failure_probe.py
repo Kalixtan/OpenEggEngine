@@ -15,7 +15,7 @@ hello = threading.Event()
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
+        body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode()
         self.send_response(201)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()

@@ -27,7 +27,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if self.path == "/identity/login/token/psn":
-            body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
+            body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode()
             reply(self, 201, body)
         elif self.path == f"/identity/person/{USER}/data/psn/friends-list":
             seen.add(self.path)
@@ -90,6 +90,7 @@ try:
             (temp / "OpenEgg.ini").write_text(
                 f"[system]\nlanguage = {language}\n[network]\n"
                 f"server_url = http://127.0.0.1:{server.server_port}\n"
+                f"psn_online_id = openegg_probe\n"
                 f"ticket_file = ticket.bin\nproduct_region = {region}\n")
             source = (ROOT / "tests/networking/NetworkLocaleProbe.gm").read_text().replace("__EXPECTED__", expected)
             (script_dir / "NetworkLocaleProbe.gm").write_text(source)

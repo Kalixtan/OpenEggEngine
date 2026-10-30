@@ -30,7 +30,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if self.path == "/identity/login/token/psn":
-            self.reply(201, ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode())
+            self.reply(201, ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode())
             return
         content_type = self.headers.get("Content-Type", "")
         if (self.path != "/otg/~grief:*.post" or self.headers.get("X-OTG-Identity-SessionId") != SESSION or
@@ -83,7 +83,7 @@ def main():
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             (temp / "ticket.bin").write_bytes(ticket())
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nticket_file = ticket.bin\n")
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\npsn_online_id = openegg_probe\nticket_file = ticket.bin\n")
             script_dir = temp / "probe"
             script_dir.mkdir()
             source = (ROOT / "tests/networking/GriefProbe.gm").read_text().replace("__ITEM__", item)

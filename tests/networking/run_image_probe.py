@@ -41,7 +41,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        data = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
+        data = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '","display_name":"openegg_probe"}}}').encode()
         self.reply(201, data)
 
     def do_GET(self):
@@ -113,7 +113,7 @@ def main():
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             (temp / "ticket.bin").write_bytes(ticket())
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nimage_base_url = {url}\nticket_file = ticket.bin\n")
+            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = {url}\nimage_base_url = {url}\npsn_online_id = openegg_probe\nticket_file = ticket.bin\n")
             script_dir = temp / "probe"
             script_dir.mkdir()
             probe = ("ServerFeaturedImageProbe.gm" if args.featured else "ServerImageProbe.gm") if args.server_url else "ImageProbe.gm"
