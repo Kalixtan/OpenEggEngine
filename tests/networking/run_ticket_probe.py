@@ -24,6 +24,7 @@ class SessionProbeServer(ThreadingHTTPServer):
         self.saved_session_validation_count = 0
         self.malformed_psn_identity = False
         self.missing_authorized_flag = False
+        self.unauthorized_response = False
 
 
 class SessionProbeHandler(BaseHTTPRequestHandler):
@@ -37,10 +38,12 @@ class SessionProbeHandler(BaseHTTPRequestHandler):
         self.rfile.read(int(self.headers.get("Content-Length", "0")))
         display_name = b'"OpenEgg_Probe"' if self.server.malformed_psn_identity else b'"renamed_display_name"'
         psn_identity = b'false' if self.server.malformed_psn_identity else b'"openegg_probe"'
+        authorized = (b'' if self.server.missing_authorized_flag else
+                      b',"openegg_authorized":false' if self.server.unauthorized_response else
+                      b',"openegg_authorized":true')
         body = (b'{"session":{"id":"remembered-session","person":{"id":"remembered-user-id",'
                 b'"display_name":' + display_name + b',"openegg_psn_online_id":' + psn_identity +
-                b'}}' + (b'' if self.server.missing_authorized_flag else b',"openegg_authorized":true') +
-                b',"openegg_remembered_session":true}')
+                b'}}' + authorized + b',"openegg_remembered_session":true}')
         self.send_response(201)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -113,6 +116,8 @@ def main():
                         help="Reject malformed stable identity despite a matching display name")
     parser.add_argument("--missing-authorized-flag", action="store_true",
                         help="Reject a login response that omits the authorization result")
+    parser.add_argument("--unauthorized-response", action="store_true",
+                        help="Reject an HTTP 201 session marked unauthorized")
     parser.add_argument("--mock-server", action="store_true",
                         help="Use a canned local fixture; does not verify PSN tickets")
     parser.add_argument("--insecure-transport", action="store_true",
@@ -124,13 +129,15 @@ def main():
     if args.mock_server:
         if not (args.expect_session_saved or args.expect_session_rejected or
                 args.expect_session_recovered or args.expect_invalid_online_id or
-                args.expect_invalid_server_identity or args.missing_authorized_flag):
+                args.expect_invalid_server_identity or args.missing_authorized_flag or
+                args.unauthorized_response):
             parser.error("--mock-server requires an expected auth result")
         mock_server = SessionProbeServer(("127.0.0.1", 0), SessionProbeHandler)
         mock_server.reject_saved_sessions = args.expect_session_rejected
         mock_server.reject_saved_session_once = args.expect_session_recovered or args.expect_invalid_server_identity
         mock_server.malformed_psn_identity = args.expect_invalid_server_identity
         mock_server.missing_authorized_flag = args.missing_authorized_flag
+        mock_server.unauthorized_response = args.unauthorized_response
         mock_server_thread = threading.Thread(target=mock_server.serve_forever, daemon=True)
         mock_server_thread.start()
         atexit.register(mock_server.server_close)
@@ -220,7 +227,8 @@ def main():
                    "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
         if (not args.identity_mismatch and not args.invalid_ticket and not args.insecure_transport and
                 not args.expect_auth_rejection and not args.expect_invalid_online_id and
-                not args.expect_invalid_server_identity and not args.missing_authorized_flag):
+                not args.expect_invalid_server_identity and not args.missing_authorized_flag and
+                not args.unauthorized_response):
             markers += ("ticket coordinator connecting PASS",)
         if args.expect_session_saved:
             markers = ("network: ticket login succeeded",
@@ -239,6 +247,9 @@ def main():
                        "network: server identity does not match psn_online_id",
                        "remembered identity rejected PASS")
         elif args.missing_authorized_flag:
+            markers = ("network: replacement server rejected this PSN ticket",
+                       "ticket coordinator error PASS")
+        elif args.unauthorized_response:
             markers = ("network: replacement server rejected this PSN ticket",
                        "ticket coordinator error PASS")
         elif args.expect_invalid_online_id:
@@ -276,10 +287,14 @@ def main():
             raise SystemExit(f"ticket probe failed; missing markers: {missing}")
         if args.expect_session_saved and "network: ticket login succeeded" in second_result.stdout:
             raise SystemExit("ticket probe failed; second launch repeated ticket login")
-        if (args.expect_auth_rejection or args.missing_authorized_flag) and (
+        if (args.expect_auth_rejection or args.missing_authorized_flag or args.unauthorized_response) and (
                 "network: ticket login succeeded" in combined_output or
                 "ticket identity PASS" in combined_output):
             raise SystemExit("ticket rejection probe failed; unauthorized session was accepted")
+        if args.missing_authorized_flag or args.unauthorized_response:
+            saved_config = (temp / "OpenEgg.ini").read_text()
+            if "server_session_id = " in saved_config or "server_user_id = " in saved_config:
+                raise SystemExit("ticket rejection probe failed; unauthorized session was saved")
         if args.expect_auth_rejection and not any(marker in combined_output for marker in (
                 "network: replacement server rejected this PSN ticket",
                 "network: ticket login failed (HTTP 403)")):
