@@ -15,6 +15,11 @@ global Main = function(p) {
         constructor=function() { OnlineCoordinator_GoOnline(); },
         update=function() {
             if (this.checked == 0 && OnlineCoordinator_IsWaitingForEulaAcceptance()) {
+                if (OnlineCoordinator_IsReadyGoOffline()) {
+                    GameSystem.trace("ready offline while waiting PASS");
+                } else {
+                    GameSystem.trace("ready offline while waiting FAIL");
+                }
                 if (Watermelon_GetEula() == "One Two\n\n" &&
                     Watermelon_GetEulaVersion() == "2c9722bceb151bdd7331641615dc1c5f732fc50d") {
                     GameSystem.trace("EULA text and digest PASS");
@@ -50,6 +55,11 @@ global Main = function(p) {
             } else if (this.checked == 5 && OnlineCoordinator_IsOnline() && Watermelon_IsOnline()) {
                 this.checked = 6;
                 GameSystem.trace("coordinator online PASS");
+                if (OnlineCoordinator_IsReadyGoOffline()) {
+                    GameSystem.trace("ready offline while online PASS");
+                } else {
+                    GameSystem.trace("ready offline while online FAIL");
+                }
                 if (OpenEgg_NetworkTranslation("probe-key") == "probe-value" &&
                     OpenEgg_NetworkTranslation("replacement") == "new" &&
                     OpenEgg_NetworkTranslation("empty-key") == "") {
@@ -58,6 +68,11 @@ global Main = function(p) {
                 OnlineCoordinator_GoOffline();
                 if (OnlineCoordinator_IsOffline() && !Watermelon_IsOnline()) {
                     GameSystem.trace("coordinator offline PASS");
+                }
+                if (OnlineCoordinator_IsReadyGoOffline()) {
+                    GameSystem.trace("ready offline while offline PASS");
+                } else {
+                    GameSystem.trace("ready offline while offline FAIL");
                 }
             }
             if (this.errorChecked == 0 && OnlineCoordinator_GetLastError() == -12) {

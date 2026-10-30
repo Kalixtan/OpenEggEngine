@@ -167,13 +167,18 @@ def main():
                        ("localized community data PASS", "coordinator online PASS", "network translation PASS") if translation_body else
                        ("network: invalid translation catalog", "coordinator online PASS") if translation_invalid else
                        ("EULA text and digest PASS", "EULA acceptance PASS", "friends snapshot PASS", "community data PASS",
-                        "localized community data PASS", "coordinator online PASS", "coordinator offline PASS"))
+                        "localized community data PASS", "coordinator online PASS", "coordinator offline PASS",
+                        "ready offline while waiting PASS", "ready offline while online PASS",
+                        "ready offline while offline PASS"))
             requests_ok = fail or (friends_uploaded.is_set() and (friends_fail == "upload" or friends_fetched.is_set()))
             if not fail and not friends_fail:
                 requests_ok = requests_ok and featured_fetched.is_set() and news_fetched.is_set()
                 requests_ok = requests_ok and featured_localized.is_set() and news_localized.is_set() and translation_fetched.is_set()
             if (result.returncode or not received.is_set() or not requests_ok or
-                    any(x not in result.stdout for x in markers) or "EULA acceptance version FAIL" in result.stdout):
+                    any(x not in result.stdout for x in markers) or "EULA acceptance version FAIL" in result.stdout or
+                    "ready offline while waiting FAIL" in result.stdout or
+                    "ready offline while online FAIL" in result.stdout or
+                    "ready offline while offline FAIL" in result.stdout):
                 raise SystemExit("EULA probe failed")
     finally:
         server.shutdown()

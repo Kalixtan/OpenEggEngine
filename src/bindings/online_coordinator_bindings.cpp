@@ -21,6 +21,7 @@ int GM_CDECL gmf_IsOnline(gmThread* a_thread) { a_thread->PushInt(CoordinatorSta
 int GM_CDECL gmf_IsOffline(gmThread* a_thread) { int state = CoordinatorState(); a_thread->PushInt(state == 2 || state == 4); return GM_OK; }
 int GM_CDECL gmf_IsDisabled(gmThread* a_thread) { a_thread->PushInt(CoordinatorState() == 1); return GM_OK; }
 int GM_CDECL gmf_IsConnecting(gmThread* a_thread) { int state = CoordinatorState(); a_thread->PushInt(state != 1 && state != 2 && state != 4 && state != 30); return GM_OK; }
+// Retail reads a platform byte in zero-filled BSS; this PS3 image never writes it.
 int GM_CDECL gmf_IsReadyGoOffline(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
 int GM_CDECL gmf_IsLoggedIntoPlatform(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->DesktopPlatformOnline()); return GM_OK; }
 int GM_CDECL gmf_HasChatPermissions(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->HasChatPermissions()); return GM_OK; }
