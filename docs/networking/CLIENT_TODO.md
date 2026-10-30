@@ -373,6 +373,9 @@ behavior.
       server and exercise the retail community menu against its levels, daily
       list, album, images, queue and heart routes. The probe uses existing game
       archives by symlink and removes its server data and build artifacts.
+- [x] Run `run_live_server_ticket_probe.py --publish` against a fresh server
+      for level create, featured metadata, description/readback, snapshot,
+      update and cleanup.
 - [ ] Establish a reproducible authenticated test account and session for the
       local replacement server.
 - [ ] Capture comparable request/response logs from retail and OpenEgg for each

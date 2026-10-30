@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise OpenEgg login against a local server; --community adds live menu checks."""
+"""Exercise OpenEgg login; --community and --publish add live server checks."""
 
 import argparse
 import json
@@ -22,6 +22,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--community", action="store_true",
                         help="seed a disposable community and run the retail menu probe")
+    parser.add_argument("--publish", action="store_true",
+                        help="publish, update and remove a synthetic level on the server")
     args = parser.parse_args()
     engine = ROOT / "build" / "OpenEgg"
     if not engine.is_file():
@@ -178,7 +180,20 @@ def main():
                 if community.returncode:
                     raise SystemExit("live community browse probe failed")
 
+            if args.publish:
+                publish_level = subprocess.run(
+                    [sys.executable, str(ROOT / "tests" / "networking" / "run_publish_probe.py"),
+                     "--server-url", f"http://127.0.0.1:{port}"],
+                    cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    timeout=90, check=False,
+                )
+                print(publish_level.stdout, end="")
+                if publish_level.returncode:
+                    raise SystemExit("live level publish probe failed")
+
             suffix = " and community browse" if args.community else " and community session"
+            if args.publish:
+                suffix += " and level publish"
             print(f"live local ticket login{suffix} PASS (unsigned ticket, short session)")
         finally:
             server.terminate()
