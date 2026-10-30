@@ -73,9 +73,13 @@ bool IsTicketHex(const std::string& value) {
 }
 
 bool IsOnlineId(const std::string& value) {
-    if (value.size() > 64) return false;
-    return std::all_of(value.begin(), value.end(), [](unsigned char c) {
-        return c >= 0x21 && c != 0x7f;
+    if (value.size() < 3 || value.size() > 16 ||
+        !((value.front() >= 'A' && value.front() <= 'Z') ||
+          (value.front() >= 'a' && value.front() <= 'z')))
+        return false;
+    return std::all_of(value.begin() + 1, value.end(), [](unsigned char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+               (c >= '0' && c <= '9') || c == '-' || c == '_';
     });
 }
 

@@ -15,8 +15,9 @@ PSN connection. Use these OpenEgg queries to tell the states apart:
 - `OpenEgg_Network_IsPSNSignedIn()` is false; OpenEgg has no PSN provider.
 
 Set `psn_online_id` and either `psn_ticket_hex` or `ticket_file` in
-`OpenEgg.ini`. Treat the ticket as a secret. Ticket login requires HTTPS for
-remote servers; plain HTTP is allowed only on loopback for development. A
+`OpenEgg.ini`. The Online ID must start with a letter and contain 3–16 letters,
+digits, hyphens, or underscores. Treat the ticket as a secret. Remote ticket
+login requires HTTPS; plain HTTP is allowed only on loopback for development. A
 server configured to accept unsigned tickets cannot verify account ownership;
 use that setting only with a disposable local test server. The manual
 `session_id` and `user_id` test bypass is accepted only for loopback servers.
