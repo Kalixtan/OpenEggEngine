@@ -266,8 +266,8 @@ behavior.
       when 198 ASCII bytes leave one output byte before a 2-byte character;
       Ghidra shows the copy loop retries without advancing. RPCS3 emitted the
       pre-call marker but no result. This is a hang, not a crash.
-- [ ] Decide and document the safe OpenEgg behavior for that retail hang;
-      OpenEgg currently returns the 198-byte prefix.
+- [x] Document the safe OpenEgg behavior for that retail hang: return the
+      198-byte prefix rather than reproducing the non-advancing retail loop.
 - [x] Compare `Watermelon_UrlEncode` with retail: printable ASCII escaping,
       UTF-8, returned string lengths, and 512-byte buffer boundaries match.
       Ghidra shows the zeroed buffer passed through an adapter to
