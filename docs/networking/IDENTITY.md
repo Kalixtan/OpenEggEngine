@@ -36,4 +36,5 @@ path but do not verify a user-provided ticket or prove ownership of a real PSN
 identity. Later runs can connect without a PSN ticket after real verification.
 Keep the INI private; the saved session is a bearer credential.
 On Unix, OpenEgg restricts the INI to owner read/write when it loads a ticket
-or session setting.
+or session setting. It also restricts a ticket file to owner read/write before
+loading it. On Windows, keep both files private with file permissions.

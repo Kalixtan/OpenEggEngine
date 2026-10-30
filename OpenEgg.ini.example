@@ -54,7 +54,8 @@ psn_country =
 psn_ticket_hex =
 
 ; Optional existing binary ticket file beside the executable. Leave blank when
-; using psn_ticket_hex.
+; using psn_ticket_hex. OpenEgg restricts this file to owner read/write on Unix;
+; keep its Windows file permissions private yourself.
 ticket_file =
 
 ; Managed by OpenEgg after verified ticket login. This replacement-server

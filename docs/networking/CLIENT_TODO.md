@@ -181,7 +181,8 @@ behavior.
 - [x] Cancel identity requests on logout and login transitions while allowing
       independent global image requests to complete.
 - [x] Start configured ticket exchange from `OnlineCoordinator_GoOnline`;
-      load the ticket from a file or raw hex in `OpenEgg.ini`.
+      load the ticket from a file or raw hex in `OpenEgg.ini`, and restrict a
+      ticket file to owner access on Unix before reading it.
 - [x] Send the identity hello and region-specific PS3 EULA request after login; cache
       EULA text and digest and poll script acceptance.
 - [x] Fetch replacement-server friend identities without uploading an empty

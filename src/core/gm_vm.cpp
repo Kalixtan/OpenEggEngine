@@ -10,6 +10,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <system_error>
 #include <utility>
 
 namespace {
@@ -34,6 +35,24 @@ bool DecodeTicketHex(const std::string& hex, std::string& ticket) {
         ticket[i] = static_cast<char>((high << 4) | low);
     }
     return true;
+}
+
+bool RestrictTicketFile(const std::filesystem::path& path) {
+#if defined(_WIN32)
+    (void)path;
+    return true;
+#else
+    std::error_code error;
+    const auto permissions = std::filesystem::status(path, error).permissions();
+    if (error) return false;
+    constexpr auto sharedRead = std::filesystem::perms::group_all |
+                                std::filesystem::perms::others_all;
+    if ((permissions & sharedRead) == std::filesystem::perms::none) return true;
+    std::filesystem::permissions(path,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+        std::filesystem::perm_options::replace, error);
+    return !error;
+#endif
 }
 
 float ReadNumber(gmMachine* machine, gmTableObject* table, const char* key) {
@@ -145,7 +164,9 @@ GmVm::GmVm()
         const std::string& ticketFile = config.networkTicketFile;
         auto path = std::filesystem::u8path(ticketFile);
         if (path.is_relative()) path = std::filesystem::u8path(SaveData::ExecutableDirectory()) / path;
-        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        std::ifstream file;
+        if (RestrictTicketFile(path)) file.open(path, std::ios::binary | std::ios::ate);
+        else std::fprintf(stderr, "network: could not restrict ticket file permissions\n");
         const auto size = file ? file.tellg() : std::streampos(-1);
         if (size <= 0 || size > 65536) {
             std::fprintf(stderr, "network: cannot read ticket file or invalid size\n");
