@@ -97,27 +97,42 @@ def main():
                 "SDL_AUDIODRIVER": "dummy",
                 "LIBGL_ALWAYS_SOFTWARE": "1",
             })
-            result = subprocess.run(
-                [str(client_dir / engine.name), str(ROOT / "tests" / "networking"),
-                 "TicketLoginProbe.gm", "Main"],
-                cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, timeout=45, check=False,
-            )
-            print(result.stdout, end="")
-            required = (
+            def run_probe(name):
+                return subprocess.run(
+                    [str(client_dir / engine.name), str(ROOT / "tests" / "networking"), name, "Main"],
+                    cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, timeout=45, check=False,
+                )
+
+            login = run_probe("TicketLoginProbe.gm")
+            print(login.stdout, end="")
+            login_markers = (
                 "network: ticket login succeeded",
                 "network: identity hello succeeded",
                 "ticket authenticated request PASS",
             )
-            missing = [marker for marker in required if marker not in result.stdout]
-            if result.returncode or missing:
+            missing = [marker for marker in login_markers if marker not in login.stdout]
+            if login.returncode or missing:
                 raise SystemExit(f"client/server login failed; missing markers: {missing}")
-            if "network: replacement-server session saved to OpenEgg.ini" in result.stdout:
+            if "network: replacement-server session saved to OpenEgg.ini" in login.stdout:
                 raise SystemExit("unsigned dev ticket incorrectly received a remembered session")
             if "server_session_id = " in ini.read_text():
                 raise SystemExit("unsigned dev ticket unexpectedly persisted a server session")
 
-            print("live local ticket login PASS (unsigned ticket, short session)")
+            services = run_probe("ServerEulaProbe.gm")
+            print(services.stdout, end="")
+            service_markers = (
+                "server EULA PASS",
+                "server friends PASS",
+                "network: initial community data requests complete",
+                "server coordinator online PASS",
+                "replacement auth distinct from PSN PASS",
+            )
+            missing = [marker for marker in service_markers if marker not in services.stdout]
+            if services.returncode or missing:
+                raise SystemExit(f"client/server services failed; missing markers: {missing}")
+
+            print("live local ticket login and community session PASS (unsigned ticket, short session)")
         finally:
             server.terminate()
             try:

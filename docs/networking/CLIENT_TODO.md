@@ -365,9 +365,10 @@ behavior.
 ## Verification
 
 - [x] Run a headless client against a real local server with a disposable
-      unsigned ticket. Login, identity hello and an authenticated request pass
-      with server authentication disabled; the short-lived test session is not
-      saved. This does not verify Sony ticket signatures.
+      unsigned ticket. Login, identity hello, authenticated index request,
+      EULA, friends sync and initial community requests pass with server
+      authentication disabled; the short-lived session is not saved. This does
+      not verify Sony ticket signatures.
 - [ ] Establish a reproducible authenticated test account and session for the
       local replacement server.
 - [ ] Capture comparable request/response logs from retail and OpenEgg for each
