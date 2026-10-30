@@ -280,7 +280,12 @@ behavior.
       their retail routes and methods.
 - [ ] Resolve LevelHearts route mismatch: retail builds `/~level:<id>.<op>`,
       OpenEgg uses `~identity:<user>/~like:...`, and `.delete` overlaps with
-      unpublish. The separate rating-delete request has no callback.
+      unpublish. Ghidra traces show both wrappers build the same bodyless
+      `/~level:<id>` request with `DELETE`; the shared worker sends it as HTTP
+      GET. Retail route intent cannot be distinguished from that request alone.
+      The separate rating-delete request has no callback. Do not change the
+      mapping until retail service behavior or a discriminating server-side
+      rule is established.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated
       server results. Record submission currently rejects unsupported values and
       oversized tables instead of reproducing the retail buffer edge cases.
