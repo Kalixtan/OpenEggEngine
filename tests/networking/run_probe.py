@@ -4,11 +4,13 @@
 import argparse
 import os
 import re
+import socket
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import uuid
+from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,8 +65,15 @@ def main():
     engine = args.engine.resolve()
     if not engine.is_file():
         raise SystemExit(f"engine not found: {engine}")
-    if not args.server_url.startswith(("http://", "https://")):
-        raise SystemExit("server URL must use http:// or https://")
+    endpoint = urlsplit(args.server_url)
+    if endpoint.scheme not in ("http", "https") or not endpoint.hostname:
+        raise SystemExit("server URL must include an http:// or https:// host")
+    try:
+        port = endpoint.port or (443 if endpoint.scheme == "https" else 80)
+        with socket.create_connection((endpoint.hostname, port), timeout=2):
+            pass
+    except (OSError, ValueError) as error:
+        raise SystemExit(f"network probe server is unavailable: {error}") from error
 
     with tempfile.TemporaryDirectory(prefix="openegg-network-") as temp_name:
         temp = Path(temp_name)
