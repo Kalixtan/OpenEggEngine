@@ -28,6 +28,7 @@ friends_fail = ""
 community_fail = False
 translation_body = False
 translation_invalid = False
+network_region = "SCEA"
 
 
 def translation_catalog():
@@ -62,7 +63,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/otg/~identity:*.hello":
             self.reply(200, b"")
-        elif self.path == "/otg/ps3/SCEA/en/~eula.get":
+        elif self.path == f"/otg/ps3/{network_region}/{'en_gb' if network_region == 'SCEE' else 'en'}/~eula.get":
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 received.set()
             self.reply(503 if fail else 200, b"" if fail else b"\xef\xbb\xbfOne\tTwo\n")
@@ -82,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
                 (featured_localized if featured else news_localized).set()
             self.reply(503 if community_fail else 200,
                        b'{"localized":"featured en"}' if featured else b'{"localized":"news en"}')
-        elif self.path == "/otg/ps3/SCEA/en/~translation.get":
+        elif self.path == f"/otg/ps3/{network_region}/en/~translation.get":
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 translation_fetched.set()
             body = b"invalid" if translation_invalid else translation_catalog() if translation_body else b""
@@ -101,13 +102,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global fail, friends_fail, community_fail, translation_body, translation_invalid
+    global fail, friends_fail, community_fail, translation_body, translation_invalid, network_region
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fail", action="store_true", help="Return an HTTP error for EULA")
     parser.add_argument("--friends-fail", choices=("upload", "fetch"), help="Return an error during friends sync")
     parser.add_argument("--community-fail", action="store_true", help="Return errors for featured and news")
     parser.add_argument("--translation-body", action="store_true", help="Send a nonempty MO translation catalog")
     parser.add_argument("--translation-invalid", action="store_true", help="Send a malformed catalog")
+    parser.add_argument("--region", choices=("SCEA", "SCEE", "SCEJ", "SCEH"), default="SCEA")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     args = parser.parse_args()
     fail = args.fail
@@ -115,6 +117,7 @@ def main():
     community_fail = args.community_fail
     translation_body = args.translation_body
     translation_invalid = args.translation_invalid
+    network_region = args.region
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -130,7 +133,9 @@ def main():
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             (temp / "ticket.bin").write_bytes(ticket())
-            (temp / "OpenEgg.ini").write_text(f"[network]\nserver_url = http://127.0.0.1:{server.server_port}\nticket_file = ticket.bin\n")
+            (temp / "OpenEgg.ini").write_text(
+                f"[network]\nserver_url = http://127.0.0.1:{server.server_port}\n"
+                f"ticket_file = ticket.bin\nproduct_region = {args.region}\n")
             harness = temp / "harness.txt"
             harness.write_text("wait 240\nquit\n")
             env = os.environ.copy()

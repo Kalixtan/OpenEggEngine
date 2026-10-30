@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("server_url", help="Local server with the disposable fixture account")
 parser.add_argument("--input", action="store_true", help="Navigate with headless key events")
+parser.add_argument("--region", choices=("SCEA", "SCEE", "SCEJ", "SCEH"), default="SCEA",
+                    help="Publisher region used for EULA and translation requests")
 args = parser.parse_args()
 endpoint = urlsplit(args.server_url)
 if (endpoint.scheme != "http" or endpoint.hostname != "127.0.0.1" or not endpoint.port or
@@ -31,7 +33,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-full-menu-") as name:
     if data.is_dir():
         (temp / "game_data").symlink_to(data, target_is_directory=True)
     (temp / "OpenEgg.ini").write_text(
-        f"[network]\nserver_url = {args.server_url}\naccount_email = {EMAIL}\naccount_password = {PASSWORD}\n")
+        f"[network]\nserver_url = {args.server_url}\naccount_email = {EMAIL}\naccount_password = {PASSWORD}\n"
+        f"product_region = {args.region}\n")
     harness = temp / "harness.txt"
     if args.input:
         harness.write_text(("wait 30\nkey Right 1\nkey Right 1\nkey Return 1\n" * 25) + "wait 120\nquit\n")

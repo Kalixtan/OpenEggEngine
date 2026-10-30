@@ -2,6 +2,7 @@
 """Check the desktop network-language fallback and EULA request."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -24,7 +25,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/otg/~identity:*.hello":
             self.reply(200, b"")
-        elif self.path.startswith("/otg/ps3/SCEA/") and self.path.endswith("/~eula.get"):
+        elif re.fullmatch(r"/otg/ps3/(SCEA|SCEE|SCEJ|SCEH)/[a-z_]+/~eula\.get", self.path):
             if self.headers.get("X-OTG-Identity-SessionId") != SESSION:
                 self.reply(403, b"")
                 return
@@ -62,9 +63,15 @@ try:
         env = os.environ.copy()
         env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                    SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-        for language, expected in ((1, "en"), (2, "fr"), (3, "es_mx"), (4, "en")):
+        cases = (("SCEA", 1, "en"), ("SCEA", 2, "fr"), ("SCEA", 3, "es_mx"), ("SCEA", 4, "en"),
+                 ("SCEE", 4, "de"), ("SCEE", 3, "es"), ("SCEE", 16, "pl"), ("SCEE", 1, "en_gb"),
+                 ("SCEJ", 0, "ja"), ("SCEJ", 2, "en"),
+                 ("SCEH", 9, "ko"), ("SCEH", 10, "zh_hant"), ("SCEH", 1, "en"))
+        for region, language, expected in cases:
             (temp / "OpenEgg.ini").write_text(
-                f"[system]\nlanguage = {language}\n[network]\nserver_url = http://127.0.0.1:{server.server_port}\nticket_file = ticket.bin\n")
+                f"[system]\nlanguage = {language}\n[network]\n"
+                f"server_url = http://127.0.0.1:{server.server_port}\n"
+                f"ticket_file = ticket.bin\nproduct_region = {region}\n")
             source = (ROOT / "tests/networking/NetworkLocaleProbe.gm").read_text().replace("__EXPECTED__", expected)
             (script_dir / "NetworkLocaleProbe.gm").write_text(source)
             seen.clear()
@@ -73,8 +80,8 @@ try:
             print(result.stdout, end="")
             if (result.returncode or "network locale PASS" not in result.stdout or
                     "localized EULA PASS" not in result.stdout or " FAIL" in result.stdout or "[gm]" in result.stdout or
-                    seen != [f"/otg/ps3/SCEA/{expected}/~eula.get"]):
-                raise SystemExit(f"network locale probe failed for language {language}")
+                    seen != [f"/otg/ps3/{region}/{expected}/~eula.get"]):
+                raise SystemExit(f"network locale probe failed for region {region}, language {language}")
 finally:
     server.shutdown()
     server.server_close()

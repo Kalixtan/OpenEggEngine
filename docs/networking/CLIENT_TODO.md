@@ -139,12 +139,12 @@ behavior.
 - [x] Cancel identity requests on logout and login transitions while allowing
       independent global image requests to complete.
 - [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`.
-- [x] Send the identity hello and PS3 SCEA EULA requests after login; cache
+- [x] Send the identity hello and region-specific PS3 EULA request after login; cache
       EULA text and digest and poll script acceptance.
 - [x] Synchronize an empty desktop platform friend list and expose returned
       friend identities. A real platform friend provider is still needed.
-- [x] Use the same SCEA language fallback for script queries and EULA paths;
-      the desktop setting remains a substitute for the PSN account region.
+- [x] Select SCEA, SCEE, SCEJ, or SCEH EULA and translation paths. The desktop
+      language setting substitutes for the PSN account region.
 - [x] Fetch and refresh featured and news data into rooted script tables.
 - [x] Read the local beta agreement file. A missing file returns null; retail's
       traced missing-file path dereferences a null pointer.
@@ -202,8 +202,8 @@ behavior.
 - [ ] Replace the platform-state fallback with a real platform provider. A
       successful desktop server login currently stands in for platform state;
       it does not establish a PSN sign-in or retail restriction status.
-- [ ] Implement other product regions and later coordinator phases. Match
-      retail update timing and malformed EULA edge cases.
+- [ ] Match PSN account-region locale selection, retail update timing, and
+      malformed EULA edge cases. Desktop language remains a proxy.
 - [ ] Match retail login reset, request purging, malformed responses and error
       transitions. Test genuine platform tickets against a suitable server.
 - [ ] Implement and verify the retail ticket login and coordinator state flow.

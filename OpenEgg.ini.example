@@ -49,6 +49,10 @@ ticket_file =
 account_email =
 account_password =
 
+; Publisher region of your game: SCEA, SCEE, SCEJ, or SCEH.
+; The configured language stands in for the unavailable PSN account region.
+product_region = SCEA
+
 ; Desktop fallback for the PSN chat restriction check. Set false to disable
 ; community features. This does not change server-side permissions.
 community_allowed = true

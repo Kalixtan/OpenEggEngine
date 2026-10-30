@@ -30,6 +30,8 @@ struct SystemConfig {
     std::string networkBaseUrl;
     // Retail's separate global image manager uses this service root.
     std::string networkImageBaseUrl = "https://s3.amazonaws.com";
+    // Desktop substitute for the retail product ID's publisher prefix.
+    std::string networkProductRegion = "SCEA";
     // Optional OTG session cookie for local server testing.
     std::string networkSessionId;
     // Optional identity ID paired with a manually supplied session ID.
@@ -48,8 +50,19 @@ struct SystemConfig {
 
     const char* OsIdName() const;
 
-    // Desktop fallback for the PS3 SCEA account-region language mapping.
-    const char* SceaNetworkLanguage() const {
+    // Desktop uses the configured language in place of PSN's account region.
+    const char* NetworkLanguage() const {
+        static const char* locales[] = {"ja", "en", "fr", "es", "de", "it", "nl", "pt", "ru", "ko",
+                                        "zh_hant", "zh", "fi", "sv", "da", "no", "pl", "pt_br", "en_gb", "es_mx"};
+        if (networkProductRegion == "SCEJ") return languageCode == 0 ? "ja" : "en";
+        if (networkProductRegion == "SCEE") {
+            if ((languageCode >= 2 && languageCode <= 8) || languageCode == 16) return locales[languageCode];
+            return "en_gb";
+        }
+        if (networkProductRegion == "SCEH") {
+            if (languageCode == 9 || languageCode == 10) return locales[languageCode];
+            return "en";
+        }
         return languageCode == 2 ? "fr" : languageCode == 3 ? "es_mx" : "en";
     }
 

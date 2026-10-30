@@ -155,6 +155,14 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (section == "network" && key == "image_base_url") {
             valid = value.rfind("http://", 0) == 0 || value.rfind("https://", 0) == 0;
             if (valid) networkImageBaseUrl = value;
+        } else if (section == "network" && key == "product_region") {
+            const std::string region = Lower(value);
+            valid = region == "scea" || region == "scee" || region == "scej" || region == "sceh";
+            if (valid) {
+                networkProductRegion = region;
+                std::transform(networkProductRegion.begin(), networkProductRegion.end(), networkProductRegion.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+            }
         } else if (key == "network_session_id" || (section == "network" && key == "session_id")) {
             networkSessionId = value;
             valid = true;

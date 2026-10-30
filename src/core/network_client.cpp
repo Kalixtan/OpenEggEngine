@@ -779,11 +779,11 @@ void NetworkClient::PumpCallbacks() {
             m_helloRequestId = 0;
             if (completion.status == 200 || completion.status == 201) {
                 std::fprintf(stderr, "network: identity hello succeeded\n");
-                // The traced PS3 build uses the SCEA product ID. Its EULA
-                // route maps French and Spanish to their American locales.
-                const char* locale = SystemConfig::Get().SceaNetworkLanguage();
-                m_eulaRequestId = QueueRetailGet(std::string("/otg/ps3/SCEA/") + locale + "/~eula.get",
-                    gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 1);
+                const auto& config = SystemConfig::Get();
+                const std::string eulaPath = std::string("/otg/ps3/") + config.networkProductRegion + "/" +
+                    config.NetworkLanguage() + "/~eula.get";
+                m_eulaRequestId = QueueRetailGet(eulaPath, gmVariable::s_null, gmVariable::s_null,
+                                                 gmVariable::s_null, 0, 1);
                 if (m_eulaRequestId) m_coordinatorState = 22;
                 else m_coordinatorError = -12;
             } else {
@@ -1009,8 +1009,10 @@ void NetworkClient::UpdateCoordinator() {
             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
         m_newsRequestId = QueueRetailGet(std::string("/otg/global/news/") + locale + "/~metadata:*.get",
             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
-        m_translationRequestId = QueueRetailGet(std::string("/otg/ps3/SCEA/") + locale + "/~translation.get",
-            gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 1);
+        const std::string translationPath = std::string("/otg/ps3/") +
+            SystemConfig::Get().networkProductRegion + "/" + locale + "/~translation.get";
+        m_translationRequestId = QueueRetailGet(translationPath, gmVariable::s_null, gmVariable::s_null,
+                                                gmVariable::s_null, 0, 1);
         m_coordinatorState = 29;
         return;
     }

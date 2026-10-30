@@ -138,7 +138,7 @@ int GM_CDECL gmf_Network_LiveAreaReplaceFrame(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_Network_GetNetworkLanguageCode(gmThread* a_thread) {
-    a_thread->PushNewString(SystemConfig::Get().SceaNetworkLanguage());
+    a_thread->PushNewString(SystemConfig::Get().NetworkLanguage());
     return GM_OK;
 }
 int GM_CDECL gmf_Network_SetNetworkLanguageFont(gmThread* a_thread) { (void)a_thread; return GM_OK; }
