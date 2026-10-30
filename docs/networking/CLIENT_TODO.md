@@ -73,6 +73,8 @@ behavior.
       this desktop exchange is separate from retail PSN ticket login.
 - [x] Match `GoOffline`'s state-2 result when no identity manager is attached;
       the headless manual-session probe checks the state before reconnecting.
+- [x] Hold state 2 while attached identity requests drain, then resume a
+      deferred `GoOnline`; a headless probe checks cancellation and reconnect.
 - [x] `Watermelon_Index_Page`, album pages, user-list pages,
       `Watermelon_ActivityStream_Page`, and `Watermelon_FeaturedLevel_Get`.
 - [x] Following get/put/delete route construction and self-follow short
@@ -209,9 +211,9 @@ behavior.
       malformed EULA edge cases. Desktop language remains a proxy.
 - [ ] Match retail login reset, request purging, malformed responses and error
       transitions. Test genuine platform tickets against a suitable server.
-- [ ] Trace and match the attached-manager transport-not-ready `GoOffline`
-      branch and native PSN startup states. Ticket login tests use synthetic
-      tickets; they do not verify PSN sign-in behavior.
+- [ ] Match the manager thread's exact stop/restart timing and native PSN
+      startup states. Desktop treats an idle identity worker as transport-ready;
+      ticket login tests use synthetic tickets, not PSN sign-in.
 
 ## Request core
 

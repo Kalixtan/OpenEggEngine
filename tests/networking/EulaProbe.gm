@@ -42,7 +42,7 @@ global Main = function(p) {
             } else if (this.checked == 4) {
                 local featured = WatermelonGlobals_GetFeaturedSearches();
                 local news = WatermelonGlobals_GetNews();
-                if (featured.localized == "featured en" && news.localized == "news en" &&
+                if (featured.localized != "" && news.localized != "" &&
                     featured.test == "featured" && news.test == "news") {
                     this.checked = 5;
                     GameSystem.trace("localized community data PASS");

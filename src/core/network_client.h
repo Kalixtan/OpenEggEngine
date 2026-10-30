@@ -142,6 +142,9 @@ private:
     std::thread m_worker;
     std::thread m_globalWorker;
     bool m_stopping = false;
+    bool m_identityRequestInFlight = false;
+    bool m_offlineTransitionPending = false;
+    bool m_reconnectAfterOfflineTransition = false;
     int m_nextId = 1;
     int m_nextAssetBundleId = 1;
     int m_loginRequestId = 0;

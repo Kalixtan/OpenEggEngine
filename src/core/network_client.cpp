@@ -468,6 +468,10 @@ void NetworkClient::SetPlatformTicket(std::string a_ticket) {
 
 void NetworkClient::GoOnline() {
     if (m_coordinatorState != 2 && m_coordinatorState != 4) return;
+    if (m_offlineTransitionPending) {
+        m_reconnectAfterOfflineTransition = true;
+        return;
+    }
     m_managerAttached = true;
     m_chatPermissions = SystemConfig::Get().networkCommunityAllowed;
     m_coordinatorError = 0;
@@ -528,9 +532,11 @@ void NetworkClient::GoOffline() {
     m_userId.clear();
     m_identityReady = false;
     m_coordinatorError = 0;
-    // Retail uses state 2 when coordinator +0x08 has no manager, otherwise
-    // it consults that manager's transport readiness before choosing 2 or 4.
-    m_coordinatorState = managerAttached ? 4 : 2;
+    m_offlineTransitionPending = managerAttached && m_worker.joinable();
+    m_reconnectAfterOfflineTransition = false;
+    // Retail polls the attached transport without waiting. State 2 is held
+    // until queued and in-flight identity requests have drained.
+    m_coordinatorState = m_offlineTransitionPending || !managerAttached ? 2 : 4;
 }
 
 int NetworkClient::Queue(const std::string& a_path, const gmVariable& a_callback,
@@ -971,6 +977,18 @@ void NetworkClient::PumpCallbacks() {
 }
 
 void NetworkClient::UpdateCoordinator() {
+    bool reconnect = false;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_offlineTransitionPending && m_identityRequests.empty() && !m_identityRequestInFlight) {
+            m_offlineTransitionPending = false;
+            m_coordinatorState = 4;
+            reconnect = m_reconnectAfterOfflineTransition;
+            m_reconnectAfterOfflineTransition = false;
+        }
+    }
+    if (reconnect) GoOnline();
+
     if (m_coordinatorState == 24) {
         if (!m_friendsReady) {
             // Desktop has no PSN friend provider yet; send an empty list.
@@ -1051,6 +1069,7 @@ void NetworkClient::WorkerMain(bool a_identity) {
             if (m_stopping) return;
             request = std::move(requests.front());
             requests.pop_front();
+            if (a_identity) m_identityRequestInFlight = true;
             m_wake.notify_all();
             const auto pending = m_pending.find(request.id);
             request.purged = pending != m_pending.end() && pending->second.purged;
@@ -1063,6 +1082,11 @@ void NetworkClient::WorkerMain(bool a_identity) {
         completion.identity = a_identity;
         if (request.purged) {
             EnqueueWorkerCompletion(std::move(completion), a_identity);
+            if (a_identity) {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_identityRequestInFlight = false;
+                m_wake.notify_all();
+            }
             continue;
         }
         CURL* curl = curl_easy_init();
@@ -1118,6 +1142,11 @@ void NetworkClient::WorkerMain(bool a_identity) {
         }
 
         EnqueueWorkerCompletion(std::move(completion), a_identity);
+        if (a_identity) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_identityRequestInFlight = false;
+            m_wake.notify_all();
+        }
     }
 #endif
 }

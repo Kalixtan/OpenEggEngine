@@ -80,8 +80,22 @@ def main():
                            "manual session coordinator PASS", "manual platform state PASS") if valid else ("manual session rejection PASS",)
                 if result.returncode or any(marker not in result.stdout for marker in markers) or "manual session request FAIL" in result.stdout:
                     raise SystemExit("manual session probe failed")
-            if server and sum(path == f"/otg/~identity:{USER}/~metadata:*.get" and auth == SESSION for path, auth in seen) != 2:
-                raise SystemExit("manual session was not checked on both logins")
+            if server and not args.server_url:
+                (root / "OpenEgg.ini").write_text(
+                    f"[network]\nserver_url = {url}\nsession_id = {SESSION}\nuser_id = {USER}\n")
+                transition = subprocess.run(
+                    [str(root / "OpenEgg"), str(ROOT / "tests/networking"), "OfflineTransitionProbe.gm", "Main"],
+                    env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+                print(transition.stdout, end="")
+                markers = ("attached offline transition pending PASS", "offline transition reconnect PASS")
+                if transition.returncode or any(marker not in transition.stdout for marker in markers):
+                    raise SystemExit("attached offline transition probe failed")
+            if server:
+                actual_logins = sum(path == f"/otg/~identity:{USER}/~metadata:*.get" and auth == SESSION
+                                    for path, auth in seen)
+                allowed_logins = (2,) if args.server_url else (3, 4)
+                if actual_logins not in allowed_logins:
+                    raise SystemExit("manual session was not checked on every login")
     finally:
         if server:
             server.shutdown()
