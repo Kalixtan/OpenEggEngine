@@ -139,7 +139,7 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
                         "community queue cleared PASS"])
     if args.expect_heart:
         markers.extend(["community heart missing PASS", "community heart post PASS", "community activity wrapper PASS", "community heart read PASS",
-                        "community heart delete PASS", "community heart cleared PASS"])
+                        "community heart delete PASS", "community heart cleared PASS", "community rating cleared PASS"])
     if (result.returncode or any(marker not in result.stdout for marker in markers) or
             (args.server_url and result.stdout.count("community tab request PASS") != 5) or
             " FAIL" in result.stdout or "[gm]" in result.stdout):

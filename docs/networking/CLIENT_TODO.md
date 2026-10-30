@@ -86,7 +86,8 @@ behavior.
       circuit.
 - [x] Gate rating and favourite requests on identity setup; check their
       request paths and callbacks; verify rating body bytes at signed 32-bit
-      boundaries with a local fixture.
+      boundaries with a local fixture. The community probe sets a rating,
+      deletes the heart, and confirms the server removed it.
 - [x] Gate featured-level requests on identity setup; exercise signed-in
       publication and retrieval against the local replacement server.
 - [x] Gate metadata requests on identity setup and test raw-text and JSON
@@ -283,8 +284,9 @@ behavior.
       action; the replacement server maps them through the authenticated user.
 - [ ] Match `LevelHearts_Delete`: retail's bodyless `/~level:<id>.delete`
       overlaps with unpublish, and also queues a rating-delete request without
-      a callback. Keep its service mapping unresolved until evidence separates
-      the two meanings.
+      a callback. The server now handles the rating-delete route; keep the
+      overlapping level-delete mapping unresolved until evidence separates
+      those meanings.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated
       server results. Record submission currently rejects unsupported values and
       oversized tables instead of reproducing the retail buffer edge cases.

@@ -90,6 +90,22 @@ global CommunityQueueAdded = function(data, result, error) {
     }
 };
 
+global CommunityRatingReply = function(data, result, error) {
+    if (data.ratingStage == 0 && error == 0) {
+        data.ratingStage = 1;
+        data.heartStage = 3;
+        if (!Watermelon_LevelHearts_Delete(CommunityHeartReply, data, 53, data.queueLevelId)) {
+            GameSystem.trace("community heart delete setup FAIL");
+        }
+    } else if (data.ratingStage == 1 && error == 404 && result == null) {
+        GameSystem.trace("community rating cleared PASS");
+        data.heartFinished = 1;
+    } else {
+        GameSystem.trace("community rating request FAIL", data.ratingStage, error);
+        data.heartFinished = 1;
+    }
+};
+
 global CommunityHeartReply = function(data, result, error) {
     if (data.heartStage == 0 && error == 404) {
         GameSystem.trace("community heart missing PASS");
@@ -107,9 +123,10 @@ global CommunityHeartReply = function(data, result, error) {
         }
     } else if (data.heartStage == 2 && error == 0 && result != null) {
         GameSystem.trace("community heart read PASS");
-        data.heartStage = 3;
-        if (!Watermelon_LevelHearts_Delete(CommunityHeartReply, data, 53, data.queueLevelId)) {
-            GameSystem.trace("community heart delete setup FAIL");
+        data.ratingStage = 0;
+        if (!Watermelon_Rating_Put(CommunityRatingReply, data, 53,
+                "~level:" + data.queueLevelId, 1)) {
+            GameSystem.trace("community rating put setup FAIL");
         }
     } else if (data.heartStage == 3 && error == 0) {
         GameSystem.trace("community heart delete PASS");
@@ -119,7 +136,12 @@ global CommunityHeartReply = function(data, result, error) {
         }
     } else if (data.heartStage == 4 && error == 404) {
         GameSystem.trace("community heart cleared PASS");
-        data.heartFinished = 1;
+        data.ratingStage = 1;
+        if (!Watermelon_Rating_Get(CommunityRatingReply, data, 54,
+                "~level:" + data.queueLevelId)) {
+            GameSystem.trace("community rating get setup FAIL");
+            data.heartFinished = 1;
+        }
     } else {
         GameSystem.trace("community heart request FAIL", data.heartStage, error);
         data.heartFinished = 1;
