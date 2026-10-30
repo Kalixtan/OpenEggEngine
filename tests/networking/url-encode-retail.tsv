@@ -1,8 +1,9 @@
-# probe-sha256 57ea792fe199071c29f93915a08100dc2a12fc8b902ad025564d70d5a9511bdb
+# probe-sha256 219a60a8b1eac334285a1f5217686b080bcc9d27c0b56e951a9ee8435db8b8ff
 string.length.a	1
 string.length.empty	0
 url.encode.plain511.length	511
 url.encode.plain512.length	0
+url.encode.printable	%20%21%22%23%24%25%26%27%28%29*%2B%2C-.%2F0123456789%3A%3B%3C%3D%3E%3F%40%5B%5C%5D%5E_%60%7B%7C%7D%7E
 url.encode.reserved.a	%20%21%23%24%25%26%27%28%29*%2B
 url.encode.reserved.b	%2C%2F%3A%3B%3D%3F%40%5B%5D
 url.encode.space	%20

@@ -12,6 +12,8 @@ global Main = function(p) {
             Probe("url.encode.space.length",
                 STRINGHELPER_GetLength(Watermelon_UrlEncode(" ")));
             Probe("url.encode.unreserved", Watermelon_UrlEncode("AZaz09-_.~"));
+            local printable = " !\"#$%&'()*+,-./0123456789:;<=>?@[\\]^_`{|}~";
+            Probe("url.encode.printable", Watermelon_UrlEncode(printable));
             Probe("url.encode.unreserved.length",
                 STRINGHELPER_GetLength(Watermelon_UrlEncode("AZaz09-_.~")));
             Probe("url.encode.reserved.a", Watermelon_UrlEncode(" !#$%&'()*+"));
