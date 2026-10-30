@@ -53,8 +53,8 @@ public:
     int CoordinatorState() const { return m_coordinatorState; }
     int CoordinatorError() const { return m_coordinatorError; }
     bool IdentityReady() const { return m_identityReady; }
-    bool DesktopPlatformOnline() const { return m_desktopPlatformOnline; }
-    int DesktopNetworkState() const { return m_desktopPlatformOnline ? 4 : 0; }
+    bool ReplacementServerOnline() const { return m_replacementServerOnline; }
+    int ReplacementNetworkState() const { return m_replacementServerOnline ? 4 : 0; }
     const std::string& PlatformOnlineId() const { return m_platformOnlineId; }
     const std::string& PlatformCountry() const { return m_platformCountry; }
     bool HasChatPermissions() const { return m_chatPermissions; }
@@ -171,7 +171,7 @@ private:
     int m_coordinatorState = 1;
     int m_coordinatorError = 0;
     bool m_identityReady = false;
-    bool m_desktopPlatformOnline = false;
+    bool m_replacementServerOnline = false;
     bool m_managerAttached = false;
     bool m_chatPermissions = false;
     bool m_eulaReady = false;

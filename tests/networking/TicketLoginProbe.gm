@@ -62,6 +62,11 @@ global Main = function(p) {
                     GameSystem.trace("ticket identity FAIL");
                     return;
                 }
+                if (OpenEgg_Network_IsReplacementServerAuthenticated() &&
+                    !OpenEgg_Network_IsPSNSignedIn() && !OnlineCoordinator_IsLoggedIntoPlatform() &&
+                    Network_IsSignedIn() && Network_IsOnline()) {
+                    GameSystem.trace("replacement auth distinct from PSN PASS");
+                }
                 if (OnlineCoordinator_GetOnlineID() == "openegg_probe" &&
                     Watermelon_GetUserIdentityId() != "" &&
                     Watermelon_GetUserIdentityId() != OnlineCoordinator_GetOnlineID()) {

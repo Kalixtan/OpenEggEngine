@@ -8,7 +8,7 @@ global ManualReply = function(data, result, error) {
             GameSystem.trace("manual session logout PASS");
         }
         if (Network_IsSignedIn() && Network_IsOnline()) {
-            GameSystem.trace("network platform retained offline PASS");
+            GameSystem.trace("replacement service state retained offline PASS");
         }
         OnlineCoordinator_GoOnline();
         data.stage = 2;
@@ -33,8 +33,9 @@ global Main = function(p) {
         update=function() {
             if (this.stage == 0 && Watermelon_IsOnline()) {
                 this.stage = 1;
-                if (OnlineCoordinator_IsLoggedIntoPlatform() && Network_IsSignedIn() && Network_IsOnline()) {
-                    GameSystem.trace("manual platform state PASS");
+                if (!OnlineCoordinator_IsLoggedIntoPlatform() && !OpenEgg_Network_IsPSNSignedIn() &&
+                    OpenEgg_Network_IsReplacementServerAuthenticated() && Network_IsSignedIn() && Network_IsOnline()) {
+                    GameSystem.trace("replacement auth distinct from platform sign-in PASS");
                 }
                 if (Network_IsSignedIn()) { GameSystem.trace("network signed in PASS"); }
                 if (Network_IsOnline()) { GameSystem.trace("network online PASS"); }

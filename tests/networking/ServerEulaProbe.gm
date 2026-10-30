@@ -26,7 +26,8 @@ global Main = function(p) {
                 this.checked = 3;
                 GameSystem.trace("server coordinator online PASS");
                 if (OpenEgg_Network_IsReplacementServerAuthenticated() &&
-                    !OpenEgg_Network_IsPSNSignedIn()) {
+                    !OpenEgg_Network_IsPSNSignedIn() && !OnlineCoordinator_IsLoggedIntoPlatform() &&
+                    Network_IsSignedIn() && Network_IsOnline()) {
                     GameSystem.trace("replacement auth distinct from PSN PASS");
                 }
             }

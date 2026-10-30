@@ -248,9 +248,12 @@ behavior.
       restriction data where a platform provider is available.
 - [ ] Replace the ticket-derived online ID with a platform provider when one
       exists; this desktop fallback does not query PSN sign-in state.
-- [ ] Replace the platform-state fallback with a real platform provider. A
-      successful desktop server login currently stands in for platform state;
-      it does not establish a PSN sign-in or retail restriction status.
+- [x] Keep platform sign-in false without a PSN provider. A replacement-server
+      session still drives the game's server-online state, but
+      `OnlineCoordinator_IsLoggedIntoPlatform()` and
+      `OpenEgg_Network_IsPSNSignedIn()` remain false.
+- [ ] Add a platform-state provider if OpenEgg later supports native platform
+      sign-in; server authentication must remain a separate state.
 - [ ] Match PSN account-region locale selection, retail update timing, and
       malformed EULA edge cases. Desktop language remains a proxy.
 - [ ] Match retail login reset, request purging, malformed responses and error

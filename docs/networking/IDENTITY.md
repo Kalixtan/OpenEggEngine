@@ -14,7 +14,9 @@ only loopback development servers may use the display-name fallback.
 
 `Network_IsSignedIn()` and `Network_IsOnline()` keep the retail script-facing
 state for an authenticated replacement-server session. They do not report a
-PSN connection. Use these OpenEgg queries to tell the states apart:
+PSN connection. `OnlineCoordinator_IsLoggedIntoPlatform()` remains false
+because OpenEgg has no PSN sign-in provider. Use these OpenEgg queries to tell
+the states apart:
 
 - `OpenEgg_Network_IsReplacementServerAuthenticated()` is true after server
   login and identity validation.

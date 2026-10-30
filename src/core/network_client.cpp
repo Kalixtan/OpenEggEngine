@@ -465,7 +465,7 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     }
     m_userId.clear();
     m_identityReady = false;
-    m_desktopPlatformOnline = false;
+    m_replacementServerOnline = false;
     m_loginRequestId = QueueRetailPost("/identity/login/token/psn", a_ticket,
         "application/octet-stream", gmVariable::s_null, gmVariable::s_null,
         gmVariable::s_null, 0, 0);
@@ -787,7 +787,7 @@ void NetworkClient::PumpCallbacks() {
             m_manualValidationRequestId = 0;
             if (completion.status == 200 || completion.status == 201) {
                 m_identityReady = true;
-                m_desktopPlatformOnline = true;
+                m_replacementServerOnline = true;
                 m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                     gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
                 if (m_helloRequestId) m_coordinatorState = 20;
@@ -807,7 +807,7 @@ void NetworkClient::PumpCallbacks() {
             m_savedValidationRequestId = 0;
             if (completion.status == 200 || completion.status == 201) {
                 m_identityReady = true;
-                m_desktopPlatformOnline = true;
+                m_replacementServerOnline = true;
                 std::fprintf(stderr, "network: remembered server session validated\n");
                 m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                     gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
@@ -820,7 +820,7 @@ void NetworkClient::PumpCallbacks() {
                 }
                 m_userId.clear();
                 m_identityReady = false;
-                m_desktopPlatformOnline = false;
+                m_replacementServerOnline = false;
                 if (completion.status == 401 || completion.status == 403) {
                     SystemConfig::Get().SaveReplacementSession({}, {});
                     m_savedSessionId.clear();
@@ -856,7 +856,7 @@ void NetworkClient::PumpCallbacks() {
                 }
                 m_userId.clear();
                 m_identityReady = false;
-                m_desktopPlatformOnline = false;
+                m_replacementServerOnline = false;
                 m_coordinatorError = -12;
                 m_coordinatorState = 4;
                 SystemConfig::Get().SaveReplacementSession({}, {});
@@ -916,7 +916,7 @@ void NetworkClient::PumpCallbacks() {
                             }
                         }
                         m_identityReady = true;
-                        m_desktopPlatformOnline = true;
+                        m_replacementServerOnline = true;
                         std::fprintf(stderr, "network: ticket login succeeded\n");
                         m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);

@@ -24,7 +24,11 @@ int GM_CDECL gmf_IsDisabled(gmThread* a_thread) { a_thread->PushInt(CoordinatorS
 int GM_CDECL gmf_IsConnecting(gmThread* a_thread) { int state = CoordinatorState(); a_thread->PushInt(state != 1 && state != 2 && state != 4 && state != 30); return GM_OK; }
 // Retail reads a platform byte in zero-filled BSS; this PS3 image never writes it.
 int GM_CDECL gmf_IsReadyGoOffline(gmThread* a_thread) { a_thread->PushInt(1); return GM_OK; }
-int GM_CDECL gmf_IsLoggedIntoPlatform(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->DesktopPlatformOnline()); return GM_OK; }
+int GM_CDECL gmf_IsLoggedIntoPlatform(gmThread* a_thread) {
+    // A replacement-server session does not sign the desktop into PSN.
+    a_thread->PushInt(0);
+    return GM_OK;
+}
 int GM_CDECL gmf_HasChatPermissions(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->HasChatPermissions()); return GM_OK; }
 int GM_CDECL gmf_IsSendQueueFull(gmThread* a_thread) { a_thread->PushInt(!g_networkClient || g_networkClient->IsSendQueueFull()); return GM_OK; }
 int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
@@ -33,9 +37,9 @@ int GM_CDECL gmf_IsWaitingForEulaAcceptance(gmThread* a_thread) {
 }
 int GM_CDECL gmf_GetLastError(gmThread* a_thread) { a_thread->PushInt(g_networkClient ? g_networkClient->CoordinatorError() : 0); return GM_OK; }
 int GM_CDECL gmf_GetOnlineID(gmThread* a_thread) { a_thread->PushNewString(g_networkClient ? g_networkClient->PlatformOnlineId().c_str() : ""); return GM_OK; }
-int GM_CDECL gmf_NetworkPlatformOnline(gmThread* a_thread) { a_thread->PushInt(g_networkClient && g_networkClient->DesktopPlatformOnline()); return GM_OK; }
+int GM_CDECL gmf_NetworkPlatformOnline(gmThread* a_thread) { a_thread->PushInt(0); return GM_OK; }
 int GM_CDECL gmf_NetworkIsSignedIn(gmThread* a_thread) {
-    const int state = g_networkClient ? g_networkClient->DesktopNetworkState() : 0;
+    const int state = g_networkClient ? g_networkClient->ReplacementNetworkState() : 0;
     a_thread->PushInt(state > 2);
     return GM_OK;
 }
@@ -49,7 +53,7 @@ int GM_CDECL gmf_OpenEggPsnSignedIn(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_NetworkIsOnline(gmThread* a_thread) {
-    const int state = g_networkClient ? g_networkClient->DesktopNetworkState() : 0;
+    const int state = g_networkClient ? g_networkClient->ReplacementNetworkState() : 0;
     a_thread->PushInt(state > 3);
     return GM_OK;
 }
