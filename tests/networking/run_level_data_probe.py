@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check compressed level callbacks against a local HTTP fixture."""
 import argparse
+from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
@@ -20,6 +21,7 @@ seen = set()
 descriptions = set()
 sounds = set()
 queued = set()
+queued_counts = Counter()
 ratings_favourites = set()
 metadata = set()
 leaderboard = set()
@@ -123,6 +125,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith(f"/otg/~identity:{USER}/~queued:"):
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 queued.add(self.path)
+                queued_counts[self.path] += 1
             self.reply(200, b'{"ok":1}')
         elif self.path in {rating_path + ".get", "/otg/~level:level-1/~favourite:*.all",
                            "/otg/~level:level-1/~favourite:item.put",
@@ -261,6 +264,10 @@ def main():
                     if actual != expected:
                         print(f"{name}: missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}")
                         failed = True
+                null_callback_path = f"/otg/~identity:{USER}/~queued:simple.put"
+                if queued_counts[null_callback_path] != 1:
+                    print(f"queued null callback: expected one PUT request, got {queued_counts[null_callback_path]}")
+                    failed = True
             missing = [marker for marker in markers if marker not in result.stdout]
             if server and "description partial PASS" not in result.stdout:
                 missing.append("description partial PASS")

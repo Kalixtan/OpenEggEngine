@@ -520,6 +520,11 @@ int GM_CDECL gmf_QueuedPage(gmThread* a_thread) {
         if (ReadOptionalString(a_thread, 3, query) && !query.empty())
             path += "?" + query;
     }
+    // The retail helper accepts the call but does not queue without a callback.
+    if (a_thread->Param(0).m_type == GM_NULL) {
+        a_thread->PushInt(1);
+        return GM_OK;
+    }
     const int requestId = g_networkClient->QueueRetailGet(
         path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(requestId != 0 ? 1 : 0);
@@ -540,6 +545,11 @@ int QueueQueuedAction(gmThread* a_thread, const char* a_operation) {
     const std::string target = std::strcmp(a_operation, "get") == 0 ? "/~level:" + levelId : levelId;
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
         "/~queued:" + EncodeRetailUrl(target) + "." + a_operation;
+    // Retail reports success for a null callback, but schedules no request.
+    if (a_thread->Param(0).m_type == GM_NULL) {
+        a_thread->PushInt(1);
+        return GM_OK;
+    }
     const int requestId = g_networkClient->QueueRetailGet(
         path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(requestId != 0 ? 1 : 0);

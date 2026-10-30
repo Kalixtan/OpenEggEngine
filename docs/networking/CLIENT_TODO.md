@@ -99,7 +99,7 @@ behavior.
 - [x] Gate following and heart requests on identity setup. Test their paths,
       self-follow check and page identity fallback with a local fixture.
 - [x] Gate queued-item requests on identity setup; test all four routes and
-      a null callback against a local fixture.
+      confirm a null callback succeeds without sending a request.
 - [x] Gate record submissions on identity setup; test serialized fields,
       empty records and the traced header value with a local fixture.
 - [x] Preserve the HTTP status when a response body fails to arrive; reject
