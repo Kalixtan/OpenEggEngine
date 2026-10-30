@@ -79,7 +79,7 @@ def main():
                                         env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
                 print(result.stdout, end="")
                 markers = ("network status initial PASS", "managerless offline state PASS", "manual session request PASS",
-                           "manual session logout PASS", "manual session reconnect PASS",
+                           "manual session logout PASS", "network platform retained offline PASS", "manual session reconnect PASS",
                            "manual session coordinator PASS", "manual platform state PASS",
                            "network signed in PASS", "network online PASS") if valid else (
                            "manual session rejection PASS", "network status rejection PASS")
