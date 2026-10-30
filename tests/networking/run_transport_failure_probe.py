@@ -74,6 +74,8 @@ class FailureHandler(Handler):
             self.close_connection = True
         elif self.path == "/otg/~index:level.page?type=level&case=success":
             self.reply(200, b'{"count":0}')
+        elif self.path == "/otg/~index:level.page?type=level&case=no-content":
+            self.reply(204)
         elif self.path == "/otg/~index:level.page?type=level&case=stall":
             self.send_response(404)
             self.send_header("Content-Length", "100")
@@ -154,6 +156,7 @@ def main():
             output = "".join(lines)
             print(output, end="")
             markers = ("transport partial status PASS", "transport no status PASS", "transport success PASS",
+                       "transport 204 status PASS",
                        "transport failure not cached PASS", "transport HTTP error cached PASS",
                        "transport stalled error PASS", "transport after stall PASS",
                        "transport identity redirect PASS", "transport cross redirect blocked PASS",
