@@ -78,8 +78,9 @@ behavior.
 - [x] Start the coordinator with a configured session after a server check.
       The replacement server checks the supplied identity against the session
       on `~identity:*.hello`; ordinary retail hello requests remain unchanged.
-- [x] Sign in to a registered replacement-server account using INI credentials;
-      this desktop exchange is separate from retail PSN ticket login.
+- [x] Keep the PSN Online ID and ticket in `OpenEgg.ini`. The client checks
+      the configured ID against both the ticket and server response; no PSN
+      password or separate client account login is used.
 - [x] Match `GoOffline`'s state-2 result when no identity manager is attached;
       the headless manual-session probe checks the state before reconnecting.
 - [x] Hold state 2 while attached identity requests drain, then resume a
@@ -152,10 +153,10 @@ behavior.
 - [x] Queue, read and remove a synthetic level through the local server.
 - [x] Queued page/get/put/delete route construction.
 - [x] Metadata all/get/put request construction and callback modes.
-- [x] Explicit POST transport; local invalid-ticket request reaches the
-      replacement server and returns HTTP 400.
+- [x] Explicit POST transport for ticket login; reject a malformed ticket or
+      an Online ID mismatch before making a server request.
 - [x] Authenticated index request from OpenEgg using a locally seeded test session.
-- [x] Experimental ticket-file exchange and authenticated request against a
+- [x] Ticket-file or inline-hex exchange and authenticated request against a
       local replacement server configured to accept unsigned tickets.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       an in-flight response can retain its HTTP status, as in the PS3 trace.
@@ -163,7 +164,8 @@ behavior.
       Object references use their low 32 bits on desktop, as a PS3 approximation.
 - [x] Cancel identity requests on logout and login transitions while allowing
       independent global image requests to complete.
-- [x] Start experimental ticket-file exchange from `OnlineCoordinator_GoOnline`.
+- [x] Start configured ticket exchange from `OnlineCoordinator_GoOnline`;
+      load the ticket from a file or raw hex in `OpenEgg.ini`.
 - [x] Send the identity hello and region-specific PS3 EULA request after login; cache
       EULA text and digest and poll script acceptance.
 - [x] Synchronize an empty desktop platform friend list and expose returned

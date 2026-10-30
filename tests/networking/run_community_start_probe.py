@@ -63,11 +63,13 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         if args.no_patch and archive.name.startswith("patch_data"):
             continue
         (temp / archive.name).symlink_to(archive)
+    if args.server_url:
+        from run_ticket_probe import ticket
+        (temp / "ticket.bin").write_bytes(ticket())
     url = args.server_url or ("" if args.offline else "http://127.0.0.1:1")
     config = "[network]\nserver_url = " + url + "\n"
     if args.server_url:
-        from run_account_login_probe import EMAIL, PASSWORD
-        config += f"account_email = {EMAIL}\naccount_password = {PASSWORD}\n"
+        config += "psn_online_id = openegg_probe\nticket_file = ticket.bin\n"
     (temp / "OpenEgg.ini").write_text(config)
     harness = temp / "harness.txt"
     if args.harness_input:

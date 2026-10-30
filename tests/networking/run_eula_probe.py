@@ -70,7 +70,8 @@ class Handler(BaseHTTPRequestHandler):
                 friends_uploaded.set()
             self.reply(503 if friends_fail == "upload" else 200, b"")
             return
-        body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER + '"}}}').encode()
+        body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER +
+                '","display_name":"openegg_probe"}}}').encode()
         self.reply(201, body)
 
     def do_GET(self):
@@ -124,6 +125,7 @@ def main():
     parser.add_argument("--community-fail", action="store_true", help="Return errors for featured and news")
     parser.add_argument("--translation-body", action="store_true", help="Send a nonempty MO translation catalog")
     parser.add_argument("--translation-invalid", action="store_true", help="Send a malformed catalog")
+    parser.add_argument("--ticket-in-ini", action="store_true", help="Store ticket bytes as inline INI hex")
     parser.add_argument("--region", choices=("SCEA", "SCEE", "SCEJ", "SCEH"), default="SCEA")
     parser.add_argument("--language", type=int, choices=range(20), default=1)
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
@@ -149,10 +151,14 @@ def main():
             data = engine.parent / "game_data"
             if data.is_dir():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
-            (temp / "ticket.bin").write_bytes(ticket())
+            ticket_bytes = ticket()
+            if not args.ticket_in_ini:
+                (temp / "ticket.bin").write_bytes(ticket_bytes)
+            ticket_setting = (f"psn_ticket_hex = {ticket_bytes.hex()}\n" if args.ticket_in_ini
+                              else "ticket_file = ticket.bin\n")
             (temp / "OpenEgg.ini").write_text(
                 f"[system]\nlanguage = {args.language}\n[network]\nserver_url = http://127.0.0.1:{server.server_port}\n"
-                f"ticket_file = ticket.bin\nproduct_region = {args.region}\n")
+                f"psn_online_id = openegg_probe\n{ticket_setting}product_region = {args.region}\n")
             harness = temp / "harness.txt"
             harness.write_text("wait 240\nquit\n")
             env = os.environ.copy()

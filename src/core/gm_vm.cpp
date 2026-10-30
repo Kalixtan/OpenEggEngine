@@ -14,6 +14,28 @@
 
 namespace {
 
+int HexNibble(unsigned char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+bool DecodeTicketHex(const std::string& hex, std::string& ticket) {
+    if (hex.empty() || hex.size() > 131072 || hex.size() % 2 != 0) return false;
+    ticket.resize(hex.size() / 2);
+    for (size_t i = 0; i < ticket.size(); ++i) {
+        const int high = HexNibble(static_cast<unsigned char>(hex[i * 2]));
+        const int low = HexNibble(static_cast<unsigned char>(hex[i * 2 + 1]));
+        if (high < 0 || low < 0) {
+            ticket.clear();
+            return false;
+        }
+        ticket[i] = static_cast<char>((high << 4) | low);
+    }
+    return true;
+}
+
 float ReadNumber(gmMachine* machine, gmTableObject* table, const char* key) {
     if (!machine || !table) return 0.0f;
     const gmVariable value = table->Get(machine, key);
@@ -109,8 +131,18 @@ GmVm::GmVm()
         m_machine.m_line = TraceEditorLimitLine;
 
     gmMachineLib(&m_machine);
-    const std::string& ticketFile = SystemConfig::Get().networkTicketFile;
-    if (!ticketFile.empty()) {
+    const auto& config = SystemConfig::Get();
+    if (!config.networkTicketHex.empty() && !config.networkTicketFile.empty()) {
+        std::fprintf(stderr, "network: configure psn_ticket_hex or ticket_file, not both\n");
+    } else if (!config.networkTicketHex.empty()) {
+        std::string ticket;
+        if (!DecodeTicketHex(config.networkTicketHex, ticket)) {
+            std::fprintf(stderr, "network: invalid psn_ticket_hex\n");
+        } else {
+            m_networkClient.SetPlatformTicket(std::move(ticket));
+        }
+    } else if (!config.networkTicketFile.empty()) {
+        const std::string& ticketFile = config.networkTicketFile;
         auto path = std::filesystem::u8path(ticketFile);
         if (path.is_relative()) path = std::filesystem::u8path(SaveData::ExecutableDirectory()) / path;
         std::ifstream file(path, std::ios::binary | std::ios::ate);

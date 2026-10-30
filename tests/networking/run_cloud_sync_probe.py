@@ -14,6 +14,7 @@ import threading
 from urllib.parse import urlsplit
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+from run_ticket_probe import ticket
 
 from run_cloud_probe import BOUNDARY, Handler, ROOT, SESSION, USER, multipart
 
@@ -25,6 +26,8 @@ remote = {"onlineID": "openegg_probe", "version": 1,
 received = []
 get_status = 200
 test_case = "success"
+EMAIL = "probe@example.test"
+PASSWORD = 'pass#word;"quoted"'
 
 
 class SyncHandler(Handler):
@@ -85,7 +88,6 @@ def main():
             parser.error("local server URL and disposable fixture identity are required")
         url, user, session = args.server_url.rstrip("/"), args.user_id, args.session_id
         if args.case == "initial":
-            from run_account_login_probe import EMAIL, PASSWORD
             login = Request(url + "/identity/login/account",
                             data=json.dumps({"email": EMAIL, "password": PASSWORD}).encode(),
                             headers={"Content-Type": "application/json"})
@@ -121,7 +123,8 @@ def main():
                 (temp / "game_data").symlink_to(data, target_is_directory=True)
             config = f"[network]\nserver_url = {url}\n"
             if args.case == "initial":
-                config += f"account_email = {EMAIL}\naccount_password = {PASSWORD}\n"
+                (temp / "ticket.bin").write_bytes(ticket())
+                config += "psn_online_id = openegg_probe\nticket_file = ticket.bin\n"
             else:
                 config += f"user_id = {user}\nsession_id = {session}\n"
             (temp / "OpenEgg.ini").write_text(config)

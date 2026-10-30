@@ -1,0 +1,13 @@
+global Main = function(p) {
+    return table(Process=p,
+        init=function() { return true; },
+        constructor=function() { OnlineCoordinator_GoOnline(); },
+        update=function() {
+            if (OnlineCoordinator_GetLastError() == -12 &&
+                OnlineCoordinator_IsOffline() &&
+                OnlineCoordinator_GetOnlineID() == "" &&
+                !Watermelon_IsOnline() && !Network_IsSignedIn() && !Network_IsOnline()) {
+                GameSystem.trace("ticket required PASS");
+            }
+        });
+};

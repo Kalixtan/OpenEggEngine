@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from urllib.parse import urlsplit
 
-from run_account_login_probe import EMAIL, PASSWORD
+from run_ticket_probe import ticket
 
 ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -32,8 +32,10 @@ with tempfile.TemporaryDirectory(prefix="openegg-full-menu-") as name:
     data = engine.parent / "game_data"
     if data.is_dir():
         (temp / "game_data").symlink_to(data, target_is_directory=True)
+    (temp / "ticket.bin").write_bytes(ticket())
     (temp / "OpenEgg.ini").write_text(
-        f"[network]\nserver_url = {args.server_url}\naccount_email = {EMAIL}\naccount_password = {PASSWORD}\n"
+        f"[network]\nserver_url = {args.server_url}\npsn_online_id = openegg_probe\n"
+        "ticket_file = ticket.bin\n"
         f"product_region = {args.region}\n")
     harness = temp / "harness.txt"
     if args.input:

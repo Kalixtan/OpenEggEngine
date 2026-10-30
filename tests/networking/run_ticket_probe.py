@@ -37,6 +37,8 @@ def main():
     parser.add_argument("server_url", help="Local server with RequireAuthentication=false")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--invalid-ticket", action="store_true", help="Check rejection of a malformed ticket")
+    parser.add_argument("--ticket-in-ini", action="store_true", help="Store the ticket as inline INI hex")
+    parser.add_argument("--identity-mismatch", action="store_true", help="Reject a ticket for a different Online ID")
     parser.add_argument("--expect-hello-failure", action="store_true", help="Check a failed hello response")
     parser.add_argument("--eula", action="store_true", help="Check EULA retrieval from the local server")
     parser.add_argument("--community-disabled", action="store_true", help="Disable desktop community permissions")
@@ -52,9 +54,17 @@ def main():
         data = engine.parent / "game_data"
         if data.is_dir():
             (temp / "game_data").symlink_to(data, target_is_directory=True)
-        (temp / "ticket.bin").write_bytes(b"invalid" if args.invalid_ticket else ticket())
-        (temp / "OpenEgg.ini").write_text("[network]\nserver_url = " + args.server_url.rstrip("/") + "\nticket_file = ticket.bin\n" +
-                                          ("community_allowed = false\n" if args.community_disabled else ""))
+        ticket_data = b"invalid" if args.invalid_ticket else ticket()
+        config = "[network]\nserver_url = " + args.server_url.rstrip("/") + "\n"
+        expected_id = "different_id" if args.identity_mismatch else "openegg_probe"
+        config += "psn_online_id = " + expected_id + "\n"
+        if args.ticket_in_ini:
+            config += "psn_ticket_hex = " + ticket_data.hex() + "\n"
+        else:
+            (temp / "ticket.bin").write_bytes(ticket_data)
+            config += "ticket_file = ticket.bin\n"
+        config += "community_allowed = false\n" if args.community_disabled else ""
+        (temp / "OpenEgg.ini").write_text(config)
         harness = temp / "harness.txt"
         harness.write_text("wait 240\nquit\n")
         env = os.environ.copy()
@@ -65,14 +75,20 @@ def main():
                                  probe, "Main"], cwd=ROOT, env=env,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         print(result.stdout, end="")
-        markers = ("ticket coordinator offline PASS", "ticket coordinator connecting PASS", "ticket coordinator cancel PASS",
+        markers = ("ticket coordinator offline PASS", "ticket coordinator cancel PASS",
                    "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
+        if not args.identity_mismatch and not args.invalid_ticket:
+            markers += ("ticket coordinator connecting PASS",)
         if args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
                        "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS",
                        "network: initial community data requests complete", "server coordinator online PASS")
+        elif args.identity_mismatch:
+            markers += ("ticket platform ID unavailable PASS", "network: ticket Online ID does not match psn_online_id",
+                        "ticket coordinator error PASS")
         elif args.invalid_ticket:
-            markers += ("network: ticket login failed (HTTP 400)", "ticket coordinator error PASS", "ticket platform ID unavailable PASS")
+            markers += ("network: ticket Online ID does not match psn_online_id",
+                        "ticket coordinator error PASS", "ticket platform ID unavailable PASS")
         elif args.expect_hello_failure:
             markers += ("network: ticket login succeeded", "network: identity hello failed (HTTP 503)",
                         "ticket coordinator error PASS", "ticket request rejected PASS")

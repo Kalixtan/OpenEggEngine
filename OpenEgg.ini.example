@@ -32,22 +32,25 @@ server_url =
 ; Base URL for relative community image keys. Retail uses Amazon S3.
 image_base_url = https://s3.amazonaws.com
 
-; Existing server session and identity IDs for testing. These are not a
-; username and password. OpenEgg checks the session before starting online flow.
-; Treat the session ID as a password and keep OpenEgg.ini private.
-session_id =
-user_id =
+; PSN Online ID used for this server account. When a ticket is configured,
+; OpenEgg checks the ticket identity matches this value. For server login,
+; the server account's username must match it.
+psn_online_id =
 
-; Optional binary platform ticket, relative to the executable. Experimental:
-; GoOnline exchanges it for a session; later online phases are unfinished.
-; The server decides whether to accept the ticket.
+; Optional PSN ticket from a retail session. Use either a path or inline hex.
+; This sends the ticket to the replacement server; it does not connect to PSN.
+; Whether signatures are required depends on that server's configuration.
+; Treat ticket data as a secret and keep OpenEgg.ini private.
+psn_ticket_hex =
+
+; Optional existing binary ticket file beside the executable. Leave blank when
+; using psn_ticket_hex.
 ticket_file =
 
-; Optional registered replacement-server account for desktop login.
-; Credentials require HTTPS, except for localhost. The password is stored as
-; plain text here; keep OpenEgg.ini private. Ticket login takes precedence.
-account_email =
-account_password =
+; Optional manual session for local testing only. Normal login uses the ticket
+; above. Treat the session ID as a password and keep OpenEgg.ini private.
+session_id =
+user_id =
 
 ; Publisher region of your game: SCEA, SCEE, SCEJ, or SCEH.
 ; The configured language stands in for the unavailable PSN account region.

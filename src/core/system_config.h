@@ -36,11 +36,11 @@ struct SystemConfig {
     std::string networkSessionId;
     // Optional identity ID paired with a manually supplied session ID.
     std::string networkUserId;
-    // Optional binary platform ticket for the experimental login exchange.
+    // PSN Online ID used to bind server login to the same visible identity.
+    std::string networkPsnOnlineId;
+    // Optional binary ticket, either inline hex or in a separate file.
+    std::string networkTicketHex;
     std::string networkTicketFile;
-    // Optional credentials for the replacement server's desktop login.
-    std::string networkAccountEmail;
-    std::string networkAccountPassword;
     // Desktop fallback for PSN's chat restriction query.
     bool networkCommunityAllowed = true;
     // Desktop stand-in for PSN's account content-rating query.

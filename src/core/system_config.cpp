@@ -37,6 +37,20 @@ bool ParseBool(const std::string& value, bool& out) {
     return false;
 }
 
+bool IsTicketHex(const std::string& value) {
+    if (value.size() > 131072 || value.size() % 2 != 0) return false;
+    return std::all_of(value.begin(), value.end(), [](unsigned char c) {
+        return std::isxdigit(c) != 0;
+    });
+}
+
+bool IsOnlineId(const std::string& value) {
+    if (value.size() > 64) return false;
+    return std::all_of(value.begin(), value.end(), [](unsigned char c) {
+        return c >= 0x21 && c != 0x7f;
+    });
+}
+
 bool ParseOsId(const std::string& value, OsId& out) {
     const std::string normalized = Lower(Trim(value));
     if (normalized == "windows" || normalized == "win32" || normalized == "0") out = OsId::WINDOWS;
@@ -107,13 +121,8 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
     unsigned lineNumber = 0;
     while (std::getline(input, line)) {
         ++lineNumber;
-        const auto rawEquals = line.find('=');
-        const bool password = section == "network" && rawEquals != std::string::npos &&
-            Lower(Trim(line.substr(0, rawEquals))) == "account_password";
-        if (!password) {
-            const auto comment = line.find_first_of(";#");
-            if (comment != std::string::npos) line.erase(comment);
-        }
+        const auto comment = line.find_first_of(";#");
+        if (comment != std::string::npos) line.erase(comment);
         line = Trim(std::move(line));
         if (line.empty()) continue;
         if (line.front() == '[' && line.back() == ']') {
@@ -172,12 +181,12 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (section == "network" && key == "ticket_file") {
             networkTicketFile = value;
             valid = true;
-        } else if (section == "network" && key == "account_email") {
-            networkAccountEmail = value;
-            valid = true;
-        } else if (section == "network" && key == "account_password") {
-            networkAccountPassword = value;
-            valid = true;
+        } else if (section == "network" && key == "psn_online_id") {
+            valid = IsOnlineId(value);
+            if (valid) networkPsnOnlineId = value;
+        } else if (section == "network" && key == "psn_ticket_hex") {
+            valid = IsTicketHex(value);
+            if (valid) networkTicketHex = value;
         } else if (section == "network" && key == "community_allowed") {
             bool parsed = networkCommunityAllowed;
             valid = ParseBool(value, parsed);

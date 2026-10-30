@@ -120,7 +120,6 @@ private:
               const std::string& a_body = {}, const std::string& a_contentType = {},
               const std::string& a_resourceKey = {}, bool a_sendSession = true);
     bool BeginTicketLogin(const std::string& a_ticket);
-    bool BeginAccountLogin();
 
     gmMachine& m_machine;
     gmTableObject* m_roots = nullptr;
@@ -151,7 +150,6 @@ private:
     int m_nextId = 1;
     int m_nextAssetBundleId = 1;
     int m_loginRequestId = 0;
-    bool m_accountLogin = false;
     int m_manualValidationRequestId = 0;
     int m_helloRequestId = 0;
     int m_eulaRequestId = 0;
