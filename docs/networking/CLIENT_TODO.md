@@ -219,8 +219,10 @@ behavior.
       against retail. Desktop tickets currently reload their named files.
 - [ ] Compare level XML/JSON conversion and malformed input with retail;
       desktop inflate currently caps output at 64 MiB.
-- [ ] Connect the separate network translation map to traced native string
-      consumers; compare malformed catalogs and platform sign-in timing.
+- [x] Trace the network translation map consumer. The only identified use is
+      activity-post string formatting; the PS3 helper is a stub, so translated
+      values have no visible effect in this build.
+- [ ] Compare malformed translation catalogs and platform sign-in timing.
 - [ ] Replace the configurable desktop chat-permission fallback with platform
       restriction data where a platform provider is available.
 - [ ] Replace the ticket-derived online ID with a platform provider when one
