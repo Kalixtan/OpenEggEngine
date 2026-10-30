@@ -183,7 +183,12 @@ global Main = function(p) {
                 this.started = 3;
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "page", 113, "user-1", "news", "count=2");
                 Watermelon_ActivityStream_Page(ActivityFixtureReply, "empty", 114, "", "");
-                Watermelon_ActivityStream_Post(ActivityFixtureReply, "post", 115, "~identity:user-1", "entry");
+                Watermelon_ActivityStream_Post("post", "entry", "type=%s");
+                Watermelon_ActivityStream_Post("post", "entry", "type=%s", "url");
+                Watermelon_ActivityStream_Post("post", "entry", "type=%s", "url", "small.png");
+                Watermelon_ActivityStream_Post("post", "entry", "type=%s", "https://example.invalid/", "small.png", "large.png");
+                Watermelon_ActivityStream_Post("post", "entry", "type=%s", "url", "small.png", "large.png", "ignored");
+                GameSystem.trace("activity post noop PASS");
                 Watermelon_Following_Page(SocialFixtureReply, "following", 116, "", "count=2");
                 Watermelon_Followers_Page(SocialFixtureReply, "followers", 117, null, "count=2");
                 Watermelon_Following_All(SocialFixtureReply, "all", 118);

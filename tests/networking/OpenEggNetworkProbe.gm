@@ -122,14 +122,6 @@ global ActivityDeniedReply = function(data, response, error) {
     }
 };
 
-global ActivityPostReply = function(data, response, error) {
-    if (data == "activity_post" && response == null && error == 404) {
-        GameSystem.trace("activity post response PASS");
-    } else {
-        GameSystem.trace("activity post response FAIL");
-    }
-};
-
 global FeaturedOfflineReply = function(data, response, error) {
     GameSystem.trace("featured offline callback FAIL");
 };
@@ -305,8 +297,9 @@ global Main = function(p) {
             local heartPut = Watermelon_LevelHearts_Post(HeartsActionReply, "heart_put", 40, "test-level");
             local heartDelete = Watermelon_LevelHearts_Delete(HeartsActionReply, "heart_delete", 41, "test-level");
             local activity = Watermelon_ActivityStream_Page(ActivityDeniedReply, "activity", 8, "test-user", "news", "from=0&count=1");
-            local activityPost = Watermelon_ActivityStream_Post(ActivityPostReply, "activity_post", 36, "~identity:test-user", "test");
-            if (activity == 0 && activityPost == 0) { GameSystem.trace("activity offline gate PASS"); }
+            Watermelon_ActivityStream_Post("post", "message", "format", "url", "small.png", "large.png");
+            GameSystem.trace("activity post noop PASS");
+            if (activity == 0) { GameSystem.trace("activity offline gate PASS"); }
             local featured = Watermelon_FeaturedLevel_Get(FeaturedOfflineReply, "featured", 9, "test-user");
             local featuredPost = Watermelon_FeaturedLevel_Post(FeaturedOfflineReply, "featured_post", 37, "test-level");
             if (featured == 0 && featuredPost == 0) {

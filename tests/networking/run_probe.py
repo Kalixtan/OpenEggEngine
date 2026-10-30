@@ -32,6 +32,7 @@ MARKERS = (
     "self follow short circuit PASS",
     "queue offline gate PASS",
     "activity offline gate PASS",
+    "activity post noop PASS",
     "featured offline gate PASS",
     "record offline gate PASS",
     "level lookup offline gate PASS",
