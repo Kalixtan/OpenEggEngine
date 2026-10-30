@@ -3,7 +3,9 @@ global TicketLoginReply = function(data, response, error) {
         GameSystem.trace("ticket authenticated request PASS");
         OnlineCoordinator_GoOffline();
         if (OnlineCoordinator_IsOffline() && Watermelon_GetUserIdentityId() == "") {
-            GameSystem.trace("ticket coordinator logout PASS");
+            if (!Watermelon_IsOnline()) {
+                GameSystem.trace("ticket coordinator logout PASS");
+            }
         }
     } else if (OnlineCoordinator_GetLastError() == -12) {
         GameSystem.trace("ticket request rejected PASS");
@@ -24,7 +26,8 @@ global Main = function(p) {
             } else if (OnlineCoordinator_GetOnlineID() == "") {
                 GameSystem.trace("ticket platform ID unavailable PASS");
             }
-            if (OnlineCoordinator_IsOffline() && !OnlineCoordinator_IsDisabled()) {
+            if (OnlineCoordinator_IsOffline() && !OnlineCoordinator_IsDisabled() &&
+                Watermelon_GetUserIdentityId() == "" && !Watermelon_IsOnline()) {
                 GameSystem.trace("ticket coordinator offline PASS");
             }
             OnlineCoordinator_GoOnline();
@@ -37,7 +40,8 @@ global Main = function(p) {
                 GameSystem.trace("desktop community restricted PASS");
             }
             OnlineCoordinator_GoOffline();
-            if (OnlineCoordinator_IsOffline() && Watermelon_GetUserIdentityId() == "") {
+            if (OnlineCoordinator_IsOffline() && Watermelon_GetUserIdentityId() == "" &&
+                !Watermelon_IsOnline()) {
                 GameSystem.trace("ticket coordinator cancel PASS");
             }
             OnlineCoordinator_GoOnline();
@@ -49,7 +53,12 @@ global Main = function(p) {
             }
             if (this.started == 0 && Watermelon_GetUserIdentityId() != "") {
                 this.started = 1;
-                GameSystem.trace("ticket identity PASS");
+                if (Watermelon_IsOnline()) {
+                    GameSystem.trace("ticket identity PASS");
+                } else {
+                    GameSystem.trace("ticket identity FAIL");
+                    return;
+                }
                 Watermelon_Index_Page(TicketLoginReply, null, 1, "type=level&search=all&count=1");
             }
         }
