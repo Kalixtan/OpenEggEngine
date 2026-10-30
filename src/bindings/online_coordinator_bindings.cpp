@@ -160,14 +160,14 @@ int GM_CDECL gmf_Network_GetIsTrophyQueueFull(gmThread* a_thread) { a_thread->Pu
 
 int GM_CDECL gmf_Network_ActivityStreamPost(gmThread* a_thread) {
     const int count = a_thread->GetNumParams();
-    if (count < 2) return GM_EXCEPTION;
-    // Older script revisions pass two arguments; retail's behavior is unknown.
-    if (count == 2) return GM_OK;
+    // Retail reads three required slots before its optional-argument checks.
+    // Reject missing slots safely; its wrapper returns -1 for null required values.
+    if (count < 3) return GM_EXCEPTION;
     for (int i = 0; i < 3; ++i) {
-        if (a_thread->Param(i).m_type == GM_NULL) return GM_OK;
+        if (a_thread->Param(i).m_type == GM_NULL) return GM_EXCEPTION;
     }
     for (int i = 3; i < count && i < 6; ++i) {
-        if (a_thread->Param(i).m_type != GM_STRING) return GM_OK;
+        if (a_thread->Param(i).m_type != GM_STRING) return GM_EXCEPTION;
     }
     // The retail PS3 helper returns unsupported; the wrapper ignores it.
     return GM_OK;

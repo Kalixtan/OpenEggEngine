@@ -17,17 +17,30 @@ with tempfile.TemporaryDirectory(prefix="openegg-activity-") as name:
     if data.is_dir():
         (temp / "game_data").symlink_to(data, target_is_directory=True)
     harness = temp / "harness.txt"
-    harness.write_text("wait 30\nquit\n")
     env = os.environ.copy()
     env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-    result = subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
-                             "ActivityPostProbe.gm", "Main"], env=env, text=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
-    print(result.stdout, end="")
-    if (result.returncode or "activity post wrapper PASS" not in result.stdout or
-            "activity native rejection PASS" not in result.stdout or
-            "browser wrapper PASS" not in result.stdout or "near gift table PASS" not in result.stdout or
-            "near/fb no-result stubs PASS" not in result.stdout or
-            " FAIL" in result.stdout or "[gm]" in result.stdout):
+
+    def run(script):
+        harness.write_text("wait 30\nquit\n")
+        return subprocess.run([str(temp / engine.name), str(ROOT / "tests/networking"),
+                               script, "Main"], env=env, text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+
+    valid = run("ActivityPostProbe.gm")
+    print(valid.stdout, end="")
+    if (valid.returncode or "activity post wrapper PASS" not in valid.stdout or
+            "browser wrapper PASS" not in valid.stdout or "near gift table PASS" not in valid.stdout or
+            "near/fb no-result stubs PASS" not in valid.stdout or " FAIL" in valid.stdout or
+            "[gm]" in valid.stdout):
         raise SystemExit("platform wrapper probe failed")
+
+    for script, entered, returned in (
+        ("ActivityPostNullProbe.gm", "activity null required entered", "activity null required returned"),
+        ("ActivityPostOptionalProbe.gm", "activity invalid optional entered", "activity invalid optional returned"),
+    ):
+        result = run(script)
+        print(result.stdout, end="")
+        if (result.returncode or entered not in result.stdout or returned in result.stdout or
+                "[gm]" not in result.stdout):
+            raise SystemExit(f"{script} did not raise a GameMonkey exception")

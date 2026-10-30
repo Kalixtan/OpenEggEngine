@@ -1,16 +1,12 @@
 global Main = function(p) {
     return table(Process=p,
         constructor=function() {
-            Network_ActivityStreamPost("legacy message", "legacy url");
             Network_ActivityStreamPost(2, "message", "format");
             Network_ActivityStreamPost(2, "message", "format", "url");
             Network_ActivityStreamPost(2, "message", "format", "url", "small");
             Network_ActivityStreamPost(2, "message", "format", "url", "small", "large");
             Network_ActivityStreamPost(2, "message", "format", "url", "small", "large", 9);
             GameSystem.trace("activity post wrapper PASS");
-            Network_ActivityStreamPost(null, "message", "format", "url", "small", "large");
-            Network_ActivityStreamPost(2, "message", "format", null, "small", "large");
-            GameSystem.trace("activity native rejection PASS");
             if (!Network_WebBrowserIsAvailable() && !Network_WebBrowserIsRunning() &&
                 Network_WebBrowserLaunch() == -4 &&
                 Network_WebBrowserLaunch("https://example.test/") == -4 &&

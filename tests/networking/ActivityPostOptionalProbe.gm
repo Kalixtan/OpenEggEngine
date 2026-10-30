@@ -1,0 +1,10 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            GameSystem.trace("activity invalid optional entered");
+            Network_ActivityStreamPost(2, "message", "format", 7);
+            GameSystem.trace("activity invalid optional returned");
+        },
+        init=function() { return true; },
+        update=function() {});
+};

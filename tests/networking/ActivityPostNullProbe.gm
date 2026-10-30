@@ -1,0 +1,10 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            GameSystem.trace("activity null required entered");
+            Network_ActivityStreamPost(null, "message", "format");
+            GameSystem.trace("activity null required returned");
+        },
+        init=function() { return true; },
+        update=function() {});
+};
