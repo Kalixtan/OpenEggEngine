@@ -286,11 +286,15 @@ behavior.
       playback and image cache ownership with retail.
 - [x] Use retail's `/~level:<id>.get` and `.put` routes for heart lookup and
       action; the replacement server maps them through the authenticated user.
-- [ ] Match `LevelHearts_Delete`: retail's bodyless `/~level:<id>.delete`
-      overlaps with unpublish, and also queues a rating-delete request without
-      a callback. The server now handles the rating-delete route; keep the
-      overlapping level-delete mapping unresolved until evidence separates
-      those meanings.
+- [x] Match `LevelHearts_Delete` request construction: retail sends bodyless
+      `GET /~level:<id>.delete`, then queues
+      `GET /~level:<id>/~rating:%2F~identity%3A<user>.delete` without a
+      callback. Ghidra traces `FUN_001d578c`, `FUN_00181534`, and URL builder
+      `FUN_000be2bc`; the worker sends GET and the URL builder adds `.delete`.
+      Local probes cover both routes.
+- [ ] Compare retail service results for those deletes. The level route also
+      handles unpublish, and the author's ability to unlike their own level is
+      unknown.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated
       server results. Record submission currently rejects unsupported values and
       oversized tables instead of reproducing the retail buffer edge cases.
