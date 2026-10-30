@@ -3,6 +3,7 @@
 #include "gmTableObject.h"
 #include "gmStringObject.h"
 #include "../core/engine_context.h"
+#include "../core/file_helper.h"
 #include "../core/network_client.h"
 #include "../core/system_config.h"
 #include <cstdio>
@@ -185,6 +186,22 @@ int GM_CDECL gmf_Network_WebBrowserFinish(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_Network_NearDeleteGift(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_Network_NearSendGift(gmThread* a_thread) {
+    // The PS3 wrapper reads four strings, opens argument 2 from file area 1,
+    // reads into a temporary buffer, then returns integer 0 on both paths.
+    // There is no Near service call in the traced function.
+    if (a_thread->GetNumParams() >= 4 && a_thread->Param(2).m_type == GM_STRING) {
+        gmMachine& machine = *a_thread->GetMachine();
+        auto* pathObject = static_cast<gmStringObject*>(machine.GetObject(a_thread->Param(2).m_value.m_ref));
+        FileHelper* files = GetEngineContext().fileHelper;
+        if (pathObject && files) {
+            std::string discarded;
+            files->ReadTextFile(pathObject->GetString(), discarded);
+        }
+    }
+    a_thread->PushInt(0);
+    return GM_OK;
+}
 int GM_CDECL gmf_Network_NearGetExternalGiftDetails(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 2) return GM_EXCEPTION;
     GM_TABLE_PARAM(out, 1);
@@ -316,7 +333,7 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_WebBrowserIsRunning", gmf_NetworkUnavailable);
     a_machine.RegisterLibraryFunction("Network_WebBrowserFinish", gmf_Network_WebBrowserFinish);
     a_machine.RegisterLibraryFunction("Network_NearLaunchApp", gmf_NetworkNoOp);
-    a_machine.RegisterLibraryFunction("Network_NearSendGift", gmf_NetworkUnavailable);
+    a_machine.RegisterLibraryFunction("Network_NearSendGift", gmf_Network_NearSendGift);
     a_machine.RegisterLibraryFunction("Network_NearDeleteGift", gmf_Network_NearDeleteGift);
     a_machine.RegisterLibraryFunction("Network_NearGetExternalGiftDetails", gmf_Network_NearGetExternalGiftDetails);
     a_machine.RegisterLibraryFunction("Network_LiveAreaReplaceFrame", gmf_Network_LiveAreaReplaceFrame);

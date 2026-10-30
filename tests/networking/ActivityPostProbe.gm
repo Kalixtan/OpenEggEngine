@@ -22,7 +22,7 @@ global Main = function(p) {
             Network_NearLaunchApp();
             Network_NearDeleteGift("fixture");
             if (Network_NearSendGift("name", "description",
-                    "__openegg_missing_near_fixture__", "") == 0) {
+                    "near_send_fixture.bin", "") == 0) {
                 GameSystem.trace("near send gift return PASS");
             } else {
                 GameSystem.trace("near send gift return FAIL");

@@ -13,9 +13,9 @@ with tempfile.TemporaryDirectory(prefix="openegg-activity-") as name:
     shutil.copy2(engine, temp / engine.name)
     for archive in engine.parent.glob("*.psarc"):
         (temp / archive.name).symlink_to(archive)
-    data = engine.parent / "game_data"
-    if data.is_dir():
-        (temp / "game_data").symlink_to(data, target_is_directory=True)
+    data = temp / "game_data"
+    data.mkdir()
+    (data / "near_send_fixture.bin").write_bytes(b"NearSendGift fixture\n")
     harness = temp / "harness.txt"
     env = os.environ.copy()
     env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
