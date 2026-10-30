@@ -10,6 +10,8 @@ global CapacitySlowReply = function(data, result, error) {
     else { GameSystem.trace("capacity worker completion FAIL"); }
 };
 
+global CapacityNoopReply = function(data, result, error) {};
+
 global CapacityCachedReply = function(data, result, error) {
     if (error == 0 && result != null && result.bpm == 120) { GameSystem.trace("capacity cached completion PASS"); }
     else { GameSystem.trace("capacity cached completion FAIL"); }
@@ -31,7 +33,7 @@ global Main = function(p) {
                 if (this.ticks == 30) {
                     local i = 0;
                     for (i=0; i<32; i+=1) {
-                        Watermelon_Index_Page(null, null, 101, "type=level&queued=1");
+                        Watermelon_Index_Page(CapacityNoopReply, null, 101, "type=level&queued=1");
                     }
                     if (OnlineCoordinator_IsSendQueueFull()) { GameSystem.trace("send queue full PASS"); }
                     if (Watermelon_GetLevelData(CapacityCachedReply, null, 104, "capacity", "v1") && OnlineCoordinator_IsSendQueueFull()) {
@@ -40,7 +42,7 @@ global Main = function(p) {
                     if (Watermelon_GetContentImage(null, null, 102, "__IMAGE_URL__") && OnlineCoordinator_IsSendQueueFull()) {
                         GameSystem.trace("global queue admission PASS");
                     }
-                    if (Watermelon_Index_Page(null, null, 103, "type=level&extra=1")) {
+                    if (Watermelon_Index_Page(CapacityNoopReply, null, 103, "type=level&extra=1")) {
                         GameSystem.trace("send queue resumed PASS");
                     }
                     this.stage = 3;

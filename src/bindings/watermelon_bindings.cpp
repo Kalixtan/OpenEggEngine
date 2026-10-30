@@ -75,6 +75,29 @@ std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200
     return buffer;
 }
 
+int QueueScriptGet(const std::string& a_path, const gmVariable& a_callback,
+                   const gmVariable& a_callbackData, const gmVariable& a_tag,
+                   int a_bucket, int a_callbackMode,
+                   const std::string& a_contentType = {}) {
+    if (!g_networkClient) return 0;
+    // FUN_001d45e8 in retail returns before scheduling when callback is null;
+    // its script wrapper still reports the request as accepted.
+    if (a_callback.m_type == GM_NULL) return 1;
+    return g_networkClient->QueueRetailGet(a_path, a_callback,
+        a_callbackData, a_tag, a_bucket, a_callbackMode, a_contentType);
+}
+
+int QueueScriptPost(const std::string& a_path,
+                    const std::string& a_body, const std::string& a_contentType,
+                    const gmVariable& a_callback, const gmVariable& a_callbackData,
+                    const gmVariable& a_tag,
+                    int a_bucket, int a_callbackMode) {
+    if (!g_networkClient) return 0;
+    if (a_callback.m_type == GM_NULL) return 1;
+    return g_networkClient->QueueRetailPost(a_path, a_body, a_contentType,
+        a_callback, a_callbackData, a_tag, a_bucket, a_callbackMode);
+}
+
 int GM_CDECL gmf_IndexPage(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 3 || a_thread->GetNumParams() > 4)
         return GM_EXCEPTION;
@@ -117,7 +140,7 @@ int GM_CDECL gmf_IndexPage(gmThread* a_thread) {
     std::string path = "/otg/~index:" + type + ".page";
     if (!query.empty()) path += "?" + query;
     const int requestId = g_networkClient
-        ? g_networkClient->QueueRetailGet(path, callback, callbackData, tag, 0, 0)
+        ? QueueScriptGet(path, callback, callbackData, tag, 0, 0)
         : 0;
     a_thread->PushInt(requestId != 0 ? 1 : 0);
     return GM_OK;
@@ -153,10 +176,10 @@ int QueueMetadata(gmThread* a_thread, int a_operation) {
             (a_operation == 2 ? ".put" : ".get");
     int id;
     if (a_operation == 2 && !value.empty()) {
-        id = g_networkClient->QueueRetailPost(path, value, "text/plain", a_thread->Param(0),
+        id = QueueScriptPost(path, value, "text/plain", a_thread->Param(0),
             a_thread->Param(1), a_thread->Param(2), 0, 0);
     } else {
-        id = g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        id = QueueScriptGet(path, a_thread->Param(0), a_thread->Param(1),
             a_thread->Param(2), 0, a_operation == 1 ? 1 : 0, a_operation == 2 ? "text/plain" : "");
     }
     a_thread->PushInt(id != 0 ? 1 : 0);
@@ -185,10 +208,10 @@ int QueueRating(gmThread* a_thread, bool a_put) {
     path += "~rating:" + EncodeRetailUrl("/~identity:" + g_networkClient->UserId()) +
             (a_put ? ".put" : ".get");
     const int id = a_put
-        ? g_networkClient->QueueRetailPost(path,
+        ? QueueScriptPost(path,
             "value=" + std::to_string(a_thread->Param(4).m_value.m_int), "",
             a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0)
-        : g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+        : QueueScriptGet(path, a_thread->Param(0),
             a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -213,7 +236,7 @@ int QueueFavourite(gmThread* a_thread, const char* a_operation, bool a_all) {
     if (!base.empty() && base.back() != '/') path += '/';
     path += "~favourite:" + (a_all ? std::string("*") : EncodeRetailUrl(key)) +
             "." + a_operation;
-    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+    const int id = QueueScriptGet(path, a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -243,7 +266,7 @@ int GM_CDECL gmf_LeaderboardPage(gmThread* a_thread) {
         if (ReadOptionalString(a_thread, 4, query) && !query.empty())
             path += "?" + query;
     }
-    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+    const int id = QueueScriptGet(path, a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 2);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -263,7 +286,7 @@ int QueueLeaderboardRead(gmThread* a_thread, const char* a_operation) {
     std::string path = "/otg/" + base;
     if (!base.empty() && base.back() != '/') path += '/';
     path += std::string("~leaderboard.") + a_operation;
-    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+    const int id = QueueScriptGet(path, a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 2);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -297,7 +320,7 @@ int GM_CDECL gmf_LeaderboardPost(gmThread* a_thread) {
     std::string path = "/otg/" + base;
     if (!base.empty() && base.back() != '/') path += '/';
     path += "~leaderboard.post";
-    const int id = g_networkClient->QueueRetailPost(path, "score=" + score, "",
+    const int id = QueueScriptPost(path, "score=" + score, "",
         a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 2);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -323,7 +346,7 @@ int GM_CDECL gmf_LeaderboardNear(gmThread* a_thread) {
         std::string query;
         if (ReadOptionalString(a_thread, 5, query) && !query.empty()) path += "&" + query;
     }
-    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+    const int id = QueueScriptGet(path, a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 2);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -361,7 +384,7 @@ int QueueAlbumPage(gmThread* a_thread, bool a_singleAlbum) {
     }
 
     const int requestId = g_networkClient
-        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        ? QueueScriptGet(path, a_thread->Param(0), a_thread->Param(1),
                                           a_thread->Param(2), 0, 0)
         : 0;
     a_thread->PushInt(requestId != 0 ? 1 : 0);
@@ -401,7 +424,7 @@ int QueueUserPage(gmThread* a_thread, const char* a_suffix) {
     }
 
     const int requestId = g_networkClient
-        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        ? QueueScriptGet(path, a_thread->Param(0), a_thread->Param(1),
                                           a_thread->Param(2), 0, 0)
         : 0;
     a_thread->PushInt(requestId != 0 ? 1 : 0);
@@ -422,7 +445,7 @@ int GM_CDECL gmf_FollowingAll(gmThread* a_thread) {
         return GM_OK;
     }
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() + "/~follow:*.all";
-    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+    const int id = QueueScriptGet(path, a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -485,7 +508,7 @@ int QueueFollowingAction(gmThread* a_thread, const char* a_operation,
 
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
         "/~follow:" + EncodeRetailUrl("/~identity:" + target) + "." + a_operation;
-    const int requestId = g_networkClient->QueueRetailGet(
+    const int requestId = QueueScriptGet(
         path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(requestId != 0 ? 1 : 0);
     return GM_OK;
@@ -520,12 +543,7 @@ int GM_CDECL gmf_QueuedPage(gmThread* a_thread) {
         if (ReadOptionalString(a_thread, 3, query) && !query.empty())
             path += "?" + query;
     }
-    // The retail helper accepts the call but does not queue without a callback.
-    if (a_thread->Param(0).m_type == GM_NULL) {
-        a_thread->PushInt(1);
-        return GM_OK;
-    }
-    const int requestId = g_networkClient->QueueRetailGet(
+    const int requestId = QueueScriptGet(
         path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(requestId != 0 ? 1 : 0);
     return GM_OK;
@@ -545,12 +563,7 @@ int QueueQueuedAction(gmThread* a_thread, const char* a_operation) {
     const std::string target = std::strcmp(a_operation, "get") == 0 ? "/~level:" + levelId : levelId;
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
         "/~queued:" + EncodeRetailUrl(target) + "." + a_operation;
-    // Retail reports success for a null callback, but schedules no request.
-    if (a_thread->Param(0).m_type == GM_NULL) {
-        a_thread->PushInt(1);
-        return GM_OK;
-    }
-    const int requestId = g_networkClient->QueueRetailGet(
+    const int requestId = QueueScriptGet(
         path, a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(requestId != 0 ? 1 : 0);
     return GM_OK;
@@ -588,7 +601,7 @@ int GM_CDECL gmf_ActivityStreamPage(gmThread* a_thread) {
             path += "?" + query;
     }
     const int requestId = g_networkClient
-        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        ? QueueScriptGet(path, a_thread->Param(0), a_thread->Param(1),
                                           a_thread->Param(2), 0, 0)
         : 0;
     a_thread->PushInt(requestId != 0 ? 1 : 0);
@@ -612,7 +625,7 @@ int GM_CDECL gmf_ActivityStreamPost(gmThread* a_thread) {
     path += "~activity:*";
     if (component.size() > 1 && component.front() != '/') path += '/';
     path += component + ".post";
-    const int id = g_networkClient->QueueRetailPost(path, "", "", a_thread->Param(0),
+    const int id = QueueScriptPost(path, "", "", a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -632,7 +645,7 @@ int GM_CDECL gmf_FeaturedLevelGet(gmThread* a_thread) {
     const std::string path = "/otg/~identity:" + authorId +
                              "/~metadata:featuredlevel.get";
     const int requestId = g_networkClient
-        ? g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+        ? QueueScriptGet(path, a_thread->Param(0), a_thread->Param(1),
                                           a_thread->Param(2), 0, 1)
         : 0;
     a_thread->PushInt(requestId != 0 ? 1 : 0);
@@ -652,7 +665,7 @@ int GM_CDECL gmf_FeaturedLevelPost(gmThread* a_thread) {
     }
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
                              "/~metadata:featuredlevel.put";
-    const int id = g_networkClient->QueueRetailPost(path, "/~level:" + levelId,
+    const int id = QueueScriptPost(path, "/~level:" + levelId,
         "text/plain", a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -696,7 +709,7 @@ int GM_CDECL gmf_RecordPost(gmThread* a_thread) {
     }
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
         "/~record:" + EncodeRetailUrl("/~level:" + levelId) + ".post";
-    const int id = g_networkClient->QueueRetailPost(path, body, "www-form-urlencoded",
+    const int id = QueueScriptPost(path, body, "www-form-urlencoded",
         a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -730,7 +743,7 @@ int QueueLevelLookup(gmThread* a_thread, bool a_versions) {
     }
     std::string path = "/otg/~level:" + levelId;
     path += a_versions ? "/~version:*.get" : ".latest";
-    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
+    const int id = QueueScriptGet(path, a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
@@ -1079,7 +1092,7 @@ int GM_CDECL gmf_GetCloudSave(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
     if (!g_networkClient) { a_thread->PushInt(0); return GM_OK; }
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() + "/~content:progress/data.get";
-    const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0), a_thread->Param(1),
+    const int id = QueueScriptGet(path, a_thread->Param(0), a_thread->Param(1),
         gmVariable::s_null, 0, 0);
     a_thread->PushInt(id != 0);
     return GM_OK;
@@ -1101,7 +1114,7 @@ int GM_CDECL gmf_GriefPost(gmThread* a_thread) {
                          {"consoleId", ""}}, body, contentType)) {
         a_thread->PushInt(0); return GM_OK;
     }
-    const int id = g_networkClient->QueueRetailPost("/otg/~grief:*.post", body, contentType,
+    const int id = QueueScriptPost("/otg/~grief:*.post", body, contentType,
         a_thread->Param(0), a_thread->Param(1), a_thread->Param(2), 0, 0);
     a_thread->PushInt(id != 0);
     return GM_OK;
@@ -1120,7 +1133,7 @@ int GM_CDECL gmf_PostCloudSave(gmThread* a_thread) {
         a_thread->PushInt(0); return GM_OK;
     }
     const std::string path = "/otg/~identity:" + g_networkClient->UserId() + "/~content:progress.put";
-    const int id = g_networkClient->QueueRetailPost(path, body, contentType,
+    const int id = QueueScriptPost(path, body, contentType,
         a_thread->Param(0), a_thread->Param(1), gmVariable::s_null, 0, 1);
     a_thread->PushInt(id != 0);
     return GM_OK;

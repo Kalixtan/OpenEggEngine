@@ -22,6 +22,7 @@ descriptions = set()
 sounds = set()
 queued = set()
 queued_counts = Counter()
+request_counts = Counter()
 ratings_favourites = set()
 metadata = set()
 leaderboard = set()
@@ -31,6 +32,7 @@ activity = set()
 social = set()
 records = set()
 level_lookups = set()
+level_lookup_counts = Counter()
 rating_path = f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}"
 
 
@@ -42,6 +44,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
+        request_counts[("POST", self.path)] += 1
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if self.path == f"/otg/~identity:{USER}/~record:%2F~level%3Alevel-1.post":
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION and self.headers.get("Content-Type") == "www-form-urlencoded":
@@ -81,6 +84,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(201, data)
 
     def do_GET(self):
+        request_counts[("GET", self.path)] += 1
         prefix = "/otg/~level:level-1/~version:"
         suffix = "/~content:level/data.get"
         if self.path.startswith(prefix) and self.path.endswith(suffix):
@@ -166,6 +170,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path in {"/otg/~level:level-1.latest", "/otg/~level:level-1/~version:*.get", "/otg/~level:level-1.delete"}:
             if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
                 level_lookups.add(self.path)
+                level_lookup_counts[self.path] += 1
             self.reply(200, b'{"ok":1}')
         elif self.path in {
             "/otg/~identity:/~follow:*.page?count=2", f"/otg/~identity:{USER}/~followers.page?count=2",
@@ -240,9 +245,10 @@ def main():
             expected_lookups = {"/otg/~level:level-1.latest", "/otg/~level:level-1/~version:*.get", "/otg/~level:level-1.delete"}
             expected_social = {"/otg/~identity:/~follow:*.page?count=2", f"/otg/~identity:{USER}/~followers.page?count=2", f"/otg/~identity:{USER}/~follow:*.all", f"/otg/~identity:{USER}/~like:*.page?count=2", *(f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.{op}" for op in ("get", "put", "delete")), *(f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.{op}" for op in ("get", "put", "delete")), f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}.delete"}
             if server:
-                markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard partial PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "index malformed PASS", "index partial PASS", "index partial array PASS", "index item count PASS", "activity page PASS", "activity empty PASS", "activity post PASS", "record values PASS", "record empty PASS", "level lookup snapshot PASS", "level lookup versions PASS", "level lookup unpublish PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
+                markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard partial PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "index malformed PASS", "index partial PASS", "index partial array PASS", "index item count PASS", "activity page PASS", "activity empty PASS", "activity post PASS", "record values PASS", "record empty PASS", "level lookup snapshot PASS", "level lookup versions PASS", "level lookup unpublish PASS", "null callback request routes PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
                 markers += tuple(f"index scalar {name} PASS" for name in ("number", "string", "null", "bool"))
                 markers += tuple(f"index {name} PASS" for name in ("flag", "bare", "duplicate", "empty type"))
+                markers += ("snapshot null callback PASS", "versions null callback PASS")
             checks = {
                 "levels": (seen, {"json", "xml", "invalid", "missing"}),
                 "descriptions": (descriptions, {"good", "invalid", "missing", "partial"}),
@@ -267,6 +273,26 @@ def main():
                 null_callback_path = f"/otg/~identity:{USER}/~queued:simple.put"
                 if queued_counts[null_callback_path] != 1:
                     print(f"queued null callback: expected one PUT request, got {queued_counts[null_callback_path]}")
+                    failed = True
+                for path in ("/otg/~level:level-1.latest", "/otg/~level:level-1/~version:*.get"):
+                    if level_lookup_counts[path] != 1:
+                        print(f"level lookup null callback: expected one request to {path}, got {level_lookup_counts[path]}")
+                        failed = True
+                once = (
+                    ("GET", f"/otg/~index:level.page?type=level&count=1"),
+                    ("GET", f"/otg/~level:level-1/~metadata:field.get"),
+                    ("POST", f"/otg/~level:level-1/~metadata:field.put"),
+                    ("GET", rating_path + ".get"),
+                    ("POST", rating_path + ".put"),
+                    ("GET", f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.put"),
+                )
+                for key in once:
+                    if request_counts[key] != 1:
+                        print(f"null callback: expected one {key[0]} {key[1]}, got {request_counts[key]}")
+                        failed = True
+                leaderboard_post = ("POST", "/otg/~level:level-1/~leaderboard.post")
+                if request_counts[leaderboard_post] != 2:
+                    print(f"null callback: expected two score posts, got {request_counts[leaderboard_post]}")
                     failed = True
             missing = [marker for marker in markers if marker not in result.stdout]
             if server and "description partial PASS" not in result.stdout:

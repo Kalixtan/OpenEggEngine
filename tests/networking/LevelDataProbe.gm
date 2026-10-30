@@ -106,6 +106,7 @@ global Main = function(p) {
         Process=p,
         started=0,
         ticks=0,
+        nullCallbackRequestsAccepted=1,
         init=function() { return true; },
         constructor=function() {
             if (!Watermelon_Rating_Get(null, null, 0, "~level:level-1") &&
@@ -122,12 +123,17 @@ global Main = function(p) {
                 this.started = 1;
                 Watermelon_Rating_Get(RatingFavouriteReply, "rating get", 90, "~level:level-1");
                 Watermelon_Rating_Put(RatingFavouriteReply, "rating put", 91, "~level:level-1", 1);
+                this.nullCallbackRequestsAccepted = 1;
+                if (!Watermelon_Rating_Get(null, null, 146, "~level:level-1")) { this.nullCallbackRequestsAccepted = 0; }
+                if (!Watermelon_Rating_Put(null, null, 147, "~level:level-1", 1)) { this.nullCallbackRequestsAccepted = 0; }
                 Watermelon_Favourite_All(RatingFavouriteReply, "favourite all", 92, "~level:level-1");
                 Watermelon_Favourite_Put(RatingFavouriteReply, "favourite put", 93, "~level:level-1", "item");
                 Watermelon_Favourite_Delete(RatingFavouriteReply, "favourite delete", 94, "~level:level-1", "item");
                 Watermelon_Metadata_All(MetadataFixtureReply, "all", 95, "~level:level-1");
                 Watermelon_Metadata_Get(MetadataFixtureReply, "get", 96, "~level:level-1", "field");
                 Watermelon_Metadata_Put(MetadataFixtureReply, "put", 97, "~level:level-1", "field", "value");
+                if (!Watermelon_Metadata_Get(null, null, 148, "~level:level-1", "field")) { this.nullCallbackRequestsAccepted = 0; }
+                if (!Watermelon_Metadata_Put(null, null, 149, "~level:level-1", "field", "value")) { this.nullCallbackRequestsAccepted = 0; }
                 Watermelon_Metadata_Put(MetadataFixtureReply, "empty", 98, "~level:level-1", "field", "");
                 Watermelon_Leaderboard_Get(LeaderboardFixtureReply, "get", 101, "~level:level-1");
                 Watermelon_Leaderboard_All(LeaderboardFixtureReply, "all", 102, "~level:level-1");
@@ -135,6 +141,7 @@ global Main = function(p) {
                 Watermelon_Leaderboard_Page(LeaderboardFixtureReply, "partial", 135, "~level:level-1", "broken=1");
                 Watermelon_Leaderboard_Near(LeaderboardFixtureReply, "near", 104, "~level:level-1", "/~identity:one", "count=2");
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "integer", 105, "~level:level-1", 42);
+                if (!Watermelon_Leaderboard_Post(null, null, 150, "~level:level-1", 42)) { this.nullCallbackRequestsAccepted = 0; }
                 Watermelon_Leaderboard_Post(LeaderboardFixtureReply, "string", 106, "~level:level-1", "4294967296");
                 if (!Watermelon_Leaderboard_Post(null, null, 107, "~level:level-1", 1.5)) { GameSystem.trace("leaderboard invalid score PASS"); }
             } else if (this.started == 1) {
@@ -146,6 +153,7 @@ global Main = function(p) {
                 Watermelon_Album_Page(AlbumFixtureReply, "contents", 109, "album-1", "from=1&count=2");
                 Watermelon_Album_Page(AlbumFixtureReply, "empty", 110, "");
                 Watermelon_Index_Page(IndexFixtureReply, "typed", 111, "type=level&count=1");
+                if (!Watermelon_Index_Page(null, null, 151, "type=level&count=1")) { this.nullCallbackRequestsAccepted = 0; }
                 Watermelon_Index_Page(IndexFixtureReply, "wildcard", 112, "count=1");
                 Watermelon_Index_Page(IndexFixtureReply, "flag", 142, "typeX");
                 Watermelon_Index_Page(IndexFixtureReply, "bare", 143, "type");
@@ -171,6 +179,7 @@ global Main = function(p) {
                 Watermelon_Following_All(SocialFixtureReply, "all", 118);
                 Watermelon_Following_Get(SocialFixtureReply, "get", 119, "target");
                 Watermelon_Following_Put(SocialFixtureReply, "put", 120, "target");
+                if (!Watermelon_Following_Put(null, null, 152, "target")) { this.nullCallbackRequestsAccepted = 0; }
                 Watermelon_Following_Delete(SocialFixtureReply, "delete", 121, "target");
                 Watermelon_LevelHearts_Page(SocialFixtureReply, "hearts", 122, null, "count=2");
                 Watermelon_LevelHearts_Get(SocialFixtureReply, "heart get", 123, "level-1");
@@ -179,8 +188,19 @@ global Main = function(p) {
                 if (!Watermelon_Following_Put(null, null, 126, Watermelon_GetUserIdentityId())) { GameSystem.trace("social self follow PASS"); }
                 Watermelon_Record_Post(RecordFixtureReply, "values", 127, "level-1", {score="4294967296", completed=1, playTime=1.25});
                 Watermelon_Record_Post(RecordFixtureReply, "empty", 128, "level-1", {});
+                if (this.nullCallbackRequestsAccepted) {
+                    GameSystem.trace("null callback request routes PASS");
+                } else {
+                    GameSystem.trace("null callback request routes FAIL");
+                }
                 Watermelon_GetSnapshot(LevelLookupFixtureReply, "snapshot", 129, "level-1");
                 Watermelon_GetLevelVersions(LevelLookupFixtureReply, "versions", 130, "level-1");
+                if (Watermelon_GetSnapshot(null, null, 132, "level-1")) {
+                    GameSystem.trace("snapshot null callback PASS");
+                }
+                if (Watermelon_GetLevelVersions(null, null, 133, "level-1")) {
+                    GameSystem.trace("versions null callback PASS");
+                }
                 Watermelon_UnpublishLevel(LevelLookupFixtureReply, "unpublish", 131, "level-1");
                 Watermelon_Queued_Get(QueuedRouteReply, "get", 83, "simple");
                 Watermelon_Queued_Put(QueuedRouteReply, "put", 84, "simple");

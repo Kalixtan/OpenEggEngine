@@ -100,6 +100,9 @@ behavior.
       self-follow check and page identity fallback with a local fixture.
 - [x] Gate queued-item requests on identity setup; test all four routes and
       confirm a null callback succeeds without sending a request.
+- [x] Match `FUN_001d45e8` behavior across its request wrappers: a null
+      callback reports acceptance without queuing HTTP. Fixture counts cover
+      index, metadata, rating, leaderboard, following and level lookups.
 - [x] Gate record submissions on identity setup; test serialized fields,
       empty records and the traced header value with a local fixture.
 - [x] Preserve the HTTP status when a response body fails to arrive; reject
@@ -107,7 +110,7 @@ behavior.
 - [x] Keep non-success HTTP status results cacheable when their bodies are
       interrupted; the retail worker does not read those bodies.
 - [x] Gate snapshot, version and unpublish requests on identity setup; test
-      their routes and a publish/update/cleanup cycle on the local server.
+      their routes, null-callback behavior and publish/update/cleanup cycle.
 - [x] Convert JSON arrays to integer-keyed tables without adding a `size` key;
       retail scripts count their entries with `tableCount`.
 - [x] Return an empty result table for scalar JSON roots, and preserve parsed
