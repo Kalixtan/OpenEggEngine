@@ -147,8 +147,9 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
     if args.expect_search:
         markers.append("community search PASS")
     if args.expect_play_level:
-        markers.extend(["community downloaded level launch start", "community gameplay level data PASS",
-                        "community gameplay setup reached"])
+        markers.extend(["community downloaded level launch start", "community root game setup PASS",
+                        "community gameplay level data PASS",
+                        "community gameplay setup reached", "community gameplay launch PASS"])
         if "[gm]" in result.stdout:
             print("community gameplay launch FAIL (GameMonkey runtime error above)")
     if args.expect_queue or args.expect_heart:

@@ -207,6 +207,12 @@ global Main = function(p) {
             this.stage = 5;
         },
         launchDownloadedLevel=function(levelTable) {
+            GameMonkeyScript.loadScript("Main.gm");
+            if (!?g_ShapeDef1) {
+                GameSystem.trace("community root game setup FAIL");
+                return;
+            }
+            GameSystem.trace("community root game setup PASS");
             GameMonkeyScript.loadScript("Platformer/Main.gm");
             global PROBE_ORIGINAL_PLATFORMER_MAIN = Platformer_Main;
             global Platformer_Main = function(process) {
@@ -220,8 +226,25 @@ global Main = function(p) {
                     }
                     local loaded = this.probeOriginalSetupLevelFromTable(data);
                     GameSystem.trace("community gameplay setup reached");
-                    GameSystem.quit();
                     return loaded;
+                };
+                game.probeOriginalUpdate = game.update;
+                game.update = function(ms) {
+                    local result = this.probeOriginalUpdate(ms);
+                    if (this.mode == "playOnline" && this.calledSetupLevel &&
+                        this.setupData == null && !this.startLevel) {
+                        this.acceptedLoadFinished = true;
+                    }
+                    if (this.mode == "playOnline" && this.startLevel) {
+                        if (this.setupData == null && ?this.player && ?this.player.PhysicsData &&
+                            this.player.PhysicsData.getNumBodies() > 0) {
+                            GameSystem.trace("community gameplay launch PASS");
+                        } else {
+                            GameSystem.trace("community gameplay launch FAIL");
+                        }
+                        GameSystem.quit();
+                    }
+                    return result;
                 };
                 return game;
             };

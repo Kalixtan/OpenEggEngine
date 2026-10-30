@@ -38,10 +38,10 @@ behavior.
       channel order and capture timing with retail.
 - [x] Download the synthetic level using the panel's retail version ID and
       check its decoded BPM (`--expect-level-data`).
-- [ ] Start the downloaded table through `Platformer_Main` in `playOnline`
-      mode. The current headless run reaches the loader, but player setup logs
-      a GameMonkey type error at `Player.gm:43` (`PhysicsBody.appendShapes`),
-      so gameplay is not yet verified (`--expect-play-level`).
+- [x] Start the downloaded table through `Platformer_Main` in `playOnline`
+      mode. Load root `Main.gm` first so its shared shape definition exists;
+      wait through setup and loading, then require `startLevel` and player
+      physics bodies (`--expect-play-level`).
 - [x] Accept extra arguments on the traced level, sound, thumbnail, and
       description wrappers; headless fixtures check each request.
 - [x] Queue the panel's level, read it back, remove it, and confirm a later
@@ -387,9 +387,9 @@ behavior.
 - [x] Run `run_live_server_ticket_probe.py --community` to seed a disposable
       server and exercise the retail community menu against its levels, daily
       list, search, album, images, queue and heart routes, then try launching
-      the downloaded level. The search and download pass; gameplay is blocked
-      by the player physics type error above. The probe uses existing game
-      archives by symlink and removes its server data and build artifacts.
+      the downloaded level. Search, download and gameplay launch pass. The
+      probe uses existing game archives by symlink and removes its server data
+      and build artifacts.
 - [x] Run `run_live_server_ticket_probe.py --publish` against a fresh server
       for level create, featured metadata, description/readback, snapshot,
       update and cleanup.
