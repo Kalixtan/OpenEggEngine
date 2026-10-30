@@ -1,15 +1,62 @@
 #!/usr/bin/env python3
 """Probe PSN ticket login against a local OpenEgg server."""
 import argparse
+import atexit
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import shutil
 import struct
+import threading
 import subprocess
 import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+class SessionProbeServer(ThreadingHTTPServer):
+    def __init__(self, server_address, handler):
+        super().__init__(server_address, handler)
+        self.requests = []
+        self.reject_saved_sessions = False
+
+
+class SessionProbeHandler(BaseHTTPRequestHandler):
+    def _record(self):
+        self.server.requests.append((self.command, self.path,
+                                     self.headers.get("X-OpenEgg-Remember-Session"),
+                                     self.headers.get("X-OpenEgg-Validate-Session")))
+
+    def do_POST(self):
+        self._record()
+        self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        body = (b'{"session":{"id":"remembered-session","person":{"id":"remembered-user-id",'
+                b'"display_name":"openegg_probe"}},"openegg_authorized":true,'
+                b'"openegg_remembered_session":true}')
+        self.send_response(201)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        self._record()
+        if self.server.reject_saved_sessions:
+            self.send_response(403)
+            self.end_headers()
+            return
+        body = b"[]" if self.path.endswith("~friends.all") else b"{}"
+        if "~eula.get" in self.path:
+            body = b"Welcome back to Sound Shapes!"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_):
+        pass
 
 
 def ticket():
@@ -34,7 +81,7 @@ def ticket():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("server_url", help="Local server URL")
+    parser.add_argument("server_url", nargs="?", help="Local server URL")
     parser.add_argument("--engine", type=Path, default=ROOT / "build" / "OpenEgg")
     parser.add_argument("--invalid-ticket", action="store_true", help="Check rejection of a malformed ticket")
     parser.add_argument("--ticket-in-ini", action="store_true", help="Store the ticket as inline INI hex")
@@ -46,11 +93,27 @@ def main():
                         help="Check ticket login persistence and reuse on the next launch")
     parser.add_argument("--expect-session-rejected", action="store_true",
                         help="Check that a rejected saved session is removed from the INI")
+    parser.add_argument("--mock-server", action="store_true",
+                        help="Use a canned local fixture; does not verify PSN tickets")
     parser.add_argument("--insecure-transport", action="store_true",
                         help="Reject ticket login over remote plaintext HTTP")
     parser.add_argument("--eula", action="store_true", help="Check EULA retrieval from the local server")
     parser.add_argument("--community-disabled", action="store_true", help="Disable desktop community permissions")
     args = parser.parse_args()
+    mock_server = None
+    if args.mock_server:
+        if not (args.expect_session_saved or args.expect_session_rejected):
+            parser.error("--mock-server requires a saved-session expectation")
+        mock_server = SessionProbeServer(("127.0.0.1", 0), SessionProbeHandler)
+        mock_server.reject_saved_sessions = args.expect_session_rejected
+        mock_server_thread = threading.Thread(target=mock_server.serve_forever, daemon=True)
+        mock_server_thread.start()
+        atexit.register(mock_server.server_close)
+        atexit.register(mock_server.shutdown)
+        args.server_url = f"http://127.0.0.1:{mock_server.server_port}"
+    elif not args.server_url:
+        parser.error("server_url is required unless --mock-server is used")
+
     if args.insecure_transport:
         if not args.server_url.startswith("http://openegg-probe.invalid"):
             parser.error("insecure transport probe must use the reserved .invalid hostname")
@@ -161,6 +224,14 @@ def main():
                 "network: replacement server rejected this PSN ticket",
                 "network: ticket login failed (HTTP 403)")):
             raise SystemExit("ticket rejection probe failed; expected authorization rejection was not reported")
+        if mock_server and args.expect_session_saved:
+            posts = [request for request in mock_server.requests if request[0] == "POST"]
+            validations = [request for request in mock_server.requests if request[3] == "1"]
+            if len(posts) != 1 or posts[0][2] != "1" or not validations:
+                raise SystemExit("ticket probe failed; server did not see ticket login followed by saved-session validation")
+        if mock_server and args.expect_session_rejected:
+            if not any(request[3] == "1" for request in mock_server.requests):
+                raise SystemExit("ticket probe failed; no saved-session validation request reached the server")
 
 
 if __name__ == "__main__":

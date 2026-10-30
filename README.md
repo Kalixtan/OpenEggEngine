@@ -47,7 +47,9 @@ retail list is incomplete; behavior and compatibility still need verification.
 ## Development status
 
 No stable release is available. See [COMPATIBILITY_STATUS.md](COMPATIBILITY_STATUS.md)
-for provisional compatibility figures and [TODO.md](TODO.md) for open work.
+for provisional compatibility figures, [TODO.md](TODO.md) for open work, and
+[docs/networking/SERVICE_STATUS.md](docs/networking/SERVICE_STATUS.md) for
+online service coverage.
 
 ## Project layout
 

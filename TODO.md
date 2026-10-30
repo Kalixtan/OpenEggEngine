@@ -89,6 +89,6 @@ Open work is grouped by engine area. Retail compatibility remains incomplete.
 - [ ] Verify keyboard and controller behavior through menus and gameplay.
 - [ ] Check file-area resolution, asynchronous operations, save requests, and
       shutdown behavior.
-- [ ] Document unsupported online services and decide which are in scope for
-      native offline play.
+- [x] Document unsupported online services; see
+      [SERVICE_STATUS.md](docs/networking/SERVICE_STATUS.md).
 - [ ] Run the same build and smoke scenarios on each supported desktop OS.
