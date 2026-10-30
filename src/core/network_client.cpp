@@ -501,6 +501,8 @@ void NetworkClient::GoOnline() {
     m_managerAttached = true;
     m_chatPermissions = SystemConfig::Get().networkCommunityAllowed;
     m_coordinatorError = 0;
+    m_friendsReady = false;
+    m_friends.clear();
     if (!m_savedSessionId.empty() && !m_savedUserId.empty() &&
         !SystemConfig::Get().networkPsnOnlineId.empty()) {
         if (!AllowsTicketTransport(m_baseUrl)) {
@@ -789,7 +791,7 @@ void NetworkClient::PumpCallbacks() {
                 m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                     gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
                 if (m_helloRequestId) m_coordinatorState = 20;
-                else m_coordinatorError = -12;
+                else { m_coordinatorError = -12; m_coordinatorState = 4; }
             } else {
                 {
                     std::lock_guard<std::mutex> lock(m_mutex);
@@ -797,6 +799,7 @@ void NetworkClient::PumpCallbacks() {
                 }
                 m_userId.clear();
                 m_coordinatorError = -12;
+                m_coordinatorState = 4;
                 std::fprintf(stderr, "network: configured session validation failed (HTTP %ld)\n", completion.status);
             }
         }
@@ -809,7 +812,7 @@ void NetworkClient::PumpCallbacks() {
                 m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                     gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
                 if (m_helloRequestId) m_coordinatorState = 20;
-                else m_coordinatorError = -12;
+                else { m_coordinatorError = -12; m_coordinatorState = 4; }
             } else {
                 {
                     std::lock_guard<std::mutex> lock(m_mutex);
@@ -829,6 +832,7 @@ void NetworkClient::PumpCallbacks() {
                         std::fprintf(stderr, "network: remembered session failed; trying configured ticket\n");
                     } else {
                         m_coordinatorError = -12;
+                        m_coordinatorState = 4;
                     }
                 } else {
                     m_coordinatorError = -12;
@@ -920,6 +924,7 @@ void NetworkClient::PumpCallbacks() {
                             m_coordinatorState = 20;
                         } else {
                             m_coordinatorError = -12;
+                            m_coordinatorState = 4;
                         }
                     }
                 } else {
@@ -940,12 +945,16 @@ void NetworkClient::PumpCallbacks() {
                 const auto& config = SystemConfig::Get();
                 const std::string eulaPath = std::string("/otg/ps3/") + config.networkProductRegion + "/" +
                     config.NetworkLanguage() + "/~eula.get";
+                m_eulaReady = false;
+                m_eulaText.clear();
+                m_eulaVersion.clear();
                 m_eulaRequestId = QueueRetailGet(eulaPath, gmVariable::s_null, gmVariable::s_null,
                                                  gmVariable::s_null, 0, 1);
                 if (m_eulaRequestId) m_coordinatorState = 22;
-                else m_coordinatorError = -12;
+                else { m_coordinatorError = -12; m_coordinatorState = 4; }
             } else {
                 m_coordinatorError = -12;
+                m_coordinatorState = 4;
                 std::fprintf(stderr, "network: identity hello failed (HTTP %ld)\n", completion.status);
             }
         }
@@ -968,6 +977,7 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, "network: EULA received\n");
             } else {
                 m_coordinatorError = -12;
+                m_coordinatorState = 4;
                 std::fprintf(stderr, "network: EULA failed (HTTP %ld)\n", completion.status);
             }
         }
@@ -993,6 +1003,7 @@ void NetworkClient::PumpCallbacks() {
                 std::fprintf(stderr, "network: friends synchronized\n");
             } else {
                 m_coordinatorError = -12;
+                m_friendsReady = true;
                 std::fprintf(stderr, "network: friends fetch failed (HTTP %ld)\n", completion.status);
             }
         }
@@ -1140,7 +1151,10 @@ void NetworkClient::UpdateCoordinator() {
             // Desktop has no PSN contacts; the replacement server supplies its friend list.
             m_friendsFetchRequestId = QueueRetailGet("/otg/~identity:" + m_userId + "/~friends.all",
                 gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
-            if (!m_friendsFetchRequestId) m_coordinatorError = -12;
+            if (!m_friendsFetchRequestId) {
+                m_coordinatorError = -12;
+                m_friendsReady = true;
+            }
         }
         m_coordinatorState = 25;
         return;
@@ -1156,6 +1170,11 @@ void NetworkClient::UpdateCoordinator() {
             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
         m_newsRequestId = QueueRetailGet("/otg/global/news/~metadata:*.get",
             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
+        if (!m_featuredRequestId || !m_newsRequestId) {
+            m_coordinatorError = -12;
+            if (!m_featuredRequestId) m_featuredReady = true;
+            if (!m_newsRequestId) m_newsReady = true;
+        }
         m_coordinatorState = 27;
         return;
     }
@@ -1177,6 +1196,12 @@ void NetworkClient::UpdateCoordinator() {
             SystemConfig::Get().networkProductRegion + "/" + locale + "/~translation.get";
         m_translationRequestId = QueueRetailGet(translationPath, gmVariable::s_null, gmVariable::s_null,
                                                 gmVariable::s_null, 0, 1);
+        if (!m_featuredRequestId || !m_newsRequestId || !m_translationRequestId) {
+            m_coordinatorError = -12;
+            if (!m_featuredRequestId) m_featuredReady = true;
+            if (!m_newsRequestId) m_newsReady = true;
+            if (!m_translationRequestId) m_translationReady = true;
+        }
         m_coordinatorState = 29;
         return;
     }

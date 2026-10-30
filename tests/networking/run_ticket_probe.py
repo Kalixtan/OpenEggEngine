@@ -276,7 +276,8 @@ def main():
                 raise SystemExit("ticket transport probe failed; insecure login reached server")
         elif args.expect_hello_failure:
             markers += ("network: ticket login succeeded", "network: identity hello failed (HTTP 503)",
-                        "ticket coordinator error PASS", "ticket request rejected PASS")
+                        "ticket coordinator error PASS", "ticket coordinator failure returns offline PASS",
+                        "ticket request rejected PASS")
         else:
             markers += ("ticket platform ID PASS", "network: ticket login succeeded", "network: identity hello succeeded", "ticket identity PASS",
                         "ticket authenticated request PASS", "ticket coordinator logout PASS")

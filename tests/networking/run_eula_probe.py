@@ -63,7 +63,7 @@ def translation_catalog():
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        body = ('{"session":{"id":"' + SESSION + '","person":{"id":"' + USER +
+        body = ('{"openegg_authorized":true,"session":{"id":"' + SESSION + '","person":{"id":"' + USER +
                 '","display_name":"openegg_probe"}}}').encode()
         self.reply(201, body)
 
@@ -161,7 +161,8 @@ def main():
                                     cwd=ROOT, env=env, text=True, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, timeout=30)
             print(result.stdout, end="")
-            markers = (("EULA failure PASS",) if fail else ("friends failure PASS",) if friends_fail else
+            markers = (("EULA failure PASS", "EULA failure returns offline PASS") if fail else
+                       ("friends failure PASS", "friend fallback proceeds PASS", "coordinator online PASS") if friends_fail else
                        ("network: initial community data requests complete",) if community_fail else
                        ("localized community data PASS", "coordinator online PASS", "network translation PASS") if translation_body else
                        ("network: invalid translation catalog", "coordinator online PASS") if translation_invalid else

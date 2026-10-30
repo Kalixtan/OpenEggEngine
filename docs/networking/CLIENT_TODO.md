@@ -252,6 +252,10 @@ behavior.
       malformed EULA edge cases. Desktop language remains a proxy.
 - [ ] Match retail login reset, request purging, malformed responses and error
       transitions. Test genuine platform tickets against a suitable server.
+- [x] Keep failed hello and EULA requests out of the desktop coordinator's
+      connecting state; let community startup continue with an empty friend
+      list after a failed friends request. These replacement-service recovery
+      paths are not yet compared with retail transitions.
 - [ ] Match the manager thread's exact stop/restart timing and native PSN
       startup states. Desktop treats an idle identity worker as transport-ready;
       ticket login tests use synthetic tickets, not PSN sign-in.

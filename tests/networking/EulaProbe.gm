@@ -36,6 +36,10 @@ global Main = function(p) {
                     friends[1].identity == "friend-2" && friends[1].displayName == "Second") {
                     this.checked = 3;
                     GameSystem.trace("friends snapshot PASS");
+                } else if (friends != null && tableCount(friends) == 0 &&
+                           OnlineCoordinator_GetLastError() == -12) {
+                    this.checked = 3;
+                    GameSystem.trace("friend fallback proceeds PASS");
                 }
             } else if (this.checked == 3) {
                 local featured = WatermelonGlobals_GetFeaturedSearches();
@@ -83,8 +87,14 @@ global Main = function(p) {
                 this.errorChecked = 1;
                 if (Watermelon_GetEula() == null && Watermelon_GetEulaVersion() == "") {
                     GameSystem.trace("EULA failure PASS");
-                } else if (Watermelon_Get_Friends() == null) {
-                    GameSystem.trace("friends failure PASS");
+                    if (OnlineCoordinator_IsOffline() && !OnlineCoordinator_IsConnecting()) {
+                        GameSystem.trace("EULA failure returns offline PASS");
+                    }
+                } else {
+                    local friends = Watermelon_Get_Friends();
+                    if (friends != null && tableCount(friends) == 0) {
+                        GameSystem.trace("friends failure PASS");
+                    }
                 }
             }
         }

@@ -50,6 +50,9 @@ global Main = function(p) {
             if (this.errorReported == 0 && OnlineCoordinator_GetLastError() == -12) {
                 this.errorReported = 1;
                 GameSystem.trace("ticket coordinator error PASS");
+                if (OnlineCoordinator_IsOffline() && !OnlineCoordinator_IsConnecting()) {
+                    GameSystem.trace("ticket coordinator failure returns offline PASS");
+                }
             }
             if (this.started == 0 && Watermelon_GetUserIdentityId() != "") {
                 this.started = 1;
