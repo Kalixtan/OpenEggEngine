@@ -46,6 +46,9 @@ struct SystemConfig {
     std::string networkPsnOnlineId;
     // Country from the accepted ticket, retained for later server sessions.
     std::string networkPsnCountry;
+    // Account credentials for the replacement server's native sign-in route.
+    std::string networkAccountEmail;
+    std::string networkAccountPassword;
     // Optional binary ticket, either inline hex or in a separate file.
     std::string networkTicketHex;
     std::string networkTicketFile;

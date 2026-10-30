@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--offline", action="store_true", help="Check the offline fallback")
 parser.add_argument("--no-patch", action="store_true", help="Check fallback without the patch archive")
 parser.add_argument("--server-url", help="Run a tab request against a local server with the fixture account")
+parser.add_argument("--account-login", action="store_true", help="Sign in with the server fixture account instead of a PSN ticket")
 parser.add_argument("--expect-populated", action="store_true", help="Require the synthetic Probe level in greatest hits")
 parser.add_argument("--expect-daily", action="store_true", help="Require the synthetic Probe level in the daily tab")
 parser.add_argument("--expect-album", action="store_true", help="Require the synthetic album in the online albums tab")
@@ -55,6 +56,8 @@ if args.server_url:
             not endpoint.port or endpoint.path not in ("", "/") or endpoint.query or endpoint.fragment or
             args.offline or args.no_patch):
         parser.error("server probe requires a local server and the patch archive")
+if args.account_login and not args.server_url:
+    parser.error("--account-login requires --server-url")
 engine = ROOT / "build/OpenEgg"
 archives = list(engine.parent.glob("*.psarc"))
 if not any(path.name == "patch_data001.psarc" for path in archives):
@@ -69,10 +72,12 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         (temp / archive.name).symlink_to(archive)
     if args.server_url:
         from run_ticket_probe import ticket
-        (temp / "ticket.bin").write_bytes(ticket())
     url = args.server_url or ("" if args.offline else "http://127.0.0.1:1")
     config = "[network]\nserver_url = " + url + "\n"
-    if args.server_url:
+    if args.account_login:
+        config += 'account_email = probe@example.test\naccount_password = pass#word;"quoted"\n'
+    elif args.server_url:
+        (temp / "ticket.bin").write_bytes(ticket())
         config += "psn_online_id = openegg_probe\nticket_file = ticket.bin\n"
     (temp / "OpenEgg.ini").write_text(config)
     harness = temp / "harness.txt"
@@ -150,6 +155,8 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.extend(["community downloaded level launch start", "community root game setup PASS",
                         "community gameplay level data PASS",
                         "community gameplay setup reached", "community gameplay launch PASS"])
+    if args.account_login:
+        markers.append("network: replacement account login succeeded")
         if "[gm]" in result.stdout:
             print("community gameplay launch FAIL (GameMonkey runtime error above)")
     if args.expect_queue or args.expect_heart:

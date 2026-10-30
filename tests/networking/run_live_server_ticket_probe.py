@@ -192,7 +192,7 @@ def main():
                      "--server-url", f"http://127.0.0.1:{port}", "--expect-populated", "--expect-daily",
                      "--expect-album", "--expect-album-details", "--expect-thumbnail", "--expect-level-data",
                      "--expect-search", "--expect-play-level", "--expect-queue", "--expect-heart",
-                     "--draw", "--navigate"],
+                     "--account-login", "--draw", "--navigate"],
                     cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     timeout=180, check=False,
                 )
@@ -228,6 +228,8 @@ def main():
             if args.cloud_sync:
                 suffix += " and cloud sync"
             print(f"live local ticket login{suffix} PASS (test fixture ticket)")
+            if args.community:
+                print("replacement account login and community browse PASS")
         finally:
             server.terminate()
             try:

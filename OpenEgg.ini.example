@@ -30,9 +30,15 @@ letterbox = true
 
 [network]
 ; Replacement server root, for example http://127.0.0.1:10061.
-; Remote servers require HTTPS for ticket login. Plain HTTP is allowed only
-; for loopback development servers. Leave blank to disable requests.
+; Remote servers require HTTPS for sign-in. Plain HTTP is allowed only for
+; loopback development servers. Leave blank to disable requests.
 server_url =
+
+; Replacement-server account sign-in. No PSN client setup is needed.
+; The server returns a short-lived session after checking these credentials.
+; On Unix, OpenEgg restricts this file to owner read/write when it loads the password.
+account_email =
+account_password =
 
 ; Base URL for relative community image keys. Retail uses Amazon S3.
 image_base_url = https://s3.amazonaws.com

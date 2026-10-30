@@ -17,6 +17,7 @@
 #include <rapidjson/memorystream.h>
 #include <rapidjson/reader.h>
 #include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 #include "stb_image.h"
 
 #include <algorithm>
@@ -155,12 +156,24 @@ bool IsLoopbackUrl(const std::string& url) {
     return isHost("localhost") || isHost("127.0.0.1") || isHost("[::1]");
 }
 
-bool AllowsTicketTransport(const std::string& url) {
+bool AllowsCredentialTransport(const std::string& url) {
     std::string normalized = url;
     std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
     return normalized.rfind("https://", 0) == 0 || IsLoopbackUrl(normalized);
+}
+
+std::string AccountLoginBody(const std::string& email, const std::string& password) {
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    writer.StartObject();
+    writer.Key("email");
+    writer.String(email.c_str(), static_cast<rapidjson::SizeType>(email.size()));
+    writer.Key("password");
+    writer.String(password.c_str(), static_cast<rapidjson::SizeType>(password.size()));
+    writer.EndObject();
+    return std::string(buffer.GetString(), buffer.GetSize());
 }
 
 class PartialJsonHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, PartialJsonHandler> {
@@ -453,7 +466,7 @@ bool NetworkClient::QueueAssetBundle(const std::string& level, const std::string
 
 bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     if (a_ticket.empty() || m_loginRequestId != 0) return false;
-    if (!AllowsTicketTransport(m_baseUrl)) {
+    if (!AllowsCredentialTransport(m_baseUrl)) {
         std::fprintf(stderr, "network: ticket login requires HTTPS for remote servers\n");
         return false;
     }
@@ -466,8 +479,35 @@ bool NetworkClient::BeginTicketLogin(const std::string& a_ticket) {
     m_userId.clear();
     m_identityReady = false;
     m_replacementServerOnline = false;
+    m_loginUsesAccount = false;
     m_loginRequestId = QueueRetailPost("/identity/login/token/psn", a_ticket,
         "application/octet-stream", gmVariable::s_null, gmVariable::s_null,
+        gmVariable::s_null, 0, 0);
+    return m_loginRequestId != 0;
+}
+
+bool NetworkClient::BeginAccountLogin() {
+    if (m_loginRequestId != 0) return false;
+    const auto& config = SystemConfig::Get();
+    if (config.networkAccountEmail.empty() || config.networkAccountPassword.empty()) return false;
+    if (!AllowsCredentialTransport(m_baseUrl)) {
+        std::fprintf(stderr, "network: account login requires HTTPS for remote servers\n");
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        for (auto& entry : m_pending)
+            if (entry.second.identity) entry.second.purged = true;
+        m_sessionId.clear();
+    }
+    m_userId.clear();
+    m_platformOnlineId.clear();
+    m_identityReady = false;
+    m_replacementServerOnline = false;
+    m_loginUsesAccount = true;
+    m_loginRequestId = QueueRetailPost("/identity/login/account",
+        AccountLoginBody(config.networkAccountEmail, config.networkAccountPassword),
+        "application/json", gmVariable::s_null, gmVariable::s_null,
         gmVariable::s_null, 0, 0);
     return m_loginRequestId != 0;
 }
@@ -503,9 +543,19 @@ void NetworkClient::GoOnline() {
     m_coordinatorError = 0;
     m_friendsReady = false;
     m_friends.clear();
-    if (!m_savedSessionId.empty() && !m_savedUserId.empty() &&
+    const auto& accountEmail = SystemConfig::Get().networkAccountEmail;
+    const auto& accountPassword = SystemConfig::Get().networkAccountPassword;
+    if (!accountEmail.empty() || !accountPassword.empty()) {
+        if (accountEmail.empty() || accountPassword.empty()) {
+            m_coordinatorError = -12;
+            std::fprintf(stderr, "network: both account_email and account_password are required\n");
+            return;
+        }
+        if (BeginAccountLogin()) m_coordinatorState = 18;
+        else m_coordinatorError = -12;
+    } else if (!m_savedSessionId.empty() && !m_savedUserId.empty() &&
         !SystemConfig::Get().networkPsnOnlineId.empty()) {
-        if (!AllowsTicketTransport(m_baseUrl)) {
+        if (!AllowsCredentialTransport(m_baseUrl)) {
             m_coordinatorError = -12;
             std::fprintf(stderr, "network: saved server sessions require HTTPS for remote servers\n");
             return;
@@ -545,7 +595,7 @@ void NetworkClient::GoOnline() {
         }
     } else {
         m_coordinatorError = -12;
-        std::fprintf(stderr, "network: a PSN ticket is required for online login\n");
+        std::fprintf(stderr, "network: configure server account credentials or a PSN ticket\n");
     }
 }
 
@@ -845,6 +895,8 @@ void NetworkClient::PumpCallbacks() {
         }
         if (completion.id == m_loginRequestId) {
             m_loginRequestId = 0;
+            const bool accountLogin = m_loginUsesAccount;
+            m_loginUsesAccount = false;
             rapidjson::Document response;
             response.Parse(completion.body.data(), completion.body.size());
             if (!response.HasParseError() && response.IsObject() &&
@@ -863,7 +915,9 @@ void NetworkClient::PumpCallbacks() {
                 SystemConfig::Get().SaveReplacementSession({}, {});
                 m_savedSessionId.clear();
                 m_savedUserId.clear();
-                std::fprintf(stderr, "network: replacement server rejected this PSN ticket\n");
+                std::fprintf(stderr, accountLogin
+                    ? "network: replacement server rejected account login\n"
+                    : "network: replacement server rejected this PSN ticket\n");
                 continue;
             }
             if ((completion.status == 200 || completion.status == 201) &&
@@ -887,12 +941,17 @@ void NetworkClient::PumpCallbacks() {
                         ? (hasPsnOnlineId ? person["openegg_psn_online_id"].GetString() : "")
                         : displayName;
                     const auto& expectedOnlineId = SystemConfig::Get().networkPsnOnlineId;
-                    if (expectedOnlineId.empty() || !hasDisplayName || accountOnlineId.empty() ||
-                        !SameOnlineId(accountOnlineId, expectedOnlineId) ||
-                        (!hasPsnOnlineIdField && !IsLoopbackUrl(m_baseUrl))) {
+                    const bool identityMatches = accountLogin
+                        ? (hasDisplayName && !displayName.empty())
+                        : (!expectedOnlineId.empty() && hasDisplayName && !accountOnlineId.empty() &&
+                           SameOnlineId(accountOnlineId, expectedOnlineId) &&
+                           (hasPsnOnlineIdField || IsLoopbackUrl(m_baseUrl)));
+                    if (!identityMatches) {
                         m_coordinatorError = -12;
                         m_coordinatorState = 4;
-                        std::fprintf(stderr, "network: server identity does not match psn_online_id\n");
+                        std::fprintf(stderr, accountLogin
+                            ? "network: server returned an incomplete account identity\n"
+                            : "network: server identity does not match psn_online_id\n");
                     } else {
                         {
                             std::lock_guard<std::mutex> lock(m_mutex);
@@ -901,7 +960,11 @@ void NetworkClient::PumpCallbacks() {
                             m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                         }
                         m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
-                        if (hasPsnOnlineId || hasDisplayName) m_platformOnlineId = accountOnlineId;
+                        if (accountLogin)
+                            m_platformOnlineId = hasPsnOnlineId && !accountOnlineId.empty()
+                                ? accountOnlineId : displayName;
+                        else if (hasPsnOnlineId || hasDisplayName)
+                            m_platformOnlineId = accountOnlineId;
                         if (!m_platformCountry.empty() &&
                             !SystemConfig::Get().SavePsnCountry(m_platformCountry))
                             std::fprintf(stderr, "network: could not save PSN country to OpenEgg.ini\n");
@@ -918,7 +981,9 @@ void NetworkClient::PumpCallbacks() {
                         }
                         m_identityReady = true;
                         m_replacementServerOnline = true;
-                        std::fprintf(stderr, "network: ticket login succeeded\n");
+                        std::fprintf(stderr, accountLogin
+                            ? "network: replacement account login succeeded\n"
+                            : "network: ticket login succeeded\n");
                         m_helloRequestId = QueueRetailGet("/otg/~identity:*.hello",
                             gmVariable::s_null, gmVariable::s_null, gmVariable::s_null, 0, 0);
                         if (m_helloRequestId) {
@@ -931,12 +996,16 @@ void NetworkClient::PumpCallbacks() {
                 } else {
                     m_coordinatorError = -12;
                     m_coordinatorState = 4;
-                    std::fprintf(stderr, "network: ticket login returned an incomplete session\n");
+                    std::fprintf(stderr, accountLogin
+                        ? "network: account login returned an incomplete session\n"
+                        : "network: ticket login returned an incomplete session\n");
                 }
             } else {
                 m_coordinatorError = -12;
                 m_coordinatorState = 4;
-                std::fprintf(stderr, "network: ticket login failed (HTTP %ld)\n", completion.status);
+                std::fprintf(stderr, accountLogin
+                    ? "network: replacement account login failed (HTTP %ld)\n"
+                    : "network: ticket login failed (HTTP %ld)\n", completion.status);
             }
         }
         if (completion.id == m_helloRequestId) {

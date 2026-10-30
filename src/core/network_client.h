@@ -123,6 +123,7 @@ private:
               bool a_validateSavedSession = false);
     int QueueSavedSessionValidation();
     bool BeginTicketLogin(const std::string& a_ticket);
+    bool BeginAccountLogin();
 
     gmMachine& m_machine;
     gmTableObject* m_roots = nullptr;
@@ -164,6 +165,7 @@ private:
     int m_newsRequestId = 0;
     int m_translationRequestId = 0;
     std::string m_platformTicket;
+    bool m_loginUsesAccount = false;
     std::string m_manualSessionId;
     std::string m_manualUserId;
     std::string m_platformOnlineId;

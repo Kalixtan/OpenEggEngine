@@ -265,10 +265,8 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
     bool containsSensitiveNetworkSettings = false;
     while (std::getline(input, line)) {
         ++lineNumber;
-        const auto comment = line.find_first_of(";#");
-        if (comment != std::string::npos) line.erase(comment);
         line = Trim(std::move(line));
-        if (line.empty()) continue;
+        if (line.empty() || line.front() == ';' || line.front() == '#') continue;
         if (line.front() == '[' && line.back() == ']') {
             section = Lower(Trim(line.substr(1, line.size() - 2)));
             continue;
@@ -281,8 +279,8 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         if (!section.empty() && section != "system" && section != "network") continue;
         const std::string key = Lower(Trim(line.substr(0, equals)));
         const std::string value = Trim(line.substr(equals + 1));
-        if (section == "network" && (key == "psn_ticket_hex" || key == "server_session_id" ||
-                                      key == "session_id"))
+        if (section == "network" && (key == "account_password" || key == "psn_ticket_hex" ||
+                                      key == "server_session_id" || key == "session_id"))
             containsSensitiveNetworkSettings = true;
         bool valid = false;
         if (key == "os_id" || key == "osid" || key == "platform") {
@@ -335,6 +333,12 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         } else if (section == "network" && key == "server_user_id") {
             networkSavedUserId = value;
             valid = !value.empty();
+        } else if (section == "network" && key == "account_email") {
+            valid = value.empty() || value.find_first_of("\r\n") == std::string::npos;
+            if (valid) networkAccountEmail = value;
+        } else if (section == "network" && key == "account_password") {
+            valid = value.find_first_of("\r\n") == std::string::npos;
+            if (valid) networkAccountPassword = value;
         } else if (section == "network" && key == "ticket_file") {
             networkTicketFile = value;
             valid = true;
