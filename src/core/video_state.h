@@ -4,6 +4,7 @@
 #include <array>
 #include <map>
 #include <vector>
+#include "retail_math.h"
 
 struct VideoState {
     std::map<uintptr_t, int> drawMapEntities;
@@ -132,19 +133,13 @@ struct VideoState {
         extent = extent * 2.0f;
         return extent;
     }
-    static int RetailFctiwz(float a_value) {
-        if (!std::isfinite(a_value) || a_value >= 2147483648.0f ||
-            a_value < -2147483648.0f)
-            return INT32_MIN;
-        return static_cast<int>(a_value);
-    }
     int GetRetailScreenX(float a_coordinate) const {
-        const int cell = RetailFctiwz(a_coordinate / RetailScreenExtent(numCellsX));
+        const int cell = RetailMath::Fctiwz(a_coordinate / RetailScreenExtent(numCellsX));
         return a_coordinate < 0.0f
             ? (cell == INT32_MIN ? INT32_MAX : cell - 1) : cell;
     }
     int GetRetailScreenY(float a_coordinate) const {
-        const int cell = RetailFctiwz(a_coordinate / RetailScreenExtent(numCellsY));
+        const int cell = RetailMath::Fctiwz(a_coordinate / RetailScreenExtent(numCellsY));
         return a_coordinate < 0.0f
             ? (cell == INT32_MIN ? INT32_MAX : cell - 1) : cell;
     }

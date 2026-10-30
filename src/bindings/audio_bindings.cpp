@@ -4,6 +4,7 @@
 #include "gmTableObject.h"
 #include "gmStringObject.h"
 #include "../core/engine_context.h"
+#include "../core/retail_math.h"
 #include "../core/save_data.h"
 #include "../core/strict_calls.h"
 #include "../ported_native/ground_math.h"
@@ -387,18 +388,6 @@ float RetailFsel(float a_condition, float a_nonnegative, float a_negative) {
 float RetailF32(float a_value) {
     volatile float rounded = a_value;
     return rounded;
-}
-
-// PPC fctiwz truncates finite in-range floats toward zero. Invalid and
-// out-of-range conversions produce the integer-indefinite bit pattern.
-int RetailFctiwzToInt(float a_value) {
-    const double value = static_cast<double>(a_value);
-    const double minValue = static_cast<double>(std::numeric_limits<int>::min());
-    const double maxExclusive =
-        static_cast<double>(std::numeric_limits<int>::max()) + 1.0;
-    if (!std::isfinite(value) || value < minValue || value >= maxExclusive)
-        return std::numeric_limits<int>::min();
-    return static_cast<int>(value);
 }
 
 VoiceState* FindVoice(int a_id) {
@@ -1141,7 +1130,7 @@ int GM_CDECL gmf_playSound(gmThread* a_thread) {
             // start position toward zero; other payloads are raw GM_INT.
             const gmVariable& positionArg = a_thread->Param(7);
             positionMs = positionArg.IsFloat()
-                ? RetailFctiwzToInt(positionArg.GetFloat())
+                ? RetailMath::Fctiwz(positionArg.GetFloat())
                 : positionArg.m_value.m_int;
         }
     }
@@ -1261,7 +1250,7 @@ int GM_CDECL gmf_spawnSoundSlicker(gmThread* a_thread) {
     const float timeFactor = a_thread->ParamFloatOrInt(3, 1.0f);
     const gmVariable& positionArg = a_thread->Param(4);
     const int startPositionMs = positionArg.IsFloat()
-        ? RetailFctiwzToInt(positionArg.GetFloat())
+        ? RetailMath::Fctiwz(positionArg.GetFloat())
         : positionArg.m_value.m_int;
 
     if (!State().enabled || !std::isfinite(timeFactor)) {
@@ -1356,11 +1345,11 @@ int GM_CDECL gmf_playStream(gmThread* a_thread) {
         // fctiwz and passes non-floats through as raw integer payloads.
         const gmVariable& referenceNoteArg = a_thread->Param(0);
         referenceNote = referenceNoteArg.IsFloat()
-            ? RetailFctiwzToInt(referenceNoteArg.GetFloat())
+            ? RetailMath::Fctiwz(referenceNoteArg.GetFloat())
             : referenceNoteArg.m_value.m_int;
         const gmVariable& noteArg = a_thread->Param(1);
         note = noteArg.IsFloat()
-            ? RetailFctiwzToInt(noteArg.GetFloat())
+            ? RetailMath::Fctiwz(noteArg.GetFloat())
             : noteArg.m_value.m_int;
         gate = a_thread->ParamFloatOrInt(2, 0.0f);
         pan = a_thread->ParamFloatOrInt(3, 0.0f);
@@ -1482,7 +1471,7 @@ int GM_CDECL gmf_getVoiceVolume(gmThread* a_thread) {
     // Retail wrapper converts GM_FLOAT voice IDs by truncating toward zero;
     // other tags pass their raw payload as the ID.
     const int voiceId = voiceArg.IsFloat()
-        ? RetailFctiwzToInt(voiceArg.GetFloat())
+        ? RetailMath::Fctiwz(voiceArg.GetFloat())
         : voiceArg.m_value.m_int;
     VoiceState* v = FindVoice(voiceId);
     if (!v || !CanQueryVoiceBackend(*v)) {

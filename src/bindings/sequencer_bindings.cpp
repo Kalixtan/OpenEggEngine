@@ -6,6 +6,7 @@
 #include "gmOperators.h"
 #include "../core/process_manager.h" // RootGmVariable/UnrootGmVariable
 #include "../core/retail_object_id.h"
+#include "../core/retail_math.h"
 #include "../core/strict_calls.h"
 #include <vector>
 #include <algorithm>
@@ -27,20 +28,6 @@ gmType g_sequencerTriggerType = -1;
 gmType g_sequencerTriggerListType = -1;
 gmType g_sequencerActionType = -1;
 uint64_t g_nextSequencerSerial = 1;
-
-// Retail's setNumStepsPerPattern wrapper uses PPC fctiwz for GM_FLOAT and
-// copies the payload word directly for every other GM type. Keep the float
-// conversion's truncation and invalid-result behavior explicit instead of
-// relying on an out-of-range C++ float-to-int cast.
-int32_t RetailFctiwz(float value) {
-    constexpr float kIntMin = -2147483648.0f;
-    constexpr float kIntMaxExclusive = 2147483648.0f;
-    if (std::isnan(value) || value < kIntMin) {
-        return std::numeric_limits<int32_t>::min();
-    }
-    if (value >= kIntMaxExclusive) return std::numeric_limits<int32_t>::max();
-    return static_cast<int32_t>(value);
-}
 
 float RetailFselMaxZero(float value) {
     // PPC fsel selects its original second operand for NaN comparisons; the
@@ -433,7 +420,7 @@ int GM_CDECL gmf_setNumStepsPerPattern(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     const gmVariable& arg = a_thread->Param(0);
     const int32_t numSteps = arg.m_type == GM_FLOAT
-        ? RetailFctiwz(arg.m_value.m_float)
+        ? RetailMath::Fctiwz(arg.m_value.m_float)
         : arg.m_value.m_int;
     s->numStepsPerPattern = numSteps;
     s->msPerStep = s->CalculateMsPerStep();
@@ -455,7 +442,7 @@ int GM_CDECL gmf_setCurrentStep(gmThread* a_thread) {
     SequencerData* s = ThisSequencer(a_thread); if (!s) return GM_EXCEPTION;
     const gmVariable& arg = a_thread->Param(0);
     s->currentStep = arg.m_type == GM_FLOAT
-        ? RetailFctiwz(arg.m_value.m_float)
+        ? RetailMath::Fctiwz(arg.m_value.m_float)
         : arg.m_value.m_int; // Retail writes directly, without wrapping or side effects.
     return GM_OK;
 }
@@ -476,7 +463,7 @@ int GM_CDECL gmf_setBPM(gmThread* a_thread) {
     if (a_thread->GetNumParams() < 1 || a_thread->GetNumParams() > 2) return GM_EXCEPTION;
     const gmVariable& bpmArg = a_thread->Param(0);
     s->bpm = bpmArg.m_type == GM_FLOAT
-        ? RetailFctiwz(bpmArg.m_value.m_float)
+        ? RetailMath::Fctiwz(bpmArg.m_value.m_float)
         : bpmArg.m_value.m_int;
     s->msPerStep = s->CalculateMsPerStep();
     if (a_thread->GetNumParams() == 1 || a_thread->Param(1).m_value.m_int == 0)

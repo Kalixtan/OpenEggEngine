@@ -4,6 +4,7 @@
 #include "../render/draw_context.h"
 #include "../render/draw_list.h"
 #include "../core/engine_context.h"
+#include "../core/retail_math.h"
 #include "../core/strict_calls.h"
 #include "texture_bindings.h"
 #include "process_handle_bindings.h"
@@ -395,15 +396,9 @@ int GM_CDECL gmf_Shape_beginShape(gmThread* a_thread) {
 }
 
 namespace {
-int RetailFctiwz(float value) {
-    if (!std::isfinite(value) || value >= 2147483648.0f ||
-        value < -2147483648.0f)
-        return INT32_MIN;
-    return static_cast<int>(value);
-}
 int RetailShapeIntegerArgument(const gmVariable& value) {
     return value.m_type == GM_FLOAT
-        ? RetailFctiwz(value.m_value.m_float)
+        ? RetailMath::Fctiwz(value.m_value.m_float)
         : value.m_value.m_int;
 }
 }

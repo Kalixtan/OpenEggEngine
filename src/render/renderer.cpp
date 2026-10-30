@@ -1,6 +1,7 @@
 #include "renderer.h"
 #include "draw_context.h"
 #include "../core/engine_context.h"
+#include "../core/retail_math.h"
 #include "../core/system_config.h"
 #include "../bindings/colour_bindings.h"
 #include <cstdio>
@@ -19,16 +20,6 @@
 namespace {
 
 constexpr float kPi = 3.1415927f; // legacy desktop-reference constant
-
-// PPC fctiwz truncates toward zero and produces the indefinite signed-int
-// result (0x80000000) for NaN, infinity, or overflow. Use the same result
-// instead of C++'s undefined out-of-range float-to-int conversion.
-int RetailFctiwz(float a_value) {
-    if (!std::isfinite(a_value) || a_value >= 2147483648.0f ||
-        a_value < -2147483648.0f)
-        return INT32_MIN;
-    return static_cast<int>(a_value);
-}
 
 int RetailViewportOrigin(int a_deviceSize, int a_viewSize, int a_offset) {
     uint32_t difference = static_cast<uint32_t>(a_deviceSize) -
@@ -446,10 +437,10 @@ void Renderer::UpdateLetterboxBars() {
     int logicalW, logicalH;
     if (rawAspect > targetAspect) {
         logicalH = m_rawHeight;
-        logicalW = RetailFctiwz(m_rawHeight * targetAspect + 0.5f);
+        logicalW = RetailMath::Fctiwz(m_rawHeight * targetAspect + 0.5f);
     } else {
         logicalW = m_rawWidth;
-        logicalH = RetailFctiwz(m_rawWidth / targetAspect + 0.5f);
+        logicalH = RetailMath::Fctiwz(m_rawWidth / targetAspect + 0.5f);
     }
 
     m_width = logicalW;
