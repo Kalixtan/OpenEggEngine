@@ -79,8 +79,9 @@ behavior.
       The replacement server checks the supplied identity against the session
       on `~identity:*.hello`; ordinary retail hello requests remain unchanged.
 - [x] Keep the PSN Online ID and ticket in `OpenEgg.ini`. The client checks
-      the configured ID against both the ticket and server response; no PSN
-      password or separate client account login is used.
+      the configured ID against both the ticket and server response,
+      case-insensitively like the replacement server; no PSN password or
+      separate client account login is used.
 - [x] Match `GoOffline`'s state-2 result when no identity manager is attached;
       the headless manual-session probe checks the state before reconnecting.
 - [x] Hold state 2 while attached identity requests drain, then resume a

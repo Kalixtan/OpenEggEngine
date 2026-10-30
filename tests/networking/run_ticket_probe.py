@@ -140,7 +140,8 @@ def main():
             (temp / "game_data").symlink_to(data, target_is_directory=True)
         ticket_data = b"invalid" if args.invalid_ticket else ticket()
         config = "[network]\nserver_url = " + args.server_url.rstrip("/") + "\n"
-        expected_id = "different_id" if args.identity_mismatch else "openegg_probe"
+        expected_id = ("different_id" if args.identity_mismatch else
+                       "OpenEgg_Probe" if args.expect_session_recovered else "openegg_probe")
         config += "psn_online_id = " + expected_id + "\n"
         if args.expect_session_rejected or args.expect_session_recovered:
             config += "server_session_id = expired-session\nserver_user_id = remembered-user-id\n"

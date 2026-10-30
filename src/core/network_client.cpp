@@ -60,6 +60,18 @@ bool CachePatternMatches(std::string_view pattern, std::string_view key) {
     return false;
 }
 
+bool SameOnlineId(const std::string& first, const std::string& second) {
+    if (first.size() != second.size()) return false;
+    for (size_t i = 0; i < first.size(); ++i) {
+        unsigned char a = static_cast<unsigned char>(first[i]);
+        unsigned char b = static_cast<unsigned char>(second[i]);
+        if (a >= 'A' && a <= 'Z') a += 'a' - 'A';
+        if (b >= 'A' && b <= 'Z') b += 'a' - 'A';
+        if (a != b) return false;
+    }
+    return true;
+}
+
 std::string ContentCacheKey(const std::string& path, bool post, bool identity,
                             const std::string& resourceKey) {
     if (post) return {};
@@ -468,7 +480,7 @@ void NetworkClient::SetPlatformTicket(std::string a_ticket) {
         if (m_worker.joinable()) m_coordinatorState = 4;
         return;
     }
-    if (onlineId.empty() || onlineId != expectedOnlineId) {
+    if (onlineId.empty() || !SameOnlineId(onlineId, expectedOnlineId)) {
         std::fprintf(stderr, "network: ticket Online ID does not match psn_online_id\n");
         if (m_worker.joinable()) m_coordinatorState = 4;
         return;
@@ -863,7 +875,7 @@ void NetworkClient::PumpCallbacks() {
                         ? person["display_name"].GetString() : std::string();
                     const auto& expectedOnlineId = SystemConfig::Get().networkPsnOnlineId;
                     if (expectedOnlineId.empty() || !hasDisplayName ||
-                        displayName != expectedOnlineId) {
+                        !SameOnlineId(displayName, expectedOnlineId)) {
                         m_coordinatorError = -12;
                         m_coordinatorState = 4;
                         std::fprintf(stderr, "network: server identity does not match psn_online_id\n");
