@@ -50,6 +50,7 @@ psn_country =
 ; OpenEgg's server requires a valid signature by default. Use generated test
 ; tickets only with a disposable local test server.
 ; Treat ticket data as a secret and keep OpenEgg.ini private.
+; On Unix, OpenEgg restricts this file to owner read/write when it loads credentials.
 psn_ticket_hex =
 
 ; Optional existing binary ticket file beside the executable. Leave blank when

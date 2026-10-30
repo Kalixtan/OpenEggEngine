@@ -229,6 +229,7 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
     std::string line;
     std::string section;
     unsigned lineNumber = 0;
+    bool containsSensitiveNetworkSettings = false;
     while (std::getline(input, line)) {
         ++lineNumber;
         const auto comment = line.find_first_of(";#");
@@ -247,6 +248,9 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
         if (!section.empty() && section != "system" && section != "network") continue;
         const std::string key = Lower(Trim(line.substr(0, equals)));
         const std::string value = Trim(line.substr(equals + 1));
+        if (section == "network" && (key == "psn_ticket_hex" || key == "server_session_id" ||
+                                      key == "session_id"))
+            containsSensitiveNetworkSettings = true;
         bool valid = false;
         if (key == "os_id" || key == "osid" || key == "platform") {
             OsId parsed;
@@ -325,6 +329,15 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             std::fprintf(stderr, "system config: invalid %s value on line %u in '%s'; keeping default/current value\n",
                          key.c_str(), lineNumber, path.c_str());
         }
+    }
+    if (containsSensitiveNetworkSettings) {
+        std::error_code error;
+        std::filesystem::permissions(std::filesystem::u8path(path),
+            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+            std::filesystem::perm_options::replace, error);
+        if (error)
+            std::fprintf(stderr, "system config: could not restrict permissions on credential-bearing INI '%s'\n",
+                         path.c_str());
     }
     return true;
 }

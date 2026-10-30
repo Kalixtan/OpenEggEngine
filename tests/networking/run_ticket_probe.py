@@ -182,6 +182,9 @@ def main():
         result = subprocess.run(command, cwd=ROOT, env=env,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         combined_output = result.stdout
+        if args.ticket_in_ini and args.insecure_transport and os.name != "nt":
+            if (temp / "OpenEgg.ini").stat().st_mode & 0o777 != 0o600:
+                raise SystemExit("ticket probe failed; inline ticket INI is not private")
         second_result = None
         if args.expect_session_saved:
             saved_config = (temp / "OpenEgg.ini").read_text()

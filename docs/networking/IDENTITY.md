@@ -35,3 +35,5 @@ from verified PS3/Vita tickets. Local integration fixtures exercise the ticket
 path but do not verify a user-provided ticket or prove ownership of a real PSN
 identity. Later runs can connect without a PSN ticket after real verification.
 Keep the INI private; the saved session is a bearer credential.
+On Unix, OpenEgg restricts the INI to owner read/write when it loads a ticket
+or session setting.
