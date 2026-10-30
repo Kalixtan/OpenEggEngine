@@ -472,8 +472,10 @@ int QueueLevelHearts(gmThread* a_thread, const char* a_operation, bool a_delete)
         return GM_OK;
     }
     const std::string level = "/~level:" + levelId;
-    const std::string path = "/otg/~identity:" + g_networkClient->UserId() +
-        "/~like:" + EncodeRetailUrl(level, 0x80) + "." + a_operation;
+    const std::string path = a_delete
+        ? "/otg/~identity:" + g_networkClient->UserId() +
+            "/~like:" + EncodeRetailUrl(level, 0x80) + "." + a_operation
+        : "/otg" + level + "." + a_operation;
     const int id = g_networkClient->QueueRetailGet(path, a_thread->Param(0),
         a_thread->Param(1), a_thread->Param(2), 0, 0);
     if (id && a_delete) {

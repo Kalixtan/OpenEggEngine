@@ -278,16 +278,12 @@ behavior.
 - [ ] Verify the description URL and response against retail. Expand audio
       script parsing to cover unsupported callback classes and compare network
       playback and image cache ownership with retail.
-- [ ] Implement remaining ratings, favourites, and hearts, including
-      their retail routes and methods.
-- [ ] Resolve LevelHearts route mismatch: retail builds `/~level:<id>.<op>`,
-      OpenEgg uses `~identity:<user>/~like:...`, and `.delete` overlaps with
-      unpublish. Ghidra traces show both wrappers build the same bodyless
-      `/~level:<id>` request with `DELETE`; the shared worker sends it as HTTP
-      GET. Retail route intent cannot be distinguished from that request alone.
-      The separate rating-delete request has no callback. Do not change the
-      mapping until retail service behavior or a discriminating server-side
-      rule is established.
+- [x] Use retail's `/~level:<id>.get` and `.put` routes for heart lookup and
+      action; the replacement server maps them through the authenticated user.
+- [ ] Match `LevelHearts_Delete`: retail's bodyless `/~level:<id>.delete`
+      overlaps with unpublish, and also queues a rating-delete request without
+      a callback. Keep its service mapping unresolved until evidence separates
+      the two meanings.
 - [ ] Verify record and leaderboard serialization, callbacks, and authenticated
       server results. Record submission currently rejects unsupported values and
       oversized tables instead of reproducing the retail buffer edge cases.
