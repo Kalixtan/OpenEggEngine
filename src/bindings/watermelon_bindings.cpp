@@ -620,16 +620,25 @@ int GM_CDECL gmf_ActivityStreamPage(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_ActivityStreamPost(gmThread* a_thread) {
-    const int count = a_thread->GetNumParams();
-    if (count < 3) return GM_EXCEPTION;
-    for (int i = 0; i < 3; ++i) {
-        if (a_thread->Param(i).m_type == GM_NULL) return GM_EXCEPTION;
+    if (a_thread->GetNumParams() < 5) {
+        a_thread->PushInt(-1);
+        return GM_OK;
     }
-    for (int i = 3; i < count && i < 6; ++i) {
-        if (a_thread->Param(i).m_type != GM_STRING) return GM_EXCEPTION;
+    std::string base, component;
+    if (!g_networkClient || !g_networkClient->IdentityReady() || !ReadOptionalString(a_thread, 3, base) ||
+        !ReadOptionalString(a_thread, 4, component)) {
+        a_thread->PushInt(0);
+        return GM_OK;
     }
-    // The PS3 helper called by this wrapper is a stub. It consumes converted
-    // arguments, returns, and leaves no script result or network request.
+    if (!base.empty() && base.front() == '/') base.erase(0, 1);
+    std::string path = "/otg/" + base;
+    if (!base.empty() && base.back() != '/') path += '/';
+    path += "~activity:*";
+    if (component.size() > 1 && component.front() != '/') path += '/';
+    path += component + ".post";
+    const int id = QueueScriptPost(path, "", "", a_thread->Param(0),
+        a_thread->Param(1), a_thread->Param(2), 0, 0);
+    a_thread->PushInt(id != 0 ? 1 : 0);
     return GM_OK;
 }
 
