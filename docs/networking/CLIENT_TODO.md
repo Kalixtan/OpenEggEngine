@@ -16,9 +16,9 @@ behavior.
       retain the fallback when offline or the patch helper is unavailable.
 - [x] Initialize the PS3 community screen with retail menu helpers in a
       headless probe.
-- [x] Run retail greatest-hits, friends, albums, daily and activity tab
-      requests and callbacks against a local server with a fixture account;
-      the tested responses were empty.
+- [x] Fetch all five retail tabs from the replacement server; its fixture
+      populates greatest hits, albums, daily and activity while friends stays
+      empty. Verify level/image, queue/heart, draw and update paths headlessly.
 - [x] Create greatest-hits and activity panels from a synthetic server level;
       seed it with the server's `OpenEggCommunityFixture` tool and require it
       with `--expect-populated` in the community probe.
