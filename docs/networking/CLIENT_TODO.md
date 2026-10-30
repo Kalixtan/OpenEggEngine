@@ -85,7 +85,8 @@ behavior.
 - [x] Following get/put/delete route construction and self-follow short
       circuit.
 - [x] Gate rating and favourite requests on identity setup; check their
-      request paths, callback responses and rating body with a local fixture.
+      request paths and callbacks; verify rating body bytes at signed 32-bit
+      boundaries with a local fixture.
 - [x] Gate featured-level requests on identity setup; exercise signed-in
       publication and retrieval against the local replacement server.
 - [x] Gate metadata requests on identity setup and test raw-text and JSON

@@ -24,6 +24,7 @@ queued = set()
 queued_counts = Counter()
 request_counts = Counter()
 ratings_favourites = set()
+rating_put_bodies = Counter()
 metadata = set()
 metadata_requests = Counter()
 leaderboard = set()
@@ -72,7 +73,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, b'{"ok":1}')
             return
         if self.path == rating_path + ".put":
-            if self.headers.get("X-OTG-Identity-SessionId") == SESSION and body == b"value=1":
+            if self.headers.get("X-OTG-Identity-SessionId") == SESSION:
+                rating_put_bodies[body] += 1
                 ratings_favourites.add(self.path)
             self.reply(200, b'{"ok":1}')
             return
@@ -262,7 +264,7 @@ def main():
             expected_lookups = {"/otg/~level:level-1.latest", "/otg/~level:level-1/~version:*.get", "/otg/~level:level-1.delete"}
             expected_social = {"/otg/~identity:/~follow:*.page?count=2", f"/otg/~identity:{USER}/~followers.page?count=2", f"/otg/~identity:{USER}/~follow:*.all", f"/otg/~identity:{USER}/~like:*.page?count=2", *(f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.{op}" for op in ("get", "put", "delete")), "/otg/~level:level-1.get", "/otg/~level:level-1.put", f"/otg/~identity:{USER}/~like:%2F~level%3Alevel-1.delete", f"/otg/~level:level-1/~rating:%2F~identity%3A{USER}.delete"}
             if server:
-                markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard partial PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "index malformed PASS", "index partial PASS", "index partial array PASS", "index item count PASS", "activity page PASS", "activity empty PASS", "activity post PASS", "record values PASS", "record empty PASS", "level lookup snapshot PASS", "level lookup versions PASS", "level lookup unpublish PASS", "null callback request routes PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
+                markers += ("queued page route PASS", "queued null callback PASS", "rating/favourite offline gate PASS", "rating get response PASS", "rating put response PASS", "rating put zero response PASS", "rating put negative response PASS", "rating put max response PASS", "rating put min response PASS", "favourite all response PASS", "favourite put response PASS", "favourite delete response PASS", "metadata all PASS", "metadata get PASS", "metadata put PASS", "metadata empty PASS", "leaderboard get PASS", "leaderboard all PASS", "leaderboard page PASS", "leaderboard partial PASS", "leaderboard near PASS", "leaderboard integer PASS", "leaderboard string PASS", "leaderboard invalid score PASS", "album list PASS", "album contents PASS", "album empty PASS", "index typed PASS", "index wildcard PASS", "index malformed PASS", "index partial PASS", "index partial array PASS", "index item count PASS", "activity page PASS", "activity empty PASS", "activity post PASS", "record values PASS", "record empty PASS", "level lookup snapshot PASS", "level lookup versions PASS", "level lookup unpublish PASS", "null callback request routes PASS", *(f"social {name} PASS" for name in ("following", "followers", "all", "get", "put", "delete", "hearts", "heart get", "heart put", "heart delete", "self follow")))
                 markers += tuple(f"index scalar {name} PASS" for name in ("number", "string", "null", "bool"))
                 markers += tuple(f"index {name} PASS" for name in ("integer overflow", "negative integer overflow", "float overflow", "float underflow"))
                 markers += tuple(f"index {name} PASS" for name in ("flag", "bare", "duplicate", "empty type"))
@@ -314,13 +316,21 @@ def main():
                     ("POST", f"/otg/~level:level-1/~metadata:field.put"),
                     ("GET", f"/otg/~level:level-1/~metadata:field.put"),
                     ("GET", rating_path + ".get"),
-                    ("POST", rating_path + ".put"),
                     ("GET", f"/otg/~identity:{USER}/~follow:%2F~identity%3Atarget.put"),
                 )
                 for key in once:
                     if request_counts[key] != 1:
                         print(f"null callback: expected one {key[0]} {key[1]}, got {request_counts[key]}")
                         failed = True
+                expected_rating_put_bodies = Counter({b"value=1": 1, b"value=0": 1, b"value=-1": 1,
+                                                      b"value=2147483647": 1, b"value=-2147483648": 1})
+                if rating_put_bodies != expected_rating_put_bodies:
+                    print(f"rating put bodies: expected {expected_rating_put_bodies}, got {rating_put_bodies}")
+                    failed = True
+                rating_put_request = ("POST", rating_path + ".put")
+                if request_counts[rating_put_request] != 5:
+                    print(f"rating put count: expected five posts, got {request_counts[rating_put_request]}")
+                    failed = True
                 expected_metadata_requests = Counter({("POST", "text/plain", b"value"): 1,
                                                       ("GET", "text/plain", b""): 1})
                 if metadata_requests != expected_metadata_requests:
