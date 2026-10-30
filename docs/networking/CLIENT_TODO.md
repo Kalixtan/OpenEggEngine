@@ -42,9 +42,12 @@ behavior.
       lookup reports it missing (`--expect-queue`).
 - [x] Like, read, and unlike a fixture level through the replacement server
       (`--expect-heart`); this checks the server route, not retail route parity.
-- [x] Match ActivityStream's valid six-argument call and its no-result reject
-      paths. The traced PS3 helper does not post anything. Keep the two-argument
-      fallback for older scripts; its retail behavior is unknown.
+- [x] Match ActivityStream's three required values, optional string slots, and
+      no-result PS3 helper. Null required values and non-string optional values
+      raise a script exception. The retail wrapper reads required slots before
+      checking them, so calls with fewer than three arguments are unsafe; the
+      desktop binding rejects them safely. The two-argument form appears only
+      in a loose older script revision, not the indexed PS3 scripts.
 - [x] Return the PS3 browser stub's `-4` result for launch and finish.
 - [x] Exercise Near launch/delete and Facebook post stubs, which write no
       GameMonkey result in the PS3 trace.
