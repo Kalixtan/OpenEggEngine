@@ -209,6 +209,7 @@ int main(int argc, char** argv) {
 
     if (trace) fprintf(trace, "[TRACE] loading fonts\n"), fflush(trace);
     BitmapFont normalFont, heavyFont, courierFont, russianFont;
+    BitmapFont japaneseFont, koreanFont, traditionalChineseFont;
     auto loadBitmapFont = [&](BitmapFont& font, const std::string& relativeJson) {
         auto jsonPath = vm.Files().Resolve(relativeJson);
         if (!jsonPath) return false;
@@ -222,6 +223,13 @@ int main(int argc, char** argv) {
     // case, and game_data ships the corresponding bitmap atlas. Keep it on
     // the same metrics/atlas path as retail instead of falling back to TTF.
     bool haveRussian = loadBitmapFont(russianFont, "Helvetica_NeueLTCyrillic55_Russian.json");
+    auto loadLocaleFont = [&](BitmapFont& font, const std::string& relativeTtf) {
+        auto path = vm.Files().Resolve(relativeTtf);
+        return path && font.LoadTTF(*path, 64.0f, renderer);
+    };
+    bool haveJapanese = loadLocaleFont(japaneseFont, "FontJapanese.ttf");
+    bool haveKorean = loadLocaleFont(koreanFont, "HYTaJa_Korean.TTF");
+    bool haveTraditionalChinese = loadLocaleFont(traditionalChineseFont, "FontChineseTrad.ttf");
     if (!haveNormal) {
         if (auto ttfPath = vm.Files().Resolve("grayscale-bold.ttf")) {
             haveNormal = normalFont.LoadTTF(*ttfPath, 64.0f, renderer);
@@ -273,6 +281,9 @@ int main(int argc, char** argv) {
     ctx.heavyFont = haveHeavy ? &heavyFont : nullptr;
     ctx.courierFont = haveCourier ? &courierFont : nullptr;
     ctx.russianFont = haveRussian ? &russianFont : nullptr;
+    ctx.japaneseFont = haveJapanese ? &japaneseFont : nullptr;
+    ctx.koreanFont = haveKorean ? &koreanFont : nullptr;
+    ctx.traditionalChineseFont = haveTraditionalChinese ? &traditionalChineseFont : nullptr;
     ctx.currentFont = ctx.normalFont;
     ctx.localization = &localization;
 

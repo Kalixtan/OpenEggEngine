@@ -489,15 +489,23 @@ const Glyph* BitmapFont::FindGlyph(int a_charCode) const {
     return it == m_glyphs.end() ? nullptr : &it->second;
 }
 
+const BitmapFont* BitmapFont::FontForGlyph(int a_charCode) const {
+    if (FindGlyph(a_charCode)) return this;
+    return m_fallbackFont ? m_fallbackFont->FontForGlyph(a_charCode) : nullptr;
+}
+
 float BitmapFont::GetRetailGlyphAdvance(uint32_t a_codepoint) const {
-    const Glyph* glyph = FindGlyph(static_cast<int>(a_codepoint));
+    const int code = static_cast<int>(a_codepoint);
+    const BitmapFont* font = FontForGlyph(code);
+    const Glyph* glyph = font ? font->FindGlyph(code) : nullptr;
     return glyph ? glyph->advance : (m_hasRetailFallbackGlyph ? m_retailFallbackGlyph.advance : 0.0f);
 }
 
 float BitmapFont::MeasureRetailTextWidth(const std::string& a_text, double a_scale) const {
     auto glyphForByte = [this](unsigned char a_byte) -> const Glyph* {
         const int signedCode = static_cast<int>(static_cast<int8_t>(a_byte));
-        const Glyph* glyph = FindGlyph(signedCode);
+        const BitmapFont* font = FontForGlyph(signedCode);
+        const Glyph* glyph = font ? font->FindGlyph(signedCode) : nullptr;
         return glyph ? glyph : (m_hasRetailFallbackGlyph ? &m_retailFallbackGlyph : nullptr);
     };
     auto scaled = [a_scale](float a_value) -> float {
@@ -534,7 +542,9 @@ float BitmapFont::MeasureWidth(const std::string& a_text, float a_scale) const {
             width += kIconAdvance * a_scale;
             continue;
         }
-        const Glyph* g = FindGlyph((int)t.codepoint);
+        const int code = static_cast<int>(t.codepoint);
+        const BitmapFont* font = FontForGlyph(code);
+        const Glyph* g = font ? font->FindGlyph(code) : nullptr;
         if (!g) continue;
         width += g->advance * a_scale;
     }
@@ -582,7 +592,9 @@ void BitmapFont::DrawText(Renderer& a_renderer, const std::string& a_text, float
             continue;
         }
 
-        const Glyph* g = FindGlyph((int)t.codepoint);
+        const int code = static_cast<int>(t.codepoint);
+        const BitmapFont* font = FontForGlyph(code);
+        const Glyph* g = font ? font->FindGlyph(code) : nullptr;
         if (!g) continue;
 
         float lx0 = cursorX + g->bearingX * a_scale;
@@ -597,7 +609,7 @@ void BitmapFont::DrawText(Renderer& a_renderer, const std::string& a_text, float
         TransformCorner(a_matA, a_matB, a_matC, a_matD, a_matE, a_matF, lx0, lyTop, x3, y3);
 
         a_renderer.DrawGlyphQuad(x0, y0, x1, y1, x2, y2, x3, y3,
-                                  m_textureHandle, g->u0, g->v0, g->u1, g->v1,
+                                  font->m_textureHandle, g->u0, g->v0, g->u1, g->v1,
                                   a_edge, a_width, a_z);
 
         cursorX += g->advance * a_scale;

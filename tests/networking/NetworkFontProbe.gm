@@ -1,0 +1,32 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            Network_SetNetworkLanguageFont();
+            Video.setNormalFont();
+            GameSystem.trace("network locale font default PASS");
+            Network_ClearNetworkLanguageFont();
+
+            Network_SetNetworkLanguageFont("ja");
+            Video.setNormalFont();
+            GameSystem.trace("network locale font Japanese PASS");
+            Network_ClearNetworkLanguageFont();
+
+            Network_SetNetworkLanguageFont("ru");
+            Video.setNormalFont();
+            GameSystem.trace("network locale font Russian PASS");
+            Network_ClearNetworkLanguageFont();
+
+            Network_SetNetworkLanguageFont("ko");
+            Video.setHeavyFont();
+            GameSystem.trace("network locale font Korean PASS");
+            Network_ClearNetworkLanguageFont();
+
+            Network_SetNetworkLanguageFont("zh_hant");
+            Video.setFont("FontChineseTrad");
+            GameSystem.trace("network locale font Traditional Chinese PASS");
+            Network_ClearNetworkLanguageFont();
+            Network_ClearNetworkLanguageFont();
+        },
+        init=function() { return true; },
+        update=function() {});
+};

@@ -279,6 +279,9 @@ behavior.
       equivalents and keep Sony-only APIs explicitly unsupported where needed.
 - [ ] Implement and probe the applicable account, trophy, store, DLC, language,
       SNS, activity, and Near behavior.
+- [x] Use bundled Russian and CJK font resources for the traced language-font
+      setup and clear calls. Desktop uses glyph fallback; retail's resource
+      cache and paired font lists remain different.
 - [x] Match retail's base-0 DLC pack ID parsing in the desktop debug fallback,
       including hexadecimal, octal, sign, and trailing-text cases. PSN
       entitlement checks still require a platform provider.

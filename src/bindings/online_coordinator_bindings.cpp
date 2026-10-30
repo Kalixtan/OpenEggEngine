@@ -2,6 +2,7 @@
 #include "online_coordinator_bindings.h"
 #include "gmTableObject.h"
 #include "gmStringObject.h"
+#include "../core/engine_context.h"
 #include "../core/network_client.h"
 #include "../core/system_config.h"
 #include <cstdio>
@@ -205,8 +206,56 @@ int GM_CDECL gmf_Network_GetNetworkLanguageCode(gmThread* a_thread) {
     a_thread->PushNewString(SystemConfig::Get().NetworkLanguage());
     return GM_OK;
 }
-int GM_CDECL gmf_Network_SetNetworkLanguageFont(gmThread* a_thread) { (void)a_thread; return GM_OK; }
-int GM_CDECL gmf_Network_ClearNetworkLanguageFont(gmThread* a_thread) { (void)a_thread; return GM_OK; }
+int GM_CDECL gmf_Network_SetNetworkLanguageFont(gmThread* a_thread) {
+    EngineContext& context = GetEngineContext();
+    if (context.networkLanguageFontConfigured) return GM_OK;
+
+    std::string language;
+    if (a_thread->GetNumParams() == 0) {
+        language = SystemConfig::Get().NetworkLanguage();
+    } else if (a_thread->Param(0).m_type == GM_STRING) {
+        char buffer[128] = {};
+        if (const char* value = a_thread->Param(0).AsString(
+                a_thread->GetMachine(), buffer, sizeof(buffer)))
+            language = value;
+    }
+
+    // Retail's locale selector defaults unknown strings to locale index 0.
+    // Its Japanese title also forces that locale regardless of the argument.
+    if (SystemConfig::Get().networkProductRegion == "SCEJ") language = "ja";
+    static const char* const locales[] = {
+        "ja", "en", "fr", "es", "de", "it", "nl", "pt", "ru", "ko",
+        "zh_hant", "zh", "fi", "sv", "da", "no", "pl", "pt_br", "en_gb", "es_mx"
+    };
+    bool known = false;
+    for (const char* locale : locales) {
+        if (language == locale) {
+            known = true;
+            break;
+        }
+    }
+    if (!known) language = "ja";
+
+    if (language == "ja") context.networkLanguageFont = context.japaneseFont;
+    else if (language == "ru") context.networkLanguageFont = context.russianFont;
+    else if (language == "ko") context.networkLanguageFont = context.koreanFont;
+    else if (language == "zh_hant") context.networkLanguageFont = context.traditionalChineseFont;
+    if (context.normalFont) context.normalFont->SetFallbackFont(context.networkLanguageFont);
+    if (context.heavyFont) context.heavyFont->SetFallbackFont(context.networkLanguageFont);
+    context.networkLanguageFontConfigured = true;
+    return GM_OK;
+}
+int GM_CDECL gmf_Network_ClearNetworkLanguageFont(gmThread* a_thread) {
+    (void)a_thread;
+    EngineContext& context = GetEngineContext();
+    if (context.currentFont == context.networkLanguageFont)
+        context.currentFont = context.normalFont;
+    context.networkLanguageFont = nullptr;
+    if (context.normalFont) context.normalFont->SetFallbackFont(nullptr);
+    if (context.heavyFont) context.heavyFont->SetFallbackFont(nullptr);
+    context.networkLanguageFontConfigured = false;
+    return GM_OK;
+}
 
 // The retail DLC helper uses these during normal boot and in entity-menu
 // construction. Retail checks PSN EDAT entitlements; this desktop build has

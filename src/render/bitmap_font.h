@@ -20,6 +20,8 @@ public:
 
     unsigned int GetTextureHandle() const { return m_textureHandle; }
     const Glyph* FindGlyph(int a_charCode) const;
+    const BitmapFont* FontForGlyph(int a_charCode) const;
+    void SetFallbackFont(BitmapFont* a_font) { m_fallbackFont = a_font; }
     float GetRetailGlyphAdvance(uint32_t a_codepoint) const;
     // Video.getTextWidth's retail helper scans signed string bytes and uses
     // glyph advance/bearing/width fields rather than rendered-character
@@ -37,5 +39,6 @@ private:
     unsigned int m_textureHandle = 0;
     Glyph m_retailFallbackGlyph;
     bool m_hasRetailFallbackGlyph = false;
+    BitmapFont* m_fallbackFont = nullptr;
     std::unordered_map<int, Glyph> m_glyphs;
 };

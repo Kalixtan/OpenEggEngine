@@ -777,7 +777,8 @@ int GM_CDECL gmf_restartVideo(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_Video_setNormalFont(gmThread* a_thread) {
-    GetEngineContext().currentFont = GetEngineContext().normalFont;
+    EngineContext& ctx = GetEngineContext();
+    ctx.currentFont = ctx.normalFont ? ctx.normalFont : ctx.networkLanguageFont;
     return GM_OK;
 }
 
@@ -787,14 +788,19 @@ int GM_CDECL gmf_Video_setFont(gmThread* a_thread) {
     // resource returned by the shared cache (0x1dabf0/0x1daf50). The wrapper
     // performs no argc or type-tag check. Retail's 0x42d98 constructor also
     // recognizes Russian, Chinese, Japanese, and Korean font resources. The
-    // shipped Russian bitmap atlas is now loaded through its exact name; the
-    // CJK resource formats and shared name-keyed cache lifetime remain open.
+    // desktop loads shipped Russian and CJK fonts for these resource names.
     GM_STRING_PARAM(name, 0, "");
     EngineContext& ctx = GetEngineContext();
     if (name == "courierFont" && ctx.courierFont) {
         ctx.currentFont = ctx.courierFont;
     } else if (name == "Helvetica_NeueLTCyrillic55_Russian" && ctx.russianFont) {
         ctx.currentFont = ctx.russianFont;
+    } else if (name == "FontJapanese" && ctx.japaneseFont) {
+        ctx.currentFont = ctx.japaneseFont;
+    } else if (name == "HYTaJa_Korean" && ctx.koreanFont) {
+        ctx.currentFont = ctx.koreanFont;
+    } else if (name == "FontChineseTrad" && ctx.traditionalChineseFont) {
+        ctx.currentFont = ctx.traditionalChineseFont;
     } else if (name == "HelveticaNeueLTCom-Lt" && ctx.normalFont) {
         ctx.currentFont = ctx.normalFont;
     } else if (name == "HelveticaNeueLTCom-Hv" && ctx.heavyFont) {
@@ -804,7 +810,8 @@ int GM_CDECL gmf_Video_setFont(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_Video_setHeavyFont(gmThread* a_thread) {
-    GetEngineContext().currentFont = GetEngineContext().heavyFont;
+    EngineContext& ctx = GetEngineContext();
+    ctx.currentFont = ctx.heavyFont ? ctx.heavyFont : ctx.networkLanguageFont;
     return GM_OK;
 }
 
