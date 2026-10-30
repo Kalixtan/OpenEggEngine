@@ -71,7 +71,7 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
     (temp / "OpenEgg.ini").write_text(config)
     harness = temp / "harness.txt"
     if args.harness_input:
-        harness.write_text(("wait 80\nkey Right 1\nkey Right 1\nkey Return 1\n" * 8) + "wait 120\nquit\n")
+        harness.write_text(("wait 80\nkey Down 1\nkey Right 1\nkey Right 1\nkey Return 1\n" * 8) + "wait 120\nquit\n")
     else:
         harness.write_text(f"wait {600 if args.server_url else 30}\nquit\n")
     env = os.environ.copy()

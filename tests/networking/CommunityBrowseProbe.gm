@@ -170,16 +170,15 @@ global Main = function(p) {
         init=function() { return true; },
         onKeyPress=function(key) {
             if (!(?COMMUNITY_HARNESS_INPUT && COMMUNITY_HARNESS_INPUT) || this.stage != 10 || !OnlineCoordinator_IsOnline()) { return; }
-            if (key == KEYBOARD_RIGHT && this.inputCount < 2) {
+            if (key == KEYBOARD_DOWN || key == KEYBOARD_RIGHT) {
                 this.screen.handleOnKeyPress(key);
-                this.inputCount += 1;
-            } else if (key == JOYSTICK0_ACCEPT && this.inputCount == 2) {
+            } else if (key == JOYSTICK0_ACCEPT) {
                 if (this.screen.selectedButton == this.screen.hitsButton) {
                     GameSystem.trace("community input selection PASS");
                     this.screen.handleOnKeyPress(key);
                     GameSystem.trace("community harness input PASS");
                     this.stage = 11;
-                } else { GameSystem.trace("community input selection FAIL"); }
+                }
             }
         },
         finishScreen=function() {
@@ -241,12 +240,14 @@ global Main = function(p) {
                        this.screen.tabs[this.screen.DAILY_BUTTON_INDEX].status == this.screen.RESPONSE_RECEIVED &&
                        this.screen.tabs[this.screen.DAILY_BUTTON_INDEX].complete) {
                 GameSystem.trace("community automatic tab PASS");
-                if (?COMMUNITY_NAVIGATE && COMMUNITY_NAVIGATE) { this.stage = 10; this.inputCount = 0; }
+                if (?COMMUNITY_NAVIGATE && COMMUNITY_NAVIGATE) { this.stage = 10; }
                 else { this.stage = 2; }
             } else if (this.stage == 10 && OnlineCoordinator_IsOnline()) {
                 if (?COMMUNITY_HARNESS_INPUT && COMMUNITY_HARNESS_INPUT) {
                     // Wait for key events forwarded by the test parent.
                 } else if (?COMMUNITY_INPUT && COMMUNITY_INPUT) {
+                    // Populated responses move focus from the nav bar to the first panel.
+                    this.screen.handleOnKeyPress(KEYBOARD_DOWN);
                     this.screen.handleOnKeyPress(KEYBOARD_RIGHT);
                     this.screen.handleOnKeyPress(KEYBOARD_RIGHT);
                     if (this.screen.selectedButton == this.screen.hitsButton) {

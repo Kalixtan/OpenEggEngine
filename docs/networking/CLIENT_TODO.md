@@ -58,16 +58,18 @@ behavior.
 - [x] Run the retail screen's draw and update callbacks with a minimal menu
       parent; verify its automatic daily request and tab switch (`--navigate`).
 - [x] Forward headless key events through a minimal parent to the retail PS3
-      input handlers and select the greatest-hits tab (`--harness-input`).
+      input handlers and select greatest hits (`--harness-input`). The daily
+      response focuses its first panel, so navigation starts Down, Right, Right.
 - [x] Start the full retail menu with a disposable save and account on the
       replacement server; verify login, hello, EULA, localized requests, and
       community attachment headlessly.
 - [ ] Test controller navigation from the full menu. The `--input` attempt
       does not select a community tab: retail forwards keys only to the active
       screen, while home-to-community movement uses a swipe. Login, online
-      state and community attachment pass; the isolated community input probe
-      covers tab selection separately.
-- [ ] Test other tab callbacks and panels with populated server responses.
+      state and community attachment pass; the isolated probe covers tab input.
+- [x] Test populated callbacks for all five community tabs, album and level
+      details, thumbnails, queue changes, heart/rating changes, draw and update
+      against the local fixture server.
 - [x] Accept extra asset-download arguments, including the seventh argument
       used by patched scripts; the retail wrapper ignores them.
 - [x] Async HTTP worker; callbacks return on the GameMonkey tick thread.
