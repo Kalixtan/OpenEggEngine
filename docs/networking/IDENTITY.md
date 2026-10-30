@@ -9,6 +9,8 @@ sessions the server marks unauthorized.
 An existing registered server account must have PSN authentication enabled
 before its Online ID can be linked. This prevents a ticket from claiming an
 unrelated account that happens to use the same display name.
+For remote servers, login responses must include the stable PSN identity field;
+only loopback development servers may use the display-name fallback.
 
 `Network_IsSignedIn()` and `Network_IsOnline()` keep the retail script-facing
 state for an authenticated replacement-server session. They do not report a

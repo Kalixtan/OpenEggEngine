@@ -882,7 +882,8 @@ void NetworkClient::PumpCallbacks() {
                         : displayName;
                     const auto& expectedOnlineId = SystemConfig::Get().networkPsnOnlineId;
                     if (expectedOnlineId.empty() || !hasDisplayName || accountOnlineId.empty() ||
-                        !SameOnlineId(accountOnlineId, expectedOnlineId)) {
+                        !SameOnlineId(accountOnlineId, expectedOnlineId) ||
+                        (!hasPsnOnlineIdField && !IsLoopbackUrl(m_baseUrl))) {
                         m_coordinatorError = -12;
                         m_coordinatorState = 4;
                         std::fprintf(stderr, "network: server identity does not match psn_online_id\n");
