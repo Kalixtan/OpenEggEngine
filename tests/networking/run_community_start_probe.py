@@ -79,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
     if args.harness_input:
         harness.write_text(("wait 80\nkey Down 1\nkey Right 1\nkey Right 1\nkey Return 1\n" * 8) + "wait 120\nquit\n")
     else:
-        harness.write_text(f"wait {1800 if args.expect_play_level else 600 if args.server_url else 30}\nquit\n")
+        harness.write_text(f"wait {600 if args.server_url else 30}\nquit\n")
     env = os.environ.copy()
     env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")

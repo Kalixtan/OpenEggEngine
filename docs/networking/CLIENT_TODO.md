@@ -16,7 +16,7 @@ behavior.
       retain the fallback when offline or the patch helper is unavailable.
 - [x] Initialize the PS3 community screen with retail menu helpers in a
       headless probe.
-- [x] Fetch all five retail tabs from the replacement server; its fixture
+- [x] Fetch the retail online lists from the replacement server; its fixture
       populates greatest hits, albums, daily, activity and one mutual friend.
       Verify level/image, queue/heart, draw and update paths headlessly.
 - [x] Search the retail search tab for the fixture level and verify the
