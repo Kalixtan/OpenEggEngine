@@ -20,6 +20,8 @@ class SessionProbeServer(ThreadingHTTPServer):
         super().__init__(server_address, handler)
         self.requests = []
         self.reject_saved_sessions = False
+        self.reject_saved_session_once = False
+        self.saved_session_validation_count = 0
 
 
 class SessionProbeHandler(BaseHTTPRequestHandler):
@@ -42,7 +44,12 @@ class SessionProbeHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self._record()
-        if self.server.reject_saved_sessions:
+        if self.headers.get("X-OpenEgg-Validate-Session") == "1":
+            self.server.saved_session_validation_count += 1
+        if (self.server.reject_saved_sessions or
+                (self.headers.get("X-OpenEgg-Validate-Session") == "1" and
+                 self.server.reject_saved_session_once and
+                 self.server.saved_session_validation_count == 1)):
             self.send_response(403)
             self.end_headers()
             return
@@ -93,6 +100,8 @@ def main():
                         help="Check ticket login persistence and reuse on the next launch")
     parser.add_argument("--expect-session-rejected", action="store_true",
                         help="Check that a rejected saved session is removed from the INI")
+    parser.add_argument("--expect-session-recovered", action="store_true",
+                        help="Check that a rejected saved session falls back to ticket login")
     parser.add_argument("--mock-server", action="store_true",
                         help="Use a canned local fixture; does not verify PSN tickets")
     parser.add_argument("--insecure-transport", action="store_true",
@@ -102,10 +111,11 @@ def main():
     args = parser.parse_args()
     mock_server = None
     if args.mock_server:
-        if not (args.expect_session_saved or args.expect_session_rejected):
+        if not (args.expect_session_saved or args.expect_session_rejected or args.expect_session_recovered):
             parser.error("--mock-server requires a saved-session expectation")
         mock_server = SessionProbeServer(("127.0.0.1", 0), SessionProbeHandler)
         mock_server.reject_saved_sessions = args.expect_session_rejected
+        mock_server.reject_saved_session_once = args.expect_session_recovered
         mock_server_thread = threading.Thread(target=mock_server.serve_forever, daemon=True)
         mock_server_thread.start()
         atexit.register(mock_server.server_close)
@@ -132,11 +142,11 @@ def main():
         config = "[network]\nserver_url = " + args.server_url.rstrip("/") + "\n"
         expected_id = "different_id" if args.identity_mismatch else "openegg_probe"
         config += "psn_online_id = " + expected_id + "\n"
-        if args.expect_session_rejected:
+        if args.expect_session_rejected or args.expect_session_recovered:
             config += "server_session_id = expired-session\nserver_user_id = remembered-user-id\n"
-        elif args.ticket_in_ini:
+        if args.ticket_in_ini:
             config += "psn_ticket_hex = " + ticket_data.hex() + "\n"
-        else:
+        elif not args.expect_session_rejected:
             (temp / "ticket.bin").write_bytes(ticket_data)
             config += "ticket_file = ticket.bin\n"
         config += "community_allowed = false\n" if args.community_disabled else ""
@@ -146,7 +156,7 @@ def main():
         env = os.environ.copy()
         env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt",
                    GE3_HARNESS=str(harness), SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-        probe = ("RememberedSessionProbe.gm" if args.expect_session_saved or args.expect_session_rejected else
+        probe = ("RememberedSessionProbe.gm" if args.expect_session_saved or args.expect_session_rejected or args.expect_session_recovered else
                  "ServerEulaProbe.gm" if args.eula else "TicketLoginProbe.gm")
         command = [str(temp / engine.name), str(ROOT / "tests/networking"), probe, "Main"]
         result = subprocess.run(command, cwd=ROOT, env=env,
@@ -173,6 +183,11 @@ def main():
             result_config = (temp / "OpenEgg.ini").read_text()
             if "server_session_id =" in result_config or "server_user_id =" in result_config:
                 raise SystemExit("ticket probe failed; rejected session remained in OpenEgg.ini")
+        elif args.expect_session_recovered:
+            result_config = (temp / "OpenEgg.ini").read_text()
+            if ("server_session_id = remembered-session" not in result_config or
+                    "server_user_id = remembered-user-id" not in result_config):
+                raise SystemExit("ticket probe failed; recovered ticket session was not saved")
         print(combined_output, end="")
         markers = ("ticket coordinator offline PASS", "ticket coordinator cancel PASS",
                    "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
@@ -186,6 +201,10 @@ def main():
         elif args.expect_session_rejected:
             markers = ("network: remembered server session validation failed (HTTP 403)",
                        "remembered identity rejected PASS")
+        elif args.expect_session_recovered:
+            markers = ("network: remembered session failed; trying configured ticket",
+                       "network: replacement-server session saved to OpenEgg.ini",
+                       "network: ticket login succeeded", "remembered identity ready PASS")
         elif args.eula:
             markers = ("network: ticket login succeeded", "network: identity hello succeeded",
                        "network: EULA received", "server EULA PASS", "network: friends synchronized", "server friends PASS",
@@ -232,6 +251,11 @@ def main():
         if mock_server and args.expect_session_rejected:
             if not any(request[3] == "1" for request in mock_server.requests):
                 raise SystemExit("ticket probe failed; no saved-session validation request reached the server")
+        if mock_server and args.expect_session_recovered:
+            posts = [request for request in mock_server.requests if request[0] == "POST"]
+            if (mock_server.saved_session_validation_count != 1 or len(posts) != 1 or
+                    posts[0][2] != "1"):
+                raise SystemExit("ticket probe failed; expired session did not fall back to one ticket login")
 
 
 if __name__ == "__main__":

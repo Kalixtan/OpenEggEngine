@@ -168,7 +168,8 @@ behavior.
       new accounts from verified PSN Online IDs, and reject unsigned tickets
       without reserving their usernames.
 - [x] Save the verified replacement-server session in `OpenEgg.ini`, renew it
-      on validated use, and test a later launch after removing the ticket.
+      on validated use, test a later launch after removing the ticket, and
+      fall back to ticket login when a saved session is rejected.
 - [x] Restrict the manual session test bypass to loopback endpoints.
 - [x] Purging a queued or in-flight request produces a cancelled callback;
       an in-flight response can retain its HTTP status, as in the PS3 trace.
