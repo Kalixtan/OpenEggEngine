@@ -6,6 +6,10 @@ and requires a valid signature by default to prove ownership. That identity is
 stored separately from the editable server display name. OpenEgg rejects
 sessions the server marks unauthorized.
 
+An existing registered server account must have PSN authentication enabled
+before its Online ID can be linked. This prevents a ticket from claiming an
+unrelated account that happens to use the same display name.
+
 `Network_IsSignedIn()` and `Network_IsOnline()` keep the retail script-facing
 state for an authenticated replacement-server session. They do not report a
 PSN connection. Use these OpenEgg queries to tell the states apart:
