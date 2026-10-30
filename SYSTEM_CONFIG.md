@@ -29,11 +29,19 @@ queries follow the current window dimensions, so UI and world framing adapt
 to different window shapes. The default is `true`.
 
 In `[network]`, set `server_url` to the replacement server root, for example
-`http://127.0.0.1:10061`. Leave it blank to disable requests. `session_id`
-sets the `X-OTG-Identity-SessionId` header and `user_id` supplies its identity.
-These values currently require an existing session; automatic login is not yet
-implemented. The older `[system]` keys `network_base_url`, `network_session_id`,
-and `network_user_id` remain supported.
+`http://127.0.0.1:10061`. Leave it blank to disable requests. For an existing
+session, set `session_id` and `user_id`; OpenEgg validates their match with the
+server before starting its online flow. Alternatively, set `account_email` and
+`account_password` for the desktop account-login endpoint. Credentials require
+HTTPS except on localhost; the INI stores the password as plain text.
+
+`ticket_file` enables experimental platform-ticket login; it takes precedence
+over account login. PSN sign-in and platform friend data remain unavailable on
+desktop. `image_base_url` sets the base for relative image URLs, and
+`product_region` selects the EULA and translation region. `community_allowed`
+and `account_restricted` are desktop fallbacks, not server permissions. Older
+`[system]` keys `network_base_url`, `network_session_id`, and `network_user_id`
+remain supported.
 
 The `SYSTEM_GetOSDescription()` names `Win32`, `OS X`, `PS3`, and `NGP` are
 grounded in script call sites. The PS4 and Vita TV labels are currently
