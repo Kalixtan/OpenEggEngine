@@ -369,6 +369,10 @@ behavior.
       EULA, friends sync and initial community requests pass with server
       authentication disabled; the short-lived session is not saved. This does
       not verify Sony ticket signatures.
+- [x] Run `run_live_server_ticket_probe.py --community` to seed a disposable
+      server and exercise the retail community menu against its levels, daily
+      list, album, images, queue and heart routes. The probe uses existing game
+      archives by symlink and removes its server data and build artifacts.
 - [ ] Establish a reproducible authenticated test account and session for the
       local replacement server.
 - [ ] Capture comparable request/response logs from retail and OpenEgg for each

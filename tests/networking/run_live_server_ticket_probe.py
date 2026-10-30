@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Exercise OpenEgg ticket login against a real local SoundShapesServer."""
+"""Exercise OpenEgg login against a local server; --community adds live menu checks."""
 
+import argparse
 import json
 import os
 from pathlib import Path
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -17,9 +19,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--community", action="store_true",
+                        help="seed a disposable community and run the retail menu probe")
+    args = parser.parse_args()
     engine = ROOT / "build" / "OpenEgg"
     if not engine.is_file():
         raise SystemExit(f"OpenEgg executable not found: {engine}")
+    if args.community and not (engine.parent / "patch_data001.psarc").is_file():
+        raise SystemExit("--community requires patch_data001.psarc beside the engine")
 
     project = ROOT / "networking" / "SoundShapesServer" / "SoundShapesServer" / "SoundShapesServer.csproj"
     with tempfile.TemporaryDirectory(prefix="openegg-live-server-") as temporary:
@@ -41,6 +49,30 @@ def main():
 
         state_dir = temp / "server-state"
         state_dir.mkdir()
+        server_env = os.environ.copy()
+        server_env["BUNKUM_DATA_FOLDER"] = str(state_dir)
+        if args.community:
+            fixture_project = (ROOT / "networking" / "SoundShapesServer" / "tools" /
+                               "OpenEggCommunityFixture" / "OpenEggCommunityFixture.csproj")
+            fixture_dir = temp / "fixture"
+            fixture = subprocess.run(
+                ["dotnet", "publish", str(fixture_project), "-c", "Release", "-o", str(fixture_dir),
+                 "--artifacts-path", str(temp / "artifacts")],
+                cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                timeout=180, check=False,
+            )
+            if fixture.returncode:
+                print(fixture.stdout)
+                raise SystemExit("community fixture publish failed")
+            seeded = subprocess.run(
+                ["dotnet", str(fixture_dir / "OpenEggCommunityFixture.dll"), str(state_dir)],
+                cwd=ROOT, env=server_env, text=True, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, timeout=60, check=False,
+            )
+            if seeded.returncode:
+                print(seeded.stdout)
+                raise SystemExit("community fixture seed failed")
+
         (state_dir / "bunkum.json").write_text(json.dumps({
             "Version": 4,
             "ExternalUrl": f"http://127.0.0.1:{port}",
@@ -60,7 +92,7 @@ def main():
 
         server = subprocess.Popen(
             ["dotnet", str(publish_dir / "SoundShapesServer.dll")],
-            cwd=state_dir, stdin=subprocess.DEVNULL,
+            cwd=state_dir, env=server_env, stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         )
         try:
@@ -133,7 +165,21 @@ def main():
             if services.returncode or missing:
                 raise SystemExit(f"client/server services failed; missing markers: {missing}")
 
-            print("live local ticket login and community session PASS (unsigned ticket, short session)")
+            if args.community:
+                community = subprocess.run(
+                    [sys.executable, str(ROOT / "tests" / "networking" / "run_community_start_probe.py"),
+                     "--server-url", f"http://127.0.0.1:{port}", "--expect-populated", "--expect-daily",
+                     "--expect-album", "--expect-album-details", "--expect-thumbnail", "--expect-level-data",
+                     "--expect-queue", "--expect-heart", "--draw", "--navigate"],
+                    cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    timeout=180, check=False,
+                )
+                print(community.stdout, end="")
+                if community.returncode:
+                    raise SystemExit("live community browse probe failed")
+
+            suffix = " and community browse" if args.community else " and community session"
+            print(f"live local ticket login{suffix} PASS (unsigned ticket, short session)")
         finally:
             server.terminate()
             try:
