@@ -31,9 +31,22 @@ global CommunityBrowseReply = function(data, result, error) {
     }
 };
 
+global CommunitySearchReply = function(data, result, error) {
+    CommunityBrowseReply(data, result, error);
+    if (error == 0 && ?data.numPanels && data.numPanels == 1 &&
+        data.panels[0].type == "level" && data.panels[0].levelName == "Probe level") {
+        GameSystem.trace("community search PASS");
+        data.searchFinished = 1;
+    } else {
+        GameSystem.trace("community search FAIL");
+        data.searchFinished = 1;
+    }
+};
+
 global CommunityLevelReply = function(data, result, error) {
     if (error == 0 && result != null && result.bpm == 120) {
         GameSystem.trace("community level download PASS");
+        data.levelTable = result;
     } else { GameSystem.trace("community level download FAIL", error); }
     data.levelFinished = 1;
 };
@@ -193,6 +206,29 @@ global Main = function(p) {
             this.screen.terminate();
             this.stage = 5;
         },
+        launchDownloadedLevel=function(levelTable) {
+            GameMonkeyScript.loadScript("Platformer/Main.gm");
+            global PROBE_ORIGINAL_PLATFORMER_MAIN = Platformer_Main;
+            global Platformer_Main = function(process) {
+                local game = PROBE_ORIGINAL_PLATFORMER_MAIN(process);
+                game.probeOriginalSetupLevelFromTable = game.setupLevelFromTable;
+                game.setupLevelFromTable = function(data) {
+                    if (this.mode == "playOnline" && ?data && ?data.bpm && data.bpm == 120) {
+                        GameSystem.trace("community gameplay level data PASS");
+                    } else {
+                        GameSystem.trace("community gameplay level data FAIL");
+                    }
+                    local loaded = this.probeOriginalSetupLevelFromTable(data);
+                    GameSystem.trace("community gameplay setup reached");
+                    GameSystem.quit();
+                    return loaded;
+                };
+                return game;
+            };
+            local game = GameSystem.startNewProcessList("Platformer_Main", true);
+            GameSystem.runProcess("ControllerConfig");
+            game.configure(null, null, "playOnline", null, null, levelTable);
+        },
         update=function() {
             if (this.stage == 0 && Watermelon_IsOnline()) {
                 GameSystem.trace("community browse online");
@@ -269,6 +305,25 @@ global Main = function(p) {
                 this.nextTab += 1;
                 this.stage = 2;
             } else if (this.stage == 2 && this.nextTab == 5) {
+                if (?COMMUNITY_REQUIRE_SEARCH && COMMUNITY_REQUIRE_SEARCH) {
+                    this.stage = 16;
+                } else if (?COMMUNITY_REQUIRE_ALBUM_DETAILS && COMMUNITY_REQUIRE_ALBUM_DETAILS) {
+                    this.stage = 12;
+                } else if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) {
+                    this.stage = 4;
+                } else {
+                    this.finishScreen();
+                }
+            } else if (this.stage == 16) {
+                local tab = this.screen.tabs[this.screen.SEARCH_BUTTON_INDEX];
+                tab.queryTable.query = "metadata.displayName:" + Watermelon_UrlEncode("Probe level");
+                tab.queryTable.type = "level";
+                tab.queryTable.search = "all";
+                tab.queryTable.count = 10;
+                tab.request(null, null, tab.results, CommunitySearchReply);
+                this.searchResults = tab.results;
+                this.stage = 17;
+            } else if (this.stage == 17 && ?this.searchResults.searchFinished) {
                 if (?COMMUNITY_REQUIRE_ALBUM_DETAILS && COMMUNITY_REQUIRE_ALBUM_DETAILS) {
                     this.stage = 12;
                 } else if (?COMMUNITY_REQUIRE_THUMBNAIL && COMMUNITY_REQUIRE_THUMBNAIL) {
@@ -355,6 +410,11 @@ global Main = function(p) {
                 }
             } else if (this.stage == 8 && ?this.heartFinished) {
                 this.finishScreen();
+            } else if (this.stage == 5 && ?COMMUNITY_REQUIRE_PLAY_LEVEL && COMMUNITY_REQUIRE_PLAY_LEVEL &&
+                       !?this.playLaunchStarted) {
+                this.playLaunchStarted = 1;
+                GameSystem.trace("community downloaded level launch start");
+                this.launchDownloadedLevel(this.levelTable);
             }
         });
 };

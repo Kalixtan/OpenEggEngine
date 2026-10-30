@@ -20,6 +20,8 @@ parser.add_argument("--expect-album-details", action="store_true", help="Check a
 parser.add_argument("--expect-album-complete", action="store_true", help="Submit a completion and refresh the album callback")
 parser.add_argument("--expect-thumbnail", action="store_true", help="Require the fixture panel's thumbnail")
 parser.add_argument("--expect-level-data", action="store_true", help="Download the fixture panel's level data")
+parser.add_argument("--expect-search", action="store_true", help="Search for the fixture through the retail community search tab")
+parser.add_argument("--expect-play-level", action="store_true", help="Launch the downloaded fixture with Platformer_Main in playOnline mode")
 parser.add_argument("--expect-queue", action="store_true", help="Add, read and remove the fixture level from the queue")
 parser.add_argument("--expect-heart", action="store_true", help="Like and unlike the fixture level")
 parser.add_argument("--draw", action="store_true", help="Exercise the screen's draw path")
@@ -32,6 +34,8 @@ if args.expect_album_complete:
     args.expect_album_details = True
 if args.harness_input:
     args.input = True
+if args.expect_play_level:
+    args.expect_level_data = True
 if args.input:
     args.navigate = True
 if args.navigate:
@@ -42,7 +46,7 @@ if args.update:
     args.draw = True
 if args.draw and (args.offline or args.no_patch):
     parser.error("--draw requires the patched screen")
-if (args.expect_populated or args.expect_daily or args.expect_album or args.expect_album_details or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart) and not args.server_url:
+if (args.expect_populated or args.expect_daily or args.expect_album or args.expect_album_details or args.expect_thumbnail or args.expect_level_data or args.expect_search or args.expect_queue or args.expect_heart) and not args.server_url:
     parser.error("populated checks require --server-url")
 if args.server_url:
     endpoint = urlsplit(args.server_url)
@@ -75,13 +79,13 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
     if args.harness_input:
         harness.write_text(("wait 80\nkey Down 1\nkey Right 1\nkey Right 1\nkey Return 1\n" * 8) + "wait 120\nquit\n")
     else:
-        harness.write_text(f"wait {600 if args.server_url else 30}\nquit\n")
+        harness.write_text(f"wait {1800 if args.expect_play_level else 600 if args.server_url else 30}\nquit\n")
     env = os.environ.copy()
     env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
     script_dir = ROOT / "tests/networking"
     script_name = "CommunityBrowseProbe.gm" if args.server_url else "CommunityStartProbe.gm"
-    if args.draw or args.expect_album_details or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
+    if args.draw or args.expect_album_details or args.expect_thumbnail or args.expect_level_data or args.expect_search or args.expect_play_level or args.expect_queue or args.expect_heart:
         script_dir = temp / "probe"
         script_dir.mkdir()
         source = (ROOT / "tests/networking" / script_name).read_text()
@@ -90,6 +94,10 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
             setup += "global COMMUNITY_REQUIRE_ALBUM_DETAILS = 1;\n"
         if args.expect_album_complete:
             setup += "global COMMUNITY_REQUIRE_ALBUM_COMPLETE = 1;\n"
+        if args.expect_search:
+            setup += "global COMMUNITY_REQUIRE_SEARCH = 1;\n"
+        if args.expect_play_level:
+            setup += "global COMMUNITY_REQUIRE_PLAY_LEVEL = 1;\n"
         if args.update:
             setup += "global COMMUNITY_UPDATE = 1;\n"
         if args.navigate:
@@ -98,9 +106,9 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
             setup += "global COMMUNITY_INPUT = 1;\n"
         if args.harness_input:
             setup += "global COMMUNITY_HARNESS_INPUT = 1;\n"
-        if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
+        if args.expect_thumbnail or args.expect_level_data or args.expect_play_level or args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_THUMBNAIL = 1;\n"
-        if args.expect_level_data or args.expect_queue or args.expect_heart:
+        if args.expect_level_data or args.expect_play_level or args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_LEVEL = 1;\n"
         if args.expect_queue or args.expect_heart:
             setup += "global COMMUNITY_REQUIRE_QUEUE = 1;\n"
@@ -122,7 +130,7 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.append("community input selection PASS")
     if args.harness_input:
         markers.append("community harness input PASS")
-    if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
+    if args.expect_populated or args.expect_thumbnail or args.expect_level_data or args.expect_play_level or args.expect_queue or args.expect_heart:
         markers.append("community fixture level PASS  2")
     if args.expect_daily:
         markers.append("community fixture level PASS  7")
@@ -132,10 +140,17 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.append("community album details PASS")
     if args.expect_album_complete:
         markers.extend(["community album completion record PASS", "community album completed PASS"])
-    if args.expect_thumbnail or args.expect_level_data or args.expect_queue or args.expect_heart:
+    if args.expect_thumbnail or args.expect_level_data or args.expect_play_level or args.expect_queue or args.expect_heart:
         markers.append("community thumbnail PASS")
-    if args.expect_level_data or args.expect_queue or args.expect_heart:
+    if args.expect_level_data or args.expect_play_level or args.expect_queue or args.expect_heart:
         markers.append("community level download PASS")
+    if args.expect_search:
+        markers.append("community search PASS")
+    if args.expect_play_level:
+        markers.extend(["community downloaded level launch start", "community gameplay level data PASS",
+                        "community gameplay setup reached"])
+        if "[gm]" in result.stdout:
+            print("community gameplay launch FAIL (GameMonkey runtime error above)")
     if args.expect_queue or args.expect_heart:
         markers.extend(["community queue put PASS", "community queue read PASS", "community queue delete PASS",
                         "community queue cleared PASS"])
@@ -143,6 +158,6 @@ with tempfile.TemporaryDirectory(prefix="openegg-community-") as name:
         markers.extend(["community heart missing PASS", "community heart post PASS", "community activity wrapper PASS", "community heart read PASS",
                         "community heart delete PASS", "community heart cleared PASS", "community rating cleared PASS"])
     if (result.returncode or any(marker not in result.stdout for marker in markers) or
-            (args.server_url and result.stdout.count("community tab request PASS") != 5) or
+            (args.server_url and result.stdout.count("community tab request PASS") != 5 + int(args.expect_search)) or
             " FAIL" in result.stdout or "[gm]" in result.stdout):
         raise SystemExit("community start probe failed")

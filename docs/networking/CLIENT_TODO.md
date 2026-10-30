@@ -19,6 +19,8 @@ behavior.
 - [x] Fetch all five retail tabs from the replacement server; its fixture
       populates greatest hits, albums, daily, activity and one mutual friend.
       Verify level/image, queue/heart, draw and update paths headlessly.
+- [x] Search the retail search tab for the fixture level and verify the
+      matching result (`--expect-search`).
 - [x] Create greatest-hits and activity panels from a synthetic server level;
       seed it with the server's `OpenEggCommunityFixture` tool and require it
       with `--expect-populated` in the community probe.
@@ -36,6 +38,10 @@ behavior.
       channel order and capture timing with retail.
 - [x] Download the synthetic level using the panel's retail version ID and
       check its decoded BPM (`--expect-level-data`).
+- [ ] Start the downloaded table through `Platformer_Main` in `playOnline`
+      mode. The current headless run reaches the loader, but player setup logs
+      a GameMonkey type error at `Player.gm:43` (`PhysicsBody.appendShapes`),
+      so gameplay is not yet verified (`--expect-play-level`).
 - [x] Accept extra arguments on the traced level, sound, thumbnail, and
       description wrappers; headless fixtures check each request.
 - [x] Queue the panel's level, read it back, remove it, and confirm a later
@@ -380,7 +386,9 @@ behavior.
       verify a user-provided ticket or real PSN identity ownership.
 - [x] Run `run_live_server_ticket_probe.py --community` to seed a disposable
       server and exercise the retail community menu against its levels, daily
-      list, album, images, queue and heart routes. The probe uses existing game
+      list, search, album, images, queue and heart routes, then try launching
+      the downloaded level. The search and download pass; gameplay is blocked
+      by the player physics type error above. The probe uses existing game
       archives by symlink and removes its server data and build artifacts.
 - [x] Run `run_live_server_ticket_probe.py --publish` against a fresh server
       for level create, featured metadata, description/readback, snapshot,

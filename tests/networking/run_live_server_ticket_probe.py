@@ -191,7 +191,8 @@ def main():
                     [sys.executable, str(ROOT / "tests" / "networking" / "run_community_start_probe.py"),
                      "--server-url", f"http://127.0.0.1:{port}", "--expect-populated", "--expect-daily",
                      "--expect-album", "--expect-album-details", "--expect-thumbnail", "--expect-level-data",
-                     "--expect-queue", "--expect-heart", "--draw", "--navigate"],
+                     "--expect-search", "--expect-play-level", "--expect-queue", "--expect-heart",
+                     "--draw", "--navigate"],
                     cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     timeout=180, check=False,
                 )
