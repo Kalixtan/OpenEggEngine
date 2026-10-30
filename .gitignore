@@ -31,6 +31,9 @@ compile_commands.json
 /savedata/
 *.ini
 !*.ini.example
+ticket.bin
+psn_ticket.bin
+*.ticket
 *.log
 *.ppm
 /tests/_results/

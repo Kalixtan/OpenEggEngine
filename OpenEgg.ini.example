@@ -38,8 +38,8 @@ server_url =
 image_base_url = https://s3.amazonaws.com
 
 ; PSN Online ID used for this server account. When a ticket is configured,
-; OpenEgg checks the ticket identity matches this value. For server login,
-; the server account's username must match it.
+; OpenEgg checks it against the ticket and the server's stored PSN identity.
+; This identity remains fixed if the server display name changes.
 psn_online_id =
 
 ; Optional PSN ticket from a retail session. Use either a path or inline hex.
