@@ -8,7 +8,11 @@ global Main = function(p) {
             Network_ActivityStreamPost(2, "message", "format", "url", "small", "large");
             Network_ActivityStreamPost(2, "message", "format", "url", "small", "large", 9);
             GameSystem.trace("activity post wrapper PASS");
+            Network_ActivityStreamPost(null, "message", "format", "url", "small", "large");
+            Network_ActivityStreamPost(2, "message", "format", null, "small", "large");
+            GameSystem.trace("activity native rejection PASS");
             if (!Network_WebBrowserIsAvailable() && !Network_WebBrowserIsRunning() &&
+                Network_WebBrowserLaunch() == -4 &&
                 Network_WebBrowserLaunch("https://example.test/") == -4 &&
                 Network_WebBrowserLaunch(7, "ignored") == -4 && Network_WebBrowserFinish() == -4) {
                 GameSystem.trace("browser wrapper PASS");
@@ -19,6 +23,10 @@ global Main = function(p) {
                 details.description == "" && details.data == "") {
                 GameSystem.trace("near gift table PASS");
             } else { GameSystem.trace("near gift table FAIL"); }
+            Network_NearLaunchApp();
+            Network_NearDeleteGift("fixture");
+            Network_PostLevelPublishedToFb();
+            GameSystem.trace("near/fb no-result stubs PASS");
         },
         init=function() { return true; },
         update=function() {});

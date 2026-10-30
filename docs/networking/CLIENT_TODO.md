@@ -42,10 +42,12 @@ behavior.
       lookup reports it missing (`--expect-queue`).
 - [x] Like, read, and unlike a fixture level through the replacement server
       (`--expect-heart`); this checks the server route, not retail route parity.
-- [x] Accept the patched scripts' six-argument activity call. The traced PS3
-      platform helper does not post anything. The desktop also retains a
-      two-argument fallback for older scripts; its retail behavior is unknown.
+- [x] Match ActivityStream's valid six-argument call and its no-result reject
+      paths. The traced PS3 helper does not post anything. Keep the two-argument
+      fallback for older scripts; its retail behavior is unknown.
 - [x] Return the PS3 browser stub's `-4` result for launch and finish.
+- [x] Exercise Near launch/delete and Facebook post stubs, which write no
+      GameMonkey result in the PS3 trace.
 - [x] Update the supplied Near gift table with the traced field names. Empty
       values are a desktop fallback; retail's unwritten buffer contents are unknown.
 - [x] Return the traced integer result from the store launch wrapper; desktop

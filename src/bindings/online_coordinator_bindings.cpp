@@ -163,17 +163,17 @@ int GM_CDECL gmf_Network_ActivityStreamPost(gmThread* a_thread) {
     // Older script revisions pass two arguments; retail's behavior is unknown.
     if (count == 2) return GM_OK;
     for (int i = 0; i < 3; ++i) {
-        if (a_thread->Param(i).m_type == GM_NULL) return GM_EXCEPTION;
+        if (a_thread->Param(i).m_type == GM_NULL) return GM_OK;
     }
     for (int i = 3; i < count && i < 6; ++i) {
-        if (a_thread->Param(i).m_type != GM_STRING) return GM_EXCEPTION;
+        if (a_thread->Param(i).m_type != GM_STRING) return GM_OK;
     }
     // The retail PS3 helper returns unsupported; the wrapper ignores it.
     return GM_OK;
 }
 
 int GM_CDECL gmf_Network_WebBrowserLaunch(gmThread* a_thread) {
-    if (a_thread->GetNumParams() < 1) return GM_EXCEPTION;
+    (void)a_thread->Param(0, gmVariable::s_null);
     a_thread->PushInt(-4);
     return GM_OK;
 }
