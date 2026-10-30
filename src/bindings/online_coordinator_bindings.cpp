@@ -39,6 +39,10 @@ int GM_CDECL gmf_NetworkStoreUnavailable(gmThread* a_thread) {
     a_thread->PushInt(0);
     return GM_OK;
 }
+int GM_CDECL gmf_NetworkStoreIsAvailable(gmThread* a_thread) {
+    a_thread->PushInt(1);
+    return GM_OK;
+}
 int GM_CDECL gmf_NetworkStoreNoOp(gmThread*) { return GM_OK; }
 int GM_CDECL gmf_NetworkStoreLaunch(gmThread* a_thread) {
     a_thread->PushInt(0);
@@ -219,7 +223,7 @@ void RegisterOnlineCoordinatorBindings(gmMachine& a_machine, NetworkClient& a_ne
     a_machine.RegisterLibraryFunction("Network_IsDLCCheckComplete", gmf_Network_IsDLCCheckComplete);
     a_machine.RegisterLibraryFunction("Network_IsDLCAvailable", gmf_Network_IsDLCAvailable);
 
-    a_machine.RegisterLibraryFunction("Network_StoreIsAvailable", gmf_NetworkStoreUnavailable);
+    a_machine.RegisterLibraryFunction("Network_StoreIsAvailable", gmf_NetworkStoreIsAvailable);
     a_machine.RegisterLibraryFunction("Network_StoreIsRunning", gmf_NetworkStoreUnavailable);
     a_machine.RegisterLibraryFunction("Network_StoreLaunch", gmf_NetworkStoreLaunch);
     a_machine.RegisterLibraryFunction("Network_StoreFinish", gmf_NetworkStoreNoOp);

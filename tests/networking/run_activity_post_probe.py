@@ -28,5 +28,6 @@ with tempfile.TemporaryDirectory(prefix="openegg-activity-") as name:
     if (result.returncode or "activity post wrapper PASS" not in result.stdout or
             "browser wrapper PASS" not in result.stdout or "near gift table PASS" not in result.stdout or
             "store launch result PASS" not in result.stdout or
+            "store availability PASS" not in result.stdout or
             " FAIL" in result.stdout or "[gm]" in result.stdout):
         raise SystemExit("platform wrapper probe failed")
