@@ -104,8 +104,17 @@ int GM_CDECL gmf_STRINGHELPER_CopyAndSetChar(gmThread* a_thread) {
  */
 int GM_CDECL gmf_STRINGHELPER_GetLength(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_STRING_PARAM(str, 0, "");
-    a_thread->PushInt((gmint)std::strlen(str));
+    const gmVariable value = a_thread->Param(0, gmVariable::s_null);
+    if (value.m_type != GM_STRING) {
+        a_thread->PushInt(0);
+        return GM_OK;
+    }
+    const auto* string = static_cast<gmStringObject*>(
+        a_thread->GetMachine()->GetObject(value.m_value.m_ref));
+    // Retail STRINGHELPER_GetLength reads the GameMonkey string object's
+    // stored length (Ghidra: 0x000a8868), which can differ from strlen when
+    // a native returns a buffer length including its terminator.
+    a_thread->PushInt(string ? string->GetLength() : 0);
     return GM_OK;
 }
 

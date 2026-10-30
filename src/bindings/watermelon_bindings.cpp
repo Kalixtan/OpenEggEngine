@@ -7,6 +7,7 @@
 #include "../core/system_config.h"
 #include "../core/engine_context.h"
 #include "../core/file_helper.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
@@ -50,19 +51,23 @@ bool BuildMultipart(const std::vector<MultipartPart>& parts, std::string& body, 
     return true;
 }
 
-std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200) {
+std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200,
+                           size_t* a_stringLength = nullptr) {
     char buffer[0x200];
     if (a_capacity > sizeof(buffer)) a_capacity = sizeof(buffer);
     size_t out = 0;
+    bool needsEscaping = false;
+    bool overflow = false;
     constexpr char hex[] = "0123456789ABCDEF";
     for (const unsigned char* p = reinterpret_cast<const unsigned char*>(a_text.c_str()); *p; ++p) {
         const unsigned char c = *p;
         const bool unreserved = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
                                 (c >= '0' && c <= '9') || c == '-' || c == '_' ||
-                                c == '.' || c == '~';
+                                c == '.' || c == '*';
+        needsEscaping |= !unreserved;
         const size_t encodedSize = unreserved ? 1 : 3;
         // cellHttpUtilEscapeUri receives the full output size, including its NUL.
-        if (out + encodedSize + 1 > a_capacity) break;
+        if (out + encodedSize + 1 > a_capacity) { overflow = true; break; }
         if (unreserved) {
             buffer[out++] = static_cast<char>(c);
         } else {
@@ -72,7 +77,13 @@ std::string EncodeRetailUrl(const std::string& a_text, size_t a_capacity = 0x200
         }
     }
     buffer[out] = '\0';
-    return buffer;
+    if (!needsEscaping && overflow) out = 0;
+    if (a_stringLength) {
+        *a_stringLength = needsEscaping
+            ? std::min(out + 1, a_capacity ? a_capacity - 1 : 0)
+            : out;
+    }
+    return std::string(buffer, out);
 }
 
 int QueueScriptGet(const std::string& a_path, const gmVariable& a_callback,
@@ -857,8 +868,10 @@ int GM_CDECL gmf_IsScoreGreaterThan(gmThread* a_thread) {
 int GM_CDECL gmf_UrlEncode(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(str, 0, "");
-    const std::string encoded = EncodeRetailUrl(str);
-    a_thread->PushNewString(encoded.c_str());
+    size_t stringLength = 0;
+    const std::string encoded = EncodeRetailUrl(str, 0x200, &stringLength);
+    gmMachine& machine = *a_thread->GetMachine();
+    a_thread->PushString(machine.AllocStringObject(encoded.c_str(), static_cast<int>(stringLength)));
     return GM_OK;
 }
 

@@ -1,0 +1,19 @@
+# probe-sha256 57ea792fe199071c29f93915a08100dc2a12fc8b902ad025564d70d5a9511bdb
+string.length.a	1
+string.length.empty	0
+url.encode.plain511.length	511
+url.encode.plain512.length	0
+url.encode.reserved.a	%20%21%23%24%25%26%27%28%29*%2B
+url.encode.reserved.b	%2C%2F%3A%3B%3D%3F%40%5B%5D
+url.encode.space	%20
+url.encode.space.length	4
+url.encode.spaces170.char509	0
+url.encode.spaces170.char510	
+url.encode.spaces170.char511	
+url.encode.spaces170.inputlen	170
+url.encode.spaces170.length	511
+url.encode.spaces171.length	511
+url.encode.unreserved	AZaz09-_.%7E
+url.encode.unreserved.length	13
+url.encode.utf8	%C3%A9
+url.encode.utf8.length	7

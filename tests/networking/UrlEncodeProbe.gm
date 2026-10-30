@@ -16,11 +16,10 @@ global Main = function(p) {
 
             input += "a";
             encoded = Watermelon_UrlEncode(input);
-            if (STRINGHELPER_GetLength(encoded) == 511 &&
-                STRINGHELPER_GetChar(510, encoded) == "a") {
-                GameSystem.trace("url encode overflow prefix PASS");
+            if (STRINGHELPER_GetLength(encoded) == 0) {
+                GameSystem.trace("url encode overflow failure PASS");
             } else {
-                GameSystem.trace("url encode overflow prefix FAIL");
+                GameSystem.trace("url encode overflow failure FAIL");
             }
 
             encoded = Watermelon_UrlEncode("/");

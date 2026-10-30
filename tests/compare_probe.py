@@ -20,6 +20,9 @@ BASELINE = ROOT / "tests" / "sequencer" / "retail-baseline.tsv"
 PLANNED = ROOT / "tests" / "sequencer" / "planned.json"
 EDGE_BASELINES = ROOT / "tests" / "sequencer" / "edge-baselines"
 READING = re.compile(r"OEPV?__([A-Za-z0-9_.]+)__(.*?)\.gm")
+READING_NO_EXTENSION = re.compile(
+    r"OEPV?__([A-Za-z0-9_.]+?)__(.*?)(?:\.gm)?"
+    r"(?:'| because file does not exist\.)")
 DECLARED = re.compile(r'(?:SeqProbe|Probe)\("([A-Za-z0-9_.]+)"')
 VOLATILE_DECLARED = re.compile(r'(?:SeqProbeVolatile|ProbeVolatile)\("([A-Za-z0-9_.]+)"')
 KNOWN_GAPS = {}
@@ -91,6 +94,10 @@ def read_readings(path):
         if line.startswith("Error - Failed to load file ["):
             continue
         match = READING.search(line)
+        if not match:
+            # Some RPCS3/PS3 file errors print percent-containing OEP paths
+            # without the final .gm extension. Keep the value from that line.
+            match = READING_NO_EXTENSION.search(line)
         if match:
             name, value = match.groups()
         elif "\t" in line and not line.startswith("#"):

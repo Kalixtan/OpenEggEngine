@@ -264,10 +264,10 @@ behavior.
       trailing bytes. Earlier values remain after parser errors.
 - [ ] Compare malformed multibyte `Watermelon_BaseKeyValue` inputs with retail;
       normal separator and bounded multibyte cases follow the static trace.
-- [ ] Compare `Watermelon_UrlEncode`'s native escape table and too-small-buffer
-      result. Ghidra shows a zeroed 512-byte buffer passed through an adapter
-      to `cellHttpUtilEscapeUri`; its output length sizes the returned string.
-      The system-library escape and failure behavior remain unknown.
+- [x] Compare `Watermelon_UrlEncode` with retail: sampled escape characters,
+      UTF-8, returned string lengths, and 512-byte buffer boundaries match.
+      Ghidra shows the zeroed buffer passed through an adapter to
+      `cellHttpUtilEscapeUri`.
 - [ ] Add native-comparison probes for request ordering and callback timing.
 
 ## Watermelon APIs

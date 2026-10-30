@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ENGINE = ROOT / "build/OpenEgg"
 MARKERS = (
     "url encode 511-byte buffer PASS",
-    "url encode overflow prefix PASS",
+    "url encode overflow failure PASS",
     "url encode path separator PASS",
     "url encode empty input PASS",
 )
