@@ -873,10 +873,12 @@ void NetworkClient::PumpCallbacks() {
                         person["display_name"].IsString();
                     const std::string displayName = hasDisplayName
                         ? person["display_name"].GetString() : std::string();
-                    const bool hasPsnOnlineId = person.HasMember("openegg_psn_online_id") &&
+                    const bool hasPsnOnlineIdField = person.HasMember("openegg_psn_online_id");
+                    const bool hasPsnOnlineId = hasPsnOnlineIdField &&
                         person["openegg_psn_online_id"].IsString();
-                    const std::string accountOnlineId = hasPsnOnlineId
-                        ? person["openegg_psn_online_id"].GetString() : displayName;
+                    const std::string accountOnlineId = hasPsnOnlineIdField
+                        ? (hasPsnOnlineId ? person["openegg_psn_online_id"].GetString() : "")
+                        : displayName;
                     const auto& expectedOnlineId = SystemConfig::Get().networkPsnOnlineId;
                     if (expectedOnlineId.empty() || !hasDisplayName || accountOnlineId.empty() ||
                         !SameOnlineId(accountOnlineId, expectedOnlineId)) {

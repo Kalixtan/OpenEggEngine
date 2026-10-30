@@ -22,6 +22,7 @@ class SessionProbeServer(ThreadingHTTPServer):
         self.reject_saved_sessions = False
         self.reject_saved_session_once = False
         self.saved_session_validation_count = 0
+        self.malformed_psn_identity = False
 
 
 class SessionProbeHandler(BaseHTTPRequestHandler):
@@ -33,10 +34,11 @@ class SessionProbeHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         self._record()
         self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        display_name = b'"OpenEgg_Probe"' if self.server.malformed_psn_identity else b'"renamed_display_name"'
+        psn_identity = b'false' if self.server.malformed_psn_identity else b'"openegg_probe"'
         body = (b'{"session":{"id":"remembered-session","person":{"id":"remembered-user-id",'
-                b'"display_name":"renamed_display_name",'
-                b'"openegg_psn_online_id":"openegg_probe"}},"openegg_authorized":true,'
-                b'"openegg_remembered_session":true}')
+                b'"display_name":' + display_name + b',"openegg_psn_online_id":' + psn_identity +
+                b'}},"openegg_authorized":true,"openegg_remembered_session":true}')
         self.send_response(201)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -105,6 +107,8 @@ def main():
                         help="Check that a rejected saved session falls back to ticket login")
     parser.add_argument("--expect-invalid-online-id", action="store_true",
                         help="Check that invalid Online ID text is rejected before any request")
+    parser.add_argument("--expect-invalid-server-identity", action="store_true",
+                        help="Reject malformed stable identity despite a matching display name")
     parser.add_argument("--mock-server", action="store_true",
                         help="Use a canned local fixture; does not verify PSN tickets")
     parser.add_argument("--insecure-transport", action="store_true",
@@ -115,11 +119,13 @@ def main():
     mock_server = None
     if args.mock_server:
         if not (args.expect_session_saved or args.expect_session_rejected or
-                args.expect_session_recovered or args.expect_invalid_online_id):
+                args.expect_session_recovered or args.expect_invalid_online_id or
+                args.expect_invalid_server_identity):
             parser.error("--mock-server requires an expected auth result")
         mock_server = SessionProbeServer(("127.0.0.1", 0), SessionProbeHandler)
         mock_server.reject_saved_sessions = args.expect_session_rejected
-        mock_server.reject_saved_session_once = args.expect_session_recovered
+        mock_server.reject_saved_session_once = args.expect_session_recovered or args.expect_invalid_server_identity
+        mock_server.malformed_psn_identity = args.expect_invalid_server_identity
         mock_server_thread = threading.Thread(target=mock_server.serve_forever, daemon=True)
         mock_server_thread.start()
         atexit.register(mock_server.server_close)
@@ -146,9 +152,11 @@ def main():
         config = "[network]\nserver_url = " + args.server_url.rstrip("/") + "\n"
         expected_id = ("bad&id" if args.expect_invalid_online_id else
                        "different_id" if args.identity_mismatch else
-                       "OpenEgg_Probe" if args.expect_session_recovered else "openegg_probe")
+                       "OpenEgg_Probe" if args.expect_session_recovered or args.expect_invalid_server_identity
+                       else "openegg_probe")
         config += "psn_online_id = " + expected_id + "\n"
-        if args.expect_session_rejected or args.expect_session_recovered:
+        if (args.expect_session_rejected or args.expect_session_recovered or
+                args.expect_invalid_server_identity):
             config += "server_session_id = expired-session\nserver_user_id = remembered-user-id\n"
         if args.ticket_in_ini:
             config += "psn_ticket_hex = " + ticket_data.hex() + "\n"
@@ -162,7 +170,8 @@ def main():
         env = os.environ.copy()
         env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt",
                    GE3_HARNESS=str(harness), SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
-        probe = ("RememberedSessionProbe.gm" if args.expect_session_saved or args.expect_session_rejected or args.expect_session_recovered else
+        probe = ("RememberedSessionProbe.gm" if args.expect_session_saved or args.expect_session_rejected or
+                 args.expect_session_recovered or args.expect_invalid_server_identity else
                  "ServerEulaProbe.gm" if args.eula else "TicketLoginProbe.gm")
         command = [str(temp / engine.name), str(ROOT / "tests/networking"), probe, "Main"]
         result = subprocess.run(command, cwd=ROOT, env=env,
@@ -194,11 +203,16 @@ def main():
             if ("server_session_id = remembered-session" not in result_config or
                     "server_user_id = remembered-user-id" not in result_config):
                 raise SystemExit("ticket probe failed; recovered ticket session was not saved")
+        elif args.expect_invalid_server_identity:
+            result_config = (temp / "OpenEgg.ini").read_text()
+            if "server_session_id =" in result_config or "server_user_id =" in result_config:
+                raise SystemExit("ticket probe failed; session was saved for malformed server identity")
         print(combined_output, end="")
         markers = ("ticket coordinator offline PASS", "ticket coordinator cancel PASS",
                    "desktop community restricted PASS" if args.community_disabled else "desktop community permissions PASS")
         if (not args.identity_mismatch and not args.invalid_ticket and not args.insecure_transport and
-                not args.expect_auth_rejection and not args.expect_invalid_online_id):
+                not args.expect_auth_rejection and not args.expect_invalid_online_id and
+                not args.expect_invalid_server_identity):
             markers += ("ticket coordinator connecting PASS",)
         if args.expect_session_saved:
             markers = ("network: ticket login succeeded",
@@ -212,6 +226,10 @@ def main():
             markers = ("network: remembered session failed; trying configured ticket",
                        "network: replacement-server session saved to OpenEgg.ini",
                        "network: ticket login succeeded", "remembered identity ready PASS")
+        elif args.expect_invalid_server_identity:
+            markers = ("network: remembered session failed; trying configured ticket",
+                       "network: server identity does not match psn_online_id",
+                       "remembered identity rejected PASS")
         elif args.expect_invalid_online_id:
             markers = ("system config: invalid psn_online_id value",
                        "network: psn_online_id is required with a ticket",
@@ -269,6 +287,10 @@ def main():
                 raise SystemExit("ticket probe failed; expired session did not fall back to one ticket login")
         if mock_server and args.expect_invalid_online_id and mock_server.requests:
             raise SystemExit("ticket probe failed; invalid Online ID reached the server")
+        if mock_server and args.expect_invalid_server_identity:
+            posts = [request for request in mock_server.requests if request[0] == "POST"]
+            if mock_server.saved_session_validation_count != 1 or len(posts) != 1:
+                raise SystemExit("ticket probe failed; malformed identity response path was not exercised")
 
 
 if __name__ == "__main__":
