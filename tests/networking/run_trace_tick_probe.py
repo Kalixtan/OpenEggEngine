@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the GameMonkeyScript.traceTick compatibility stub."""
+"""Check the GameMonkeyScript.tracTick compatibility stub."""
 import os
 from pathlib import Path
 import shutil
@@ -28,5 +28,5 @@ with tempfile.TemporaryDirectory(prefix="openegg-trace-tick-") as directory:
         [str(root / "OpenEgg"), str(data), "TraceTickProbe.gm", "Main"],
         env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
     print(result.stdout, end="")
-    if result.returncode or "GameMonkeyScript.traceTick PASS" not in result.stdout:
+    if result.returncode or "GameMonkeyScript.tracTick PASS" not in result.stdout:
         raise SystemExit("traceTick compatibility probe failed")

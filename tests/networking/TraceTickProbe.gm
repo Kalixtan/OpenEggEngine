@@ -1,8 +1,8 @@
 global Main = function(p) {
     return table(Process=p,
         constructor=function() {
-            GameMonkeyScript.traceTick("changing to eula");
-            GameSystem.trace("GameMonkeyScript.traceTick PASS");
+            GameMonkeyScript.tracTick("changing to eula");
+            GameSystem.trace("GameMonkeyScript.tracTick PASS");
         },
         init=function() { return true; },
         update=function() {});

@@ -579,6 +579,7 @@ int GM_CDECL gmf_GameMonkeyScript_getNumObjectsInGC(gmThread* a_thread) {
 
 gmFunctionEntry s_gameMonkeyScriptLib[] = {
     {"loadScript", gmf_GameMonkeyScript_loadScript, nullptr},
+    {"tracTick", gmf_GameMonkeyScript_traceTick, nullptr},
     {"traceTick", gmf_GameMonkeyScript_traceTick, nullptr},
     {"setIsCheckingInfiniteLoop", gmf_GameMonkeyScript_setIsCheckingInfiniteLoop, nullptr},
     {"setScriptCheckpoint", gmf_GameMonkeyScript_scriptCheckpointNoop, nullptr},
