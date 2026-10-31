@@ -1,0 +1,19 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            local result = SPLASHSCREEN_FinalizeSplashScreenAndGetResults();
+            if (result.savedataResult == __EXPECTED__ &&
+                result.SAVEDATARESULT_NOPATCHFILE == 5) {
+                if (__EXPECTED__ != 5 ||
+                    (?OFFLINE_TOC && tableCount(OFFLINE_TOC.levels) == 0)) {
+                    GameSystem.trace("save startup result PASS");
+                } else {
+                    GameSystem.trace("save startup result FAIL");
+                }
+            } else {
+                GameSystem.trace("save startup result FAIL");
+            }
+        },
+        init=function() { return true; },
+        update=function() {});
+};

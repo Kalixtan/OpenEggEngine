@@ -643,9 +643,11 @@ int GM_CDECL gmf_SPLASHSCREEN_FinalizeSplashScreenAndGetResults(gmThread* a_thre
     results->Set(&m, "SAVEDATARESULT_NOTOC", gmVariable((gmint)2));
     results->Set(&m, "SAVEDATARESULT_OK", gmVariable((gmint)3));
     results->Set(&m, "SAVEDATARESULT_OK_TOCXML", gmVariable((gmint)4));
+    results->Set(&m, "SAVEDATARESULT_NOPATCHFILE", gmVariable((gmint)5));
 
     bool haveSave = SaveData::FileExists("save.json");
     bool haveToc = SaveData::FileExists("myLevels/toc.json");
+    bool havePatchfile = SaveData::FileExists("patchfile.json");
 
     int savedataResult;
     gmVariable saveTicket = gmVariable::s_null;
@@ -655,15 +657,32 @@ int GM_CDECL gmf_SPLASHSCREEN_FinalizeSplashScreenAndGetResults(gmThread* a_thre
     } else if (!haveToc) {
         savedataResult = 2; // SAVEDATARESULT_NOTOC
         saveTicket = gmVariable(m.AllocStringObject("save.json"));
+    } else if (!havePatchfile) {
+        savedataResult = 5; // SAVEDATARESULT_NOPATCHFILE
+        saveTicket = gmVariable(m.AllocStringObject("save.json"));
+        tocTicket = gmVariable(m.AllocStringObject("myLevels/toc.json"));
     } else {
         savedataResult = 3; // SAVEDATARESULT_OK
         saveTicket = gmVariable(m.AllocStringObject("save.json"));
         tocTicket = gmVariable(m.AllocStringObject("myLevels/toc.json"));
     }
 
+    if (savedataResult == 5) {
+        // The stock startup script expects a usable offline-level table on
+        // the missing-patchfile path before it can finish account sign-in.
+        gmTableObject* levels = m.AllocTableObject();
+        gmTableObject* offlineToc = m.AllocTableObject();
+        offlineToc->Set(&m, "version", gmVariable((gmint)104));
+        offlineToc->Set(&m, "nextUniqueID", gmVariable((gmint)0));
+        offlineToc->Set(&m, "levels", gmVariable(levels));
+        m.GetGlobals()->Set(&m, "OFFLINE_TOC", gmVariable(offlineToc));
+    }
+
     results->Set(&m, "savedataResult", gmVariable((gmint)savedataResult));
     results->Set(&m, "saveFileTicket", saveTicket);
     results->Set(&m, "tocFileTicket", tocTicket);
+    results->Set(&m, "patchfileTicket", havePatchfile
+        ? gmVariable(m.AllocStringObject("patchfile.json")) : gmVariable::s_null);
     a_thread->PushTable(results);
     return GM_OK;
 }
