@@ -1,0 +1,29 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            local source = {
+                title = "community save",
+                count = 37,
+                progress = 0.625,
+                rows = {
+                    { id = "level-a", complete = 1 },
+                    { id = "level-b", complete = 0 }
+                }
+            };
+            local ticket = GameMonkeyScript.saveTableToCompressedJsonSaveRequest(
+                "compressed-probe.json.z", source);
+            local loaded = GameMonkeyScript.loadTableFromCompressedJsonSaveRequest(ticket);
+            if (ticket.getFilename() == "compressed-probe.json.z" &&
+                ticket.getSize() > 0 && ticket.getIfDone() && !ticket.getIfError() &&
+                loaded.title == source.title && loaded.count == source.count &&
+                loaded.progress == source.progress && tableCount(loaded.rows) == 2 &&
+                loaded.rows[0].id == "level-a" && loaded.rows[0].complete == 1 &&
+                loaded.rows[1].id == "level-b" && loaded.rows[1].complete == 0) {
+                GameSystem.trace("compressed JSON save round trip PASS");
+            } else {
+                GameSystem.trace("compressed JSON save round trip FAIL");
+            }
+        },
+        init=function() { return true; },
+        update=function() {});
+};

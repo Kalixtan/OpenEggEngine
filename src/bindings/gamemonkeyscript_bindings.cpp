@@ -3,6 +3,7 @@
 #include "gmTableObject.h"
 #include "gmStringObject.h"
 #include "gmIncGC.h"
+#include "savedata_bindings.h"
 #include "../core/engine_context.h"
 #include "../core/save_data.h"
 #include "tinyxml2.h"
@@ -13,6 +14,7 @@
 #include <zlib.h>
 #include <cctype>
 #include <cstdint>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdlib>
@@ -495,6 +497,49 @@ int GM_CDECL gmf_GameMonkeyScript_saveTableToJsonSaveRequest(gmThread* a_thread)
     return GM_OK;
 }
 
+int GM_CDECL gmf_GameMonkeyScript_saveTableToCompressedJsonSaveRequest(
+    gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    GM_STRING_PARAM(filename, 0, "");
+    if (a_thread->GetNumParams() != 2) return GM_EXCEPTION;
+
+    const std::string json = GmTableToJsonString(
+        *a_thread->GetMachine(), a_thread->Param(1));
+    if (json.size() > ULONG_MAX) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+
+    uLongf compressedSize = compressBound(static_cast<uLong>(json.size()));
+    std::string compressed(compressedSize, '\0');
+    const int result = compress2(
+        reinterpret_cast<Bytef*>(compressed.data()), &compressedSize,
+        reinterpret_cast<const Bytef*>(json.data()), static_cast<uLong>(json.size()),
+        Z_DEFAULT_COMPRESSION);
+    if (result != Z_OK) {
+        std::fprintf(stderr,
+                     "GameMonkeyScript.saveTableToCompressedJsonSaveRequest: compression failed for '%s' (%d)\n",
+                     filename, result);
+        a_thread->Push(MakeSaveDataSizeTicket(
+            *a_thread->GetMachine(), filename, 0, true, true, true));
+        return GM_OK;
+    }
+
+    compressed.resize(compressedSize);
+    if (!SaveData::WriteFile(filename, compressed)) {
+        std::fprintf(stderr,
+                     "GameMonkeyScript.saveTableToCompressedJsonSaveRequest: failed to write '%s'\n",
+                     filename);
+        a_thread->Push(MakeSaveDataSizeTicket(
+            *a_thread->GetMachine(), filename, 0, true, true, true));
+        return GM_OK;
+    }
+    a_thread->Push(MakeSaveDataSizeTicket(
+        *a_thread->GetMachine(), filename,
+        static_cast<long long>(compressed.size()), true, false, true));
+    return GM_OK;
+}
+
 int GM_CDECL gmf_GameMonkeyScript_loadTableFromJsonSaveRequest(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     std::string ticket;
@@ -589,6 +634,7 @@ gmFunctionEntry s_gameMonkeyScriptLib[] = {
     {"loadTableFromCompressedJsonFile", gmf_GameMonkeyScript_loadTableFromCompressedJsonFile, nullptr},
     {"loadTableFromJsonString", gmf_GameMonkeyScript_loadTableFromJsonString, nullptr},
     {"saveTableToJsonSaveRequest", gmf_GameMonkeyScript_saveTableToJsonSaveRequest, nullptr},
+    {"saveTableToCompressedJsonSaveRequest", gmf_GameMonkeyScript_saveTableToCompressedJsonSaveRequest, nullptr},
     {"loadTableFromJsonSaveRequest", gmf_GameMonkeyScript_loadTableFromJsonSaveRequest, nullptr},
     {"loadTableFromCompressedJsonSaveRequest", gmf_GameMonkeyScript_loadTableFromCompressedJsonSaveRequest, nullptr},
 };

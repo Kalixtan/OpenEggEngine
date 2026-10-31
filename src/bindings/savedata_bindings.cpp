@@ -249,6 +249,13 @@ int GM_CDECL gmf_Dialog_SaveDialogUsrMsg(gmThread* a_thread) {
 
 } // namespace
 
+gmVariable MakeSaveDataSizeTicket(gmMachine& a_machine, const std::string& a_filename,
+                                  long long a_size, bool a_done,
+                                  bool a_error, bool a_preserveSize) {
+    return MakeSizeTicket(a_machine, a_filename, a_size, a_done, a_error,
+                          a_preserveSize);
+}
+
 void RegisterSaveDataBindings(gmMachine& a_machine) {
     a_machine.RegisterLibraryFunction("SAVEDATA_getSystemFreeSpaceQuota", gmf_SAVEDATA_getSystemFreeSpaceQuota);
     a_machine.RegisterLibraryFunction("SAVEDATA_getSystemFreeSpaceMedia", gmf_SAVEDATA_getSystemFreeSpaceMedia);
