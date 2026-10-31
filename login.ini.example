@@ -1,0 +1,7 @@
+; OpenEgg creates login.ini after a successful sign-in when Remember me is on.
+; The real file is ignored by Git. It contains a plain-text password; keep it private.
+
+[login]
+username =
+email =
+password =

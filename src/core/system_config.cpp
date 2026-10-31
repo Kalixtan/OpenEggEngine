@@ -256,6 +256,7 @@ const char* SystemConfig::OsIdName() const {
 
 bool SystemConfig::LoadFromIni(const std::string& path) {
     m_iniPath = path;
+    m_loginIniPath = (std::filesystem::u8path(path).parent_path() / "login.ini").u8string();
     std::ifstream input(std::filesystem::u8path(path));
     if (!input) return false;
 
@@ -335,7 +336,10 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             valid = !value.empty();
         } else if (section == "network" && key == "account_email") {
             valid = value.empty() || value.find_first_of("\r\n") == std::string::npos;
-            if (valid) networkAccountEmail = value;
+            if (valid) {
+                networkAccountEmail = value;
+                if (!value.empty()) networkRememberAccount = true;
+            }
         } else if (section == "network" && key == "account_password") {
             valid = value.find_first_of("\r\n") == std::string::npos;
             if (valid) networkAccountPassword = value;
@@ -376,6 +380,125 @@ bool SystemConfig::LoadFromIni(const std::string& path) {
             std::fprintf(stderr, "system config: could not restrict permissions on credential-bearing INI '%s'\n",
                          path.c_str());
     }
+    return true;
+}
+
+bool SystemConfig::LoadLoginFromIni(const std::string& path) {
+    m_loginIniPath = path;
+    std::ifstream input(std::filesystem::u8path(path));
+    if (!input) return false;
+
+    std::string line;
+    std::string section;
+    bool hasPassword = false;
+    unsigned lineNumber = 0;
+    while (std::getline(input, line)) {
+        ++lineNumber;
+        line = Trim(std::move(line));
+        if (line.empty() || line.front() == ';' || line.front() == '#') continue;
+        if (line.front() == '[' && line.back() == ']') {
+            section = Lower(Trim(line.substr(1, line.size() - 2)));
+            continue;
+        }
+        if (section != "login") continue;
+        const size_t equals = line.find('=');
+        if (equals == std::string::npos) continue;
+        const std::string key = Lower(Trim(line.substr(0, equals)));
+        const std::string value = Trim(line.substr(equals + 1));
+        if (key == "username" || key == "email" || key == "password") {
+            if (value.find_first_of("\r\n") != std::string::npos) continue;
+            if (key == "username") networkAccountUsername = value;
+            else if (key == "email") networkAccountEmail = value;
+            else {
+                networkAccountPassword = value;
+                hasPassword = !value.empty();
+            }
+        }
+    }
+    if (input.bad()) return false;
+    networkRememberAccount = hasPassword;
+    if (hasPassword) {
+        std::error_code error;
+        std::filesystem::permissions(std::filesystem::u8path(path),
+            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+            std::filesystem::perm_options::replace, error);
+        if (error) std::fprintf(stderr, "system config: could not restrict permissions on login.ini\n");
+    }
+    return true;
+}
+
+bool SystemConfig::SaveLoginCredentials(const std::string& username, const std::string& email,
+                                        const std::string& password, bool remember) {
+    if (m_loginIniPath.empty() || username.find_first_of("\r\n") != std::string::npos ||
+        email.find_first_of("\r\n") != std::string::npos ||
+        password.find_first_of("\r\n") != std::string::npos)
+        return false;
+
+    bool saved = true;
+    if (remember) {
+        const std::string contents = "[login]\nusername = " + username + "\nemail = " + email +
+            "\npassword = " + password + "\n";
+#if defined(_WIN32)
+        std::filesystem::path path = std::filesystem::u8path(m_loginIniPath);
+        std::filesystem::path temporary = path;
+        temporary += ".tmp";
+        {
+            std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+            saved = output && output.write(contents.data(), static_cast<std::streamsize>(contents.size())) &&
+                output.flush();
+        }
+        if (saved) {
+            std::error_code error;
+            std::filesystem::permissions(temporary,
+                std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+                std::filesystem::perm_options::replace, error);
+            saved = MoveFileExW(temporary.c_str(), path.c_str(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+        }
+        if (!saved) {
+            std::error_code error;
+            std::filesystem::remove(temporary, error);
+        }
+#else
+        std::string temporaryName = m_loginIniPath + ".tmp.XXXXXX";
+        std::vector<char> temporaryBuffer(temporaryName.begin(), temporaryName.end());
+        temporaryBuffer.push_back('\0');
+        const int descriptor = mkstemp(temporaryBuffer.data());
+        if (descriptor < 0) saved = false;
+        else {
+            size_t written = 0;
+            while (written < contents.size()) {
+                const ssize_t count = write(descriptor, contents.data() + written, contents.size() - written);
+                if (count <= 0) { saved = false; break; }
+                written += static_cast<size_t>(count);
+            }
+            if (saved && fsync(descriptor) != 0) saved = false;
+            if (close(descriptor) != 0) saved = false;
+            std::error_code error;
+            if (saved) std::filesystem::rename(temporaryBuffer.data(),
+                std::filesystem::u8path(m_loginIniPath), error);
+            saved = saved && !error;
+            if (!saved) std::filesystem::remove(temporaryBuffer.data(), error);
+        }
+#endif
+    } else {
+        std::error_code error;
+        std::filesystem::remove(std::filesystem::u8path(m_loginIniPath), error);
+        saved = !error;
+    }
+    if (!saved) return false;
+
+    // Remove credentials from the older config location as login.ini is now the
+    // only file that stores a remembered account password.
+    if (!m_iniPath.empty() && std::filesystem::u8path(m_iniPath) !=
+            std::filesystem::u8path(m_loginIniPath) &&
+        !RewriteNetworkSettings(m_iniPath, {{"account_email", std::nullopt},
+                                             {"account_password", std::nullopt}}))
+        return false;
+    networkAccountUsername = remember ? username : std::string();
+    networkAccountEmail = remember ? email : std::string();
+    networkAccountPassword = remember ? password : std::string();
+    networkRememberAccount = remember;
     return true;
 }
 

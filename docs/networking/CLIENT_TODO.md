@@ -166,6 +166,14 @@ behavior.
 - [x] Ticket-file or inline-hex exchange and authenticated request against a
       local replacement server. A live probe also checks hello, EULA, friends
       and coordinator startup.
+- [x] Native OpenEgg sign-in and account-creation form; keep the retail ticket
+      and EULA registration flow unchanged.
+- [x] Add replacement-server accounts without a PSN/RPCN identity; tag OpenEgg
+      account requests and responses separately from retail ticket login.
+- [x] Store remembered account credentials in a Git-ignored, owner-only
+      `login.ini`; verify saved sign-in headlessly against a loopback fixture.
+- [ ] Add email verification and password recovery for OpenEgg-created accounts.
+- [ ] Check the native form on Windows and macOS.
 - [x] Require HTTPS when sending a ticket to a remote server; allow plain HTTP
       only for localhost and loopback development endpoints.
 - [x] Expose separate OpenEgg queries for replacement-server authentication

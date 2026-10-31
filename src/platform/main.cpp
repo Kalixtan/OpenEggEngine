@@ -152,6 +152,8 @@ int main(int argc, char** argv) {
                      systemConfigPath.u8string().c_str(), SystemConfig::Get().OsIdName(),
                      SystemConfig::Get().languageCode);
     }
+    const std::filesystem::path loginConfigPath = executableDirectory / "login.ini";
+    SystemConfig::Get().LoadLoginFromIni(loginConfigPath.u8string());
     const std::string defaultDataRoot =
         (executableDirectory / "game_data").lexically_normal().u8string();
     const std::string archiveRoot = executableDirectory.u8string();
@@ -177,6 +179,9 @@ int main(int argc, char** argv) {
         vm.Network().SetMessageHandler([&hostFrontend](const std::string& title,
                                                        const std::string& message) {
             hostFrontend->ShowErrorMessage(title.c_str(), message.c_str());
+        });
+        vm.Network().SetLoginPromptHandler([&hostFrontend](ServerLoginDetails& details) {
+            return hostFrontend->ShowServerLoginDialog(details);
         });
     }
     vm.Files().AddRoot(dataRoot, archiveRoot);

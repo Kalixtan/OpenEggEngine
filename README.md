@@ -37,6 +37,15 @@ cmake --build build -j
 The executable is `build/OpenEgg`. Place your game archives beside it to run.
 See [PLATFORM_BACKENDS.md](PLATFORM_BACKENDS.md) for other build options.
 
+## Online sign-in
+
+Set `server_url` in `OpenEgg.ini`. OpenEgg can create or sign in to a
+replacement-server account without PSN or RPCN. Its sign-in form appears when
+online access is first requested. “Remember me” stores credentials in the
+Git-ignored `login.ini` beside the executable. It contains a plain-text
+password; keep it private. Retail PS3/RPCS3 clients continue to use ticket
+sign-in and the server's EULA registration code.
+
 ## Script API reference
 
 Install Doxygen and run `./tools/build_api_docs.sh`. Open

@@ -48,7 +48,9 @@ struct SystemConfig {
     std::string networkPsnCountry;
     // Account credentials for the replacement server's native sign-in route.
     std::string networkAccountEmail;
+    std::string networkAccountUsername;
     std::string networkAccountPassword;
+    bool networkRememberAccount = false;
     // Optional binary ticket, either inline hex or in a separate file.
     std::string networkTicketHex;
     std::string networkTicketFile;
@@ -60,6 +62,9 @@ struct SystemConfig {
     // Reads optional settings from OpenEgg.ini beside the executable.
     // Missing or invalid values leave the retail-compatible defaults above.
     bool LoadFromIni(const std::string& path);
+    bool LoadLoginFromIni(const std::string& path);
+    bool SaveLoginCredentials(const std::string& username, const std::string& email,
+                              const std::string& password, bool remember);
     bool SaveReplacementSession(const std::string& sessionId, const std::string& userId);
     bool SavePsnCountry(const std::string& country);
 
@@ -88,4 +93,5 @@ struct SystemConfig {
 
 private:
     std::string m_iniPath;
+    std::string m_loginIniPath;
 };

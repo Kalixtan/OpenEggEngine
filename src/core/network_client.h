@@ -12,6 +12,7 @@
 #include <array>
 #include <utility>
 #include <vector>
+#include "server_login.h"
 
 class gmMachine;
 class gmTableObject;
@@ -54,6 +55,9 @@ public:
     void GoOffline();
     void SetMessageHandler(std::function<void(const std::string&, const std::string&)> handler) {
         m_messageHandler = std::move(handler);
+    }
+    void SetLoginPromptHandler(std::function<bool(ServerLoginDetails&)> handler) {
+        m_loginPromptHandler = std::move(handler);
     }
     int CoordinatorState() const { return m_coordinatorState; }
     int CoordinatorError() const { return m_coordinatorError; }
@@ -131,6 +135,7 @@ private:
     int QueueSavedSessionValidation();
     bool BeginTicketLogin(const std::string& a_ticket);
     bool BeginAccountLogin();
+    bool BeginAccountRegistration();
 
     gmMachine& m_machine;
     gmTableObject* m_roots = nullptr;
@@ -173,8 +178,11 @@ private:
     int m_translationRequestId = 0;
     std::string m_platformTicket;
     bool m_loginUsesAccount = false;
+    bool m_loginIsRegistration = false;
+    bool m_accountLoginRemember = false;
     bool m_loginAuthorized = false;
     std::function<void(const std::string&, const std::string&)> m_messageHandler;
+    std::function<bool(ServerLoginDetails&)> m_loginPromptHandler;
     std::string m_lastPopupMessage;
     std::string m_manualSessionId;
     std::string m_manualUserId;

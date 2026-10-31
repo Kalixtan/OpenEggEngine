@@ -207,9 +207,9 @@ if(GE3_USE_SDL_FRONTEND)
   if(WIN32)
     # Use main.cpp's entry point, not SDL2main.
     target_compile_definitions(OpenEgg_frontend PRIVATE SDL_MAIN_HANDLED)
-    target_link_libraries(OpenEgg_frontend PRIVATE ${GE3_SDL2_TARGET})
+    target_link_libraries(OpenEgg_frontend PRIVATE ${GE3_SDL2_TARGET} ${GE3_FREETYPE_TARGET})
   else()
-    target_link_libraries(OpenEgg_frontend PRIVATE PkgConfig::SDL2)
+    target_link_libraries(OpenEgg_frontend PRIVATE PkgConfig::SDL2 ${GE3_FREETYPE_TARGET})
   endif()
 endif()
 

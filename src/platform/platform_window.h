@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "../core/server_login.h"
 
 // Host-owned window and OpenGL context boundary. The renderer receives an
 // already-current context and only asks the host to resize, change display
@@ -79,6 +80,7 @@ constexpr int Count=14;
 class PlatformFrontend : public PlatformWindow {
 public:
     virtual void ShowErrorMessage(const char* title, const char* message) = 0;
+    virtual bool ShowServerLoginDialog(ServerLoginDetails& details) = 0;
     // Returns true only when the user chooses to continue with the engine's
     // null fallback after a missing retail API call. False requests shutdown.
     virtual bool ShowUnimplementedFunctionDialog(const char* title,

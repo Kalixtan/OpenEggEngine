@@ -90,7 +90,9 @@ def main():
         if args.case == "initial":
             login = Request(url + "/identity/login/account",
                             data=json.dumps({"email": EMAIL, "password": PASSWORD}).encode(),
-                            headers={"Content-Type": "application/json"})
+                            headers={"Content-Type": "application/json",
+                                     "X-OpenEgg-Client": "OpenEgg",
+                                     "X-OpenEgg-Client-Version": "0.1.0"})
             with urlopen(login, timeout=20) as response:
                 identity = json.load(response)["session"]
             user, session = identity["person"]["id"], identity["id"]

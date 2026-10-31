@@ -34,18 +34,14 @@ letterbox = true
 ; loopback development servers. Leave blank to disable requests.
 server_url =
 
-; Replacement-server account sign-in. No PSN client setup is needed.
-; The server returns a short-lived session after checking these credentials.
-; On Unix, OpenEgg restricts this file to owner read/write when it loads the password.
-account_email =
-account_password =
+; If no login.ini exists, OpenEgg opens its sign-in form when online access is requested.
+; Remembered account credentials are stored separately in login.ini.
 
 ; Base URL for relative community image keys. Retail uses Amazon S3.
 image_base_url = https://s3.amazonaws.com
 
-; PSN Online ID used for this server account. When a ticket is configured,
-; OpenEgg checks it against the ticket and the server's stored PSN identity.
-; This identity remains fixed if the server display name changes.
+; PSN Online ID used only when signing in with a PSN/RPCN ticket.
+; OpenEgg account sign-in uses the username from login.ini instead.
 psn_online_id =
 
 ; Filled from the accepted ticket; retained for later online reports.
@@ -64,9 +60,8 @@ psn_ticket_hex =
 ; keep its Windows file permissions private yourself.
 ticket_file =
 
-; Managed by OpenEgg after verified ticket login. This replacement-server
-; session is refreshed on use so later launches do not need to contact PSN.
-; Treat this file like a password because the session is a bearer credential.
+; Managed by OpenEgg after verified ticket login. Treat this file like a
+; password because the session is a bearer credential.
 server_session_id =
 server_user_id =
 

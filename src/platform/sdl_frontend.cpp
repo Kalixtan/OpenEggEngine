@@ -8,6 +8,10 @@
 #include <limits>
 #include <memory>
 #include <vector>
+#include <filesystem>
+#include <string>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 namespace {
 int NormalizePadButton(Uint8 button) {
@@ -106,6 +110,191 @@ bool SdlFrontend::Create(int width, int height, const char* title, bool hidden) 
 
 void SdlFrontend::ShowErrorMessage(const char* title, const char* message) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, message, m_window);
+}
+
+bool SdlFrontend::ShowServerLoginDialog(ServerLoginDetails& details) {
+    constexpr int width = 500;
+    constexpr int height = 430;
+    SDL_Window* window = SDL_CreateWindow("OpenEgg sign in", SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_ALWAYS_ON_TOP);
+    if (!window) return false;
+    if (m_window) SDL_SetWindowModalFor(window, m_window);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!renderer) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    if (!renderer) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenEgg sign in",
+            "Could not start the sign-in window.", m_window);
+        SDL_DestroyWindow(window);
+        return false;
+    }
+
+    FT_Library library = nullptr;
+    FT_Face face = nullptr;
+    if (FT_Init_FreeType(&library) == 0) {
+#if defined(_WIN32)
+        const char* fontPaths[] = {"C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf"};
+#elif defined(__APPLE__)
+        const char* fontPaths[] = {"/System/Library/Fonts/Supplemental/Arial.ttf"};
+#else
+        const char* fontPaths[] = {"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                                   "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                                   "/usr/share/fonts/noto/NotoSans-Regular.ttf",
+                                   "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+                                   "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+                                   "/usr/share/fonts/truetype/freefont/FreeSans.ttf"};
+#endif
+        for (const char* path : fontPaths)
+            if (FT_New_Face(library, path, 0, &face) == 0) break;
+        if (face) FT_Set_Pixel_Sizes(face, 0, 19);
+    }
+    if (!face) {
+        if (library) FT_Done_FreeType(library);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenEgg sign in",
+            "No supported system font was found for the sign-in window.", m_window);
+        return false;
+    }
+
+    auto text = [&](const std::string& value, int x, int baseline, SDL_Color color) {
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        int pen = x;
+        for (unsigned char character : value) {
+            if (FT_Load_Char(face, character, FT_LOAD_RENDER) != 0) continue;
+            const FT_Bitmap& bitmap = face->glyph->bitmap;
+            const int left = pen + face->glyph->bitmap_left;
+            const int top = baseline - face->glyph->bitmap_top;
+            for (unsigned int row = 0; row < bitmap.rows; ++row) {
+                const int pitchRow = bitmap.pitch >= 0 ? static_cast<int>(row) :
+                    static_cast<int>(bitmap.rows - 1 - row);
+                const unsigned char* pixels = bitmap.buffer + pitchRow * std::abs(bitmap.pitch);
+                for (unsigned int column = 0; column < bitmap.width; ++column) {
+                    if (pixels[column] > 96)
+                        SDL_RenderDrawPoint(renderer, left + static_cast<int>(column), top + static_cast<int>(row));
+                }
+            }
+            pen += static_cast<int>(face->glyph->advance.x >> 6);
+        }
+    };
+    auto fill = [&](SDL_Rect rect, SDL_Color color) {
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        SDL_RenderFillRect(renderer, &rect);
+    };
+
+    bool running = true;
+    bool accepted = false;
+    int activeField = details.createAccount ? 0 : 1;
+    SDL_StartTextInput();
+    while (running) {
+        SDL_Event event;
+        while (SDL_WaitEventTimeout(&event, 16)) {
+            if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT &&
+                event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                running = false;
+                break;
+            }
+            if (event.type == SDL_TEXTINPUT) {
+                std::string* fields[] = {&details.username, &details.email,
+                                          &details.password, &details.passwordConfirm};
+                std::string& field = *fields[activeField];
+                const size_t limit = activeField >= 2 ? 128 : 96;
+                if (field.size() + std::strlen(event.text.text) <= limit) field += event.text.text;
+            } else if (event.type == SDL_KEYDOWN) {
+                if (event.key.keysym.sym == SDLK_ESCAPE) running = false;
+                else if (event.key.keysym.sym == SDLK_TAB) {
+                    const int first = details.createAccount ? 0 : 1;
+                    activeField = first + (activeField - first + 1) % (details.createAccount ? 4 : 2);
+                } else if (event.key.keysym.sym == SDLK_BACKSPACE) {
+                    std::string* fields[] = {&details.username, &details.email,
+                                              &details.password, &details.passwordConfirm};
+                    std::string& field = *fields[activeField];
+                    if (!field.empty()) {
+                        size_t start = field.size() - 1;
+                        while (start > 0 && (static_cast<unsigned char>(field[start]) & 0xc0) == 0x80) --start;
+                        field.erase(start);
+                    }
+                } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER) {
+                    if (!details.email.empty() && !details.password.empty() &&
+                        (!details.createAccount || (!details.username.empty() &&
+                         details.password == details.passwordConfirm))) {
+                        accepted = true;
+                        running = false;
+                    }
+                }
+            } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
+                const int x = event.button.x, y = event.button.y;
+                if (details.createAccount && y >= 78 && y < 119) activeField = 0;
+                else if (y >= (details.createAccount ? 138 : 89) &&
+                         y < (details.createAccount ? 179 : 130)) activeField = 1;
+                else if (y >= (details.createAccount ? 198 : 149) &&
+                         y < (details.createAccount ? 239 : 190)) activeField = 2;
+                else if (details.createAccount && y >= 258 && y < 299) activeField = 3;
+                else if (y >= (details.createAccount ? 328 : 298) &&
+                         y < (details.createAccount ? 354 : 326) && x >= 36 && x < 250)
+                    details.remember = !details.remember;
+                else if (y >= 370 && y < 414) {
+                    if (x < 220) {
+                        if (!details.createAccount && !details.email.empty() && !details.password.empty()) {
+                            accepted = true;
+                            running = false;
+                        } else if (details.createAccount && !details.username.empty() &&
+                                   !details.email.empty() && !details.password.empty() &&
+                                   details.password == details.passwordConfirm) {
+                            accepted = true;
+                            running = false;
+                        }
+                    } else if (x < 370) {
+                        details.createAccount = !details.createAccount;
+                        activeField = details.createAccount ? 0 : 1;
+                    } else running = false;
+                }
+            }
+        }
+
+        SDL_SetRenderDrawColor(renderer, 30, 34, 42, 255);
+        SDL_RenderClear(renderer);
+        text(details.createAccount ? "Create an OpenEgg account" : "Sign in to the server",
+             28, 42, {245, 245, 245, 255});
+        auto drawField = [&](const char* label, const std::string& value, int y, int index, bool secret) {
+            text(label, 30, y, {215, 219, 226, 255});
+            SDL_Rect box{28, y + 7, 444, 39};
+            fill(box, index == activeField ? SDL_Color{71, 83, 103, 255} : SDL_Color{52, 58, 69, 255});
+            SDL_Rect border{box.x, box.y, box.w, 2};
+            fill(border, index == activeField ? SDL_Color{113, 164, 232, 255} : SDL_Color{90, 98, 112, 255});
+            std::string display = secret ? std::string(value.size(), '*') : value;
+            if (display.size() > 48) display = display.substr(display.size() - 48);
+            text(display, 40, y + 33, {255, 255, 255, 255});
+        };
+        int y = details.createAccount ? 65 : 82;
+        if (details.createAccount) {
+            drawField("Username", details.username, y, 0, false);
+            y += 60;
+        }
+        drawField("Email", details.email, y, 1, false);
+        y += 60;
+        drawField("Password", details.password, y, 2, true);
+        if (details.createAccount) {
+            y += 60;
+            drawField("Confirm password", details.passwordConfirm, y, 3, true);
+        }
+        const int rememberY = details.createAccount ? 348 : 320;
+        text(details.remember ? "[x] Remember me on this computer" : "[ ] Remember me on this computer",
+             35, rememberY, {215, 219, 226, 255});
+        fill({28, 370, 190, 42}, {78, 130, 91, 255});
+        text(details.createAccount ? "Create account" : "Sign in", 49, 397, {255, 255, 255, 255});
+        fill({232, 370, 130, 42}, {71, 83, 103, 255});
+        text(details.createAccount ? "Sign in" : "Register", 244, 397, {255, 255, 255, 255});
+        fill({372, 370, 100, 42}, {71, 83, 103, 255});
+        text("Cancel", 394, 397, {255, 255, 255, 255});
+        SDL_RenderPresent(renderer);
+    }
+    SDL_StopTextInput();
+    if (face) FT_Done_Face(face);
+    if (library) FT_Done_FreeType(library);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    if (m_window && m_context) SDL_GL_MakeCurrent(m_window, m_context);
+    return accepted;
 }
 
 bool SdlFrontend::ShowUnimplementedFunctionDialog(const char* title,

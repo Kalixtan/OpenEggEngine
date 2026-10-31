@@ -1,0 +1,23 @@
+global Main = function(p) {
+    return table(
+        Process = p,
+        checked = 0,
+        init = function() { return true; },
+        constructor = function() { OnlineCoordinator_GoOnline(); },
+        update = function() {
+            if (this.checked == 0 && OpenEgg_Network_IsReplacementServerAuthenticated()) {
+                this.checked = 1;
+                if (OnlineCoordinator_GetOnlineID() == "OpenEgg_Probe") {
+                    GameSystem.trace("OpenEgg account identity PASS");
+                } else {
+                    GameSystem.trace("OpenEgg account identity FAIL");
+                }
+                if (!OpenEgg_Network_IsPSNSignedIn() && !OnlineCoordinator_IsLoggedIntoPlatform()) {
+                    GameSystem.trace("OpenEgg account stays separate from PSN PASS");
+                } else {
+                    GameSystem.trace("OpenEgg account stays separate from PSN FAIL");
+                }
+            }
+        }
+    );
+};

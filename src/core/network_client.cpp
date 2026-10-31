@@ -176,6 +176,21 @@ std::string AccountLoginBody(const std::string& email, const std::string& passwo
     return std::string(buffer.GetString(), buffer.GetSize());
 }
 
+std::string AccountRegistrationBody(const std::string& username, const std::string& email,
+                                   const std::string& password) {
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    writer.StartObject();
+    writer.Key("username");
+    writer.String(username.c_str(), static_cast<rapidjson::SizeType>(username.size()));
+    writer.Key("email");
+    writer.String(email.c_str(), static_cast<rapidjson::SizeType>(email.size()));
+    writer.Key("password");
+    writer.String(password.c_str(), static_cast<rapidjson::SizeType>(password.size()));
+    writer.EndObject();
+    return std::string(buffer.GetString(), buffer.GetSize());
+}
+
 class PartialJsonHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, PartialJsonHandler> {
 public:
     PartialJsonHandler(gmMachine& machine, int mode)
@@ -513,8 +528,41 @@ bool NetworkClient::BeginAccountLogin() {
     m_replacementServerOnline = false;
     m_loginAuthorized = false;
     m_loginUsesAccount = true;
+    m_loginIsRegistration = false;
+    m_accountLoginRemember = config.networkRememberAccount;
     m_loginRequestId = QueueRetailPost("/identity/login/account",
         AccountLoginBody(config.networkAccountEmail, config.networkAccountPassword),
+        "application/json", gmVariable::s_null, gmVariable::s_null,
+        gmVariable::s_null, 0, 0);
+    return m_loginRequestId != 0;
+}
+
+bool NetworkClient::BeginAccountRegistration() {
+    if (m_loginRequestId != 0) return false;
+    const auto& config = SystemConfig::Get();
+    if (config.networkAccountUsername.empty() || config.networkAccountEmail.empty() ||
+        config.networkAccountPassword.empty()) return false;
+    if (!AllowsCredentialTransport(m_baseUrl)) {
+        std::fprintf(stderr, "network: account registration requires HTTPS for remote servers\n");
+        return false;
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        for (auto& entry : m_pending)
+            if (entry.second.identity) entry.second.purged = true;
+        m_sessionId.clear();
+    }
+    m_userId.clear();
+    m_platformOnlineId.clear();
+    m_identityReady = false;
+    m_replacementServerOnline = false;
+    m_loginAuthorized = false;
+    m_loginUsesAccount = true;
+    m_loginIsRegistration = true;
+    m_accountLoginRemember = config.networkRememberAccount;
+    m_loginRequestId = QueueRetailPost("/identity/register/account",
+        AccountRegistrationBody(config.networkAccountUsername, config.networkAccountEmail,
+                                config.networkAccountPassword),
         "application/json", gmVariable::s_null, gmVariable::s_null,
         gmVariable::s_null, 0, 0);
     return m_loginRequestId != 0;
@@ -553,14 +601,12 @@ void NetworkClient::GoOnline() {
     m_friends.clear();
     const auto& accountEmail = SystemConfig::Get().networkAccountEmail;
     const auto& accountPassword = SystemConfig::Get().networkAccountPassword;
-    if (!accountEmail.empty() || !accountPassword.empty()) {
-        if (accountEmail.empty() || accountPassword.empty()) {
-            m_coordinatorError = -12;
-            std::fprintf(stderr, "network: both account_email and account_password are required\n");
-            ShowMessage("Server sign-in",
-                "Add account_email and account_password to the [network] section of OpenEgg.ini, then restart OpenEgg.");
-            return;
-        }
+    if (m_baseUrl.empty()) {
+        m_coordinatorError = -12;
+        ShowMessage("Server sign-in", "Set server_url in OpenEgg.ini before signing in.");
+        return;
+    }
+    if (!accountEmail.empty() && !accountPassword.empty()) {
         if (BeginAccountLogin()) m_coordinatorState = 18;
         else m_coordinatorError = -12;
     } else if (!m_savedSessionId.empty() && !m_savedUserId.empty() &&
@@ -604,10 +650,29 @@ void NetworkClient::GoOnline() {
             else m_coordinatorError = -12;
         }
     } else {
-        m_coordinatorError = -12;
-        std::fprintf(stderr, "network: configure server account credentials or a PSN ticket\n");
-        ShowMessage("Server sign-in",
-            "No sign-in details are configured. Add account_email and account_password to the [network] section of OpenEgg.ini.");
+        ServerLoginDetails details;
+        details.username = SystemConfig::Get().networkAccountUsername;
+        details.email = SystemConfig::Get().networkAccountEmail;
+        details.password = SystemConfig::Get().networkAccountPassword;
+        details.remember = SystemConfig::Get().networkRememberAccount;
+        if (!m_loginPromptHandler || !m_loginPromptHandler(details)) {
+            m_coordinatorError = -12;
+            return;
+        }
+        if (details.email.empty() || details.password.empty() ||
+            (details.createAccount && details.username.empty())) {
+            m_coordinatorError = -12;
+            ShowMessage("Server sign-in", "Enter all required account details and try again.");
+            return;
+        }
+        auto& mutableConfig = SystemConfig::Get();
+        mutableConfig.networkAccountUsername = details.username;
+        mutableConfig.networkAccountEmail = details.email;
+        mutableConfig.networkAccountPassword = details.password;
+        mutableConfig.networkRememberAccount = details.remember;
+        const bool started = details.createAccount ? BeginAccountRegistration() : BeginAccountLogin();
+        if (started) m_coordinatorState = 18;
+        else m_coordinatorError = -12;
     }
 }
 
@@ -912,12 +977,19 @@ void NetworkClient::PumpCallbacks() {
         if (completion.id == m_loginRequestId) {
             m_loginRequestId = 0;
             const bool accountLogin = m_loginUsesAccount;
+            const bool accountRegistration = m_loginIsRegistration;
+            const bool rememberAccount = m_accountLoginRemember;
             m_loginUsesAccount = false;
+            m_loginIsRegistration = false;
+            m_accountLoginRemember = false;
             rapidjson::Document response;
             response.Parse(completion.body.data(), completion.body.size());
             if (!response.HasParseError() && response.IsObject() &&
                 (!response.HasMember("openegg_authorized") ||
-                 !response["openegg_authorized"].IsBool())) {
+                 !response["openegg_authorized"].IsBool() ||
+                 (accountLogin && (!response.HasMember("openegg_client") ||
+                                   !response["openegg_client"].IsBool() ||
+                                   !response["openegg_client"].GetBool())))) {
                 m_coordinatorError = -12;
                 m_coordinatorState = 4;
                 std::fprintf(stderr, "network: login response omitted a valid authorization flag\n");
@@ -968,10 +1040,14 @@ void NetworkClient::PumpCallbacks() {
                             m_sessionId.assign(id.GetString(), std::min<size_t>(id.GetStringLength(), 36));
                         }
                         m_userId.assign(user.GetString(), std::min<size_t>(user.GetStringLength(), 36));
-                        if (accountLogin)
+                        if (accountLogin) {
                             m_platformOnlineId = hasPsnOnlineId && !accountOnlineId.empty()
                                 ? accountOnlineId : displayName;
-                        else if (hasPsnOnlineId || hasDisplayName)
+                            if (!SystemConfig::Get().SaveLoginCredentials(
+                                    m_platformOnlineId, SystemConfig::Get().networkAccountEmail,
+                                    SystemConfig::Get().networkAccountPassword, rememberAccount))
+                                std::fprintf(stderr, "network: could not save login.ini settings\n");
+                        } else if (hasPsnOnlineId || hasDisplayName)
                             m_platformOnlineId = accountOnlineId;
                         if (!m_platformCountry.empty() &&
                             !SystemConfig::Get().SavePsnCountry(m_platformCountry))
@@ -1017,10 +1093,26 @@ void NetworkClient::PumpCallbacks() {
                     ? "network: replacement account login failed (HTTP %ld)\n"
                     : "network: ticket login failed (HTTP %ld)\n", completion.status);
                 if (accountLogin) {
-                    ShowMessage("Server sign-in", completion.status == 403
-                        ? "The server rejected these account details or this account is not enabled for game access."
-                        : "The server could not sign you in (HTTP " +
-                            std::to_string(completion.status) + "). Check the server URL and try again.");
+                    const std::string failure = accountRegistration && completion.status == 409
+                        ? "That username or e-mail is already in use. Try another one."
+                        : accountRegistration && completion.status == 400
+                            ? "Check the username, e-mail, and password. Passwords need at least 8 characters."
+                            : accountRegistration && completion.status == 403
+                                ? "Account creation is disabled on this server."
+                                : completion.status == 403
+                                    ? "The server rejected these account details. Check them and try again."
+                                    : "The server could not sign you in (HTTP " +
+                                        std::to_string(completion.status) + "). Check the server URL and try again.";
+                    ShowMessage("Server sign-in", failure);
+                    if (completion.status == 401 || completion.status == 403) {
+                        if (!SystemConfig::Get().SaveLoginCredentials({}, {}, {}, false))
+                            std::fprintf(stderr, "network: could not clear rejected login credentials\n");
+                    } else if (accountRegistration && completion.status >= 400) {
+                        SystemConfig::Get().networkAccountUsername.clear();
+                        SystemConfig::Get().networkAccountEmail.clear();
+                        SystemConfig::Get().networkAccountPassword.clear();
+                        SystemConfig::Get().networkRememberAccount = false;
+                    }
                 }
             }
         }
@@ -1403,6 +1495,11 @@ void NetworkClient::WorkerMain(bool a_identity) {
             }
             if (request.validateSavedSession) {
                 headers = curl_slist_append(headers, "X-OpenEgg-Validate-Session: 1");
+            }
+            if (request.url.find("/identity/login/account") != std::string::npos ||
+                request.url.find("/identity/register/account") != std::string::npos) {
+                headers = curl_slist_append(headers, "X-OpenEgg-Client: OpenEgg");
+                headers = curl_slist_append(headers, "X-OpenEgg-Client-Version: 0.1.0");
             }
             if (request.post && request.url.find("/identity/login/token/psn") != std::string::npos) {
                 headers = curl_slist_append(headers, "X-OpenEgg-Remember-Session: 1");

@@ -14,6 +14,7 @@ public:
     bool Create(int width, int height, const char* title, bool hidden) override;
     void Destroy() override;
     void ShowErrorMessage(const char* title, const char* message) override;
+    bool ShowServerLoginDialog(ServerLoginDetails& details) override;
     bool ShowUnimplementedFunctionDialog(const char* title,
                                          const char* message) override;
     void Resize(int width, int height) override;
