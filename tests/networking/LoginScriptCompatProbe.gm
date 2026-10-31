@@ -1,0 +1,23 @@
+global Main = function(p) {
+    return table(Process=p,
+        constructor=function() {
+            GameSystem.traceTick("signing in");
+            GameSystem.tracTick("changing to eula");
+            if ("changing to eula".Length() == 16) {
+                GameSystem.trace("login script string Length PASS");
+            } else {
+                GameSystem.trace("login script string Length FAIL");
+            }
+            if ("changing to eula".Mid(0, 8) == "changing" &&
+                "changing to eula".Mid(9, 7) == "to eula" &&
+                "changing to eula".Mid(-3, 3) == "cha" &&
+                "changing to eula".Mid(99, 4).Length() == 0) {
+                GameSystem.trace("login script string Mid PASS");
+            } else {
+                GameSystem.trace("login script string Mid FAIL");
+            }
+            GameSystem.trace("GameSystem trace tick calls PASS");
+        },
+        init=function() { return true; },
+        update=function() {});
+};

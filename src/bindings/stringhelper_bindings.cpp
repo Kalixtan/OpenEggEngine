@@ -1,6 +1,7 @@
 #include "gmThread.h"
 #include "gmStringObject.h"
 #include "gmTableObject.h"
+#include "gmHelpers.h"
 #include "stringhelper_bindings.h"
 #include <cstdio>
 #include <cstdlib>
@@ -14,6 +15,51 @@ namespace {
 
 gmType g_stringStreamType = -1;
 struct StringStreamData { std::string text; };
+
+int GM_CDECL gmf_String_Length(gmThread* a_thread) {
+    const gmVariable* self = a_thread->GetThis();
+    if (!self || self->m_type != GM_STRING) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    gmStringObject* string = static_cast<gmStringObject*>(
+        a_thread->GetMachine()->GetObject(self->m_value.m_ref));
+    a_thread->PushInt(string ? string->GetLength() : 0);
+    return GM_OK;
+}
+
+int GM_CDECL gmf_String_Mid(gmThread* a_thread) {
+    GM_CHECK_NUM_PARAMS(2);
+    gmint first = 0;
+    gmint count = 0;
+    if (!gmGetFloatOrIntParamAsInt(a_thread, 0, first) ||
+        !gmGetFloatOrIntParamAsInt(a_thread, 1, count)) {
+        return GM_EXCEPTION;
+    }
+    const gmVariable* self = a_thread->GetThis();
+    if (!self || self->m_type != GM_STRING) return GM_EXCEPTION;
+    auto* string = static_cast<gmStringObject*>(
+        a_thread->GetMachine()->GetObject(self->m_value.m_ref));
+    if (!string) return GM_EXCEPTION;
+
+    const gmint length = string->GetLength();
+    first = std::max<gmint>(first, 0);
+    count = std::max<gmint>(count, 0);
+    if (first >= length) {
+        first = length;
+        count = 0;
+    } else {
+        count = std::min(count, length - first);
+    }
+    const std::string result(string->GetString() + first, static_cast<size_t>(count));
+    a_thread->PushNewString(result.c_str(), count);
+    return GM_OK;
+}
+
+gmFunctionEntry s_stringLib[] = {
+    {"Length", gmf_String_Length, nullptr},
+    {"Mid", gmf_String_Mid, nullptr},
+};
 
 bool ReadSingleChar(gmThread* a_thread, int a_param, char& a_out) {
     gmVariable v = a_thread->Param(a_param);
@@ -421,6 +467,8 @@ void GM_CDECL StringStreamGCDestruct(gmMachine* a_machine, gmUserObject* a_objec
 } // namespace
 
 void RegisterStringHelperBindings(gmMachine& a_machine) {
+    a_machine.RegisterTypeLibrary(GM_STRING, s_stringLib,
+                                  sizeof(s_stringLib) / sizeof(s_stringLib[0]));
     a_machine.RegisterLibraryFunction("STRINGHELPER_MakeTimeTable", gmf_STRINGHELPER_MakeTimeTable);
     a_machine.RegisterLibraryFunction("STRINGHELPER_ConvertToInt", gmf_STRINGHELPER_ConvertToInt);
     a_machine.RegisterLibraryFunction("STRINGHELPER_ConvertHexStringToInt", gmf_STRINGHELPER_ConvertHexStringToInt);

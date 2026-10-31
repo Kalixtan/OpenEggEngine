@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the GameMonkeyScript.tracTick compatibility stub."""
+"""Check login script compatibility calls used by the EULA flow."""
 import os
 from pathlib import Path
 import shutil
@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-with tempfile.TemporaryDirectory(prefix="openegg-trace-tick-") as directory:
+with tempfile.TemporaryDirectory(prefix="openegg-login-compat-") as directory:
     root = Path(directory)
     engine = ROOT / "build/OpenEgg"
     shutil.copy2(engine, root / "OpenEgg")
@@ -18,15 +18,19 @@ with tempfile.TemporaryDirectory(prefix="openegg-trace-tick-") as directory:
         (root / "game_data").symlink_to(game_data, target_is_directory=True)
     data = root / "data"
     data.mkdir()
-    shutil.copy2(ROOT / "tests/networking/TraceTickProbe.gm", data)
+    shutil.copy2(ROOT / "tests/networking/LoginScriptCompatProbe.gm", data)
     harness = root / "harness.txt"
     harness.write_text("wait 30\nquit\n")
     env = os.environ.copy()
     env.update(GE3_HEADLESS="1", GE3_TRACE="1", GE3_STRICT="halt", GE3_HARNESS=str(harness),
                SDL_AUDIODRIVER="dummy", LIBGL_ALWAYS_SOFTWARE="1")
     result = subprocess.run(
-        [str(root / "OpenEgg"), str(data), "TraceTickProbe.gm", "Main"],
+        [str(root / "OpenEgg"), str(data), "LoginScriptCompatProbe.gm", "Main"],
         env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
     print(result.stdout, end="")
-    if result.returncode or "GameMonkeyScript.tracTick PASS" not in result.stdout:
-        raise SystemExit("traceTick compatibility probe failed")
+    if (result.returncode or "GameSystem trace tick calls PASS" not in result.stdout or
+            "login script string Length PASS" not in result.stdout or
+            "login script string Length FAIL" in result.stdout or
+            "login script string Mid PASS" not in result.stdout or
+            "login script string Mid FAIL" in result.stdout):
+        raise SystemExit("login script compatibility probe failed")

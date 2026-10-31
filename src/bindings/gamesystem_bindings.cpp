@@ -654,6 +654,10 @@ int GM_CDECL gmf_GameSystem_trace(gmThread* a_thread) {
     return GM_OK;
 }
 
+int GM_CDECL gmf_GameSystem_traceTick(gmThread*) {
+    return GM_OK;
+}
+
 gmFunctionEntry s_gameSystemLib[] = {
     {"getCurrentTick", gmf_getCurrentTick, nullptr},
     {"isPaused", gmf_isPaused, nullptr},
@@ -701,6 +705,8 @@ gmFunctionEntry s_gameSystemLib[] = {
     {"getAutoLoadMode", gmf_getAutoLoadMode, nullptr},
     {"getAutoLoadArea", gmf_getAutoLoadArea, nullptr},
     {"trace", gmf_GameSystem_trace, nullptr},
+    {"traceTick", gmf_GameSystem_traceTick, nullptr},
+    {"tracTick", gmf_GameSystem_traceTick, nullptr},
 };
 
 int GM_CDECL gmf_ClearTable(gmThread* a_thread) {

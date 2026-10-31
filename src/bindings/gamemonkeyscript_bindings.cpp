@@ -568,10 +568,6 @@ int GM_CDECL gmf_GameMonkeyScript_scriptCheckpointNoop(gmThread*) {
     return GM_OK;
 }
 
-int GM_CDECL gmf_GameMonkeyScript_traceTick(gmThread*) {
-    return GM_OK;
-}
-
 int GM_CDECL gmf_GameMonkeyScript_getNumObjectsInGC(gmThread* a_thread) {
     a_thread->PushInt(a_thread->GetMachine()->GetGC()->GetNumAllocated());
     return GM_OK;
@@ -579,8 +575,6 @@ int GM_CDECL gmf_GameMonkeyScript_getNumObjectsInGC(gmThread* a_thread) {
 
 gmFunctionEntry s_gameMonkeyScriptLib[] = {
     {"loadScript", gmf_GameMonkeyScript_loadScript, nullptr},
-    {"tracTick", gmf_GameMonkeyScript_traceTick, nullptr},
-    {"traceTick", gmf_GameMonkeyScript_traceTick, nullptr},
     {"setIsCheckingInfiniteLoop", gmf_GameMonkeyScript_setIsCheckingInfiniteLoop, nullptr},
     {"setScriptCheckpoint", gmf_GameMonkeyScript_scriptCheckpointNoop, nullptr},
     {"restoreScriptCheckpoint", gmf_GameMonkeyScript_scriptCheckpointNoop, nullptr},
