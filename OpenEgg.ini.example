@@ -32,7 +32,7 @@ letterbox = true
 ; Replacement server root, for example http://127.0.0.1:10061.
 ; Remote servers require HTTPS for sign-in. Plain HTTP is allowed only for
 ; loopback development servers. Leave blank to disable requests.
-server_url =
+server_url = https://sound.ture.fish
 
 ; If no login.ini exists, OpenEgg opens its sign-in form when online access is requested.
 ; Remembered account credentials are stored separately in login.ini.
