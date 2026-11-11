@@ -36,6 +36,9 @@
 
 #if defined(OPENEGG_HAS_CURL)
 #include <curl/curl.h>
+#if defined(_WIN32) && defined(GetObject)
+#undef GetObject
+#endif
 #endif
 
 namespace {

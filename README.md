@@ -22,14 +22,14 @@ Third-party middleware licenses are listed in
 
 ## Build
 
-Requires CMake 3.16+, C++17, SDL2, GLEW, FreeType, OpenGL, and zlib. Other
-dependencies are in `vendor/`.
+Requires CMake 3.16+, C++17, SDL2, GLEW, FreeType, OpenGL, zlib, and libcurl.
+Other dependencies are in `vendor/`.
 
 On Debian or Ubuntu:
 
 ```sh
 sudo apt install build-essential cmake pkg-config libsdl2-dev libglew-dev \
-  libfreetype-dev libgl1-mesa-dev zlib1g-dev
+  libfreetype-dev libgl1-mesa-dev zlib1g-dev libcurl4-openssl-dev
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
