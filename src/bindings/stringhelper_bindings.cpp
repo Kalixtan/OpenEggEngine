@@ -64,30 +64,32 @@ gmFunctionEntry s_stringLib[] = {
 gmint ReadTimeMilliseconds(gmThread* a_thread) {
     const gmVariable value = a_thread->Param(0);
     if (value.m_type == GM_FLOAT) return static_cast<gmint>(value.m_value.m_float);
-    if (value.m_type == GM_INT) return value.m_value.m_int;
-    return 0;
+    return value.m_value.m_int;
 }
 
-std::string FormatMinutesSeconds(gmint a_milliseconds) {
-    long long totalSeconds = static_cast<long long>(a_milliseconds) / 1000;
-    if (totalSeconds < 0) totalSeconds = 0;
-    const long long minutes = totalSeconds / 60;
-    const long long seconds = totalSeconds % 60;
+struct RetailTimeParts {
+    int minutes;
+    int seconds;
+    int hundredths;
+};
+
+RetailTimeParts GetRetailTimeParts(gmint a_milliseconds) {
+    // Both retail wrappers take the absolute value and cap at 99:59.99.
+    long long magnitude = a_milliseconds;
+    if (magnitude < 0) magnitude = -magnitude;
+    magnitude = std::min<long long>(magnitude, 5999990);
+    return {
+        static_cast<int>(magnitude / 60000),
+        static_cast<int>((magnitude / 1000) % 60),
+        static_cast<int>((magnitude % 1000) / 10),
+    };
+}
+
+std::string FormatRetailTime(const RetailTimeParts& a_time) {
     char buf[32];
-    std::snprintf(buf, sizeof(buf), "%lld:%02lld", minutes, seconds);
+    std::snprintf(buf, sizeof(buf), "%02d:%02d.%02d",
+                  a_time.minutes, a_time.seconds, a_time.hundredths);
     return buf;
-}
-
-bool ReadSingleChar(gmThread* a_thread, int a_param, char& a_out) {
-    gmVariable v = a_thread->Param(a_param);
-    if (v.m_type == GM_INT) { a_out = (char)v.m_value.m_int; return true; }
-    if (v.m_type == GM_STRING) {
-        gmStringObject* s = (gmStringObject*)a_thread->GetMachine()->GetObject(v.m_value.m_ref);
-        if (s->GetLength() != 1) return false;
-        a_out = s->GetString()[0];
-        return true;
-    }
-    return false;
 }
 
 char ReadRetailCharArgument(gmThread* a_thread, int a_param) {
@@ -124,10 +126,26 @@ int GM_CDECL gmf_STRINGHELPER_ConvertToInt(gmThread* a_thread) {
 
 int GM_CDECL gmf_STRINGHELPER_MakeTimeTable(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    const std::string result = FormatMinutesSeconds(ReadTimeMilliseconds(a_thread));
-    // Retail returns a GM table built by FUN_000c9920. Its field schema is
-    // still unknown, so this keeps the existing display fallback explicit.
-    a_thread->PushNewString(result.c_str());
+    gmMachine* machine = a_thread->GetMachine();
+    const RetailTimeParts time = GetRetailTimeParts(ReadTimeMilliseconds(a_thread));
+    gmTableObject* result = a_thread->PushNewTable();
+    // The retail wrapper confirms a four-slot table and three child tables,
+    // each with an "untranslated" value. Root key layout remains unverified.
+    gmStringObject* format = a_thread->PushNewString("%1:%2.%3");
+    result->Set(machine, 0, gmVariable(format));
+    a_thread->Pop();
+
+    const int values[] = {time.minutes, time.seconds, time.hundredths};
+    for (int i = 0; i < 3; ++i) {
+        char value[8];
+        std::snprintf(value, sizeof(value), "%02d", values[i]);
+        gmTableObject* component = a_thread->PushNewTable();
+        gmStringObject* text = a_thread->PushNewString(value);
+        component->Set(machine, "untranslated", gmVariable(text));
+        a_thread->Pop();
+        result->Set(machine, i + 1, gmVariable(component));
+        a_thread->Pop();
+    }
     return GM_OK;
 }
 
@@ -253,11 +271,8 @@ int GM_CDECL gmf_STRINGHELPER_Backspace(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(str, 0, "");
     std::string s(str);
-    if (!s.empty()) {
-        size_t cut = s.size() - 1;
-        while (cut > 0 && ((unsigned char)s[cut] & 0xC0) == 0x80) --cut; // skip UTF-8 continuation bytes
-        s.erase(cut);
-    }
+    // Retail copies the string, then FUN_000c9710 writes NUL over its last byte.
+    if (!s.empty()) s.pop_back();
     a_thread->PushNewString(s.c_str());
     return GM_OK;
 }
@@ -266,11 +281,12 @@ int GM_CDECL gmf_STRINGHELPER_Backspace(gmThread* a_thread) {
  * @ingroup script_api
  * @brief `STRINGHELPER_MakeTimeString`
  * Script call: `STRINGHELPER_MakeTimeString(milliseconds: number) -> string`.
- * Formats milliseconds as `minutes:seconds`; negative values become zero.
+ * Formats milliseconds as `MM:SS.hh`, clamped to the retail maximum.
  */
 int GM_CDECL gmf_STRINGHELPER_MakeTimeString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    const std::string result = FormatMinutesSeconds(ReadTimeMilliseconds(a_thread));
+    const RetailTimeParts time = GetRetailTimeParts(ReadTimeMilliseconds(a_thread));
+    const std::string result = FormatRetailTime(time);
     a_thread->PushNewString(result.c_str());
     return GM_OK;
 }
@@ -329,8 +345,22 @@ int GM_CDECL gmf_STRINGHELPER_IsWhitespace(gmThread* a_thread) {
     return GM_EXCEPTION;
 }
 int GM_CDECL gmf_STRINGHELPER_IsNumeric(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); char c;
-    a_thread->PushInt((ReadSingleChar(a_thread, 0, c) && std::isdigit((unsigned char)c)) ? 1 : 0);
+    GM_CHECK_NUM_PARAMS(1);
+    const gmVariable value = a_thread->Param(0, gmVariable::s_null);
+    const auto* string = value.m_type == GM_STRING
+        ? static_cast<const gmStringObject*>(a_thread->GetMachine()->GetObject(value.m_value.m_ref))
+        : nullptr;
+    bool numeric = string && string->GetLength() > 0;
+    if (numeric) {
+        const char* bytes = string->GetString();
+        for (gmint i = 0; i < string->GetLength(); ++i) {
+            if (bytes[i] < '0' || bytes[i] > '9') {
+                numeric = false;
+                break;
+            }
+        }
+    }
+    a_thread->PushInt(numeric ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_STRINGHELPER_IsAlphanumeric(gmThread* a_thread) {

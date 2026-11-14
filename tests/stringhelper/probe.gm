@@ -9,14 +9,25 @@ global Main=function(p) {
             if (this.ran) { return; }
             this.ran=1;
 
-            Check("MakeTimeString handles seconds and fractional milliseconds",
-                STRINGHELPER_MakeTimeString(0)=="0:00" &&
-                STRINGHELPER_MakeTimeString(65000)=="1:05" &&
-                STRINGHELPER_MakeTimeString(65000.9)=="1:05" &&
-                STRINGHELPER_MakeTimeString(125000)=="2:05");
+            Check("MakeTimeString uses the retail format and clamps time",
+                STRINGHELPER_MakeTimeString(0)=="00:00.00" &&
+                STRINGHELPER_MakeTimeString(65000)=="01:05.00" &&
+                STRINGHELPER_MakeTimeString(65000.9)=="01:05.00" &&
+                STRINGHELPER_MakeTimeString(125678)=="02:05.67" &&
+                STRINGHELPER_MakeTimeString(-65000)=="01:05.00" &&
+                STRINGHELPER_MakeTimeString(6000000)=="99:59.99");
 
             Check("MakeTimeTable returns the retail table type",
                 typeName(STRINGHELPER_MakeTimeTable(65000))=="table");
+
+            Check("IsNumeric accepts only nonempty decimal digit strings",
+                STRINGHELPER_IsNumeric("12345")==1 &&
+                STRINGHELPER_IsNumeric("12a")==0 &&
+                STRINGHELPER_IsNumeric("")==0);
+
+            Check("Backspace removes one byte and handles empty strings",
+                STRINGHELPER_Backspace("abc")=="ab" &&
+                STRINGHELPER_Backspace("")=="");
 
             local source=table();
             source["zeta"]="beta";

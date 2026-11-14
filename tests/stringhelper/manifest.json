@@ -6,13 +6,20 @@
       "script": "probe.gm",
       "cases": [
         {
-          "name": "MakeTimeString handles seconds and fractional milliseconds",
+          "name": "MakeTimeString uses the retail format and clamps time",
           "functions": ["STRINGHELPER_MakeTimeString"]
         },
         {
           "name": "MakeTimeTable returns the retail table type",
-          "functions": ["STRINGHELPER_MakeTimeTable"],
-          "known_gap": "Retail decomp returns a GM table; OpenEgg still returns a minutes:seconds string because the retail table schema is unresolved."
+          "functions": ["STRINGHELPER_MakeTimeTable"]
+        },
+        {
+          "name": "IsNumeric accepts only nonempty decimal digit strings",
+          "functions": ["STRINGHELPER_IsNumeric"]
+        },
+        {
+          "name": "Backspace removes one byte and handles empty strings",
+          "functions": ["STRINGHELPER_Backspace"]
         },
         {
           "name": "SortAscending sorts string keys or values",

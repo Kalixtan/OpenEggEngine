@@ -144,11 +144,10 @@ def make_report(suite, engine, entries, problems, inventory):
         lines.extend(["", "The decomp confirms `STRINGHELPER_Char` exists in retail, but its saved "
                       "wrapper returns one byte from an uninitialized local buffer. OpenEgg has "
                       "no binding because that does not establish a usable contract. The "
-                      "`MakeTimeTable` schema and `MakeTimeString` formatter helper remain "
-                      "unresolved. Ghidra shows `IsNumeric` passes the full string to an opaque "
-                      "predicate, while OpenEgg currently checks one character. Only twelve of "
-                      "the thirty StringHelper symbols have assertions. These are local checks, "
-                      "not retail output comparisons.", ""])
+                      "`MakeTimeTable` root key layout remains unresolved. The formatter, "
+                      "numeric predicate, and byte-removal helper were traced from the PS3 "
+                      "disassembly. Only fourteen of the thirty StringHelper symbols have "
+                      "assertions. These are local checks, not retail output comparisons.", ""])
     return "\n".join(lines)
 
 

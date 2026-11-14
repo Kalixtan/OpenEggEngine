@@ -1,21 +1,21 @@
 # Test report
 
-Generated: 2026-11-14 18:22 UTC  
-Suite: stringhelper  
-Engine: `OpenEgg`  
-Result: **7/8 checks passed (88%); 1 known gaps**
+Generated: 2026-11-14 18:48 UTC
+Suite: stringhelper
+Engine: `OpenEgg`
+Result: **10/10 checks passed (100%); 0 known gaps**
 
 Scores count passing test cases. They do not measure total engine completeness. One integration case may count for several functions.
 
 | System | Section | Passed | Total | Rate |
 | --- | --- | ---: | ---: | ---: |
-| Stringhelper | Formatting helpers | 7 | 8 | 88% |
+| Stringhelper | Formatting helpers | 10 | 10 | 100% |
 
 ## Functions
 
 | Function | Passed | Cases | Score | Status |
 | --- | ---: | ---: | ---: | --- |
-| `STRINGHELPER_Backspace` | 0 | 0 | — | untested |
+| `STRINGHELPER_Backspace` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_BeginsWith` | 0 | 0 | — | untested |
 | `STRINGHELPER_BeginsWithSkipSpaceNoCase` | 0 | 0 | — | untested |
 | `STRINGHELPER_Char` | 0 | 0 | — | untested |
@@ -35,13 +35,13 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | `STRINGHELPER_IsBackspace` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsEntireStringWhitespace` | 0 | 0 | — | untested |
 | `STRINGHELPER_IsLowercase` | 1 | 1 | 100% | PASS |
-| `STRINGHELPER_IsNumeric` | 0 | 0 | — | untested |
+| `STRINGHELPER_IsNumeric` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsUppercase` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsWhitespace` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_MakeHexString` | 0 | 0 | — | untested |
 | `STRINGHELPER_MakeLowercase` | 0 | 0 | — | untested |
 | `STRINGHELPER_MakeTimeString` | 1 | 1 | 100% | PASS |
-| `STRINGHELPER_MakeTimeTable` | 0 | 1 | 0% | GAP |
+| `STRINGHELPER_MakeTimeTable` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_MakeUppercase` | 0 | 0 | — | untested |
 | `STRINGHELPER_SortAscending` | 2 | 2 | 100% | PASS |
 | `STRINGHELPER_StringCompare` | 0 | 0 | — | untested |
@@ -50,8 +50,10 @@ Scores count passing test cases. They do not measure total engine completeness. 
 
 | System / section | Test | Result | Retail basis |
 | --- | --- | --- | --- |
-| Stringhelper / Formatting helpers | MakeTimeString handles seconds and fractional milliseconds | PASS | local check |
-| Stringhelper / Formatting helpers | MakeTimeTable returns the retail table type | GAP | local check |
+| Stringhelper / Formatting helpers | MakeTimeString uses the retail format and clamps time | PASS | local check |
+| Stringhelper / Formatting helpers | MakeTimeTable returns the retail table type | PASS | local check |
+| Stringhelper / Formatting helpers | IsNumeric accepts only nonempty decimal digit strings | PASS | local check |
+| Stringhelper / Formatting helpers | Backspace removes one byte and handles empty strings | PASS | local check |
 | Stringhelper / Formatting helpers | SortAscending sorts string keys or values | PASS | local check |
 | Stringhelper / Formatting helpers | SortAscending reads selector only for exactly two integer arguments | PASS | local check |
 | Stringhelper / Formatting helpers | CopyAndSetChar uses zero-based byte indexes | PASS | local check |
@@ -59,8 +61,4 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | Stringhelper / Formatting helpers | IsAlpha requires a one-byte string | PASS | local check |
 | Stringhelper / Formatting helpers | Character predicates use retail byte arguments | PASS | local check |
 
-## Gaps and failures
-
-- **MakeTimeTable returns the retail table type**: Retail decomp returns a GM table; OpenEgg still returns a minutes:seconds string because the retail table schema is unresolved. (log: `tests/_results/stringhelper/probe.log`)
-
-The decomp confirms `STRINGHELPER_Char` exists in retail, but its saved wrapper returns one byte from an uninitialized local buffer. OpenEgg has no binding because that does not establish a usable contract. The `MakeTimeTable` schema and `MakeTimeString` formatter helper remain unresolved. Ghidra shows `IsNumeric` passes the full string to an opaque predicate, while OpenEgg currently checks one character. Only twelve of the thirty StringHelper symbols have assertions. These are local checks, not retail output comparisons.
+The decomp confirms `STRINGHELPER_Char` exists in retail, but its saved wrapper returns one byte from an uninitialized local buffer. OpenEgg has no binding because that does not establish a usable contract. The `MakeTimeTable` root key layout remains unresolved. The formatter, numeric predicate, and byte-removal helper were traced from the PS3 disassembly. Only fourteen of the thirty StringHelper symbols have assertions. These are local checks, not retail output comparisons.
