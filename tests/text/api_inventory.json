@@ -1,0 +1,7 @@
+[
+  "drawList.print",
+  "drawList.splitString",
+  "PRINTINFO",
+  "Video.createDrawList",
+  "Video.getTextWidth"
+]

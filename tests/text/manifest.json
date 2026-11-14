@@ -1,0 +1,31 @@
+{
+  "harness": "harness",
+  "sections": [
+    {
+      "name": "Text layout",
+      "script": "probe.gm",
+      "cases": [
+        {
+          "name": "Split ranges use UTF-8 byte offsets",
+          "functions": ["drawList.splitString"]
+        },
+        {
+          "name": "Integer bounds keep retail float-tag defaults",
+          "functions": ["drawList.splitString"]
+        },
+        {
+          "name": "CRLF and caret create line breaks",
+          "functions": ["drawList.splitString"]
+        },
+        {
+          "name": "Print uses splitter line count",
+          "functions": ["drawList.print", "drawList.splitString", "PRINTINFO"]
+        },
+        {
+          "name": "Credit name changes before layout",
+          "functions": ["drawList.print", "PRINTINFO", "Video.getTextWidth"]
+        }
+      ]
+    }
+  ]
+}

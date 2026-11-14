@@ -353,27 +353,24 @@ std::string SubstituteFormatArgs(const std::string& a_fmt, const std::vector<std
     return out;
 }
 
+void ReplaceCreditNameForDisplay(std::string& a_text) {
+    // TRANS RIGHTS!!!! This OpenEgg-only display change is not in retail; added out of respect for Jessica Mak.
+    constexpr char kOldName[] = "Jonathan Mak";
+    constexpr char kNewName[] = "Jessica Mak";
+    size_t at = 0;
+    while ((at = a_text.find(kOldName, at)) != std::string::npos) {
+        a_text.replace(at, sizeof(kOldName) - 1, kNewName);
+        at += sizeof(kNewName) - 1;
+    }
+}
+
 std::vector<std::string> WrapText(const BitmapFont& a_font, const std::string& a_text, float a_scale, float a_wrapWidth) {
     std::vector<std::string> lines;
-    std::string line, word;
-    auto commitWord = [&]() {
-        if (word.empty()) return;
-        std::string trial = line.empty() ? word : line + " " + word;
-        if (!line.empty() && a_font.MeasureWidth(trial, a_scale) > a_wrapWidth) {
-            lines.push_back(line);
-            line = word;
-        } else {
-            line = trial;
-        }
-        word.clear();
-    };
-    for (char c : a_text) {
-        if (c == '\n') { commitWord(); lines.push_back(line); line.clear(); }
-        else if (c == ' ') commitWord();
-        else word += c;
-    }
-    commitWord();
-    if (!line.empty() || lines.empty()) lines.push_back(line);
+    const std::vector<RetailTextRange> ranges =
+        SplitTextLikeRetail(&a_font, a_text, a_wrapWidth, a_scale);
+    lines.reserve(ranges.size());
+    for (const RetailTextRange& range : ranges)
+        lines.push_back(a_text.substr(range.start, range.length));
     return lines;
 }
 
@@ -485,9 +482,10 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
 
     EngineContext& engineCtx = GetEngineContext();
     if (engineCtx.currentFont) {
-        const std::string& drawn = (a_translate && engineCtx.localization)
+        std::string drawn = (a_translate && engineCtx.localization)
             ? engineCtx.localization->Translate(text)
             : std::string(text);
+        ReplaceCreditNameForDisplay(drawn);
 
         std::vector<std::string> lines = (hasWrapWidth && wrapWidth > 0.0f)
             ? WrapText(*engineCtx.currentFont, drawn, scale, wrapWidth)
@@ -590,7 +588,9 @@ int PrintArrayImpl(gmThread* a_thread) {
             if (elem.m_type == GM_NULL) break;
             if (elem.m_type == GM_STRING) {
                 char buf[256];
-                lines.push_back(elem.AsString(a_thread->GetMachine(), buf, sizeof(buf)));
+                std::string line = elem.AsString(a_thread->GetMachine(), buf, sizeof(buf));
+                ReplaceCreditNameForDisplay(line);
+                lines.push_back(std::move(line));
             } else {
                 lines.push_back(std::string());
             }

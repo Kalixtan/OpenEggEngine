@@ -332,11 +332,9 @@ bool IsRetailSplitOpportunity(uint32_t a_cp) {
     }
 }
 
-struct RetailTextRange { size_t start; size_t length; };
-
-std::vector<RetailTextRange> SplitTextLikeRetail(const BitmapFont* a_font,
-                                                  const std::string& a_text,
-                                                  float a_width, float a_scale) {
+std::vector<RetailTextRange> SplitTextLikeRetailImpl(const BitmapFont* a_font,
+                                                      const std::string& a_text,
+                                                      float a_width, float a_scale) {
     std::vector<RetailTextRange> ranges;
     std::vector<RetailSplitGlyph> glyphs;
     size_t offset = 0;
@@ -442,8 +440,8 @@ int GM_CDECL gmf_splitStringRetail(gmThread* a_thread) {
         if (object) text = object->GetString();
     }
 
-    const auto ranges = SplitTextLikeRetail(GetEngineContext().currentFont,
-                                             text, right - left, scale);
+    const auto ranges = SplitTextLikeRetailImpl(GetEngineContext().currentFont,
+                                                 text, right - left, scale);
     gmMachine* machine = a_thread->GetMachine();
     gmTableObject* result = machine->AllocTableObject();
     for (size_t i = 0; i < ranges.size(); ++i) {
@@ -576,6 +574,12 @@ void GM_CDECL DrawListGCMark(gmMachine* a_machine, gmUserObject* a_object, gmuin
 #endif
 
 } // namespace
+
+std::vector<RetailTextRange> SplitTextLikeRetail(const BitmapFont* a_font,
+                                                  const std::string& a_text,
+                                                  float a_width, float a_scale) {
+    return SplitTextLikeRetailImpl(a_font, a_text, a_width, a_scale);
+}
 
 gmType RegisterDrawListType(gmMachine& a_machine) {
     g_drawListType = a_machine.CreateUserType("VMDRAWLIST");

@@ -1,0 +1,49 @@
+global Check=function(name,ok) {
+    if (ok) { GameSystem.trace(name+" PASS"); }
+    else { GameSystem.trace(name+" FAIL"); }
+};
+
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function() {},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            local drawList=Video.createDrawList(1024,32);
+
+            local utf="AéB";
+            local utfRanges=drawList.splitString(0.0,0.0,utf,1.0);
+            Check("Split ranges use UTF-8 byte offsets",
+                utfRanges[0].startIndex==0 && utfRanges[0].length==4 &&
+                utfRanges[1]==null);
+
+            local intRanges=drawList.splitString(0,10,"AB",1);
+            Check("Integer bounds keep retail float-tag defaults",
+                intRanges[0].startIndex==0 && intRanges[0].length==2 &&
+                intRanges[1]==null);
+
+            local explicit="A\r\nB^C";
+            local breaks=drawList.splitString(0.0,1.0,explicit,1.0);
+            Check("CRLF and caret create line breaks",
+                breaks[0].startIndex==0 && breaks[0].length==1 &&
+                breaks[1].startIndex==3 && breaks[1].length==1 &&
+                breaks[2].startIndex==5 && breaks[2].length==1 &&
+                breaks[3]==null);
+
+            local longText="MMMMMMMMMMMMMMMMMMMMMMMM";
+            local wrapped=drawList.splitString(0.0,2.0,longText,1.0);
+            local rangeCount=0;
+            for (i=0; ?wrapped[i]; i+=1) { rangeCount+=1; }
+            local info=PRINTINFO();
+            drawList.print(0.0,2.0,0.0,0.0,longText,1.0,0,info);
+            Check("Print uses splitter line count",
+                rangeCount>1 && info.numLines==rangeCount);
+
+            local oldWidth=Video.getTextWidth("Jonathan Mak",1.0);
+            local newWidth=Video.getTextWidth("Jessica Mak",1.0);
+            local creditInfo=PRINTINFO();
+            drawList.print(0.0,(oldWidth+newWidth)*0.5,0.0,0.0,
+                "Jonathan Mak",1.0,0,creditInfo);
+            Check("Credit name changes before layout",
+                newWidth<oldWidth && creditInfo.numLines==1);
+        });
+};

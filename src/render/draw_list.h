@@ -6,6 +6,19 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <cstddef>
+
+class BitmapFont;
+
+struct RetailTextRange {
+    size_t start;
+    size_t length;
+};
+
+// Retail DrawList text layout helper. Ranges use UTF-8 byte offsets.
+std::vector<RetailTextRange> SplitTextLikeRetail(const BitmapFont* a_font,
+                                                  const std::string& a_text,
+                                                  float a_width, float a_scale);
 
 gmType RegisterDrawListType(gmMachine& a_machine);
 gmType GetDrawListType();
