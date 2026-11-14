@@ -33,5 +33,27 @@ global Main=function(p) {
             Check("SortAscending reads selector only for exactly two integer arguments",
                 wrongType[0]=="alpha" && wrongType[1]=="beta" &&
                 extraArgs[0]=="alpha" && extraArgs[1]=="beta");
+
+            Check("CopyAndSetChar uses zero-based byte indexes",
+                STRINGHELPER_CopyAndSetChar(0,"X","abc")=="Xbc" &&
+                STRINGHELPER_CopyAndSetChar(2,"X","abc")=="abX" &&
+                STRINGHELPER_CopyAndSetChar(3,"X","abc")=="abc" &&
+                STRINGHELPER_CopyAndSetChar(1.0,"X","abc")=="abc");
+
+            Check("GetChar and GetSubString use raw integer argument slots",
+                STRINGHELPER_GetChar(1,"abc")=="b" &&
+                STRINGHELPER_GetChar(1.0,"abc")=="" &&
+                STRINGHELPER_GetSubString(0,1,"abc")=="ab" &&
+                STRINGHELPER_GetSubString(0.0,1.0,"abc")=="");
+
+            Check("IsAlpha requires a one-byte string",
+                STRINGHELPER_IsAlpha("A")==1 && STRINGHELPER_IsAlpha("ab")==0 &&
+                STRINGHELPER_IsAlpha(65)==0);
+
+            Check("Character predicates use retail byte arguments",
+                STRINGHELPER_IsBackspace(8)==1 && STRINGHELPER_IsLowercase(97)==1 &&
+                STRINGHELPER_IsUppercase(65)==1 && STRINGHELPER_IsAlphanumeric(57)==1 &&
+                STRINGHELPER_IsWhitespace(32)==1 && STRINGHELPER_IsWhitespace(" ")==1 &&
+                STRINGHELPER_IsWhitespace("ab")==0);
         });
 };

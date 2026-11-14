@@ -21,6 +21,28 @@
         {
           "name": "SortAscending reads selector only for exactly two integer arguments",
           "functions": ["STRINGHELPER_SortAscending"]
+        },
+        {
+          "name": "CopyAndSetChar uses zero-based byte indexes",
+          "functions": ["STRINGHELPER_CopyAndSetChar"]
+        },
+        {
+          "name": "GetChar and GetSubString use raw integer argument slots",
+          "functions": ["STRINGHELPER_GetChar", "STRINGHELPER_GetSubString"]
+        },
+        {
+          "name": "IsAlpha requires a one-byte string",
+          "functions": ["STRINGHELPER_IsAlpha"]
+        },
+        {
+          "name": "Character predicates use retail byte arguments",
+          "functions": [
+            "STRINGHELPER_IsBackspace",
+            "STRINGHELPER_IsLowercase",
+            "STRINGHELPER_IsUppercase",
+            "STRINGHELPER_IsAlphanumeric",
+            "STRINGHELPER_IsWhitespace"
+          ]
         }
       ]
     }

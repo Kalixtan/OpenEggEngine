@@ -90,6 +90,19 @@ bool ReadSingleChar(gmThread* a_thread, int a_param, char& a_out) {
     return false;
 }
 
+char ReadRetailCharArgument(gmThread* a_thread, int a_param) {
+    // These retail wrappers cast the argument's raw 32-bit value to char.
+    // For normal script calls this is an integer character code. Keep the same
+    // low-byte behavior for other tags rather than treating strings as text.
+    const gmVariable value = a_thread->Param(a_param, gmVariable::s_null);
+    return static_cast<char>(static_cast<unsigned char>(value.m_value.m_int));
+}
+
+gmint ReadRetailIntArgument(gmThread* a_thread, int a_param) {
+    const gmVariable value = a_thread->Param(a_param, gmVariable::s_null);
+    return value.m_value.m_int;
+}
+
 /**
  * @ingroup script_api
  * @brief `STRINGHELPER_ConvertToInt`
@@ -143,11 +156,13 @@ int GM_CDECL gmf_STRINGHELPER_GetFirstOccurrence(gmThread* a_thread) {
 
 int GM_CDECL gmf_STRINGHELPER_CopyAndSetChar(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
-    GM_INT_PARAM(index1Based, 0, 0);
+    const gmint index = ReadRetailIntArgument(a_thread, 0);
     GM_STRING_PARAM(newChar, 1, "");
     GM_STRING_PARAM(source, 2, "");
     std::string out = source;
-    int i = index1Based - 1;
+    // Retail checks this zero-based index against the byte length, then
+    // writes the replacement's first byte at that offset (Ghidra: 0xa9308).
+    int i = index;
     if (i >= 0 && i < (int)out.size() && newChar && *newChar) {
         out[(size_t)i] = newChar[0];
     }
@@ -179,7 +194,7 @@ int GM_CDECL gmf_STRINGHELPER_GetLength(gmThread* a_thread) {
 
 int GM_CDECL gmf_STRINGHELPER_GetChar(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(2);
-    GM_INT_PARAM(index, 0, 0);
+    const gmint index = ReadRetailIntArgument(a_thread, 0);
     GM_STRING_PARAM(str, 1, "");
     char buf[2] = {0, 0};
     size_t len = std::strlen(str);
@@ -261,29 +276,57 @@ int GM_CDECL gmf_STRINGHELPER_MakeTimeString(gmThread* a_thread) {
 }
 
 int GM_CDECL gmf_STRINGHELPER_IsBackspace(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); char c;
-    a_thread->PushInt((ReadSingleChar(a_thread, 0, c) && (c == 8 || c == 127)) ? 1 : 0);
+    GM_CHECK_NUM_PARAMS(1);
+    const char c = ReadRetailCharArgument(a_thread, 0);
+    a_thread->PushInt((c == 8 || c == 127) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_STRINGHELPER_IsLowercase(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); char c;
-    a_thread->PushInt((ReadSingleChar(a_thread, 0, c) && std::islower((unsigned char)c)) ? 1 : 0);
+    GM_CHECK_NUM_PARAMS(1);
+    const char c = ReadRetailCharArgument(a_thread, 0);
+    a_thread->PushInt(std::islower(static_cast<unsigned char>(c)) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_STRINGHELPER_IsUppercase(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); char c;
-    a_thread->PushInt((ReadSingleChar(a_thread, 0, c) && std::isupper((unsigned char)c)) ? 1 : 0);
+    GM_CHECK_NUM_PARAMS(1);
+    const char c = ReadRetailCharArgument(a_thread, 0);
+    a_thread->PushInt(std::isupper(static_cast<unsigned char>(c)) ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_STRINGHELPER_IsAlpha(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); char c;
-    a_thread->PushInt((ReadSingleChar(a_thread, 0, c) && std::isalpha((unsigned char)c)) ? 1 : 0);
+    GM_CHECK_NUM_PARAMS(1);
+    const gmVariable value = a_thread->Param(0, gmVariable::s_null);
+    bool isAlpha = false;
+    if (value.m_type == GM_STRING) {
+        const auto* str = static_cast<const gmStringObject*>(
+            a_thread->GetMachine()->GetObject(value.m_value.m_ref));
+        if (str && str->GetLength() == 1) {
+            isAlpha = std::isalpha(static_cast<unsigned char>(str->GetString()[0])) != 0;
+        }
+    }
+    // Retail requires a one-byte GM string here; integer character codes are
+    // handled by the other character predicates, not IsAlpha (Ghidra: 0xa8a4c).
+    a_thread->PushInt(isAlpha ? 1 : 0);
     return GM_OK;
 }
 int GM_CDECL gmf_STRINGHELPER_IsWhitespace(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); char c;
-    a_thread->PushInt((ReadSingleChar(a_thread, 0, c) && std::isspace((unsigned char)c)) ? 1 : 0);
-    return GM_OK;
+    GM_CHECK_NUM_PARAMS(1);
+    const gmVariable value = a_thread->Param(0, gmVariable::s_null);
+    if (value.m_type == GM_INT) {
+        const char c = static_cast<char>(static_cast<unsigned char>(value.m_value.m_int));
+        a_thread->PushInt(std::isspace(static_cast<unsigned char>(c)) ? 1 : 0);
+        return GM_OK;
+    }
+    if (value.m_type == GM_STRING) {
+        const auto* str = static_cast<const gmStringObject*>(
+            a_thread->GetMachine()->GetObject(value.m_value.m_ref));
+        const bool whitespace = str && str->GetLength() == 1 &&
+            std::isspace(static_cast<unsigned char>(str->GetString()[0]));
+        a_thread->PushInt(whitespace ? 1 : 0);
+        return GM_OK;
+    }
+    // Retail returns GM_EXCEPTION for null, float, and non-string object tags.
+    return GM_EXCEPTION;
 }
 int GM_CDECL gmf_STRINGHELPER_IsNumeric(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1); char c;
@@ -291,8 +334,9 @@ int GM_CDECL gmf_STRINGHELPER_IsNumeric(gmThread* a_thread) {
     return GM_OK;
 }
 int GM_CDECL gmf_STRINGHELPER_IsAlphanumeric(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(1); char c;
-    a_thread->PushInt((ReadSingleChar(a_thread, 0, c) && std::isalnum((unsigned char)c)) ? 1 : 0);
+    GM_CHECK_NUM_PARAMS(1);
+    const char c = ReadRetailCharArgument(a_thread, 0);
+    a_thread->PushInt(std::isalnum(static_cast<unsigned char>(c)) ? 1 : 0);
     return GM_OK;
 }
 
@@ -315,8 +359,8 @@ int GM_CDECL gmf_STRINGHELPER_MakeUppercase(gmThread* a_thread) {
 
 int GM_CDECL gmf_STRINGHELPER_GetSubString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(3);
-    GM_INT_PARAM(start, 0, 0);
-    GM_INT_PARAM(end, 1, 0);
+    const gmint start = ReadRetailIntArgument(a_thread, 0);
+    const gmint end = ReadRetailIntArgument(a_thread, 1);
     GM_STRING_PARAM(str, 2, "");
     int len = (int)std::strlen(str);
     if (end < start || start < 0 || end < 0 || end >= len) {
@@ -349,7 +393,7 @@ int GM_CDECL gmf_STRINGHELPER_ConvertMSStringToSecondInt(gmThread* a_thread) {
 
 int GM_CDECL gmf_STRINGHELPER_MakeHexString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_INT_PARAM(value, 0, 0);
+    const gmint value = ReadRetailIntArgument(a_thread, 0);
     char buf[16];
     std::snprintf(buf, sizeof(buf), "%X", (unsigned int)value);
     a_thread->PushNewString(buf);
