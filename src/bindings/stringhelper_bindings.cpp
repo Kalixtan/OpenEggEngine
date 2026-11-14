@@ -61,6 +61,23 @@ gmFunctionEntry s_stringLib[] = {
     {"Mid", gmf_String_Mid, nullptr},
 };
 
+gmint ReadTimeMilliseconds(gmThread* a_thread) {
+    const gmVariable value = a_thread->Param(0);
+    if (value.m_type == GM_FLOAT) return static_cast<gmint>(value.m_value.m_float);
+    if (value.m_type == GM_INT) return value.m_value.m_int;
+    return 0;
+}
+
+std::string FormatMinutesSeconds(gmint a_milliseconds) {
+    long long totalSeconds = static_cast<long long>(a_milliseconds) / 1000;
+    if (totalSeconds < 0) totalSeconds = 0;
+    const long long minutes = totalSeconds / 60;
+    const long long seconds = totalSeconds % 60;
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%lld:%02lld", minutes, seconds);
+    return buf;
+}
+
 bool ReadSingleChar(gmThread* a_thread, int a_param, char& a_out) {
     gmVariable v = a_thread->Param(a_param);
     if (v.m_type == GM_INT) { a_out = (char)v.m_value.m_int; return true; }
@@ -94,14 +111,10 @@ int GM_CDECL gmf_STRINGHELPER_ConvertToInt(gmThread* a_thread) {
 
 int GM_CDECL gmf_STRINGHELPER_MakeTimeTable(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(ms, 0, 0.0f);
-    long totalSeconds = (long)(ms / 1000.0f);
-    if (totalSeconds < 0) totalSeconds = 0;
-    long minutes = totalSeconds / 60;
-    long seconds = totalSeconds % 60;
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%ld:%02ld", minutes, seconds);
-    a_thread->PushNewString(buf);
+    const std::string result = FormatMinutesSeconds(ReadTimeMilliseconds(a_thread));
+    // Retail returns a GM table built by FUN_000c9920. Its field schema is
+    // still unknown, so this keeps the existing display fallback explicit.
+    a_thread->PushNewString(result.c_str());
     return GM_OK;
 }
 
@@ -242,14 +255,8 @@ int GM_CDECL gmf_STRINGHELPER_Backspace(gmThread* a_thread) {
  */
 int GM_CDECL gmf_STRINGHELPER_MakeTimeString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    GM_FLOAT_OR_INT_PARAM(ms, 0, 0.0f);
-    long totalSeconds = (long)(ms / 1000.0f);
-    if (totalSeconds < 0) totalSeconds = 0;
-    long minutes = totalSeconds / 60;
-    long seconds = totalSeconds % 60;
-    char buf[32];
-    std::snprintf(buf, sizeof(buf), "%ld:%02ld", minutes, seconds);
-    a_thread->PushNewString(buf);
+    const std::string result = FormatMinutesSeconds(ReadTimeMilliseconds(a_thread));
+    a_thread->PushNewString(result.c_str());
     return GM_OK;
 }
 
@@ -393,7 +400,10 @@ int GM_CDECL gmf_STRINGHELPER_SortAscending(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_CHECK_TABLE_PARAM(table, 0);
     bool sortByValue = true;
-    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(sbv, 1, 1); sortByValue = (sbv != 0); }
+    // Retail only reads the selector for exactly two args, and only if it is GM_INT.
+    if (a_thread->GetNumParams() == 2 && a_thread->Param(1).m_type == GM_INT) {
+        sortByValue = a_thread->ParamInt(1, 1) != 0;
+    }
 
     gmMachine& m = *a_thread->GetMachine();
     std::vector<std::string> strings;

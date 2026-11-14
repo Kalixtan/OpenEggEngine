@@ -1,0 +1,28 @@
+{
+  "harness": "harness",
+  "sections": [
+    {
+      "name": "Formatting helpers",
+      "script": "probe.gm",
+      "cases": [
+        {
+          "name": "MakeTimeString handles seconds and fractional milliseconds",
+          "functions": ["STRINGHELPER_MakeTimeString"]
+        },
+        {
+          "name": "MakeTimeTable returns the retail table type",
+          "functions": ["STRINGHELPER_MakeTimeTable"],
+          "known_gap": "Retail decomp returns a GM table; OpenEgg still returns a minutes:seconds string because the retail table schema is unresolved."
+        },
+        {
+          "name": "SortAscending sorts string keys or values",
+          "functions": ["STRINGHELPER_SortAscending"]
+        },
+        {
+          "name": "SortAscending reads selector only for exactly two integer arguments",
+          "functions": ["STRINGHELPER_SortAscending"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+global Check=function(name,ok) {
+    if (ok) { GameSystem.trace(name+" PASS"); }
+    else { GameSystem.trace(name+" FAIL"); }
+};
+
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function() {},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+
+            Check("MakeTimeString handles seconds and fractional milliseconds",
+                STRINGHELPER_MakeTimeString(0)=="0:00" &&
+                STRINGHELPER_MakeTimeString(65000)=="1:05" &&
+                STRINGHELPER_MakeTimeString(65000.9)=="1:05" &&
+                STRINGHELPER_MakeTimeString(125000)=="2:05");
+
+            Check("MakeTimeTable returns the retail table type",
+                typeName(STRINGHELPER_MakeTimeTable(65000))=="table");
+
+            local source=table();
+            source["zeta"]="beta";
+            source["alpha"]="alpha";
+            source["mu"]="delta";
+            local keys=STRINGHELPER_SortAscending(source,0);
+            local values=STRINGHELPER_SortAscending(source,1);
+            Check("SortAscending sorts string keys or values",
+                keys.size==3 && keys[0]=="alpha" && keys[1]=="mu" && keys[2]=="zeta" &&
+                values.size==3 && values[0]=="alpha" && values[1]=="beta" && values[2]=="delta");
+
+            local wrongType=STRINGHELPER_SortAscending(source,0.0);
+            local extraArgs=STRINGHELPER_SortAscending(source,0,"ignored");
+            Check("SortAscending reads selector only for exactly two integer arguments",
+                wrongType[0]=="alpha" && wrongType[1]=="beta" &&
+                extraArgs[0]=="alpha" && extraArgs[1]=="beta");
+        });
+};
