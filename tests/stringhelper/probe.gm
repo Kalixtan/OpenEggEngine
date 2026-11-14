@@ -111,5 +111,47 @@ global Main=function(p) {
                 STRINGHELPER_IsUppercase(65)==1 && STRINGHELPER_IsAlphanumeric(57)==1 &&
                 STRINGHELPER_IsWhitespace(32)==1 && STRINGHELPER_IsWhitespace(" ")==1 &&
                 STRINGHELPER_IsWhitespace("ab")==0);
+
+            Check("ConvertToInt handles decimal and invalid strings",
+                STRINGHELPER_ConvertToInt("-123")==-123 &&
+                STRINGHELPER_ConvertToInt("bad")==null);
+
+            Check("ConvertToReal handles decimal and invalid strings",
+                STRINGHELPER_ConvertToReal("-1.25")==-1.25 &&
+                STRINGHELPER_ConvertToReal("bad")==null);
+
+            Check("ConvertMSStringToSecondInt returns whole seconds",
+                STRINGHELPER_ConvertMSStringToSecondInt("12345")==12 &&
+                STRINGHELPER_ConvertMSStringToSecondInt("bad")==null);
+
+            Check("Hex conversion reads and writes uppercase digits",
+                STRINGHELPER_ConvertHexStringToInt("FF")==255 &&
+                STRINGHELPER_MakeHexString(255)=="FF");
+
+            Check("Occurrence helpers return one-based matches",
+                STRINGHELPER_GetFirstOccurrence("a","banana")==2 &&
+                STRINGHELPER_GetLastOccurrence("a","banana")==6 &&
+                STRINGHELPER_GetFirstOccurrence("z","banana")==0 &&
+                STRINGHELPER_GetLastOccurrence("z","banana")==0);
+
+            Check("StringHelper_GetLength reads GameMonkey byte length",
+                STRINGHELPER_GetLength("abc")==3 && STRINGHELPER_GetLength("")==0);
+
+            Check("StringHelper prefix tests match case and spacing rules",
+                STRINGHELPER_BeginsWith("prefix","pre")==1 &&
+                STRINGHELPER_BeginsWith("pre","prefix")==0 &&
+                STRINGHELPER_BeginsWithSkipSpaceNoCase(" \tHeLLo","hello")==1 &&
+                STRINGHELPER_BeginsWithSkipSpaceNoCase("hello","hellish")==0);
+
+            Check("Whitespace helper accepts blank text only",
+                STRINGHELPER_IsEntireStringWhitespace(" \t\n")==1 &&
+                STRINGHELPER_IsEntireStringWhitespace(" x ")==0);
+
+            Check("StringHelper transformations preserve expected text",
+                STRINGHELPER_MakeLowercase("AbC")=="abc" &&
+                STRINGHELPER_MakeUppercase("AbC")=="ABC" &&
+                STRINGHELPER_FormatLevelName("a/b^c{d}")=="a b c d" &&
+                STRINGHELPER_StringCompare("alpha","beta")<0 &&
+                STRINGHELPER_StringCompare("same","same")==0);
         });
 };

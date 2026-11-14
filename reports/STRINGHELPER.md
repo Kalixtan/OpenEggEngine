@@ -1,15 +1,15 @@
 # Test report
 
-Generated: 2026-11-14 21:26 UTC
+Generated: 2026-11-14 21:30 UTC
 Suite: stringhelper
 Engine: `OpenEgg`
-Result: **31/31 checks passed (100%); 0 known gaps**
+Result: **40/40 checks passed (100%); 0 known gaps**
 
 Scores count passing test cases. They do not measure total engine completeness. One integration case may count for several functions.
 
 | System | Section | Passed | Total | Rate |
 | --- | --- | ---: | ---: | ---: |
-| Stringhelper | Formatting helpers | 12 | 12 | 100% |
+| Stringhelper | Formatting helpers | 21 | 21 | 100% |
 | Stringhelper | GameMonkey string methods | 19 | 19 | 100% |
 
 ## Functions
@@ -17,35 +17,35 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | Function | Passed | Cases | Score | Status |
 | --- | ---: | ---: | ---: | --- |
 | `STRINGHELPER_Backspace` | 1 | 1 | 100% | PASS |
-| `STRINGHELPER_BeginsWith` | 0 | 0 | — | untested |
-| `STRINGHELPER_BeginsWithSkipSpaceNoCase` | 0 | 0 | — | untested |
+| `STRINGHELPER_BeginsWith` | 1 | 1 | 100% | PASS |
+| `STRINGHELPER_BeginsWithSkipSpaceNoCase` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_Char` | 0 | 0 | — | untested |
-| `STRINGHELPER_ConvertHexStringToInt` | 0 | 0 | — | untested |
-| `STRINGHELPER_ConvertMSStringToSecondInt` | 0 | 0 | — | untested |
-| `STRINGHELPER_ConvertToInt` | 0 | 0 | — | untested |
-| `STRINGHELPER_ConvertToReal` | 0 | 0 | — | untested |
+| `STRINGHELPER_ConvertHexStringToInt` | 1 | 1 | 100% | PASS |
+| `STRINGHELPER_ConvertMSStringToSecondInt` | 1 | 1 | 100% | PASS |
+| `STRINGHELPER_ConvertToInt` | 1 | 1 | 100% | PASS |
+| `STRINGHELPER_ConvertToReal` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_CopyAndSetChar` | 1 | 1 | 100% | PASS |
-| `STRINGHELPER_FormatLevelName` | 0 | 0 | — | untested |
+| `STRINGHELPER_FormatLevelName` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_GetChar` | 1 | 1 | 100% | PASS |
-| `STRINGHELPER_GetFirstOccurrence` | 0 | 0 | — | untested |
-| `STRINGHELPER_GetLastOccurrence` | 0 | 0 | — | untested |
-| `STRINGHELPER_GetLength` | 0 | 0 | — | untested |
+| `STRINGHELPER_GetFirstOccurrence` | 1 | 1 | 100% | PASS |
+| `STRINGHELPER_GetLastOccurrence` | 1 | 1 | 100% | PASS |
+| `STRINGHELPER_GetLength` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_GetSubString` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsAlpha` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsAlphanumeric` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsBackspace` | 1 | 1 | 100% | PASS |
-| `STRINGHELPER_IsEntireStringWhitespace` | 0 | 0 | — | untested |
+| `STRINGHELPER_IsEntireStringWhitespace` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsLowercase` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsNumeric` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsUppercase` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_IsWhitespace` | 1 | 1 | 100% | PASS |
-| `STRINGHELPER_MakeHexString` | 0 | 0 | — | untested |
-| `STRINGHELPER_MakeLowercase` | 0 | 0 | — | untested |
+| `STRINGHELPER_MakeHexString` | 1 | 1 | 100% | PASS |
+| `STRINGHELPER_MakeLowercase` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_MakeTimeString` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_MakeTimeTable` | 3 | 3 | 100% | PASS |
-| `STRINGHELPER_MakeUppercase` | 0 | 0 | — | untested |
+| `STRINGHELPER_MakeUppercase` | 1 | 1 | 100% | PASS |
 | `STRINGHELPER_SortAscending` | 2 | 2 | 100% | PASS |
-| `STRINGHELPER_StringCompare` | 0 | 0 | — | untested |
+| `STRINGHELPER_StringCompare` | 1 | 1 | 100% | PASS |
 | `String.AppendPath` | 1 | 1 | 100% | PASS |
 | `String.Compare` | 1 | 1 | 100% | PASS |
 | `String.CompareNoCase` | 1 | 1 | 100% | PASS |
@@ -92,6 +92,15 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | Stringhelper / Formatting helpers | GetChar and GetSubString use raw integer argument slots | PASS | local check |
 | Stringhelper / Formatting helpers | IsAlpha requires a one-byte string | PASS | local check |
 | Stringhelper / Formatting helpers | Character predicates use retail byte arguments | PASS | local check |
+| Stringhelper / Formatting helpers | ConvertToInt handles decimal and invalid strings | PASS | local check |
+| Stringhelper / Formatting helpers | ConvertToReal handles decimal and invalid strings | PASS | local check |
+| Stringhelper / Formatting helpers | ConvertMSStringToSecondInt returns whole seconds | PASS | local check |
+| Stringhelper / Formatting helpers | Hex conversion reads and writes uppercase digits | PASS | local check |
+| Stringhelper / Formatting helpers | Occurrence helpers return one-based matches | PASS | local check |
+| Stringhelper / Formatting helpers | StringHelper_GetLength reads GameMonkey byte length | PASS | local check |
+| Stringhelper / Formatting helpers | StringHelper prefix tests match case and spacing rules | PASS | local check |
+| Stringhelper / Formatting helpers | Whitespace helper accepts blank text only | PASS | local check |
+| Stringhelper / Formatting helpers | StringHelper transformations preserve expected text | PASS | local check |
 | Stringhelper / GameMonkey string methods | Server difficulty metadata converts through String.Int | PASS | local check |
 | Stringhelper / GameMonkey string methods | String slicing clamps indexes and lengths | PASS | local check |
 | Stringhelper / GameMonkey string methods | String slicing handles zero and past-end ranges | PASS | local check |
@@ -112,4 +121,4 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | Stringhelper / GameMonkey string methods | String GetPath can preserve trailing slash | PASS | local check |
 | Stringhelper / GameMonkey string methods | String GetPath returns empty when no directory exists | PASS | local check |
 
-The decomp confirms `STRINGHELPER_Char` exists in retail, but its saved wrapper returns one byte from an uninitialized local buffer. OpenEgg has no binding because that does not establish a usable contract. Formatter, numeric predicate, table layout, and byte-removal helper were traced from the PS3 disassembly. Only fourteen of the thirty StringHelper symbols have assertions. These are local checks, not retail output comparisons.
+The decomp confirms `STRINGHELPER_Char` exists in retail, but its saved wrapper returns one byte from an uninitialized local buffer. OpenEgg has no binding because that does not establish a usable contract. All other listed string methods have local assertions. These checks run against OpenEgg; they are not retail log comparisons.

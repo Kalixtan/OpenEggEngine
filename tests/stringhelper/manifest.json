@@ -58,6 +58,42 @@
             "STRINGHELPER_IsAlphanumeric",
             "STRINGHELPER_IsWhitespace"
           ]
+        },
+        {
+          "name": "ConvertToInt handles decimal and invalid strings",
+          "functions": ["STRINGHELPER_ConvertToInt"]
+        },
+        {
+          "name": "ConvertToReal handles decimal and invalid strings",
+          "functions": ["STRINGHELPER_ConvertToReal"]
+        },
+        {
+          "name": "ConvertMSStringToSecondInt returns whole seconds",
+          "functions": ["STRINGHELPER_ConvertMSStringToSecondInt"]
+        },
+        {
+          "name": "Hex conversion reads and writes uppercase digits",
+          "functions": ["STRINGHELPER_ConvertHexStringToInt", "STRINGHELPER_MakeHexString"]
+        },
+        {
+          "name": "Occurrence helpers return one-based matches",
+          "functions": ["STRINGHELPER_GetFirstOccurrence", "STRINGHELPER_GetLastOccurrence"]
+        },
+        {
+          "name": "StringHelper_GetLength reads GameMonkey byte length",
+          "functions": ["STRINGHELPER_GetLength"]
+        },
+        {
+          "name": "StringHelper prefix tests match case and spacing rules",
+          "functions": ["STRINGHELPER_BeginsWith", "STRINGHELPER_BeginsWithSkipSpaceNoCase"]
+        },
+        {
+          "name": "Whitespace helper accepts blank text only",
+          "functions": ["STRINGHELPER_IsEntireStringWhitespace"]
+        },
+        {
+          "name": "StringHelper transformations preserve expected text",
+          "functions": ["STRINGHELPER_MakeLowercase", "STRINGHELPER_MakeUppercase", "STRINGHELPER_FormatLevelName", "STRINGHELPER_StringCompare"]
         }
       ]
     },
