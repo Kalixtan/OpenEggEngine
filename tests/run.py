@@ -90,9 +90,9 @@ def make_report(suite, engine, entries, problems, inventory):
     gaps = sum(entry["result"] == "GAP" for entry in entries)
     lines = [
         "# Test report", "",
-        f"Generated: {now}  ",
-        f"Suite: {suite}  ",
-        f"Engine: `{engine.name}`  ",
+        f"Generated: {now}",
+        f"Suite: {suite}",
+        f"Engine: `{engine.name}`",
         f"Result: **{passed}/{len(entries)} checks passed ({percent(passed, len(entries))}); {gaps} known gaps**",
         "",
         "Scores count passing test cases. They do not measure total engine completeness."
@@ -143,9 +143,9 @@ def make_report(suite, engine, entries, problems, inventory):
     elif suite == "stringhelper":
         lines.extend(["", "The decomp confirms `STRINGHELPER_Char` exists in retail, but its saved "
                       "wrapper returns one byte from an uninitialized local buffer. OpenEgg has "
-                      "no binding because that does not establish a usable contract. The "
-                      "`MakeTimeTable` root key layout remains unresolved. The formatter, "
-                      "numeric predicate, and byte-removal helper were traced from the PS3 "
+                      "no binding because that does not establish a usable contract. "
+                      "Formatter, numeric predicate, table layout, and byte-removal "
+                      "helper were traced from the PS3 "
                       "disassembly. Only fourteen of the thirty StringHelper symbols have "
                       "assertions. These are local checks, not retail output comparisons.", ""])
     return "\n".join(lines)

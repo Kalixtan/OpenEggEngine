@@ -73,15 +73,30 @@ struct RetailTimeParts {
     int hundredths;
 };
 
-RetailTimeParts GetRetailTimeParts(gmint a_milliseconds) {
-    // Both retail wrappers take the absolute value and cap at 99:59.99.
+RetailTimeParts GetRetailTimeParts(gmint a_milliseconds, bool a_clampInput) {
     long long magnitude = a_milliseconds;
     if (magnitude < 0) magnitude = -magnitude;
-    magnitude = std::min<long long>(magnitude, 5999990);
+    if (a_clampInput) magnitude = std::min<long long>(magnitude, 5999990);
+
+    // Retail converts through single precision: ms * 0.001, then / 60.
+    // Keep each step rounded as float; integer division differs near some
+    // minute boundaries on the PS3 build.
+    const float milliseconds = static_cast<float>(magnitude);
+    volatile float seconds = milliseconds * 0.001f;
+    volatile float totalMinutes = seconds * (1.0f / 60.0f);
+    const int minutes = static_cast<int>(totalMinutes);
+    volatile float minuteFraction = totalMinutes - static_cast<float>(minutes);
+    volatile float secondValue = minuteFraction * 60.0f;
+    const int wholeSeconds = static_cast<int>(secondValue);
+
+    const long long elapsedSeconds = magnitude / 1000;
+    volatile float millisecondRemainder = milliseconds -
+        static_cast<float>(elapsedSeconds * 1000);
+    volatile float hundredthValue = millisecondRemainder * 0.1f;
     return {
-        static_cast<int>(magnitude / 60000),
-        static_cast<int>((magnitude / 1000) % 60),
-        static_cast<int>((magnitude % 1000) / 10),
+        a_clampInput ? minutes : std::min(minutes, 99),
+        wholeSeconds,
+        static_cast<int>(hundredthValue),
     };
 }
 
@@ -127,10 +142,11 @@ int GM_CDECL gmf_STRINGHELPER_ConvertToInt(gmThread* a_thread) {
 int GM_CDECL gmf_STRINGHELPER_MakeTimeTable(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     gmMachine* machine = a_thread->GetMachine();
-    const RetailTimeParts time = GetRetailTimeParts(ReadTimeMilliseconds(a_thread));
+    const RetailTimeParts time = GetRetailTimeParts(ReadTimeMilliseconds(a_thread), true);
     gmTableObject* result = a_thread->PushNewTable();
-    // The retail wrapper confirms a four-slot table and three child tables,
-    // each with an "untranslated" value. Root key layout remains unverified.
+    // Retail keys root table with 0=format and 1..3=component tables.
+    // Component order is minutes, seconds, hundredths; each child stores one
+    // string under "untranslated".
     gmStringObject* format = a_thread->PushNewString("%1:%2.%3");
     result->Set(machine, 0, gmVariable(format));
     a_thread->Pop();
@@ -281,11 +297,11 @@ int GM_CDECL gmf_STRINGHELPER_Backspace(gmThread* a_thread) {
  * @ingroup script_api
  * @brief `STRINGHELPER_MakeTimeString`
  * Script call: `STRINGHELPER_MakeTimeString(milliseconds: number) -> string`.
- * Formats milliseconds as `MM:SS.hh`, clamped to the retail maximum.
+ * Formats milliseconds as `MM:SS.hh`; minutes cap at 99.
  */
 int GM_CDECL gmf_STRINGHELPER_MakeTimeString(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
-    const RetailTimeParts time = GetRetailTimeParts(ReadTimeMilliseconds(a_thread));
+    const RetailTimeParts time = GetRetailTimeParts(ReadTimeMilliseconds(a_thread), false);
     const std::string result = FormatRetailTime(time);
     a_thread->PushNewString(result.c_str());
     return GM_OK;

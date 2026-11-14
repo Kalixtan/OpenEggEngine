@@ -15,10 +15,55 @@ global Main=function(p) {
                 STRINGHELPER_MakeTimeString(65000.9)=="01:05.00" &&
                 STRINGHELPER_MakeTimeString(125678)=="02:05.67" &&
                 STRINGHELPER_MakeTimeString(-65000)=="01:05.00" &&
-                STRINGHELPER_MakeTimeString(6000000)=="99:59.99");
+                STRINGHELPER_MakeTimeString(5639999)=="94:00.99" &&
+                STRINGHELPER_MakeTimeString(6000000)=="99:00.00" &&
+                STRINGHELPER_MakeTimeString(6061234)=="99:01.23");
 
-            Check("MakeTimeTable returns the retail table type",
-                typeName(STRINGHELPER_MakeTimeTable(65000))=="table");
+            local timeTable=STRINGHELPER_MakeTimeTable(65000);
+            Check("MakeTimeTable returns retail table and string types",
+                typeName(timeTable)=="table" && tableCount(timeTable)==4 &&
+                typeName(timeTable[0])=="string" && timeTable[0]=="%1:%2.%3" &&
+                typeName(timeTable[1])=="table" && typeName(timeTable[2])=="table" &&
+                typeName(timeTable[3])=="table" &&
+                tableCount(timeTable[1])==1 && tableCount(timeTable[2])==1 &&
+                tableCount(timeTable[3])==1 &&
+                typeName(timeTable[1].untranslated)=="string" &&
+                typeName(timeTable[2].untranslated)=="string" &&
+                typeName(timeTable[3].untranslated)=="string");
+
+            Check("MakeTimeTable formats minute second and hundredth slots",
+                timeTable[1].untranslated=="01" &&
+                timeTable[2].untranslated=="05" &&
+                timeTable[3].untranslated=="00");
+
+            local zeroTime=STRINGHELPER_MakeTimeTable(0);
+            local minuteEdge=STRINGHELPER_MakeTimeTable(59999);
+            local minuteCarry=STRINGHELPER_MakeTimeTable(60000);
+            local maxTime=STRINGHELPER_MakeTimeTable(6000000);
+            local negativeTime=STRINGHELPER_MakeTimeTable(-65000);
+            local fractionalTime=STRINGHELPER_MakeTimeTable(125678.9);
+            local floatEdge=STRINGHELPER_MakeTimeTable(5639999);
+            local beforeFloatEdge=STRINGHELPER_MakeTimeTable(5639998);
+            Check("MakeTimeTable handles zero boundaries clamp and sign",
+                zeroTime[1].untranslated=="00" && zeroTime[2].untranslated=="00" &&
+                zeroTime[3].untranslated=="00" &&
+                minuteEdge[1].untranslated=="00" && minuteEdge[2].untranslated=="59" &&
+                minuteEdge[3].untranslated=="99" &&
+                minuteCarry[1].untranslated=="01" && minuteCarry[2].untranslated=="00" &&
+                minuteCarry[3].untranslated=="00" &&
+                maxTime[1].untranslated=="99" && maxTime[2].untranslated=="59" &&
+                maxTime[3].untranslated=="99" &&
+                negativeTime[1].untranslated=="01" && negativeTime[2].untranslated=="05" &&
+                negativeTime[3].untranslated=="00" &&
+                fractionalTime[1].untranslated=="02" &&
+                fractionalTime[2].untranslated=="05" &&
+                fractionalTime[3].untranslated=="67" &&
+                beforeFloatEdge[1].untranslated=="93" &&
+                beforeFloatEdge[2].untranslated=="59" &&
+                beforeFloatEdge[3].untranslated=="99" &&
+                floatEdge[1].untranslated=="94" &&
+                floatEdge[2].untranslated=="00" &&
+                floatEdge[3].untranslated=="99");
 
             Check("IsNumeric accepts only nonempty decimal digit strings",
                 STRINGHELPER_IsNumeric("12345")==1 &&

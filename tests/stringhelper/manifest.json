@@ -10,7 +10,15 @@
           "functions": ["STRINGHELPER_MakeTimeString"]
         },
         {
-          "name": "MakeTimeTable returns the retail table type",
+          "name": "MakeTimeTable returns retail table and string types",
+          "functions": ["STRINGHELPER_MakeTimeTable"]
+        },
+        {
+          "name": "MakeTimeTable formats minute second and hundredth slots",
+          "functions": ["STRINGHELPER_MakeTimeTable"]
+        },
+        {
+          "name": "MakeTimeTable handles zero boundaries clamp and sign",
           "functions": ["STRINGHELPER_MakeTimeTable"]
         },
         {
