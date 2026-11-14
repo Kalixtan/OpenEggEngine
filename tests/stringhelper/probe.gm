@@ -9,6 +9,10 @@ global Main=function(p) {
             if (this.ran) { return; }
             this.ran=1;
 
+            local levelMetadata=table(difficulty="3");
+            Check("Server difficulty metadata converts through String.Int",
+                levelMetadata.difficulty.Int()==3 && "3.5".Float()==3.5);
+
             Check("MakeTimeString uses the retail format and clamps time",
                 STRINGHELPER_MakeTimeString(0)=="00:00.00" &&
                 STRINGHELPER_MakeTimeString(65000)=="01:05.00" &&

@@ -83,8 +83,17 @@ file(GLOB GM_SOURCES ${GM_SRC_DIR}/*.cpp)
 list(REMOVE_ITEM GM_SOURCES ${GM_SRC_DIR}/gmDebugger.cpp) # needs a net-debugger frontend we don't have
 
 add_library(gmscript STATIC ${GM_SOURCES})
+target_sources(gmscript PRIVATE
+  ${CMAKE_SOURCE_DIR}/vendor/gmscript/gmsrc/src/binds/gmHelpers.cpp
+  ${CMAKE_SOURCE_DIR}/vendor/gmscript/gmsrc/src/binds/gmMathLib.cpp
+  ${CMAKE_SOURCE_DIR}/vendor/gmscript/gmsrc/src/binds/gmStringLib.cpp
+)
 # Put the platform config first so gmConfig.h finds it.
-target_include_directories(gmscript BEFORE PUBLIC ${GE3_GMSCRIPT_PLATFORM_DIR} ${GM_SRC_DIR})
+target_include_directories(gmscript BEFORE PUBLIC
+  ${GE3_GMSCRIPT_PLATFORM_DIR}
+  ${GM_SRC_DIR}
+  ${CMAKE_SOURCE_DIR}/vendor/gmscript/gmsrc/src/binds
+)
 # The Windows scanner uses CRT isatty/fileno replacements.
 if(WIN32)
   target_compile_definitions(gmscript PRIVATE YY_NO_UNISTD_H)

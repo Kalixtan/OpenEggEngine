@@ -11,6 +11,27 @@
 
 #include "gmConfig.h"
 #include "gmStringLib.h"
+#include <cctype>
+
+#if !defined(_WIN32)
+static char * strlwr(char * a_text)
+{
+  for(char * cursor = a_text; *cursor; ++cursor)
+  {
+    *cursor = (char)std::tolower((unsigned char)*cursor);
+  }
+  return a_text;
+}
+
+static char * strupr(char * a_text)
+{
+  for(char * cursor = a_text; *cursor; ++cursor)
+  {
+    *cursor = (char)std::toupper((unsigned char)*cursor);
+  }
+  return a_text;
+}
+#endif
 #include "gmThread.h"
 #include "gmMachine.h"
 #include "gmHelpers.h"

@@ -1,15 +1,15 @@
 # Test report
 
-Generated: 2026-11-14 18:58 UTC
+Generated: 2026-11-14 21:08 UTC
 Suite: stringhelper
 Engine: `OpenEgg`
-Result: **12/12 checks passed (100%); 0 known gaps**
+Result: **13/13 checks passed (100%); 0 known gaps**
 
 Scores count passing test cases. They do not measure total engine completeness. One integration case may count for several functions.
 
 | System | Section | Passed | Total | Rate |
 | --- | --- | ---: | ---: | ---: |
-| Stringhelper | Formatting helpers | 12 | 12 | 100% |
+| Stringhelper | Formatting helpers | 13 | 13 | 100% |
 
 ## Functions
 
@@ -45,11 +45,14 @@ Scores count passing test cases. They do not measure total engine completeness. 
 | `STRINGHELPER_MakeUppercase` | 0 | 0 | — | untested |
 | `STRINGHELPER_SortAscending` | 2 | 2 | 100% | PASS |
 | `STRINGHELPER_StringCompare` | 0 | 0 | — | untested |
+| `String.Float` | 1 | 1 | 100% | PASS |
+| `String.Int` | 1 | 1 | 100% | PASS |
 
 ## Checks
 
 | System / section | Test | Result | Retail basis |
 | --- | --- | --- | --- |
+| Stringhelper / Formatting helpers | Server difficulty metadata converts through String.Int | PASS | local check |
 | Stringhelper / Formatting helpers | MakeTimeString uses the retail format and clamps time | PASS | local check |
 | Stringhelper / Formatting helpers | MakeTimeTable returns retail table and string types | PASS | local check |
 | Stringhelper / Formatting helpers | MakeTimeTable formats minute second and hundredth slots | PASS | local check |

@@ -6,6 +6,10 @@
       "script": "probe.gm",
       "cases": [
         {
+          "name": "Server difficulty metadata converts through String.Int",
+          "functions": ["String.Int", "String.Float"]
+        },
+        {
           "name": "MakeTimeString uses the retail format and clamps time",
           "functions": ["STRINGHELPER_MakeTimeString"]
         },

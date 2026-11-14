@@ -1,5 +1,6 @@
 #include "gm_vm.h"
 #include "gmMachineLib.h"
+#include "gmStringLib.h"
 #include "gmFunctionObject.h"
 #include "gmTableObject.h"
 #include "system_config.h"
@@ -150,6 +151,7 @@ GmVm::GmVm()
         m_machine.m_line = TraceEditorLimitLine;
 
     gmMachineLib(&m_machine);
+    gmBindStringLib(&m_machine);
     const auto& config = SystemConfig::Get();
     if (!config.networkTicketHex.empty() && !config.networkTicketFile.empty()) {
         std::fprintf(stderr, "network: configure psn_ticket_hex or ticket_file, not both\n");
