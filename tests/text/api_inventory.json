@@ -1,5 +1,6 @@
 [
   "drawList.print",
+  "drawList.printArray",
   "drawList.splitString",
   "PRINTINFO",
   "Video.createDrawList",

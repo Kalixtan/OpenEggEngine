@@ -135,6 +135,11 @@ def make_report(suite, engine, entries, problems, inventory):
         lines.extend(["", "Known safety differences: retail crashes when moving the final trigger; "
                       "OpenEgg avoids that. After `clearTriggers()`, OpenEgg keeps a safe copy "
                       "of the current trigger so existing cursors match retail.", ""])
+    elif suite == "text":
+        lines.extend(["", "These checks are local assertions, not retail output comparisons. "
+                      "Exact font raster/shader output, indexed FSA palettes, animated RGB "
+                      "transparency and timing, and region-specific accept/cancel mapping "
+                      "remain unverified.", ""])
     return "\n".join(lines)
 
 

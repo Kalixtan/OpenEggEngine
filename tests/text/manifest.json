@@ -18,6 +18,22 @@
           "functions": ["drawList.splitString"]
         },
         {
+          "name": "Named icon stays atomic when wrapping",
+          "functions": ["drawList.splitString"]
+        },
+        {
+          "name": "Print keeps explicit breaks without bounds",
+          "functions": ["drawList.print", "PRINTINFO"]
+        },
+        {
+          "name": "Print array joins items before drawing",
+          "functions": ["drawList.printArray", "PRINTINFO"]
+        },
+        {
+          "name": "Print keeps strings longer than 512 bytes",
+          "functions": ["drawList.print", "PRINTINFO"]
+        },
+        {
           "name": "Print uses splitter line count",
           "functions": ["drawList.print", "drawList.splitString", "PRINTINFO"]
         },

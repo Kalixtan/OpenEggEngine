@@ -29,6 +29,33 @@ global Main=function(p) {
                 breaks[2].startIndex==5 && breaks[2].length==1 &&
                 breaks[3]==null);
 
+            local iconText="{L1}A";
+            local iconRanges=drawList.splitString(0.0,0.9,iconText,1.0);
+            Check("Named icon stays atomic when wrapping",
+                iconRanges[0].length==0 &&
+                iconRanges[1].startIndex==0 && iconRanges[1].length==4 &&
+                iconRanges[2].startIndex==4 && iconRanges[2].length==1);
+
+            local explicitInfo=PRINTINFO();
+            drawList.print(0.0,0.0,"A\nB",1.0,0,explicitInfo);
+            Check("Print keeps explicit breaks without bounds",
+                explicitInfo.numLines==2);
+
+            local arrayText=table();
+            arrayText[0]="A";
+            arrayText[1]="B";
+            local arrayInfo=PRINTINFO();
+            drawList.printArray(0.0,0.0,arrayText,1.0,0,arrayInfo);
+            Check("Print array joins items before drawing",
+                arrayInfo.numLines==1);
+
+            local longValue="";
+            for (i=0; i<1200; i+=1) { longValue+="M"; }
+            local longInfo=PRINTINFO();
+            drawList.print(0.0,0.0,longValue,1.0,0,longInfo);
+            Check("Print keeps strings longer than 512 bytes",
+                longInfo.right>500);
+
             local longText="MMMMMMMMMMMMMMMMMMMMMMMM";
             local wrapped=drawList.splitString(0.0,2.0,longText,1.0);
             local rangeCount=0;

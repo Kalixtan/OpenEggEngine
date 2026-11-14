@@ -341,7 +341,28 @@ std::vector<RetailTextRange> SplitTextLikeRetailImpl(const BitmapFont* a_font,
     float fullWidth = 0.0f;
     while (offset < a_text.size()) {
         const size_t start = offset;
-        const uint32_t cp = DecodeSplitGlyph(a_text, offset);
+        uint32_t cp = 0;
+        if (a_text.compare(offset, 5, "{(R)}") == 0) {
+            cp = 0x00ae;
+            offset += 5;
+        } else if (a_text[offset] == '{') {
+            const size_t close = a_text.find('}', offset + 1);
+            bool specialToken = close != std::string::npos && close - offset <= 24 && close > offset + 1;
+            for (size_t i = offset + 1; specialToken && i < close; ++i) {
+                const unsigned char c = static_cast<unsigned char>(a_text[i]);
+                specialToken = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+            }
+            if (specialToken) {
+                // Brace names are converted to one extFont glyph by the font
+                // renderer; keep them atomic and use the recovered icon advance.
+                cp = 0x2510;
+                offset = close + 1;
+            } else {
+                cp = DecodeSplitGlyph(a_text, offset);
+            }
+        } else {
+            cp = DecodeSplitGlyph(a_text, offset);
+        }
         const float advance = a_font ? a_font->GetRetailGlyphAdvance(cp) : 0.0f;
         const float scaled = static_cast<float>(static_cast<double>(advance) * a_scale);
         glyphs.push_back({cp, start, offset, scaled});

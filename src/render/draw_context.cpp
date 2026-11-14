@@ -321,7 +321,9 @@ namespace {
 std::string ResolveFormatArg(gmMachine* a_machine, const gmVariable& a_arg) {
     char buf[256];
     if (a_arg.m_type == GM_STRING) {
-        return a_arg.AsString(a_machine, buf, sizeof(buf));
+        gmStringObject* object = static_cast<gmStringObject*>(
+            a_machine->GetObject(a_arg.m_value.m_ref));
+        return object ? object->GetString() : std::string();
     }
     if (a_arg.m_type == GM_INT || a_arg.m_type == GM_FLOAT) {
         return a_arg.AsString(a_machine, buf, sizeof(buf));
@@ -353,8 +355,8 @@ std::string SubstituteFormatArgs(const std::string& a_fmt, const std::vector<std
     return out;
 }
 
-void ReplaceCreditNameForDisplay(std::string& a_text) {
-    // TRANS RIGHTS!!!! This OpenEgg-only display change is not in retail; added out of respect for Jessica Mak.
+void AKindFix(std::string& a_text) {
+	 // Fixing a "typo" in the credits...
     constexpr char kOldName[] = "Jonathan Mak";
     constexpr char kNewName[] = "Jessica Mak";
     size_t at = 0;
@@ -399,16 +401,22 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
     std::string text;
     const gmVariable& textParam = a_thread->Param(textIdx);
     if (textParam.m_type == GM_STRING) {
-        char textBuf[512];
-        text = textParam.AsString(a_thread->GetMachine(), textBuf, sizeof(textBuf));
+        gmStringObject* object = static_cast<gmStringObject*>(
+            a_thread->GetMachine()->GetObject(textParam.m_value.m_ref));
+        if (object) text = object->GetString();
     } else if (textParam.m_type == GM_TABLE) {
         gmTableObject* textTable = (gmTableObject*)a_thread->GetMachine()->GetObject(textParam.m_value.m_ref);
+        if (!textTable) {
+            GM_EXCEPTION_MSG("print: invalid text table");
+            return GM_EXCEPTION;
+        }
         gmVariable inner = textTable->Get(a_thread->GetMachine(), "untranslated");
         bool isUntranslatedWrapper = (inner.m_type == GM_STRING);
         if (!isUntranslatedWrapper) inner = textTable->Get((gmint)0);
         if (inner.m_type == GM_STRING) {
-            char textBuf[512];
-            text = inner.AsString(a_thread->GetMachine(), textBuf, sizeof(textBuf));
+            gmStringObject* object = static_cast<gmStringObject*>(
+                a_thread->GetMachine()->GetObject(inner.m_value.m_ref));
+            if (object) text = object->GetString();
         }
         // {fmt, arg1, arg2, ...} substitution table -- see
         // SubstituteFormatArgs's header comment. Only the bare-positional
@@ -477,7 +485,7 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
     // a recorded print() must see whatever transform is ambient when it's
     // actually replayed, not whatever it was when the list was built.
 
-    constexpr float kLineSpacing = 1.0f; // see WrapText's header comment
+    constexpr float kLineSpacing = 1.0f;
     float heightConsumed = 0.0f;
 
     EngineContext& engineCtx = GetEngineContext();
@@ -485,11 +493,13 @@ int PrintImpl(gmThread* a_thread, bool a_translate) {
         std::string drawn = (a_translate && engineCtx.localization)
             ? engineCtx.localization->Translate(text)
             : std::string(text);
-        ReplaceCreditNameForDisplay(drawn);
+        AKindFix(drawn);
 
-        std::vector<std::string> lines = (hasWrapWidth && wrapWidth > 0.0f)
-            ? WrapText(*engineCtx.currentFont, drawn, scale, wrapWidth)
-            : std::vector<std::string>{drawn};
+        // A negative width disables soft wrapping while preserving explicit
+        // CR/LF/caret breaks. Retail print handles those even without bounds.
+        std::vector<std::string> lines = WrapText(
+            *engineCtx.currentFont, drawn,
+            scale, hasWrapWidth && wrapWidth > 0.0f ? wrapWidth : -1.0f);
         heightConsumed = (float)lines.size() * scale * kLineSpacing;
 
         // The actual glyph draws -- deferred if this print() was called on
@@ -580,26 +590,67 @@ int PrintArrayImpl(gmThread* a_thread) {
     if (numLeading >= 3) localZ = a_thread->ParamFloatOrInt(idx++, 0.0f);
 
     gmVariable arrayParam = a_thread->Param(idx++);
-    std::vector<std::string> lines;
-    if (arrayParam.m_type == GM_TABLE) {
-        gmTableObject* arrTable = (gmTableObject*)a_thread->GetMachine()->GetObject(arrayParam.m_value.m_ref);
-        for (gmint i = 0; ; ++i) {
-            gmVariable elem = arrTable->Get(i);
-            if (elem.m_type == GM_NULL) break;
-            if (elem.m_type == GM_STRING) {
-                char buf[256];
-                std::string line = elem.AsString(a_thread->GetMachine(), buf, sizeof(buf));
-                ReplaceCreditNameForDisplay(line);
-                lines.push_back(std::move(line));
-            } else {
-                lines.push_back(std::string());
-            }
-        }
+    if (arrayParam.m_type != GM_TABLE) {
+        GM_EXCEPTION_MSG("printArray: expecting a table argument after the leading position numbers");
+        return GM_EXCEPTION;
     }
-
+    gmTableObject* arrTable = static_cast<gmTableObject*>(
+        a_thread->GetMachine()->GetObject(arrayParam.m_value.m_ref));
+    if (!arrTable) return GM_EXCEPTION;
     float scale = (idx < n) ? a_thread->ParamFloatOrInt(idx++, 1.0f) : 1.0f;
     int align = (idx < n) ? a_thread->ParamInt(idx++, 0) : 0;
     gmVariable printInfo = (idx < n) ? a_thread->Param(idx++) : gmVariable::s_null;
+
+    std::string text;
+    EngineContext& engineCtx = GetEngineContext();
+    for (gmint i = 0; ; ++i) {
+        gmVariable elem = arrTable->Get(i);
+        if (elem.m_type == GM_NULL) break;
+        std::string item;
+        if (elem.m_type == GM_STRING) {
+            gmStringObject* object = static_cast<gmStringObject*>(
+                a_thread->GetMachine()->GetObject(elem.m_value.m_ref));
+            if (object) item = object->GetString();
+        } else if (elem.m_type == GM_TABLE) {
+            // printArray uses the same format-table convention as print.
+            gmTableObject* itemTable = static_cast<gmTableObject*>(
+                a_thread->GetMachine()->GetObject(elem.m_value.m_ref));
+            if (itemTable) {
+                gmVariable value = itemTable->Get(a_thread->GetMachine(), "untranslated");
+                const bool untranslated = value.m_type == GM_STRING;
+                if (!untranslated) value = itemTable->Get((gmint)0);
+                if (value.m_type == GM_STRING) {
+                    gmStringObject* object = static_cast<gmStringObject*>(
+                        a_thread->GetMachine()->GetObject(value.m_value.m_ref));
+                    if (object) item = object->GetString();
+                }
+                if (!untranslated && item.find('%') != std::string::npos) {
+                    std::vector<std::string> args;
+                    for (gmint arg = 1; ; ++arg) {
+                        gmVariable argValue = itemTable->Get(arg);
+                        if (argValue.m_type == GM_NULL) break;
+                        args.push_back(ResolveFormatArg(a_thread->GetMachine(), argValue));
+                    }
+                    if (!args.empty()) item = SubstituteFormatArgs(item, args);
+                }
+            }
+        } else if (elem.m_type == GM_INT || elem.m_type == GM_FLOAT) {
+            char buffer[64];
+            item = elem.AsString(a_thread->GetMachine(), buffer, sizeof(buffer));
+        }
+        if (engineCtx.localization) item = engineCtx.localization->Translate(item);
+        AKindFix(item);
+        text += item;
+        // Retail's printArray appends a space after each formatted item,
+        // then sends the combined buffer through the normal text drawer.
+        text.push_back(' ');
+    }
+
+    std::vector<std::string> lines;
+    if (engineCtx.currentFont && !text.empty()) {
+        lines = WrapText(*engineCtx.currentFont, text, scale,
+                         hasBounds && rightBound > leftOrX ? rightBound - leftOrX : -1.0f);
+    }
 
     float x = leftOrX;
     if (hasBounds) {
@@ -607,14 +658,21 @@ int PrintArrayImpl(gmThread* a_thread) {
         else if (align == 1) x = rightBound;
     }
 
-    constexpr float kLineSpacing = 1.15f;
+    constexpr float kLineSpacing = 1.0f;
     float heightConsumed = (float)lines.size() * scale * kLineSpacing;
 
-    EngineContext& engineCtx = GetEngineContext();
     if (engineCtx.currentFont && !lines.empty()) {
         BitmapFont* font = engineCtx.currentFont;
         Renderer* renderer = engineCtx.renderer;
-        DC_RecordOrRun(a_thread, [font, renderer, lines, x, y, localZ, scale, align] {
+        bool shouldDrawText = true;
+        if (printInfo.m_type == GM_TABLE) {
+            gmTableObject* info = static_cast<gmTableObject*>(
+                a_thread->GetMachine()->GetObject(printInfo.m_value.m_ref));
+            const gmVariable drawFlag = info->Get(a_thread->GetMachine(), "shouldDraw");
+            if (drawFlag.m_type == GM_INT && drawFlag.m_value.m_int == 0) shouldDrawText = false;
+            if (drawFlag.m_type == GM_FLOAT && drawFlag.m_value.m_float == 0.0f) shouldDrawText = false;
+        }
+        if (shouldDrawText) DC_RecordOrRun(a_thread, [font, renderer, lines, x, y, localZ, scale, align] {
             DrawContext& ctx2 = GetDrawContext();
             const DrawContext::Mat& top = ctx2.Top();
             float z = top.z + localZ;

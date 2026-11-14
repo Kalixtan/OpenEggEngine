@@ -495,6 +495,9 @@ const BitmapFont* BitmapFont::FontForGlyph(int a_charCode) const {
 }
 
 float BitmapFont::GetRetailGlyphAdvance(uint32_t a_codepoint) const {
+    // Retail creates U+2500..U+25FF glyph records from extFont assets. The
+    // recovered square-icon advance is width (.98) plus spacing (.08).
+    if (a_codepoint >= 0x2500 && a_codepoint <= 0x25ff) return 1.06f;
     const int code = static_cast<int>(a_codepoint);
     const BitmapFont* font = FontForGlyph(code);
     const Glyph* glyph = font ? font->FindGlyph(code) : nullptr;
