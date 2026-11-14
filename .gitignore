@@ -45,3 +45,6 @@ __pycache__/
 CMakeSettings.json
 imgui.ini
 settings.ini
+
+# Local release packages
+/dist/

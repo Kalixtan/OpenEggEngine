@@ -1,7 +1,7 @@
 # OpenEgg
 
-> **Very early development. Not a release.** OpenEgg is incomplete and may not
-> build or run. Full game playability has not been established.
+> **Alpha-01: very early public test build.** OpenEgg is incomplete, may have
+> bugs, and full game playability has not been established.
 
 OpenEgg is an independent reimplementation of the GameEngine3 runtime used by
 *Sound Shapes*. The goal is native desktop play with retail scripts and assets.
@@ -34,7 +34,12 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-The executable is `build/OpenEgg`. Place your game archives beside it to run.
+The executable is `build/OpenEgg`. For a release build, use the matching
+platform ZIP. Copy `OpenEgg.ini.example` to `OpenEgg.ini`, then place your own
+`game_data.psarc` and optional update archive beside the executable. Extracted
+`game_data/` and update folders can be used instead. No game files are included.
+The Linux build needs SDL2, GLEW, FreeType, OpenGL, libcurl, and zlib runtime
+libraries from your distribution.
 See [PLATFORM_BACKENDS.md](PLATFORM_BACKENDS.md) for other build options.
 
 ## Online sign-in

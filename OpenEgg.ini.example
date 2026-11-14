@@ -1,6 +1,4 @@
-; Copy this file to the executable's folder as OpenEgg.ini.
-; The Linux build reads engine/build/OpenEgg.ini; the Windows build reads
-; engine/build-windows/OpenEgg.ini. Paths are always beside the executable.
+; Copy this file to OpenEgg.ini beside the executable.
 
 [system]
 ; Supported: windows/win32, osx, ps3, ps4, ngp/vita, vitatv (or IDs 0..5).
