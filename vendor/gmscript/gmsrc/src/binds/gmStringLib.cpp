@@ -12,6 +12,7 @@
 #include "gmConfig.h"
 #include "gmStringLib.h"
 #include <cctype>
+#include <string>
 
 #if !defined(_WIN32)
 static char * strlwr(char * a_text)
@@ -190,47 +191,37 @@ static int GM_CDECL gmfStringIsEmpty(gmThread * a_thread)
 
 static int GM_CDECL gmfStringCompare(gmThread * a_thread)
 {
-  GM_CHECK_NUM_PARAMS(1);
+  const gmVariable * var = a_thread->GetThis();
+  GM_ASSERT(var->m_type == GM_STRING);
 
-  if(a_thread->ParamType(0) == GM_STRING)
+  gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
+  const char* thisStr = (const char *) *strObj;
+  const char* otherStr = "";
+  if(a_thread->GetNumParams() > 0 && a_thread->ParamType(0) == GM_STRING)
   {
-    const gmVariable * var = a_thread->GetThis();
-  
-    GM_ASSERT(var->m_type == GM_STRING);
-
-    gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
-    const char* thisStr = (const char *) *strObj;
-    const char* otherStr = a_thread->ParamString(0);
-
-    a_thread->PushInt(strcmp(thisStr, otherStr));
-  
-    return GM_OK;
+    otherStr = a_thread->ParamString(0);
   }
 
-  return GM_EXCEPTION;
+  a_thread->PushInt(strcmp(thisStr, otherStr));
+  return GM_OK;
 }
 
 
 static int GM_CDECL gmfStringCompareNoCase(gmThread * a_thread)
 {
-  GM_CHECK_NUM_PARAMS(1);
+  const gmVariable * var = a_thread->GetThis();
+  GM_ASSERT(var->m_type == GM_STRING);
 
-  if(a_thread->ParamType(0) == GM_STRING)
+  gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
+  const char* thisStr = (const char *) *strObj;
+  const char* otherStr = "";
+  if(a_thread->GetNumParams() > 0 && a_thread->ParamType(0) == GM_STRING)
   {
-    const gmVariable * var = a_thread->GetThis();
-  
-    GM_ASSERT(var->m_type == GM_STRING);
-
-    gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
-    const char* thisStr = (const char *) *strObj;
-    const char* otherStr = a_thread->ParamString(0);
-
-    a_thread->PushInt(_gmstricmp(thisStr, otherStr));
-  
-    return GM_OK;
+    otherStr = a_thread->ParamString(0);
   }
 
-  return GM_EXCEPTION;
+  a_thread->PushInt(_gmstricmp(thisStr, otherStr));
+  return GM_OK;
 }
 
 
@@ -393,6 +384,13 @@ static int GM_CDECL gmfStringAppendPath(gmThread * a_thread)
     }
 
     int newLength = curLength + appLength;
+
+    if(newLength == 0)
+    {
+      buffer[0] = 0;
+      a_thread->PushNewString(buffer, 0);
+      return GM_OK;
+    }
   
     if(PutTrailingSlash && (newLength > 0)) //Only add slash if string is not empty
     {
@@ -802,24 +800,9 @@ static int GM_CDECL gmStringTrimRight(gmThread * a_thread)
   GM_ASSERT(var->m_type == GM_STRING);
   gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
   const char * str = (const char *) *strObj;
-  int strLength = strObj->GetLength();
-  if(strLength > 0)
-  {
-    char * buffer = (char *) alloca(strLength + 1);
-    memcpy(buffer, str, strLength + 1); //Copy old string
-
-    // Find beginning of trailing matches by starting at end
-    char *lpsz = buffer + strLength;
-    while (--lpsz >= buffer && strchr(trim, *lpsz) != NULL) {}
-    ++lpsz;
-    *lpsz = '\0';
-
-    a_thread->PushNewString(buffer);
-  }
-  else
-  {
-    a_thread->PushString(strObj);
-  }
+  std::string result(str, (size_t)strObj->GetLength());
+  while(!result.empty() && strchr(trim, result.back()) != NULL) result.pop_back();
+  a_thread->PushNewString(result.c_str());
   return GM_OK;
 }
 
@@ -830,21 +813,14 @@ static int GM_CDECL gmStringGetFilenameNoExt(gmThread * a_thread)
   GM_ASSERT(var->m_type == GM_STRING);
   gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
   const char * str = (const char *) *strObj;
-  int strLength = strObj->GetLength();
-
-  char * buffer = (char *) alloca(strLength + 1);
-  memcpy(buffer, str, strLength + 1); //Copy old string
-
-  char *lpsz = buffer + strLength;
-  while (--lpsz >= buffer && *lpsz != '\\' && *lpsz != '/') {}
-
-  buffer = ++lpsz;
-  strLength = (int)strlen(buffer);
-  lpsz = buffer + strLength;
-  while (--lpsz >= buffer && *lpsz != '.') {}
-  if(*lpsz == '.') *lpsz = 0;
-
-  a_thread->PushNewString(buffer);
+  const std::string path(str, (size_t)strObj->GetLength());
+  const size_t separator = path.find_last_of("\\/");
+  const size_t filenameStart = separator == std::string::npos ? 0 : separator + 1;
+  const size_t dot = path.find_last_of('.');
+  const size_t filenameEnd = dot != std::string::npos && dot >= filenameStart
+      ? dot : path.size();
+  const std::string filename = path.substr(filenameStart, filenameEnd - filenameStart);
+  a_thread->PushNewString(filename.c_str(), (int)filename.size());
   return GM_OK;
 }
 
@@ -855,13 +831,11 @@ static int GM_CDECL gmStringGetFilename(gmThread * a_thread)
   GM_ASSERT(var->m_type == GM_STRING);
   gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
   const char * str = (const char *) *strObj;
-  int strLength = strObj->GetLength();
-
-  const char *lpsz = str + strLength;
-  while (--lpsz >= str && *lpsz != '\\' && *lpsz != '/') {}
-  ++lpsz;
-
-  a_thread->PushNewString(lpsz);
+  const std::string path(str, (size_t)strObj->GetLength());
+  const size_t separator = path.find_last_of("\\/");
+  const std::string filename = path.substr(
+      separator == std::string::npos ? 0 : separator + 1);
+  a_thread->PushNewString(filename.c_str(), (int)filename.size());
   return GM_OK;
 }
 
@@ -874,22 +848,17 @@ static int GM_CDECL gmStringGetExtension(gmThread * a_thread)
   GM_ASSERT(var->m_type == GM_STRING);
   gmStringObject * strObj = (gmStringObject *) GM_OBJECT(var->m_value.m_ref);
   const char * str = (const char *) *strObj;
-  int strLength = strObj->GetLength();
-
-  const char *lpsz = str + strLength;
-  while (--lpsz >= str && *lpsz != '.') {}
-
-  if(*lpsz == '.')
+  const std::string path(str, (size_t)strObj->GetLength());
+  const size_t dot = path.find_last_of('.');
+  if(dot == std::string::npos)
   {
-    if(!keepDot)
-    {
-      ++lpsz;
-    }
-    a_thread->PushNewString(lpsz);
+    a_thread->PushNewString("");
   }
   else
   {
-    a_thread->PushNewString("");
+    const size_t extensionStart = keepDot ? dot : dot + 1;
+    const std::string extension = path.substr(extensionStart);
+    a_thread->PushNewString(extension.c_str(), (int)extension.size());
   }
   return GM_OK;
 }
@@ -913,25 +882,16 @@ static int GM_CDECL gmStringSetExtension(gmThread * a_thread)
     extLength = (int)strlen(newExt);
   }
 
-  char *buffer = (char *) alloca(strLength + 1 + extLength);
-  memcpy(buffer, str, strLength + 1);
-
-  char *lpsz = buffer + strLength;
-  while (--lpsz >= buffer && *lpsz != '.') {}
-
-  if(*lpsz == '.')
+  std::string result(str, (size_t)strLength);
+  const size_t dot = result.find_last_of('.');
+  if(dot != std::string::npos) result.resize(dot);
+  if(extLength)
   {
-    *lpsz = '\0';
-    if (extLength)
-      sprintf(buffer, "%s.%s", buffer, newExt);
-
-  }
-  else if (extLength)
-  {
-    sprintf(buffer, "%s.%s", buffer, newExt);
+    result.push_back('.');
+    result.append(newExt, (size_t)extLength);
   }
 
-  a_thread->PushNewString(buffer);
+  a_thread->PushNewString(result.c_str(), (int)result.size());
   return GM_OK;
 }
 
@@ -946,19 +906,13 @@ static int GM_CDECL gmStringGetPath(gmThread * a_thread)
   const char * str = (const char *) *strObj;
   int strLength = strObj->GetLength();
 
-  char * buffer = (char *) alloca(strLength + 1); 
-  memcpy(buffer, str, strLength + 1); //Copy old string
-
-  char *lpsz = buffer + strLength;
-  while (--lpsz >= buffer && *lpsz != '\\' && *lpsz != '/') {}
-
-  if(*lpsz == '\\' || *lpsz == '/')
+  const std::string path(str, (size_t)strLength);
+  const size_t separator = path.find_last_of("\\/");
+  if(separator != std::string::npos)
   {
-    if(keepSlash)
-      lpsz[1] = 0;
-    else
-      lpsz[0] = 0;
-    a_thread->PushNewString(buffer);
+    const size_t pathLength = separator + (keepSlash ? 1 : 0);
+    const std::string result = path.substr(0, pathLength);
+    a_thread->PushNewString(result.c_str());
   }
   else
   {

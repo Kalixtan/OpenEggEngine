@@ -6,10 +6,6 @@
       "script": "probe.gm",
       "cases": [
         {
-          "name": "Server difficulty metadata converts through String.Int",
-          "functions": ["String.Int", "String.Float"]
-        },
-        {
           "name": "MakeTimeString uses the retail format and clamps time",
           "functions": ["STRINGHELPER_MakeTimeString"]
         },
@@ -62,6 +58,88 @@
             "STRINGHELPER_IsAlphanumeric",
             "STRINGHELPER_IsWhitespace"
           ]
+        }
+      ]
+    },
+    {
+      "name": "GameMonkey string methods",
+      "script": "string_api.gm",
+      "cases": [
+        {
+          "name": "Server difficulty metadata converts through String.Int",
+          "functions": ["String.Int", "String.Float", "String.String"]
+        },
+        {
+          "name": "String slicing clamps indexes and lengths",
+          "functions": ["String.Left", "String.Right", "String.RightAt", "String.Mid", "String.Length", "String.IsEmpty"]
+        },
+        {
+          "name": "String slicing handles zero and past-end ranges",
+          "functions": ["String.Left", "String.Right", "String.RightAt", "String.Mid"]
+        },
+        {
+          "name": "String comparisons use retail optional argument rules",
+          "functions": ["String.Compare", "String.CompareNoCase"]
+        },
+        {
+          "name": "String Lower and Upper convert ASCII case",
+          "functions": ["String.Lower", "String.Upper"]
+        },
+        {
+          "name": "String span methods scan character sets",
+          "functions": ["String.SpanIncluding", "String.SpanExcluding"]
+        },
+        {
+          "name": "String ReplaceCharsInSet handles explicit and default sets",
+          "functions": ["String.ReplaceCharsInSet"]
+        },
+        {
+          "name": "String TrimLeft handles default whitespace",
+          "functions": ["String.TrimLeft"]
+        },
+        {
+          "name": "String TrimRight removes trailing whitespace",
+          "functions": ["String.TrimRight"]
+        },
+        {
+          "name": "String TrimRight handles whitespace-only input",
+          "functions": ["String.TrimRight"]
+        },
+        {
+          "name": "String search and byte access handle boundaries",
+          "functions": ["String.Find", "String.Reverse", "String.ReverseFind", "String.GetAt", "String.SetAt"]
+        },
+        {
+          "name": "String AppendPath normalizes separators",
+          "functions": ["String.AppendPath"]
+        },
+        {
+          "name": "String GetFilenameNoExt handles path and empty cases",
+          "functions": ["String.GetFilenameNoExt"]
+        },
+        {
+          "name": "String GetFilename handles both path separators",
+          "functions": ["String.GetFilename"]
+        },
+        {
+          "name": "String GetExtension returns requested dot form",
+          "functions": ["String.GetExtension"]
+        },
+        {
+          "name": "String SetExtension replaces and appends extension",
+          "functions": ["String.SetExtension"]
+        },
+        {
+          "name": "String GetPath omits trailing slash by default",
+          "functions": ["String.GetPath"]
+        },
+        {
+          "name": "String GetPath can preserve trailing slash",
+          "functions": ["String.GetPath"]
+        },
+        {
+          "name": "String GetPath returns empty when no directory exists",
+          "functions": ["String.GetPath"]
         }
       ]
     }

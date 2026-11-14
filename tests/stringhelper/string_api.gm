@@ -1,0 +1,95 @@
+global Check=function(name,ok) {
+    if (ok) { GameSystem.trace(name+" PASS"); }
+    else { GameSystem.trace(name+" FAIL"); }
+};
+
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function() {},
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+
+            local levelMetadata=table(difficulty="3");
+            Check("Server difficulty metadata converts through String.Int",
+                levelMetadata.difficulty.Int()==3 && "3.5".Float()==3.5 &&
+                levelMetadata.difficulty.String()=="3" &&
+                "-12tail".Int()==-12 && "not a number".Int()==0);
+
+            Check("String slicing clamps indexes and lengths",
+                "abc".Left(2)=="ab" && "abc".Left(-1)=="" &&
+                "abc".Right(2)=="bc" && "abc".Right(9)=="abc" &&
+                "abc".RightAt(1)=="bc" && "abc".RightAt(9)=="" &&
+                "abc".Mid(1,2)=="bc" && "abc".Mid(-1,2)=="ab" &&
+                "abc".Length()==3 && "".IsEmpty());
+
+            Check("String slicing handles zero and past-end ranges",
+                "abc".Left(0)=="" && "abc".Left(9)=="abc" &&
+                "abc".Right(0)=="" && "abc".Right(-1)=="" &&
+                "abc".RightAt(3)=="" && "abc".Mid(3,2)=="" &&
+                "abc".Mid(1,99)=="bc" && "abc".Mid(1,-1)=="");
+
+            Check("String comparisons use retail optional argument rules",
+                "a".Compare()>0 && "a".Compare(7)>0 &&
+                "a".Compare("a","ignored")==0 &&
+                "A".CompareNoCase("a")==0 && "A".CompareNoCase()>0 &&
+                "A".CompareNoCase(7)>0 && "abc".Compare("abd")<0 &&
+                "".Compare("")==0);
+
+            Check("String Lower and Upper convert ASCII case",
+                "AbC".Lower()=="abc" && "aBc".Upper()=="ABC" &&
+                "".Lower()=="" && "".Upper()=="");
+            Check("String span methods scan character sets",
+                "aaab".SpanIncluding("a")=="aaa" &&
+                "abca".SpanExcluding("b")=="a" &&
+                "abca".SpanIncluding("")=="" &&
+                "abca".SpanExcluding("")=="abca");
+            Check("String ReplaceCharsInSet handles explicit and default sets",
+                "a b/c".ReplaceCharsInSet('_'," /")=="a_b_c" &&
+                "a b/c".ReplaceCharsInSet()=="a_b_c");
+            Check("String TrimLeft handles default whitespace",
+                "  abc  ".TrimLeft()=="abc  " && " \t\n".TrimLeft()=="");
+            Check("String TrimRight removes trailing whitespace",
+                "  abc  ".TrimRight()=="  abc");
+            Check("String TrimRight handles whitespace-only input",
+                " \t\n".TrimRight()=="");
+
+            Check("String search and byte access handle boundaries",
+                "abcabc".Find("bc")==1 && "abcabc".Find("a",1)==3 &&
+                "abcabc".Find(99)==2 && "abcabc".Find("z")==-1 &&
+                "abcabc".Find("a",6)==-1 && "abcabc".Find("a",7)==-1 &&
+                "banana".Reverse()=="ananab" &&
+                "banana".ReverseFind("ana")==1 &&
+                "banana".ReverseFind(97)==5 &&
+                "abc"[1]==98 && "abc"[-1]==null &&
+                "abc".GetAt(1)==98 && "abc".GetAt(9)==null &&
+                "abc".SetAt(1,88)=="aXc" && "abc".SetAt(9,88)=="abc");
+
+            Check("String AppendPath normalizes separators",
+                "folder".AppendPath("/file")=="folder\\file" &&
+                "folder".AppendPath("/file",1)=="folder\\file\\" &&
+                "".AppendPath("")=="" && "".AppendPath("/")=="");
+            Check("String GetFilenameNoExt handles path and empty cases",
+                "dir/file.txt".GetFilenameNoExt()=="file" &&
+                "".GetFilenameNoExt()=="");
+            Check("String GetFilename handles both path separators",
+                "dir/file.txt".GetFilename()=="file.txt" &&
+                "dir\\file.txt".GetFilename()=="file.txt" &&
+                "".GetFilename()=="");
+            Check("String GetExtension returns requested dot form",
+                "dir/file.txt".GetExtension()=="txt" &&
+                "dir/file.txt".GetExtension(1)==".txt" &&
+                "dir/file".GetExtension()=="" && "".GetExtension()=="");
+            Check("String SetExtension replaces and appends extension",
+                "dir/file".SetExtension("bin")=="dir/file.bin" &&
+                "dir/file".SetExtension(".longextension")=="dir/file.longextension" &&
+                "dir/file.txt".SetExtension("bin")=="dir/file.bin" &&
+                "dir/file.txt".SetExtension()=="dir/file" &&
+                "dir.name/file".SetExtension("bin")=="dir.bin");
+            Check("String GetPath omits trailing slash by default",
+                "dir/file.txt".GetPath()=="dir");
+            Check("String GetPath can preserve trailing slash",
+                "dir/file.txt".GetPath(1)=="dir/" && "/file.txt".GetPath(1)=="/");
+            Check("String GetPath returns empty when no directory exists",
+                "".GetPath()=="" && "file.txt".GetPath()=="");
+        });
+};

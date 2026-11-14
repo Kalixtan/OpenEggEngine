@@ -1,10 +1,8 @@
-# String helper probes
+# String probes
 
 Run headless with `python3 tests/run.py --suite stringhelper --report reports/STRINGHELPER.md`.
-The suite checks fourteen functions. `MakeTimeTable` table shape and time edges are
-covered from the PS3 wrapper trace. Retail symbol `STRINGHELPER_Char` has no OpenEgg
-binding; its saved decomp shows a one-byte string return from an uninitialized
-local buffer, so its usable script contract is not established. Most of the 30
-StringHelper symbols still have no direct assertions.
+The suite covers GameMonkey string methods and StringHelper functions. Fourteen of
+the thirty StringHelper symbols have assertions; retail `STRINGHELPER_Char` reads
+an uninitialized byte, so its usable contract is unknown.
 
-The suite is not a retail log comparison.
+Checks run against OpenEgg; they are not retail log comparisons.
