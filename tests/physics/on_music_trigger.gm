@@ -1,0 +1,29 @@
+global Probe=function(name,value) {
+    GameMonkeyScript.loadScript("OEP__"+name+"__"+value+".gm");
+};
+GameMonkeyScript.loadScript("OnMusicTriggerFallbackEntity.gm");
+
+global Main=function(p) {
+    return table(Process=p,ran=0,constructor=function() {},
+        init=function() { return true; },
+        update=function() {
+            if (this.ran) { return; }
+            this.ran=1;
+            GameSystem.setIsShouldUpdateEntities(0);
+
+            local fallback=EntityManager.createEntity("OnMusicTriggerFallbackEntity");
+            local override=EntityManager.createEntity("OnMusicTriggerOverrideEntity");
+            EntityManager.flush();
+
+            // Platformer/Main.gm calls the method without checking for an
+            // override in its global and index-zero entity loops.
+            local fallbackResult=fallback.onMusicTrigger(-8,0,0,0,0);
+            fallback.Entity.onMusicTrigger(7,0,0,0,0);
+            local overrideResult=override.Entity.onMusicTrigger(24,40,80,100,120);
+            Probe("Entity.onMusicTrigger.fallbackCallable",1);
+            Probe("Entity.onMusicTrigger.handleCallable",1);
+            Probe("Entity.onMusicTrigger.overrideStep",override.receivedStep);
+            Probe("Entity.onMusicTrigger.fallbackReturnNull",fallbackResult==null);
+            Probe("Entity.onMusicTrigger.overrideReturn",overrideResult);
+        });
+};

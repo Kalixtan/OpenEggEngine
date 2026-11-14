@@ -1,10 +1,10 @@
 # Physics test report
 
-Generated: 2026-10-26 15:06 UTC
+Generated: 2026-11-14 17:20 UTC
 
-Matched: **8655/8781 comparable readings (98.57%)**. 30 inconclusive, 11 local-only, and 49 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
+Matched: **8655/8781 comparable readings (98.57%)**. 30 inconclusive, 11 local-only, and 54 awaiting-retail reading(s) are listed separately. This measures captured cases, not total physics parity.
 
-Functions with readings: **486/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
+Functions with readings: **487/624**. The inventory comes from the local API reference and includes OpenEgg-only methods.
 
 ## Sample groups
 
@@ -357,7 +357,7 @@ Scenes sample motion; other groups cover callbacks, removal, queries, rays, join
 | `Entity.loadAnimation` | 0 | 0 | untested |
 | `Entity.onDisable` | 3 | 3 | PASS |
 | `Entity.onEnable` | 5 | 5 | PASS |
-| `Entity.onMusicTrigger` | 0 | 0 | untested |
+| `Entity.onMusicTrigger` | 0 | 5 | AWAITING RETAIL |
 | `Entity.playInstrumentWithMixer` | 0 | 0 | untested |
 | `Entity.playSound` | 0 | 0 | untested |
 | `Entity.playSoundWithMixer` | 0 | 0 | untested |
@@ -962,6 +962,11 @@ These cases ran on OpenEgg but lack comparable retail readings; excluded from pa
 
 | Function | Case | OpenEgg | Note |
 | --- | --- | --- | --- |
+| `Entity.onMusicTrigger` | Entity.onMusicTrigger.fallbackCallable | `1` | Ghidra confirms the fallback exists, but no matching retail probe capture is recorded yet. |
+| `Entity.onMusicTrigger` | Entity.onMusicTrigger.handleCallable | `1` | Ghidra confirms the fallback exists, but no matching retail probe capture is recorded yet. |
+| `Entity.onMusicTrigger` | Entity.onMusicTrigger.overrideStep | `24` | Script override dispatch is locally exercised; retail probe capture remains pending. |
+| `Entity.onMusicTrigger` | Entity.onMusicTrigger.fallbackReturnNull | `1` | Native wrapper return shape needs a retail probe capture. |
+| `Entity.onMusicTrigger` | Entity.onMusicTrigger.overrideReturn | `29` | Script override return forwarding is locally exercised; retail probe capture remains pending. |
 | `physicsBody.isSleeping` | entityGC.detachedBodySleeping | `1.000000` | RPCS3 faults after owner deletion when retained PhysicsBody.isSleeping() is called; later readings are not reached. |
 | `GameMonkeyScript.isCollectingGarbage` | entityGC.collectingAfterReleaseGC | `0` | No retail reading captured. |
 | `EntityManager.isEntityIDValid` | entityGC.entityStillDeleted | `1` | No retail reading captured. |

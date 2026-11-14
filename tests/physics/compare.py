@@ -7,6 +7,7 @@ import csv
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -64,6 +65,10 @@ ENTITY_STATE = HERE / "entity_state.gm"
 ENTITY_STATE_PLAN = HERE / "entity_state-plan.json"
 ENTITY_STATE_BASELINE = HERE / "entity_state-retail.tsv"
 ENTITY_STATE_SUPPORT = HERE / "EntityStateProbeEntity.gm"
+ON_MUSIC_TRIGGER = HERE / "on_music_trigger.gm"
+ON_MUSIC_TRIGGER_PLAN = HERE / "on_music_trigger-plan.json"
+ON_MUSIC_TRIGGER_BASELINE = HERE / "on_music_trigger-retail.tsv"
+ON_MUSIC_TRIGGER_SUPPORT = HERE / "OnMusicTriggerFallbackEntity.gm"
 ENTITY_CALLBACKS = HERE / "entity_callbacks.gm"
 ENTITY_CALLBACKS_PLAN = HERE / "entity_callbacks-plan.json"
 ENTITY_CALLBACKS_BASELINE = HERE / "entity_callbacks-retail.tsv"
@@ -1083,6 +1088,10 @@ def main():
                                            (ENTITY_STATE, ENTITY_STATE_BASELINE,
                                             ENTITY_STATE_PLAN,
                                             (ENTITY_STATE_SUPPORT,)),
+                                           (ON_MUSIC_TRIGGER,
+                                            ON_MUSIC_TRIGGER_BASELINE,
+                                            ON_MUSIC_TRIGGER_PLAN,
+                                            (ON_MUSIC_TRIGGER_SUPPORT,)),
                                            (ENTITY_CALLBACKS, ENTITY_CALLBACKS_BASELINE,
                                             ENTITY_CALLBACKS_PLAN,
                                             ENTITY_CALLBACKS_SUPPORT),
@@ -1211,6 +1220,10 @@ def main():
         local, local_dupes = read_readings(log_path)
         if error:
             problems.append(f"{probe.name}: {error}")
+        if probe == ON_MUSIC_TRIGGER and re.search(
+                r"^\s+\d+\.\s+.*onMusicTrigger\b", output, re.MULTILINE):
+            problems.append("on_music_trigger.gm: native music callback still reached "
+                            "the strict unimplemented-function survey")
         for label, values, dupes in (("retail", retail, retail_dupes),
                                      ("OpenEgg", local, local_dupes)):
             required = (set(declared) - awaiting_retail - local_only_cases

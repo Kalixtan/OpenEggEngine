@@ -1054,7 +1054,30 @@ int GM_CDECL gmf_entity_delegate_onMusicTrigger(gmThread* a_thread) {
             }
         }
     }
-    return DelegateToBehaviorOwner(a_thread, "onMusicTrigger");
+    gmTableObject* self = a_thread->ThisTable();
+    gmMachine& machine = *a_thread->GetMachine();
+    gmVariable owner = self ? self->Get(&machine, "__behaviorOwner") : gmVariable::s_null;
+    gmTableObject* ownerTable = owner.m_type == GM_TABLE
+        ? (gmTableObject*)machine.GetObject(owner.m_value.m_ref) : nullptr;
+    if (ownerTable && ownerTable->Get(&machine, "onMusicTrigger").m_type == GM_FUNCTION) {
+        gmCall call;
+        if (call.BeginTableFunction(&machine, "onMusicTrigger", ownerTable, owner)) {
+            for (int i = 0; i < a_thread->GetNumParams(); ++i)
+                call.AddParam(a_thread->Param(i));
+            call.End();
+            if (call.DidReturnVariable()) a_thread->Push(call.GetReturnedVariable());
+        }
+    }
+    return GM_OK;
+}
+int GM_CDECL gmf_entity_onMusicTriggerDefault(gmThread*) {
+    // EntityRegistration.onMusicTrigger (0x1d065c) is always present in the
+    // retail entity type. Its native body resets embedded animation scalars
+    // at offsets +0xbc/+0xdc on eight-step boundaries. OpenEgg's script
+    // entity tables do not yet contain those native scalar objects, but the
+    // method must remain callable for global/brained entities that Main.gm
+    // invokes without checking for a script override.
+    return GM_OK;
 }
 int GM_CDECL gmf_entity_delegate_isAlwaysMusicTriggered(gmThread* a_thread) {
     return DelegateToBehaviorOwner(a_thread, "isAlwaysMusicTriggered");
@@ -2483,7 +2506,7 @@ int GM_CDECL gmf_entity_refreshFunctionCache(gmThread* a_thread) {
         gmVariable callback = behavior->Get(&m, "onMusicTrigger");
         handle->Set(&m, "onMusicTrigger", callback.m_type == GM_FUNCTION
             ? gmVariable(m.AllocFunctionObject(gmf_entity_delegate_onMusicTrigger))
-            : gmVariable::s_null);
+            : gmVariable(m.AllocFunctionObject(gmf_entity_onMusicTriggerDefault)));
     }
     return GM_OK;
 }
@@ -2553,6 +2576,9 @@ void InjectEntityHandleMethods(gmMachine& a_machine, gmTableObject* a_table, int
     a_table->Set(&a_machine, "getNumParticles", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getNumParticles)));
     a_table->Set(&a_machine, "getPhysicsData", gmVariable(a_machine.AllocFunctionObject(gmf_entity_getPhysicsData)));
     a_table->Set(&a_machine, "refreshFunctionCache", gmVariable(a_machine.AllocFunctionObject(gmf_entity_refreshFunctionCache)));
+    if (a_table->Get(&a_machine, "onMusicTrigger").m_type != GM_FUNCTION)
+        a_table->Set(&a_machine, "onMusicTrigger",
+            gmVariable(a_machine.AllocFunctionObject(gmf_entity_onMusicTriggerDefault)));
     if (a_table->Get(&a_machine, "isAlwaysMusicTriggered").m_type != GM_FUNCTION)
         a_table->Set(&a_machine, "isAlwaysMusicTriggered",
             gmVariable(a_machine.AllocFunctionObject(gmf_entity_delegate_isAlwaysMusicTriggered)));

@@ -1,0 +1,25 @@
+{
+  "prefix": "Entity.onMusicTrigger",
+  "frames": 0,
+  "extra": [
+    "Entity.onMusicTrigger.fallbackCallable",
+    "Entity.onMusicTrigger.handleCallable",
+    "Entity.onMusicTrigger.overrideStep",
+    "Entity.onMusicTrigger.fallbackReturnNull",
+    "Entity.onMusicTrigger.overrideReturn"
+  ],
+  "awaitingRetail": [
+    "Entity.onMusicTrigger.fallbackCallable",
+    "Entity.onMusicTrigger.handleCallable",
+    "Entity.onMusicTrigger.overrideStep",
+    "Entity.onMusicTrigger.fallbackReturnNull",
+    "Entity.onMusicTrigger.overrideReturn"
+  ],
+  "awaitingRetailReason": {
+    "Entity.onMusicTrigger.fallbackCallable": "Ghidra confirms the fallback exists, but no matching retail probe capture is recorded yet.",
+    "Entity.onMusicTrigger.handleCallable": "Ghidra confirms the fallback exists, but no matching retail probe capture is recorded yet.",
+    "Entity.onMusicTrigger.overrideStep": "Script override dispatch is locally exercised; retail probe capture remains pending.",
+    "Entity.onMusicTrigger.fallbackReturnNull": "Native wrapper return shape needs a retail probe capture.",
+    "Entity.onMusicTrigger.overrideReturn": "Script override return forwarding is locally exercised; retail probe capture remains pending."
+  }
+}

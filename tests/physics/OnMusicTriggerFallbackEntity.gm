@@ -1,0 +1,14 @@
+global OnMusicTriggerFallbackEntity=function(handle) {
+    return table(Entity=handle,constructor=function() {},
+        configure=function() { return true; });
+};
+
+global OnMusicTriggerOverrideEntity=function(handle) {
+    return table(Entity=handle,receivedStep=-1,
+        constructor=function() {},
+        configure=function() { return true; },
+        onMusicTrigger=function(step,step40,step80,step100,stepForever) {
+            this.receivedStep=step;
+            return step+5;
+        });
+};
