@@ -1,6 +1,6 @@
 # OpenEgg
 
-> **Alpha-01: very early public test build.** OpenEgg is incomplete, may have
+> **Alpha-02: very early public test build.** OpenEgg is incomplete, may have
 > bugs, and full game playability has not been established.
 
 OpenEgg is an early, independent reimplementation of GameEngine3, the engine used by *Sound Shapes*. The long-term goal is native playability with user-supplied retail scripts and assets.
