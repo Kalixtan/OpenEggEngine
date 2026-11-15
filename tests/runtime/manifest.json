@@ -134,12 +134,12 @@
           "retail": "Ghidra wrapper defaults area to 1 and passes the supplied area to the resource manager."
         },
         {
-          "name": "Video unloadTextureByHandle accepts retail script spelling and default area",
+          "name": "Video unloadTextureByHandle misspelled retail call is a null no-op",
           "functions": [
             "Video.getTexture",
             "Video.unloadTextureByHandle"
           ],
-          "retail": "The lowercase-b spelling is called by EditScreen2PS3.gm; the wrapper defaults area to 1."
+          "retail": "The lowercase-b script spelling is absent from the retail table, so the retail VM returns null without unloading."
         },
         {
           "name": "Video unloadTextureByHandle preserves held texture and rejects repeat unload",
@@ -156,6 +156,18 @@
             "Video.unloadTextureByHandle"
           ],
           "retail": "Retail native table spelling and two-argument wrapper path."
+        },
+        {
+          "name": "PhysicsBody misspelled retail setter is a null no-op",
+          "functions": [
+            "EntityManager.createEntity",
+            "Entity.getPhysicsData",
+            "PhysicsData.createBody",
+            "PhysicsData.getBody",
+            "PhysicsBody.setCategoriesToCollideWith",
+            "PhysicsBody.getCategoriesToCollideWith"
+          ],
+          "retail": "Ghidra registers only the correctly spelled method; the shipped typo is a retail null call."
         },
         {
           "name": "Input mouse defaults",

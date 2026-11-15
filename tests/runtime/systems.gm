@@ -181,12 +181,13 @@ global Main=function(p) {
         local texturePath="Platformer/images/MainMenu/checkmark.png";
         local texture=Video.getTexture(texturePath,FILEHELPER_AREA_GAMEDATA);
         local textureLoaded=texture.isValid()==1;
-        local wrongArea=Video.unloadTexturebyHandle(texture,FILEHELPER_AREA_SAVEDATA);
+        local wrongArea=Video.unloadTextureByHandle(texture,FILEHELPER_AREA_SAVEDATA);
         Check("Video unloadTextureByHandle keeps other areas separate",
             textureLoaded && wrongArea==0 && texture.isValid()==1);
-        local aliasResult=Video.unloadTexturebyHandle(texture);
-        Check("Video unloadTextureByHandle accepts retail script spelling and default area",
-            aliasResult==1);
+        local misspelledResult=Video.unloadTexturebyHandle(texture);
+        local defaultResult=Video.unloadTextureByHandle(texture);
+        Check("Video unloadTextureByHandle misspelled retail call is a null no-op",
+            misspelledResult==null && defaultResult==1);
         Check("Video unloadTextureByHandle preserves held texture and rejects repeat unload",
             texture.isValid()==1 && Video.unloadTextureByHandle(texture,FILEHELPER_AREA_GAMEDATA)==0);
 
@@ -195,6 +196,18 @@ global Main=function(p) {
             canonicalTexture,FILEHELPER_AREA_GAMEDATA);
         Check("Video unloadTextureByHandle canonical spelling and explicit area",
             canonicalTexture.isValid()==1 && canonicalResult==1);
+
+        local filterEntity=EntityManager.createEntity();
+        local filterData=filterEntity.getPhysicsData();
+        local filterBody=filterData.getBody(filterData.createBody());
+        filterEntity.setIsEnabled(1);
+        local filterMaskBefore=filterBody.getCategoriesToCollideWith();
+        local misspelledFilterResult=filterBody.setCatagoriesToCollideWith(16);
+        Check("PhysicsBody misspelled retail setter is a null no-op",
+            misspelledFilterResult==null &&
+            filterBody.getCategoriesToCollideWith()==filterMaskBefore);
+        EntityManager.deleteAllEntities();
+        EntityManager.flush();
 
         Video.debug_setWorldMarker(1,2,3,4,5,6,7,8,9,1);
         Video.debug_setWorldLineMarker(1,2,3,4,5,6,7,8,9,1);

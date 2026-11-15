@@ -229,6 +229,7 @@ bool IsKnownRetailNullCall(gmThread* a_thread, const std::string& a_name) {
                library.m_value.m_ref == receiver.m_value.m_ref;
     };
     if (a_name == "setEntityUID") return receiverIsLibrary("EntityManager");
+    if (a_name == "unloadTexturebyHandle") return receiverIsLibrary("Video");
 
     if (a_name == "stopSound" || a_name == "playSoundWithMixer")
         return receiverIsLibrary("Audio");

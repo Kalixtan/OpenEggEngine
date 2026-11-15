@@ -1,4 +1,6 @@
 [
+  "Entity.getPhysicsData",
+  "EntityManager.createEntity",
   "Input.disableBackPanel",
   "Input.disableShaking",
   "Input.disableUntilAllKeysUp",
@@ -49,6 +51,10 @@
   "Input.setTypeDelay",
   "Input.setTypeRate",
   "Input.suppressSharing",
+  "PhysicsBody.getCategoriesToCollideWith",
+  "PhysicsBody.setCategoriesToCollideWith",
+  "PhysicsData.createBody",
+  "PhysicsData.getBody",
   "Video.addToDrawMap",
   "Video.appendToPostProcessDList",
   "Video.artTestUnloadTexturesFromFile",
