@@ -1,0 +1,16 @@
+global Main = function(p) {
+    return {
+        init = function() {
+            print("VIDEO_VERTEX_FORMS_TEST_BEGIN");
+            Video.plotVertex(0.25);
+            Video.plotVertex(1, 0.25);
+            Video.plotVertex(1, 0.25, 0.5);
+            Video.plotVertex(0.25, 0.5, 0.75, 1);
+            Video.plotVertex(0.25, 0.5, 0.75, 1, 1.25);
+            Video.beginShape(SHAPETYPE_TRIANGLES, 3);
+            Video.beginShape(SHAPETYPE_TRIANGLES, 3, 0);
+            print("VIDEO_VERTEX_FORMS_TEST_PASS");
+            return true;
+        }
+    };
+};

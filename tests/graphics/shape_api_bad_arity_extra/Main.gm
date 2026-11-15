@@ -1,0 +1,7 @@
+global Main = function(p) {
+    return { init = function() {
+        print("SHAPE_EXTRA_ARITY_TEST_BEGIN");
+        SHAPE(SHAPETYPE_QUADS, 4, GameSystem, 0);
+        return true;
+    } };
+};

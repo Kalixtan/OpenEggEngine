@@ -1,0 +1,7 @@
+global Main = function(p) {
+    return { init = function() {
+        print("SHAPE_ZERO_ARITY_TEST_BEGIN");
+        SHAPE();
+        return true;
+    } };
+};

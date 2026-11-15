@@ -1,0 +1,7 @@
+global Main = function(p) {
+    return { init = function() {
+        print("VIDEO_SELECTOR_LOW_TEST_BEGIN");
+        Video.plotVertex(0, 0.5);
+        return true;
+    } };
+};

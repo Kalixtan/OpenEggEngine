@@ -1,0 +1,7 @@
+global Main = function(p) {
+    return { init = function() {
+        print("VIDEO_BEGIN_ZERO_TEST_BEGIN");
+        Video.beginShape();
+        return true;
+    } };
+};

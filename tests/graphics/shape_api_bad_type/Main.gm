@@ -1,0 +1,9 @@
+global Main = function(p) {
+    return {
+        init = function() {
+            print("SHAPE_BAD_TYPE_TEST_BEGIN");
+            SHAPE(SHAPETYPE_QUADS, 4, "not GameSystem");
+            return true;
+        }
+    };
+};

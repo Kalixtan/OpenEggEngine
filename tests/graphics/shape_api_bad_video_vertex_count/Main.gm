@@ -1,0 +1,9 @@
+global Main = function(p) {
+    return {
+        init = function() {
+            print("VIDEO_VERTEX_COUNT_TEST_BEGIN");
+            Video.plotVertex(1, 2, 3, 4, 5, 6);
+            return true;
+        }
+    };
+};

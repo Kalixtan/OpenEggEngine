@@ -444,9 +444,16 @@ int GM_CDECL gmf_Video_endShape(gmThread* a_thread) {
 namespace {
 
 int GM_CDECL gmf_SHAPE(gmThread* a_thread) {
-    GM_CHECK_NUM_PARAMS(2);
+    if (a_thread->GetNumParams() != 3) {
+        GM_EXCEPTION_MSG("SHAPE expects 3 arguments: shape type, vertex capacity, GameSystem");
+        return GM_EXCEPTION;
+    }
     GM_INT_PARAM(shapeType, 0, 0);
     GM_INT_PARAM(numVerts, 1, 0);
+    if (a_thread->Param(2).m_type != GM_TABLE) {
+        GM_EXCEPTION_MSG("SHAPE expects GameSystem as its third argument");
+        return GM_EXCEPTION;
+    }
     ShapeData* data = new ShapeData();
     data->retailShapeType = shapeType;
     data->glMode = ToGLMode(shapeType);

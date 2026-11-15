@@ -1,0 +1,11 @@
+global Main = function(p) {
+    return {
+        init = function() {
+            print("SHAPE_ARITY_PARITY_TEST_BEGIN");
+            print("HARD WARNING: SHAPE needs its GameSystem argument; retail returns null without it");
+            local shape = SHAPE(SHAPETYPE_QUADS, 4);
+            shape.plotVertex(0, 0);
+            return true;
+        }
+    };
+};

@@ -1,0 +1,7 @@
+global Main = function(p) {
+    return { init = function() {
+        print("VIDEO_BEGIN_ARITY_TEST_BEGIN");
+        Video.beginShape(SHAPETYPE_TRIANGLES, 3, 0, 1);
+        return true;
+    } };
+};

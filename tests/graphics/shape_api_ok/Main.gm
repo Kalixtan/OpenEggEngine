@@ -1,0 +1,42 @@
+global Main = function(p) {
+    return {
+        drawList = null,
+        shape = null,
+
+        constructor = function() {
+            this.drawList = this.setupPreDrawList(128, 128);
+        },
+
+        init = function() {
+            print("SHAPE_API_TEST_BEGIN");
+            this.shape = SHAPE(SHAPETYPE_QUADS, 4, GameSystem);
+            if (this.shape == null) {
+                print("HARD WARNING: Video.beginShape returned null");
+                return false;
+            }
+            this.shape:plotVertex(-1, 1);
+            this.shape:plotVertex(1, 1);
+            this.shape:plotVertex(1, -1);
+            this.shape:plotVertex(-1, -1);
+            this.shape:endShape();
+            local immediate = Video.beginShape(SHAPETYPE_LINES);
+            immediate.plotVertex(-1, 0);
+            immediate.plotVertex(1, 0);
+            immediate.endShape();
+            print("SHAPE_API_TEST_PASS");
+            return true;
+        },
+
+        preDraw = function() {
+            this.drawList.reset();
+            this.drawList.setColour(0.02, 0.03, 0.05, 1);
+            this.drawList.clear(VIDEO_ALLSURFACES);
+            this.drawList.setupWorldView();
+            this.drawList.setAttrDepthTest(false);
+            if (this.shape != null) {
+                this.drawList.setColour(0.2, 0.95, 0.75, 1);
+                this.drawList.drawShape(this.shape);
+            }
+        }
+    };
+};
