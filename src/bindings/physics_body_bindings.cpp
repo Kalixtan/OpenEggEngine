@@ -2163,6 +2163,8 @@ struct PhysicsDataObj {
     std::unordered_map<uint32_t, gmVariable> collisionInfoViews;
 };
 
+PhysicsBodyData* GetBodyData(gmMachine& a_machine, const gmVariable& a_var);
+
 bool PhysicsDataOwnerIsEnabled(gmMachine& a_machine, PhysicsDataObj* a_data) {
     if (!a_data || a_data->ownerEntity.m_type != GM_TABLE) return false;
     gmTableObject* owner = (gmTableObject*)a_machine.GetObject(
@@ -2205,6 +2207,45 @@ int GM_CDECL gmf_pd_getType(gmThread* a_thread) {
     PhysicsDataObj* d = ThisData(a_thread);
     if (!d) return GM_EXCEPTION;
     a_thread->PushInt(d->type);
+    return GM_OK;
+}
+
+// Retail MULTIBODYPHYSICSDATA.getBodyPos reads the indexed body's position
+// and returns it as vector2D (Ghidra: 0x92e4c).
+int GM_CDECL gmf_pd_getBodyPos(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread);
+    if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(1);
+    GM_INT_PARAM(index, 0, 0);
+    if (index < 0 || index >= (int)d->bodies.size()) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    PhysicsBodyData* body = GetBodyData(*a_thread->GetMachine(), d->bodies[(size_t)index]);
+    if (!body || !body->body) {
+        a_thread->PushNull();
+        return GM_OK;
+    }
+    const b2Vec2 position = body->body->GetPosition();
+    a_thread->Push(MakeVector2D(*a_thread->GetMachine(), position.x, position.y));
+    return GM_OK;
+}
+
+// Retail takes body index and vector2D, moves that body, then marks the
+// PhysicsData position cache dirty (Ghidra: 0x92f08).
+int GM_CDECL gmf_pd_setBodyPos(gmThread* a_thread) {
+    PhysicsDataObj* d = ThisData(a_thread);
+    if (!d) return GM_EXCEPTION;
+    GM_CHECK_NUM_PARAMS(2);
+    GM_INT_PARAM(index, 0, 0);
+    if (index < 0 || index >= (int)d->bodies.size()) return GM_OK;
+    float x = 0.0f, y = 0.0f;
+    if (!GetVector2D(*a_thread->GetMachine(), a_thread->Param(1), x, y)) return GM_EXCEPTION;
+    PhysicsBodyData* body = GetBodyData(*a_thread->GetMachine(), d->bodies[(size_t)index]);
+    if (body && body->body) {
+        body->body->SetTransform(b2Vec2(x, y), body->body->GetAngle());
+        d->physicsDataDirty = true;
+    }
     return GM_OK;
 }
 
@@ -4594,6 +4635,8 @@ void RegisterPhysicsBodyBindings(gmMachine& a_machine) {
 
     gmFunctionEntry physicsDataLib[] = {
         {"getType", gmf_pd_getType, nullptr},
+        {"getBodyPos", gmf_pd_getBodyPos, nullptr},
+        {"setBodyPos", gmf_pd_setBodyPos, nullptr},
         {"setVisibilityAABBScale", gmf_pd_setVisibilityAABBScale, nullptr},
         {"createBody", gmf_pd_createBody, nullptr},
         {"getBody", gmf_pd_getBody, nullptr},

@@ -1,6 +1,6 @@
 type	method	status	description	parameters	returns
-MULTIBODYPHYSICSDATA	getBodyPos	Not implemented	Returns the position associated with a body in the physics data.	Not yet recovered.	Not yet recovered.
-MULTIBODYPHYSICSDATA	setBodyPos	Not implemented	Sets the position associated with a body in the physics data.	Not yet recovered.	Not yet recovered.
+MULTIBODYPHYSICSDATA	getBodyPos	Implemented; valid index tested	Returns the indexed body's world position as a vector2D.	index: int	vector2D
+MULTIBODYPHYSICSDATA	setBodyPos	Implemented; valid index tested	Sets the indexed body's position and marks its physics data dirty.	index: int, position: vector2D	void
 MULTIBODYPHYSICSDATA	getBodyBBox	Not implemented	Returns the bounding box associated with a body in the physics data.	Not yet recovered.	Not yet recovered.
 MULTIBODYPHYSICSDATA	getBodyIndex	Not implemented	Returns the body index stored in the physics data.	Not yet recovered.	Not yet recovered.
 MULTIBODYPHYSICSDATA	getEntitiesJoinedToMe	Not implemented	Returns entities joined to the receiving physics body.	Not yet recovered.	Not yet recovered.

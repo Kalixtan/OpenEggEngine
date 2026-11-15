@@ -55,6 +55,8 @@
   "PhysicsBody.setCategoriesToCollideWith",
   "PhysicsData.createBody",
   "PhysicsData.getBody",
+  "PhysicsData.getBodyPos",
+  "PhysicsData.setBodyPos",
   "Video.addToDrawMap",
   "Video.appendToPostProcessDList",
   "Video.artTestUnloadTexturesFromFile",

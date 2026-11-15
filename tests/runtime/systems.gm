@@ -201,6 +201,13 @@ global Main=function(p) {
         local filterData=filterEntity.getPhysicsData();
         local filterBody=filterData.getBody(filterData.createBody());
         filterEntity.setIsEnabled(1);
+        local probeBodyIndex=filterData.createBody();
+        local probeStart=filterData.getBodyPos(probeBodyIndex);
+        filterData.setBodyPos(probeBodyIndex,vector2D(12,-4));
+        local probeMoved=filterData.getBodyPos(probeBodyIndex);
+        Check("PhysicsData indexed body position roundtrip",
+            probeStart.x==0 && probeStart.y==0 &&
+            probeMoved.x==12 && probeMoved.y==-4);
         local filterMaskBefore=filterBody.getCategoriesToCollideWith();
         local misspelledFilterResult=filterBody.setCatagoriesToCollideWith(16);
         Check("PhysicsBody misspelled retail setter is a null no-op",

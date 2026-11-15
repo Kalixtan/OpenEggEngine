@@ -158,6 +158,15 @@
           "retail": "Retail native table spelling and two-argument wrapper path."
         },
         {
+          "name": "PhysicsData indexed body position roundtrip",
+          "functions": [
+            "PhysicsData.createBody",
+            "PhysicsData.getBodyPos",
+            "PhysicsData.setBodyPos"
+          ],
+          "retail": "Ghidra wrappers take a body index; get returns vector2D, set reads a vector2D and marks PhysicsData dirty."
+        },
+        {
           "name": "PhysicsBody misspelled retail setter is a null no-op",
           "functions": [
             "EntityManager.createEntity",
