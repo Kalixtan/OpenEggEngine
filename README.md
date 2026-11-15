@@ -3,8 +3,7 @@
 > **Alpha-01: very early public test build.** OpenEgg is incomplete, may have
 > bugs, and full game playability has not been established.
 
-OpenEgg is an independent reimplementation of the GameEngine3 runtime used by
-*Sound Shapes*. The goal is a fully playable native desktop port running the orignal scripts + assets.
+OpenEgg is an early, independent reimplementation of GameEngine3, the engine used by *Sound Shapes*. The long-term goal is native playability with user-supplied retail scripts and assets.
 
 ## Game content and rights
 
@@ -38,14 +37,12 @@ The executable is `build/OpenEgg`.
 For a source build, copy `OpenEgg.ini.example` to `build/OpenEgg.ini`.
 See [PLATFORM_BACKENDS.md](PLATFORM_BACKENDS.md) for other build options.
 
-The release build has `OpenEgg.ini` and `login.ini` already setup for you. ;P
+Release ZIPs include a preconfigured `OpenEgg.ini` and a blank `login.ini`.
 
 
 Place your own `game_data.psarc` and optional update archive beside the executable.
 Extracted `game_data/` and update folders can be used instead. 
 No game files are included.
-
-Change OpenEgg.ini to change the engines setings.
 
 The Linux build needs SDL2, GLEW, FreeType, OpenGL, libcurl, and zlib runtime
 libraries from your distribution.

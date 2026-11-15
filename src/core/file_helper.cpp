@@ -128,6 +128,27 @@ void FileHelper::AddRoot(const std::string& root, const std::string& archiveRoot
     if (!group.layers.empty()) m_sourceGroups.push_back(std::move(group));
 }
 
+void FileHelper::AddPriorityRoot(const std::string& root) {
+    if (m_sourceGroups.empty()) {
+        SourceGroup group;
+        group.layers.push_back({root, nullptr});
+        m_sourceGroups.push_back(std::move(group));
+        if (m_primaryRoot.empty()) m_primaryRoot = root;
+        return;
+    }
+    // Resolve walks layers in reverse, so this loose directory wins over
+    // retail patches while still falling back to them for missing files.
+    m_sourceGroups.front().layers.push_back({root, nullptr});
+}
+
+void FileHelper::SetSoloRoot(const std::string& root) {
+    m_sourceGroups.clear();
+    m_primaryRoot = root;
+    SourceGroup group;
+    group.layers.push_back({root, nullptr});
+    m_sourceGroups.push_back(std::move(group));
+}
+
 static bool FileExists(const std::string& path) {
     std::error_code ec;
     return std::filesystem::is_regular_file(std::filesystem::u8path(path), ec) && !ec;

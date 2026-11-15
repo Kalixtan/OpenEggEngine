@@ -73,6 +73,10 @@ public:
   }
 
   inline int Count() const { return m_slotsUsed; }
+  // JSON arrays and objects share the GM table type. Preserve the source JSON
+  // kind so an empty array can still serialize as [] instead of {}.
+  inline bool IsJsonArray() const { return m_isJsonArray; }
+  inline void SetJsonArray(bool a_isArray) { m_isJsonArray = a_isArray; }
   gmTableObject * Duplicate(gmMachine * a_machine);
 
 
@@ -140,6 +144,7 @@ private:
   gmTableNode * m_firstFree;
   int m_tableSize;
   int m_slotsUsed;
+  bool m_isJsonArray;
 };
 
 #endif // _GMTABLEOBJECT_H_

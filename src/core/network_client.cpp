@@ -1102,6 +1102,10 @@ void NetworkClient::PumpCallbacks() {
                             ? "Check the username, e-mail, and password. Passwords need at least 8 characters."
                             : accountRegistration && completion.status == 403
                                 ? "Account creation is disabled on this server."
+                            : completion.status == 429
+                                ? (accountRegistration
+                                    ? "The server is limiting account-creation attempts. Wait and try again."
+                                    : "The server is limiting sign-in attempts. Wait and try again.")
                                 : completion.status == 403
                                     ? "The server rejected these account details. Check them and try again."
                                     : "The server could not sign you in (HTTP " +
@@ -1492,6 +1496,14 @@ void NetworkClient::WorkerMain(bool a_identity) {
             }
 
             struct curl_slist* headers = nullptr;
+            // Retail POST captures advertise JSON, keep the connection alive,
+            // and ask for identity encoding. libcurl otherwise sends Accept:
+            // */* and negotiates compression differently.
+            if (request.post)
+                headers = curl_slist_append(headers, "Accept: application/json");
+            headers = curl_slist_append(headers, "Connection: keep-alive");
+            headers = curl_slist_append(headers, "User-Agent: PS3Application libhttp/4.9.1-000 (CellOS)");
+            headers = curl_slist_append(headers, "Accept-Encoding: identity");
             if (!request.contentType.empty()) {
                 const std::string contentType = "Content-Type: " + request.contentType;
                 headers = curl_slist_append(headers, contentType.c_str());

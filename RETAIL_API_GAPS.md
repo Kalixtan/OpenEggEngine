@@ -4,7 +4,7 @@ OpenEgg is an early reimplementation. This inventory covers every recovered reta
 
 ## Summary
 
-- **8 registration-confirmed methods remain unimplemented**. The two indexed body-position methods below have been added from their Ghidra wrapper traces.
+- **8 registration-confirmed methods remain unimplemented**. The indexed body-position methods `getBodyPos` and `setBodyPos` have been added; see [`docs/api/retail_missing.tsv`](docs/api/retail_missing.tsv).
 - **178 additional recovered wrappers** have no matching OpenEgg binding name, but their script-facing registration/owner is not recorded in the available inventory. They are listed as unresolved candidates, not asserted as confirmed public API.
 - Parameters and return types are marked unknown unless recovered; names and addresses alone do not establish a full calling contract.
 - A same-name local binding can still have incomplete behavior. This file tracks missing names, not parity.
@@ -23,17 +23,6 @@ OpenEgg is an early reimplementation. This inventory covers every recovered reta
 | `PhysicsBody.getBodyBBox` | `0x92fe4` | Returns the bounding box associated with a body in the physics data. | Parameters and return type not yet recovered. |
 | `PhysicsBody.getBodyIndex` | `0x93408` | Returns the body index stored in the physics data. | Parameters and return type not yet recovered. |
 | `PhysicsShape.getExteriorDir` | `0x8d198` | Returns the exterior direction associated with the physics shape. | Parameters and return type not yet recovered. |
-
-### Implemented from Ghidra wrapper traces
-
-These are registered on the retail `MULTIBODYPHYSICSDATA` type (called `PhysicsData` in the test report). The wrappers show `getBodyPos(index)` returning a `vector2D`, and `setBodyPos(index, vector2D)` updating the selected body and setting the data dirty flag. Runtime coverage is in `tests/runtime/systems.gm`; the local test checks the position roundtrip. Retail execution parity has not yet been captured for this case.
-
-| Retail API | Retail code address | Evidence used |
-|---|---:|---|
-| `PhysicsBody.getBodyPos` | `0x92e4c` | `reveng/classes/PhysicsBody.c`; receiver ownership in `ghidra/mappings/PHYSICS_NATIVE_METHOD_TABLES.tsv`. |
-| `PhysicsBody.setBodyPos` | `0x92f08` | `reveng/classes/PhysicsBody.c`; wrapper sets PhysicsData offset `+0x40` after moving a valid indexed body. |
-
-The address list is also preserved in [`src/core/retail_symbols.inc`](src/core/retail_symbols.inc), using OpenEgg’s local symbol aliases. Existing short notes are in [`docs/api/retail_missing.tsv`](docs/api/retail_missing.tsv).
 
 ## Unmatched recovered wrappers
 

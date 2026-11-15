@@ -18,6 +18,12 @@ public:
     // game_data directory auto-mounts its sibling "game_data packed" folder.
     void AddRoot(const std::string& root, const std::string& archiveRoot = {});
 
+    // Put a loose directory above all archive and patch layers already added.
+    void AddPriorityRoot(const std::string& root);
+
+    // Replace all configured sources with one loose directory.
+    void SetSoloRoot(const std::string& root);
+
     // Returns the resolved absolute path, checking roots in registration
     // order and preferring the requested path over an overlay fallback.
     std::optional<std::string> Resolve(const std::string& a_relativePath) const;

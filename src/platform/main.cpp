@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 #include <array>
 #include <cmath>
 #include <box2d/box2d.h>
@@ -141,6 +142,46 @@ int main(int argc, char** argv) {
     if (trace) fprintf(trace, "[TRACE] parsing args\n"), fflush(trace);
     const std::filesystem::path executableDirectory =
         std::filesystem::u8path(SaveData::ExecutableDirectory());
+    enum class DataRootMode { Layered, Forced, Solo };
+    DataRootMode dataRootMode = DataRootMode::Layered;
+    bool explicitDataRoot = false;
+    bool legacyPositionalRoot = false;
+    std::string requestedRoot;
+    std::vector<std::string> positional;
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--help" || arg == "-h") {
+            std::printf("Usage: %s [--data-root DIR | --force-data-root DIR | --solo-data-root DIR] [ENTRY_SCRIPT] [PROCESS]\n"
+                        "       %s [DATA_ROOT [ENTRY_SCRIPT [PROCESS]]]\n"
+                        "  --data-root       use a game-data directory with normal patch order\n"
+                        "  --force-data-root put loose files above archive and patch layers\n"
+                        "  --solo-data-root  use only loose files; do not mount archives or patches\n",
+                        argv[0], argv[0]);
+            return 0;
+        }
+        if (arg == "--data-root" || arg == "--force-data-root" ||
+            arg == "--solo-data-root") {
+            if (i + 1 >= argc || explicitDataRoot) {
+                std::fprintf(stderr, "%s requires one data root; use --help for usage\n", arg.c_str());
+                return 2;
+            }
+            requestedRoot = argv[++i];
+            explicitDataRoot = true;
+            if (arg == "--force-data-root") dataRootMode = DataRootMode::Forced;
+            if (arg == "--solo-data-root") dataRootMode = DataRootMode::Solo;
+            continue;
+        }
+        if (!arg.empty() && arg[0] == '-') {
+            std::fprintf(stderr, "unknown option: %s (use --help for usage)\n", arg.c_str());
+            return 2;
+        }
+        positional.push_back(arg);
+    }
+    if (!explicitDataRoot && !positional.empty()) {
+        requestedRoot = positional.front();
+        positional.erase(positional.begin());
+        legacyPositionalRoot = true;
+    }
     const std::filesystem::path systemConfigPath = executableDirectory / "OpenEgg.ini";
     if (SystemConfig::Get().LoadFromIni(systemConfigPath.u8string())) {
         std::fprintf(stderr, "system config: loaded '%s' (os_id=%s, language_code=%d, retail_build=%s)\n",
@@ -157,12 +198,17 @@ int main(int argc, char** argv) {
     const std::string defaultDataRoot =
         (executableDirectory / "game_data").lexically_normal().u8string();
     const std::string archiveRoot = executableDirectory.u8string();
-    std::filesystem::path requestedDataRoot = argc > 1
-        ? std::filesystem::u8path(argv[1]) : std::filesystem::u8path(defaultDataRoot);
-    if (requestedDataRoot.is_relative()) requestedDataRoot = executableDirectory / requestedDataRoot;
+    std::filesystem::path requestedDataRoot = requestedRoot.empty()
+        ? std::filesystem::u8path(defaultDataRoot)
+        : std::filesystem::u8path(requestedRoot);
+    if (requestedDataRoot.is_relative()) {
+        requestedDataRoot = legacyPositionalRoot
+            ? executableDirectory / requestedDataRoot
+            : std::filesystem::current_path() / requestedDataRoot;
+    }
     std::string dataRoot = requestedDataRoot.lexically_normal().u8string();
-    std::string entryScript = (argc > 2) ? argv[2] : "Main.gm";
-    std::string processName = (argc > 3) ? argv[3] : "Main";
+    std::string entryScript = positional.size() > 0 ? positional[0] : "Main.gm";
+    std::string processName = positional.size() > 1 ? positional[1] : "Main";
 
     if (trace) fprintf(trace, "[TRACE] creating Renderer object\n"), fflush(trace);
     std::unique_ptr<PlatformFrontend> hostFrontend = CreatePlatformFrontend();
@@ -184,7 +230,12 @@ int main(int argc, char** argv) {
             return hostFrontend->ShowServerLoginDialog(details);
         });
     }
-    vm.Files().AddRoot(dataRoot, archiveRoot);
+    if (dataRootMode == DataRootMode::Solo) {
+        vm.Files().SetSoloRoot(dataRoot);
+    } else {
+        vm.Files().AddRoot(dataRoot, archiveRoot);
+        if (dataRootMode == DataRootMode::Forced) vm.Files().AddPriorityRoot(dataRoot);
+    }
     if (!vm.Files().Resolve(entryScript)) {
         const char* message =
             "No runnable game files were found beside the executable. Place "

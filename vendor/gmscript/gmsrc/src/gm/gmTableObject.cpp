@@ -21,6 +21,7 @@ gmTableObject::gmTableObject()
   m_firstFree = NULL;
   m_tableSize = 0;
   m_slotsUsed = 0;
+  m_isJsonArray = false;
 }
 
 
@@ -323,6 +324,7 @@ void gmTableObject::Set(gmMachine * a_machine, const char * a_key, const gmVaria
 gmTableObject * gmTableObject::Duplicate(gmMachine * a_machine)
 {
   gmTableObject * object = a_machine->AllocTableObject();
+  object->m_isJsonArray = m_isJsonArray;
 
   if(m_tableSize)
   {

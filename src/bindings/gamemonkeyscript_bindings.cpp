@@ -173,6 +173,7 @@ gmVariable JsonToGmVariable(gmMachine& a_machine, const rapidjson::Value& a_v) {
     }
     if (a_v.IsArray()) {
         gmTableObject* table = a_machine.AllocTableObject();
+        table->SetJsonArray(true);
         int i = 0;
         for (const auto& elem : a_v.GetArray()) {
             table->Set(&a_machine, i++, JsonToGmVariable(a_machine, elem));
@@ -380,9 +381,10 @@ bool IsArrayLikeTable(gmTableObject* a_table, int& a_outCount) {
         if (node->m_key.m_type != GM_INT) return false;
         ++count;
     }
-    // An empty table serializes as {} not [] -- GM tables are fundamentally
-    // associative; [] is only earned by actually having 0..n-1 int keys.
-    if (count == 0) return false;
+    // Non-empty tables can be recognized from their contiguous integer keys.
+    // An empty GM table has no keys to inspect, so retain the kind when it
+    // came from a parsed JSON array.
+    if (count == 0) return a_table->IsJsonArray();
 
     std::vector<bool> seen(count, false);
     gmTableIterator it;
