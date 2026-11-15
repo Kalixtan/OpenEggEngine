@@ -126,6 +126,38 @@
           ]
         },
         {
+          "name": "Video unloadTextureByHandle keeps other areas separate",
+          "functions": [
+            "Video.getTexture",
+            "Video.unloadTextureByHandle"
+          ],
+          "retail": "Ghidra wrapper defaults area to 1 and passes the supplied area to the resource manager."
+        },
+        {
+          "name": "Video unloadTextureByHandle accepts retail script spelling and default area",
+          "functions": [
+            "Video.getTexture",
+            "Video.unloadTextureByHandle"
+          ],
+          "retail": "The lowercase-b spelling is called by EditScreen2PS3.gm; the wrapper defaults area to 1."
+        },
+        {
+          "name": "Video unloadTextureByHandle preserves held texture and rejects repeat unload",
+          "functions": [
+            "Video.getTexture",
+            "Video.unloadTextureByHandle"
+          ],
+          "retail": "Ghidra trace removes the registry entry while the caller-held texture keeps its reference."
+        },
+        {
+          "name": "Video unloadTextureByHandle canonical spelling and explicit area",
+          "functions": [
+            "Video.getTexture",
+            "Video.unloadTextureByHandle"
+          ],
+          "retail": "Retail native table spelling and two-argument wrapper path."
+        },
+        {
           "name": "Input mouse defaults",
           "functions": [
             "Input.getMousePos",

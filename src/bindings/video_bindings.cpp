@@ -880,6 +880,8 @@ int GM_CDECL gmf_Video_setColour(gmThread* a_thread) {
 gmFunctionEntry s_videoLib[] = {
     {"getTexture", gmf_Video_getTexture, nullptr},
     {"unloadTextureByHandle", gmf_Video_unloadTextureByHandle, nullptr},
+    // A retail editor script calls this with a lowercase "b" in "by".
+    {"unloadTexturebyHandle", gmf_Video_unloadTextureByHandle, nullptr},
     {"setNormalFont", gmf_Video_setNormalFont, nullptr},
     {"setHeavyFont", gmf_Video_setHeavyFont, nullptr},
 
