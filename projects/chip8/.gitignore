@@ -1,0 +1,2 @@
+# Keep user supplied ROM binaries out of Git.
+*.ch8

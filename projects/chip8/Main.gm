@@ -1,0 +1,533 @@
+global Main = function(p) {
+    return {
+        _process = p,
+        preDrawList = null,
+        displayShape = null,
+        memory = null,
+        registers = null,
+        stack = null,
+        pixels = null,
+        keys = null,
+        games = null,
+        selectedGame = 0,
+        mode = "menu",
+        pc = 512,
+        index = 0,
+        stackPointer = 0,
+        romLength = 0,
+        delayTimer = 0,
+        soundTimer = 0,
+        timerRemainder = 0,
+        cycleRemainder = 0,
+        waitingRegister = -1,
+        randomSeed = 1,
+        displayChanged = true,
+        error = "",
+
+        constructor = function() {
+            this.preDrawList = this.setupPreDrawList(1024, 1024);
+        },
+
+        init = function() {
+            FONTHELPER_SetNormalLargeFont(this);
+            local listing = FILEHELPER_GetFileListing("games", FILEHELPER_AREA_GAMEDATA);
+            this.games = {};
+            this.games.size = 0;
+            local sourceIndex = 0;
+            while (sourceIndex < listing.size) {
+                local fileName = listing[sourceIndex];
+                local length = STRINGHELPER_GetLength(fileName);
+                if (length > 4 && STRINGHELPER_GetSubString(
+                        length - 4, length - 1, fileName) == ".hex") {
+                    this.games[this.games.size] = fileName;
+                    this.games.size += 1;
+                }
+                sourceIndex += 1;
+            }
+            this.sortGames();
+            this.resetMachine();
+            if (this.games.size == 0) {
+                this.error = "No .hex ROMs found in games/";
+            }
+            return true;
+        },
+
+        resetMachine = function() {
+            this.memory = {};
+            this.registers = {};
+            this.stack = {};
+            this.pixels = {};
+            this.keys = {};
+            this.pc = 512;
+            this.index = 0;
+            this.stackPointer = 0;
+            this.romLength = 0;
+            this.delayTimer = 0;
+            this.soundTimer = 0;
+            this.timerRemainder = 0;
+            this.cycleRemainder = 0;
+            this.waitingRegister = -1;
+            this.randomSeed = 1;
+            this.displayChanged = true;
+            this.displayShape = null;
+            this.error = "";
+
+            local i = 0;
+            while (i < 4096) {
+                this.memory[i] = 0;
+                if (i < 16) {
+                    this.registers[i] = 0;
+                    this.stack[i] = 0;
+                    this.keys[i] = 0;
+                }
+                if (i < 2048) {
+                    this.pixels[i] = 0;
+                }
+                i += 1;
+            }
+            this.loadFont();
+        },
+
+        sortGames = function() {
+            local i = 1;
+            while (i < this.games.size) {
+                local item = this.games[i];
+                local j = i;
+                local itemOrder = this.gameOrder(item);
+                while (j > 0 && itemOrder < this.gameOrder(this.games[j - 1])) {
+                    this.games[j] = this.games[j - 1];
+                    j -= 1;
+                }
+                this.games[j] = item;
+                i += 1;
+            }
+        },
+
+        gameOrder = function(path) {
+            local prefix = STRINGHELPER_GetSubString(0, 1, path);
+            if (prefix == "00") {
+                return 0;
+            }
+            local value = STRINGHELPER_ConvertToInt(prefix);
+            if (value == null) {
+                return 999;
+            }
+            return value;
+        },
+
+        gameTitle = function(path) {
+            local length = STRINGHELPER_GetLength(path);
+            local start = 0;
+            if (length > 4 && STRINGHELPER_GetChar(2, path) == "_") {
+                start = 3;
+            }
+            local source = STRINGHELPER_MakeUppercase(
+                STRINGHELPER_GetSubString(start, length - 5, path));
+            local title = "";
+            local i = 0;
+            while (i < STRINGHELPER_GetLength(source)) {
+                local character = STRINGHELPER_GetChar(i, source);
+                if (character == "_") {
+                    character = " ";
+                }
+                title += character;
+                i += 1;
+            }
+            return title;
+        },
+
+        startSelectedGame = function() {
+            if (this.games.size == 0) {
+                return;
+            }
+            this.resetMachine();
+            local path = "games/" + this.games[this.selectedGame];
+            if (this.loadRom(path)) {
+                this.mode = "game";
+            }
+        },
+
+        loadFont = function() {
+            local font = "F0909090F020602070F010F080F0F010F010F09090F01010F080F010F0F080F090F0F010204040F090F090F0F090F010F0E090E090E0F0808080F0E0909090E0F080F080F0F080F08080";
+            local i = 0;
+            while (i < 80) {
+                local pair = STRINGHELPER_GetSubString(i * 2, i * 2 + 1, font);
+                this.memory[80 + i] = STRINGHELPER_ConvertHexStringToInt(pair);
+                i += 1;
+            }
+        },
+
+        loadRom = function(path) {
+            local text = FILEHELPER_LoadString(path, FILEHELPER_AREA_GAMEDATA);
+            local length = STRINGHELPER_GetLength(text);
+            local sourcePos = 0;
+            local romPos = 0;
+            while (sourcePos < length) {
+                local c = STRINGHELPER_GetChar(sourcePos, text);
+                if (c == " " || c == "\n" || c == "\r" || c == "\t") {
+                    sourcePos += 1;
+                    continue;
+                }
+                if (sourcePos + 1 >= length || romPos >= 3584) {
+                    this.error = "ROM hex is incomplete or larger than 3584 bytes";
+                    print(this.error);
+                    return false;
+                }
+                local first = STRINGHELPER_GetChar(sourcePos, text);
+                local second = STRINGHELPER_GetChar(sourcePos + 1, text);
+                if (!this.isHex(first) || !this.isHex(second)) {
+                    this.error = "ROM file contains a non-hex character";
+                    print(this.error);
+                    return false;
+                }
+                local pair = first + second;
+                this.memory[512 + romPos] = STRINGHELPER_ConvertHexStringToInt(pair);
+                romPos += 1;
+                sourcePos += 2;
+            }
+            if (romPos == 0) {
+                this.error = "No ROM bytes loaded from " + path;
+                print(this.error);
+                return false;
+            }
+            this.romLength = romPos;
+            return true;
+        },
+
+        isHex = function(character) {
+            local digits = "0123456789ABCDEFabcdef";
+            return STRINGHELPER_GetFirstOccurrence(character, digits) != 0;
+        },
+
+        bitAnd = function(a, b) {
+            local result = 0;
+            local place = 1;
+            while (a > 0 && b > 0) {
+                if (a % 2 == 1 && b % 2 == 1) { result += place; }
+                a = MATH_INT(MATH_FLOOR(a / 2));
+                b = MATH_INT(MATH_FLOOR(b / 2));
+                place *= 2;
+            }
+            return result;
+        },
+
+        step = function() {
+            if (this.pc < 0 || this.pc > 4094) {
+                this.error = "Program counter outside 4K memory";
+                return;
+            }
+            local opcode = this.memory[this.pc] * 256 + this.memory[this.pc + 1];
+            local x = MATH_INT(MATH_FLOOR(opcode / 256)) % 16;
+            local y = MATH_INT(MATH_FLOOR(opcode / 16)) % 16;
+            local n = opcode % 16;
+            local kk = opcode % 256;
+            local nnn = opcode % 4096;
+            this.pc += 2;
+
+            if (opcode == 224) {
+                local i = 0;
+                while (i < 2048) {
+                    this.pixels[i] = 0;
+                    i += 1;
+                }
+                this.displayChanged = true;
+            } else if (opcode == 238) {
+                if (this.stackPointer <= 0) {
+                    this.error = "Stack underflow on 00EE";
+                    return;
+                }
+                this.stackPointer -= 1;
+                this.pc = this.stack[this.stackPointer];
+            } else if (opcode >= 4096 && opcode < 8192) {
+                this.pc = nnn;
+            } else if (opcode >= 8192 && opcode < 12288) {
+                if (this.stackPointer >= 16) {
+                    this.error = "Stack overflow on 2NNN";
+                    return;
+                }
+                this.stack[this.stackPointer] = this.pc;
+                this.stackPointer += 1;
+                this.pc = nnn;
+            } else if (opcode >= 12288 && opcode < 16384) {
+                if (this.registers[x] == kk) { this.pc += 2; }
+            } else if (opcode >= 16384 && opcode < 20480) {
+                if (this.registers[x] != kk) { this.pc += 2; }
+            } else if (opcode >= 20480 && opcode < 24576 && n == 0) {
+                if (this.registers[x] == this.registers[y]) { this.pc += 2; }
+            } else if (opcode >= 24576 && opcode < 28672) {
+                this.registers[x] = kk;
+            } else if (opcode >= 28672 && opcode < 32768) {
+                this.registers[x] = (this.registers[x] + kk) % 256;
+            } else if (opcode >= 32768 && opcode < 36864) {
+                local vx = this.registers[x];
+                local vy = this.registers[y];
+                if (n == 0) { this.registers[x] = vy; }
+                else if (n == 1) { this.registers[x] = this.bitAnd(vx + vy - this.bitAnd(vx, vy), 255); }
+                else if (n == 2) { this.registers[x] = this.bitAnd(vx, vy); }
+                else if (n == 3) { this.registers[x] = vx + vy - 2 * this.bitAnd(vx, vy); }
+                else if (n == 4) {
+                    local sum = vx + vy;
+                    if (sum > 255) { this.registers[15] = 1; }
+                    else { this.registers[15] = 0; }
+                    this.registers[x] = sum % 256;
+                } else if (n == 5) {
+                    if (vx >= vy) { this.registers[15] = 1; }
+                    else { this.registers[15] = 0; }
+                    this.registers[x] = (vx - vy + 256) % 256;
+                } else if (n == 6) {
+                    this.registers[15] = vy % 2;
+                    this.registers[x] = MATH_INT(MATH_FLOOR(vy / 2));
+                } else if (n == 7) {
+                    if (vy >= vx) { this.registers[15] = 1; }
+                    else { this.registers[15] = 0; }
+                    this.registers[x] = (vy - vx + 256) % 256;
+                } else if (n == 14) {
+                    this.registers[15] = MATH_INT(MATH_FLOOR(vy / 128));
+                    this.registers[x] = (vy * 2) % 256;
+                } else {
+                    this.error = "Unsupported 8XYN instruction";
+                }
+            } else if (opcode >= 36864 && opcode < 40960 && n == 0) {
+                if (this.registers[x] != this.registers[y]) { this.pc += 2; }
+            } else if (opcode >= 40960 && opcode < 45056) {
+                this.index = nnn;
+            } else if (opcode >= 45056 && opcode < 49152) {
+                this.pc = (nnn + this.registers[0]) % 4096;
+            } else if (opcode >= 49152 && opcode < 53248) {
+                this.randomSeed = (this.randomSeed * 109 + 89) % 65536;
+                local randomByte = MATH_INT(MATH_FLOOR(this.randomSeed / 256));
+                this.registers[x] = this.bitAnd(randomByte, kk);
+            } else if (opcode >= 53248 && opcode < 57344) {
+                local rows = n;
+                if (rows == 0) {
+                    this.error = "DXY0 16x16 draw is SUPER-CHIP, not CHIP-8";
+                    return;
+                }
+                local startX = this.registers[x];
+                local startY = this.registers[y];
+                this.registers[15] = 0;
+                local row = 0;
+                while (row < rows) {
+                    local sprite = this.memory[(this.index + row) % 4096];
+                    local mask = 128;
+                    local column = 0;
+                    while (column < 8) {
+                        if (MATH_INT(MATH_FLOOR(sprite / mask)) % 2 == 1) {
+                            local px = (startX + column) % 64;
+                            local py = (startY + row) % 32;
+                            local pixel = py * 64 + px;
+                            if (this.pixels[pixel] == 1) {
+                                this.pixels[pixel] = 0;
+                                this.registers[15] = 1;
+                            } else {
+                                this.pixels[pixel] = 1;
+                            }
+                        }
+                        mask = MATH_INT(MATH_FLOOR(mask / 2));
+                        column += 1;
+                    }
+                    row += 1;
+                }
+                this.displayChanged = true;
+            } else if (opcode >= 57344 && opcode < 61440 && kk == 158) {
+                local key = this.registers[x];
+                if (this.keys[key] == 0) { this.pc += 2; }
+            } else if (opcode >= 57344 && opcode < 61440 && kk == 161) {
+                local key = this.registers[x];
+                if (this.keys[key] != 0) { this.pc += 2; }
+            } else if (opcode >= 61440 && opcode < 65536) {
+                if (kk == 7) { this.registers[x] = this.delayTimer; }
+                else if (kk == 10) {
+                    this.waitingRegister = x;
+                    this.pc -= 2;
+                } else if (kk == 21) { this.delayTimer = this.registers[x]; }
+                else if (kk == 24) { this.soundTimer = this.registers[x]; }
+                else if (kk == 30) { this.index = (this.index + this.registers[x]) % 4096; }
+                else if (kk == 41) { this.index = 80 + this.registers[x] * 5; }
+                else if (kk == 51) {
+                    local value = this.registers[x];
+                    this.memory[this.index % 4096] = MATH_INT(MATH_FLOOR(value / 100));
+                    this.memory[(this.index + 1) % 4096] = MATH_INT(MATH_FLOOR(value / 10)) % 10;
+                    this.memory[(this.index + 2) % 4096] = value % 10;
+                } else if (kk == 85) {
+                    local i = 0;
+                    while (i <= x) {
+                        this.memory[(this.index + i) % 4096] = this.registers[i];
+                        i += 1;
+                    }
+                    this.index = (this.index + x + 1) % 4096;
+                } else if (kk == 101) {
+                    local i = 0;
+                    while (i <= x) {
+                        this.registers[i] = this.memory[(this.index + i) % 4096];
+                        i += 1;
+                    }
+                    this.index = (this.index + x + 1) % 4096;
+                } else {
+                    this.error = "Unsupported FXNN instruction";
+                }
+            } else {
+                this.error = "Unsupported opcode: " + opcode;
+            }
+        },
+
+        keyIndex = function(code) {
+            if (code == KEYBOARD_1) { return 1; }
+            if (code == KEYBOARD_2) { return 2; }
+            if (code == KEYBOARD_3) { return 3; }
+            if (code == KEYBOARD_4) { return 12; }
+            if (code == KEYBOARD_Q) { return 4; }
+            if (code == KEYBOARD_W) { return 5; }
+            if (code == KEYBOARD_E) { return 6; }
+            if (code == KEYBOARD_R) { return 13; }
+            if (code == KEYBOARD_A) { return 7; }
+            if (code == KEYBOARD_S) { return 8; }
+            if (code == KEYBOARD_D) { return 9; }
+            if (code == KEYBOARD_F) { return 14; }
+            if (code == KEYBOARD_Z) { return 10; }
+            if (code == KEYBOARD_X) { return 0; }
+            if (code == KEYBOARD_C) { return 11; }
+            if (code == KEYBOARD_V) { return 15; }
+            return -1;
+        },
+
+        onKeyPress = function(code) {
+            if (this.mode == "menu") {
+                if (code == KEYBOARD_UP && this.selectedGame > 0) {
+                    this.selectedGame -= 1;
+                } else if (code == KEYBOARD_DOWN &&
+                        this.selectedGame + 1 < this.games.size) {
+                    this.selectedGame += 1;
+                } else if (code == KEYBOARD_ENTER) {
+                    this.startSelectedGame();
+                }
+                return;
+            }
+            if (code == KEYBOARD_ESCAPE) {
+                this.mode = "menu";
+                this.resetMachine();
+                return;
+            }
+            local key = this.keyIndex(code);
+            if (key < 0) { return; }
+            this.keys[key] = 1;
+            if (this.waitingRegister >= 0) {
+                this.registers[this.waitingRegister] = key;
+                this.waitingRegister = -1;
+                this.pc += 2;
+            }
+        },
+
+        onKeyRelease = function(code) {
+            if (this.mode != "game") {
+                return;
+            }
+            local key = this.keyIndex(code);
+            if (key >= 0) { this.keys[key] = 0; }
+        },
+
+        update = function(deltaMs) {
+            if (this.mode != "game") {
+                return;
+            }
+            this.timerRemainder += deltaMs;
+            while (this.timerRemainder >= 16.6667) {
+                this.timerRemainder -= 16.6667;
+                if (this.delayTimer > 0) { this.delayTimer -= 1; }
+                if (this.soundTimer > 0) { this.soundTimer -= 1; }
+            }
+            if (this.error != "" || this.waitingRegister >= 0) {
+                return;
+            }
+            this.cycleRemainder += deltaMs * 0.7;
+            local cycles = MATH_INT(MATH_FLOOR(this.cycleRemainder));
+            this.cycleRemainder -= cycles;
+            local cycle = 0;
+            while (cycle < cycles && this.error == "" && this.waitingRegister < 0) {
+                this.step();
+                cycle += 1;
+            }
+        },
+
+        buildDisplayShape = function() {
+            local lit = 0;
+            local i = 0;
+            while (i < 2048) {
+                if (this.pixels[i] == 1) { lit += 1; }
+                i += 1;
+            }
+            if (lit == 0) { return null; }
+
+            local shape = SHAPE(SHAPETYPE_QUADS, lit * 4);
+            local cell = 0.28;
+            local row = 0;
+            while (row < 32) {
+                local column = 0;
+                while (column < 64) {
+                    if (this.pixels[row * 64 + column] == 1) {
+                        local left = -8.96 + column * cell;
+                        local top = 4.48 - row * cell;
+                        shape.plotVertex(left, top);
+                        shape.plotVertex(left + cell * 0.9, top);
+                        shape.plotVertex(left + cell * 0.9, top - cell * 0.9);
+                        shape.plotVertex(left, top - cell * 0.9);
+                    }
+                    column += 1;
+                }
+                row += 1;
+            }
+            return shape;
+        },
+
+        preDraw = function() {
+            local list = this.preDrawList;
+            list.reset();
+            list.setColour(0.02, 0.03, 0.05, 1);
+            list.clear(VIDEO_ALLSURFACES);
+            list.setupWorldView();
+            list.setAttrDepthTest(false);
+            list.setAttrDepthWrite(false);
+            Video.setCameraPos(0, 0, 10.1);
+
+            if (this.mode == "menu") {
+                this.drawMenu(list);
+            } else if (this.error != "") {
+                list.setColour(1, 0.25, 0.25, 1);
+                list.print(-8.2, 0, 0, this.error, 0.35, TEXTALIGN_LEFT);
+            } else {
+                if (this.displayChanged) {
+                    this.displayShape = this.buildDisplayShape();
+                    this.displayChanged = false;
+                }
+                if (this.displayShape != null) {
+                    list.setColour(0.2, 0.95, 0.75, 1);
+                    list.drawShape(this.displayShape);
+                }
+            }
+            list.setColour(1, 1, 1, 1);
+        },
+
+        drawMenu = function(list) {
+            list.setColour(1, 1, 1, 1);
+            list.print(-8.2, 3.7, 0, "CHIP-8 GAMES", 0.55, TEXTALIGN_LEFT);
+            list.print(-8.2, 2.7, 0, "UP / DOWN: SELECT    ENTER: PLAY", 0.24, TEXTALIGN_LEFT);
+            local first = this.selectedGame - 3;
+            if (first < 0) { first = 0; }
+            local last = first + 8;
+            if (last > this.games.size) { last = this.games.size; }
+            local i = first;
+            local y = 1.7;
+            while (i < last) {
+                local marker = "  ";
+                if (i == this.selectedGame) { marker = "> "; }
+                list.print(-8.2, y, 0, marker + this.gameTitle(this.games[i]),
+                    0.32, TEXTALIGN_LEFT);
+                y -= 0.72;
+                i += 1;
+            }
+            if (this.games.size == 0) {
+                list.print(-8.2, 1.7, 0, this.error, 0.3, TEXTALIGN_LEFT);
+            }
+        }
+    };
+};
