@@ -48,3 +48,6 @@ settings.ini
 
 # Local release packages
 /dist/
+
+# Local game and engine experiments
+/projects/
