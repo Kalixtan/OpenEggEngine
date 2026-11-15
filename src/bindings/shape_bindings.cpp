@@ -20,6 +20,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <cstdio>
 #include <cstdlib>
 
@@ -162,7 +163,22 @@ struct ShapeData {
     // their per-frame XYZ appender changes the live vertex stride to 12.
     int retailBufferBytes = 0;
     int retailVertexStride = 0;
+    int retailBufferWriteOffset = 0;
+    // Native count advances even when the fixed work buffer rejects a write.
+    int retailVertexCount = 0;
+    // Retail's overflow flag survives VMSHAPE.reset, so warn once per shape.
+    bool retailBufferOverflowed = false;
+    bool retailBufferLimited = false;
 };
+
+void ConfigureRetailShapeBuffer(ShapeData* a_shape, int a_capacity, int a_stride) {
+    // FUN_00047750 allocates 0x14 + capacity * stride bytes.
+    const int64_t bytes = 0x14ll + static_cast<int64_t>(a_capacity) * a_stride;
+    a_shape->retailBufferLimited = true;
+    a_shape->retailVertexStride = a_stride;
+    a_shape->retailBufferBytes = bytes > 0 &&
+        bytes <= std::numeric_limits<int>::max() ? static_cast<int>(bytes) : 0;
+}
 
 ShapeData* ThisShape(gmThread* a_thread) {
     ShapeData* shape = (ShapeData*)a_thread->ThisUserCheckType(g_shapeType);
@@ -390,6 +406,7 @@ int GM_CDECL gmf_Shape_beginShape(gmThread* a_thread) {
     if (a_thread->GetNumParams() >= 2) {
         data->capacity = (int)a_thread->ParamFloatOrInt(1, 0x40);
     }
+    ConfigureRetailShapeBuffer(data, data->capacity, 0x14);
     g_currentShape = data; // see g_currentShape's header comment
     a_thread->PushNewUser(data, g_shapeType);
     return GM_OK;
@@ -417,6 +434,9 @@ int GM_CDECL gmf_Video_beginShape(gmThread* a_thread) {
         const uint32_t raw = static_cast<uint32_t>(a_thread->Param(2).m_value.m_int);
         data->retailConstructorField24 = static_cast<int32_t>(raw << 2);
     }
+    const int allocationStride = count == 3
+        ? data->retailConstructorField24 : 0x14;
+    ConfigureRetailShapeBuffer(data, data->capacity, allocationStride);
     a_thread->PushNewUser(data, g_shapeType);
     return GM_OK;
 }
@@ -458,6 +478,7 @@ int GM_CDECL gmf_SHAPE(gmThread* a_thread) {
     data->retailShapeType = shapeType;
     data->glMode = ToGLMode(shapeType);
     data->capacity = numVerts;
+    ConfigureRetailShapeBuffer(data, numVerts, 0x14);
     a_thread->PushNewUser(data, g_shapeType);
     return GM_OK;
 }
@@ -497,23 +518,39 @@ int PlotVertexOn(gmThread* a_thread, ShapeData* s) {
         s->vertexData.clear();
         s->colors.clear();
         s->uvs.clear();
+        s->retailBufferWriteOffset = 0;
+        s->retailVertexCount = 0;
         s->needsClearOnNextPlot = false;
     }
-    s->verts.push_back(x);
-    s->verts.push_back(y);
-    s->vertexData.push_back(data2);
-    s->vertexData.push_back(data3);
-    s->vertexData.push_back(data4);
-    float cr, cg, cb, ca;
-    GetEngineContext().renderer->GetColour(cr, cg, cb, ca);
-    s->colors.push_back(cr);
-    s->colors.push_back(cg);
-    s->colors.push_back(cb);
-    s->colors.push_back(ca);
-    const bool textureUV = p0.m_type != g_vector2DType &&
-        a_thread->GetNumParams() >= 5 && s->shaderEntityType.empty();
-    s->uvs.push_back(textureUV ? data3 : 0.5f);
-    s->uvs.push_back(textureUV ? data4 : 0.5f);
+    const int argumentCount = a_thread->GetNumParams();
+    const int writeBytes = argumentCount == 1 ? 4 :
+        (argumentCount == 5 ? 20 : 12);
+    const int64_t writeEnd = static_cast<int64_t>(s->retailBufferWriteOffset) + writeBytes;
+    // Retail checks cursor + recordSize < end (strictly less than).
+    const bool appendSucceeded = !s->retailBufferLimited ||
+        writeEnd < s->retailBufferBytes;
+    if (appendSucceeded) {
+        s->verts.push_back(x);
+        s->verts.push_back(y);
+        s->vertexData.push_back(data2);
+        s->vertexData.push_back(data3);
+        s->vertexData.push_back(data4);
+        float cr, cg, cb, ca;
+        GetEngineContext().renderer->GetColour(cr, cg, cb, ca);
+        s->colors.push_back(cr);
+        s->colors.push_back(cg);
+        s->colors.push_back(cb);
+        s->colors.push_back(ca);
+        const bool textureUV = p0.m_type != g_vector2DType &&
+            argumentCount >= 5 && s->shaderEntityType.empty();
+        s->uvs.push_back(textureUV ? data3 : 0.5f);
+        s->uvs.push_back(textureUV ? data4 : 0.5f);
+        s->retailBufferWriteOffset += writeBytes;
+    } else if (!s->retailBufferOverflowed) {
+        std::fprintf(stderr, "ERROR: WorkBuffer overflowed\n");
+        s->retailBufferOverflowed = true;
+    }
+    ++s->retailVertexCount;
     s->localZ = localZ;
     return GM_OK;
 }
@@ -540,12 +577,13 @@ int GM_CDECL gmf_VMSHAPE_endShape(gmThread* a_thread) {
 }
 
 // Verification: retail VMSHAPE.getNumVertices at 0x7bad4 reads the current
-// native mesh's +0x20 vertex count and pushes it as a GM integer. ShapeData
-// stores vertices as xy pairs, so its exact corresponding count is verts/2.
+// Native +0x20 is a logical count: retail increments it even when an append
+// overflows the fixed buffer. Keep it separate from the safe host vertex data.
 int GM_CDECL gmf_VMSHAPE_getNumVertices(gmThread* a_thread) {
     ShapeData* s = ThisShape(a_thread);
     if (!s) return GM_EXCEPTION;
-    a_thread->PushInt((gmint)(s->verts.size() / 2));
+    a_thread->PushInt((gmint)std::max(
+        s->retailVertexCount, static_cast<int>(s->verts.size() / 2)));
     return GM_OK;
 }
 
@@ -584,6 +622,8 @@ int GM_CDECL gmf_setAsFilledCircle(gmThread* a_thread) {
         ang += angInc;
     }
     s->localZ = 0.0f;
+    s->retailVertexCount = 1 + quality;
+    s->retailBufferWriteOffset = s->retailVertexCount * 12;
     s->needsClearOnNextPlot = false;
     return GM_OK;
 }
@@ -793,6 +833,8 @@ gmFunctionEntry s_shapeLib[] = {
         s->colors.clear();
         s->uvs.clear();
         s->retailEndShapeField4 = -1;
+        s->retailBufferWriteOffset = 0;
+        s->retailVertexCount = 0;
         s->needsClearOnNextPlot = false;
         return GM_OK;
     }, nullptr},
@@ -843,6 +885,7 @@ void PushShapeFromVerts(gmThread* a_thread, int a_shapeType, const float* a_xy,
         data->glMode = ToGLMode(a_shapeType);
     }
     data->capacity = a_count;
+    data->retailVertexCount = a_count;
     data->localZ = a_z;
     if (a_count > 0) data->verts.assign(a_xy, a_xy + (size_t)a_count * 2);
     else data->verts.clear();
@@ -911,6 +954,9 @@ gmVariable UpdateNativeOwnedShape(gmMachine& a_machine, gmTableObject* a_owner,
         ? 0x14 + a_nativeCapacity * std::max(a_nativeAllocationStride, 0)
         : 0;
     data->retailVertexStride = a_nativeCapacity >= 0 ? 12 : 0;
+    data->retailBufferLimited = a_nativeCapacity >= 0;
+    data->retailBufferWriteOffset = liveCount * 12;
+    data->retailVertexCount = liveCount;
     data->localZ = a_z;
     if (a_xy && a_count > 0)
         data->verts.assign(a_xy, a_xy + (size_t)a_count * 2);
