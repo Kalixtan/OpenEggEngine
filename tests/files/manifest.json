@@ -1,0 +1,218 @@
+{
+  "harness": "harness",
+  "sections": [
+    {
+      "name": "File handling",
+      "script": "probe.gm",
+      "retail": "Ghidra-based and local assertions",
+      "cases": [
+        {
+          "name": "Area constants and default arguments",
+          "functions": [
+            "FILEHELPER_LoadString",
+            "FILEHELPER_GetFileListing"
+          ],
+          "retail": "Ghidra path helper traces; missing LoadString is a known retail crash"
+        },
+        {
+          "name": "Game data reads and listing",
+          "functions": [
+            "FILEHELPER_LoadString",
+            "FILEHELPER_GetFileListing",
+            "FILE_IsExists"
+          ],
+          "retail": "Ghidra path helper traces; missing LoadString is a known retail crash"
+        },
+        {
+          "name": "Host area paths",
+          "functions": [
+            "FILEHELPER_LoadString",
+            "FILEHELPER_GetFileListing",
+            "FILE_IsExists"
+          ],
+          "retail": "Ghidra path helper traces; missing LoadString is a known retail crash"
+        },
+        {
+          "name": "Save data write read delete lifecycle",
+          "functions": [
+            "FILEHELPER_EnsurePathExists",
+            "FILEHELPER_WriteString",
+            "FILEHELPER_LoadString",
+            "FILEHELPER_DeleteFile"
+          ],
+          "retail": "Ghidra path helper traces; missing LoadString is a known retail crash"
+        },
+        {
+          "name": "Missing and unsupported area behavior",
+          "functions": [
+            "FILEHELPER_LoadString",
+            "FILEHELPER_GetFileListing",
+            "FILE_IsExists"
+          ],
+          "retail": "Ghidra path helper traces; missing LoadString is a known retail crash"
+        },
+        {
+          "name": "Virtual space constant",
+          "functions": [
+            "FILEHELPER_VirtualSpaceLeft"
+          ],
+          "retail": "Ghidra path helper traces; missing LoadString is a known retail crash"
+        },
+        {
+          "name": "Copy data between supported areas",
+          "functions": [
+            "FILEHELPER_CopyFile",
+            "FILEHELPER_LoadString",
+            "FILEHELPER_DeleteFile"
+          ],
+          "retail": "Ghidra helper traces plus local assertions"
+        },
+        {
+          "name": "Copy missing and empty sources",
+          "functions": [
+            "FILEHELPER_CopyFile",
+            "FILEHELPER_LoadString"
+          ],
+          "retail": "Ghidra helper traces plus local assertions"
+        },
+        {
+          "name": "WriteString area return behavior",
+          "functions": [
+            "FILEHELPER_WriteString",
+            "FILEHELPER_LoadString"
+          ],
+          "retail": "Ghidra helper traces plus local assertions"
+        },
+        {
+          "name": "Compressed string roundtrip and invalid data",
+          "functions": [
+            "FILEHELPER_WriteCompressedString",
+            "FILEHELPER_LoadCompressedString",
+            "FILEHELPER_DeleteFile"
+          ],
+          "retail": "Ghidra helper traces plus local assertions"
+        },
+        {
+          "name": "EnsurePathExists nested and existing paths",
+          "functions": [
+            "FILEHELPER_EnsurePathExists"
+          ],
+          "retail": "Ghidra helper traces plus local assertions"
+        },
+        {
+          "name": "File write, read, and close",
+          "functions": [
+            "FILE",
+            "File.openForWrite",
+            "File.write",
+            "File.openForRead",
+            "File.readAll",
+            "File.close"
+          ],
+          "retail": "Ghidra File class and bare helper traces"
+        },
+        {
+          "name": "File append modes and byte content",
+          "functions": [
+            "File.openForAppend",
+            "File.openForRead",
+            "File.readAll",
+            "File.close"
+          ],
+          "retail": "Ghidra File class and bare helper traces"
+        },
+        {
+          "name": "File missing path and closed operations",
+          "functions": [
+            "File.openForRead",
+            "File.readAll",
+            "File.write",
+            "File.close"
+          ],
+          "retail": "Ghidra File class and bare helper traces"
+        },
+        {
+          "name": "Bare FILE write and append formatting",
+          "functions": [
+            "FILE_Write",
+            "FILE_Append",
+            "File.openForRead",
+            "File.readAll",
+            "File.close"
+          ],
+          "retail": "Ghidra File class and bare helper traces"
+        },
+        {
+          "name": "Empty and embedded NUL text files",
+          "functions": [
+            "FILEHELPER_LoadString"
+          ],
+          "retail": "Ghidra LoadString wrapper uses NUL-terminated conversion"
+        },
+        {
+          "name": "Host copy and SaveData deletion",
+          "functions": [
+            "FILEHELPER_CopyFile",
+            "FILEHELPER_LoadString",
+            "FILEHELPER_DeleteFile",
+            "FILEHELPER_GetFileListing",
+            "FILE_IsExists"
+          ],
+          "retail": "Ghidra area helpers plus local assertions"
+        },
+        {
+          "name": "File reopen truncates and text mode reads",
+          "functions": [
+            "File.openForWrite",
+            "File.write",
+            "File.openForRead",
+            "File.readAll",
+            "File.close"
+          ],
+          "retail": "Ghidra File class plus local assertions"
+        },
+        {
+          "name": "File empty reads",
+          "functions": [
+            "File.openForRead",
+            "File.readAll",
+            "File.close"
+          ],
+          "retail": "Ghidra File class plus local assertions"
+        }
+      ],
+      "required_output": [
+        "FILEHELPER_LoadString: missing game-data file would pass null to the retail string wrapper and crash"
+      ]
+    },
+    {
+      "name": "Forced root",
+      "script": "root_probe.gm",
+      "data_root_mode": "forced",
+      "data_root": "tests/files/priority_root",
+      "cases": [
+        {
+          "name": "Forced data root wins",
+          "functions": [
+            "FILEHELPER_LoadString"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Solo root",
+      "script": "root_probe.gm",
+      "data_root_mode": "solo",
+      "data_root": "tests/files/solo_root",
+      "cases": [
+        {
+          "name": "Solo data root isolates sources",
+          "functions": [
+            "FILEHELPER_LoadString",
+            "FILE_IsExists"
+          ]
+        }
+      ]
+    }
+  ]
+}

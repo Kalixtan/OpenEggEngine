@@ -1,0 +1,13 @@
+global Main=function(p) {
+    return table(Process=p,ran=0,update=function() {
+        if (this.ran) { return; }
+        this.ran=1;
+        local text=FILEHELPER_LoadString("solo.txt",FILEHELPER_AREA_GAMEDATA);
+        local retailPath=FILE_IsExists("Platformer/Main.gm",FILEHELPER_AREA_GAMEDATA);
+        if (text=="solo data\n" && retailPath==0) {
+            GameSystem.trace("Solo data root isolates sources PASS");
+        } else {
+            GameSystem.trace("Solo data root isolates sources FAIL");
+        }
+    });
+};

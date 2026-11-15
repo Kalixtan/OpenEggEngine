@@ -25,10 +25,25 @@ gmType g_fileType = -1;
 
 namespace {
 
+bool FileHelperResolvePath(int a_area, const std::string& a_relPath, std::string& a_out);
+
 int GM_CDECL gmf_FILE_IsExists(gmThread* a_thread) {
     GM_CHECK_NUM_PARAMS(1);
     GM_STRING_PARAM(path, 0, "");
-    bool exists = GetEngineContext().fileHelper && GetEngineContext().fileHelper->Resolve(path).has_value();
+    int area = 1;
+    if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
+    bool exists = false;
+    if (area == 0) {
+        exists = SaveData::FileExists(path);
+    } else if (area == 1) {
+        FileHelper* files = GetEngineContext().fileHelper;
+        exists = files && files->Resolve(path).has_value();
+    } else if (area == 2) {
+        std::string full;
+        std::error_code ec;
+        exists = FileHelperResolvePath(area, path, full) &&
+            std::filesystem::is_regular_file(std::filesystem::u8path(full), ec) && !ec;
+    }
     a_thread->PushInt(exists ? 1 : 0);
     return GM_OK;
 }
@@ -182,7 +197,11 @@ int GM_CDECL gmf_FILEHELPER_LoadString(gmThread* a_thread) {
     int area = 1;
     if (a_thread->GetNumParams() > 1) { GM_INT_PARAM(a, 1, 1); area = a; }
     std::string content;
-    FileHelperAreaReadFile(area, path, content);
+    const bool loaded = FileHelperAreaReadFile(area, path, content);
+    if (!loaded && area == 1) {
+        std::fprintf(stderr,
+            "FILEHELPER_LoadString: missing game-data file would pass null to the retail string wrapper and crash\n");
+    }
     a_thread->PushNewString(content.c_str());
     return GM_OK;
 }
@@ -231,7 +250,9 @@ int GM_CDECL gmf_FILEHELPER_EnsurePathExists(gmThread* a_thread) {
             fs::create_directories(parent, ec);
         }
     }
-    a_thread->PushInt(1);
+    // Retail calls mkdir for each path component but returns the helper's
+    // constant zero result through the native boolean conversion.
+    a_thread->PushInt(0);
     return GM_OK;
 }
 

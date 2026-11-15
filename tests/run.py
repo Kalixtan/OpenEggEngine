@@ -47,7 +47,8 @@ def api_inventory(suite_dir=None):
     return sorted(functions)
 
 
-def run_script(engine, suite_dir, script, harness, timeout, log_dir, strict="halt"):
+def run_script(engine, suite_dir, script, harness, timeout, log_dir, strict="halt",
+               data_root_mode="normal", data_root=None):
     env = os.environ.copy()
     env.update({
         "GE3_HEADLESS": "1",
@@ -57,7 +58,15 @@ def run_script(engine, suite_dir, script, harness, timeout, log_dir, strict="hal
         "SDL_AUDIODRIVER": "dummy",
         "LIBGL_ALWAYS_SOFTWARE": "1",
     })
-    command = [str(engine), str(suite_dir), script, "Main"]
+    command = [str(engine)]
+    if data_root_mode in ("forced", "solo"):
+        if not data_root:
+            raise ValueError(f"{data_root_mode} data root requires a path")
+        option = "--force-data-root" if data_root_mode == "forced" else "--solo-data-root"
+        command.extend([option, str((ROOT / data_root).resolve())])
+    else:
+        command.append(str(suite_dir))
+    command.extend([script, "Main"])
     reason = ""
     try:
         result = subprocess.run(
@@ -146,6 +155,17 @@ def make_report(suite, engine, entries, problems, inventory):
                       "no binding because that does not establish a usable contract. All other "
                       "listed string methods have local assertions. These checks run against "
                       "OpenEgg; they are not retail log comparisons.", ""])
+    elif suite == "files":
+        lines.extend(["", "These are local headless assertions, not a retail differential run. "
+                      "Ghidra shows `GetFileListing` walking data overlays, but `LoadString` "
+                      "formats area 1 as `/app_home/<path>`. The PS3 trace found ROMs under "
+                      "`USRDIR/game_data/games` and then tried `USRDIR/games/<name>`. The open "
+                      "failed; retail returned a null buffer which its string wrapper did not "
+                      "guard, causing the crash. OpenEgg resolves through its overlay and "
+                      "returns an empty string for a missing file. `WriteString` on SaveData "
+                      "returns success without writing, and `EnsurePathExists` attempts mkdir "
+                      "but returns false. Layered PSARC precedence still needs a retail log "
+                      "comparison.", ""])
     return "\n".join(lines)
 
 
@@ -178,7 +198,12 @@ def main():
         observed, process_error, log_path, output = run_script(
             engine, suite_dir, script, suite_dir / manifest["harness"],
             args.timeout, log_dir,
+            data_root_mode=section.get("data_root_mode", "normal"),
+            data_root=section.get("data_root"),
         )
+        for text in section.get("required_output", []):
+            if text not in output:
+                problems.append(f"`{script}` did not emit required output: {text}")
         expected = {case["name"] for case in section["cases"]}
         for case in section["cases"]:
             name = case["name"]

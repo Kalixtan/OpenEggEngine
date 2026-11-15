@@ -1,0 +1,13 @@
+global Main=function(p) {
+    return table(Process=p,ran=0,update=function() {
+        if (this.ran) { return; }
+        this.ran=1;
+        local entry=FILEHELPER_LoadString("Platformer/Main.gm",FILEHELPER_AREA_GAMEDATA);
+        local localFile=FILEHELPER_LoadString("priority.txt",FILEHELPER_AREA_GAMEDATA);
+        if (entry=="forced root fixture\n" && localFile=="priority data\n") {
+            GameSystem.trace("Forced data root wins PASS");
+        } else {
+            GameSystem.trace("Forced data root wins FAIL");
+        }
+    });
+};

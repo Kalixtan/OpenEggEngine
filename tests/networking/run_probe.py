@@ -102,7 +102,7 @@ def main():
             "GE3_HARNESS": str(ROOT / "tests" / "networking" / "harness.txt"),
             "SDL_AUDIODRIVER": "dummy",
             "LIBGL_ALWAYS_SOFTWARE": "1",
-            # Avoid selecting PSn00bSDK's cross assembler as host assembler.
+            # Put host utilities before optional toolchain utilities.
             "PATH": "/usr/bin:/bin:" + env.get("PATH", ""),
         })
         probe = "OwnerUnpublishProbe.gm" if args.owner_unpublish else "AuthenticatedNetworkProbe.gm" if args.session_id else "OpenEggNetworkProbe.gm"

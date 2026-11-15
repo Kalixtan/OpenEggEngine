@@ -1,0 +1,165 @@
+global Check=function(name,ok) {
+    if (ok) { GameSystem.trace(name+" PASS"); }
+    else { GameSystem.trace(name+" FAIL"); }
+};
+
+global Main=function(p) {
+    return table(Process=p,ran=0,update=function() {
+        if (this.ran) { return; }
+        this.ran=1;
+
+        Check("Area constants and default arguments",
+            FILEHELPER_AREA_SAVEDATA==0 && FILEHELPER_AREA_GAMEDATA==1 &&
+            FILEHELPER_AREA_HOST==2 && FILEHELPER_AREA_NULL==3 &&
+            FILEHELPER_LoadString("fixtures/read.txt")=="OpenEgg file helper fixture\n");
+
+        local listing=FILEHELPER_GetFileListing("fixtures");
+        Check("Game data reads and listing",
+            listing.size>=3 && listing.size==tableCount(listing)-1 &&
+            FILEHELPER_LoadString("fixtures/read.txt",FILEHELPER_AREA_GAMEDATA)==
+                "OpenEgg file helper fixture\n" &&
+            FILE_IsExists("fixtures/read.txt")==1 &&
+            FILE_IsExists("missing-file.txt")==0);
+
+        local emptyText=FILEHELPER_LoadString("fixtures/empty.txt",1);
+        local nulText=FILEHELPER_LoadString("fixtures/nul.txt",1);
+        Check("Empty and embedded NUL text files",emptyText=="" && nulText=="abc");
+
+        local host=FILEHELPER_LoadString("tests/files/fixtures/read.txt",FILEHELPER_AREA_HOST);
+        local hostList=FILEHELPER_GetFileListing("tests/files/fixtures",FILEHELPER_AREA_HOST);
+        Check("Host area paths",host=="OpenEgg file helper fixture\n" &&
+            hostList.size>=2 && hostList.size==tableCount(hostList)-1 &&
+            FILE_IsExists("tests/files/fixtures/read.txt",FILEHELPER_AREA_HOST)==1 &&
+            FILE_IsExists("tests/files/missing.txt",FILEHELPER_AREA_HOST)==0);
+
+        local saveDir="openegg_file_probe";
+        local savePath=saveDir+"/roundtrip.txt";
+        local made=FILEHELPER_EnsurePathExists(savePath,FILEHELPER_AREA_SAVEDATA);
+        local wrote=FILEHELPER_WriteString(savePath,"save data",FILEHELPER_AREA_SAVEDATA);
+        local read=FILEHELPER_LoadString(savePath,FILEHELPER_AREA_SAVEDATA);
+        local saved=FILE_IsExists(savePath,FILEHELPER_AREA_SAVEDATA);
+        FILEHELPER_DeleteFile(savePath,FILEHELPER_AREA_SAVEDATA);
+        Check("Save data write read delete lifecycle",made==0 && wrote==1 &&
+            read=="" && saved==0 && FILE_IsExists(savePath,0)==0);
+
+        local missing=FILEHELPER_LoadString("does-not-exist.txt",FILEHELPER_AREA_NULL);
+        local missingGameData=FILEHELPER_LoadString("does-not-exist.txt",FILEHELPER_AREA_GAMEDATA);
+        local nullList=FILEHELPER_GetFileListing("does-not-exist",FILEHELPER_AREA_NULL);
+        local badArea=FILEHELPER_LoadString("fixtures/read.txt",-1);
+        Check("Missing and unsupported area behavior",missing=="" &&
+            missingGameData=="" && nullList.size==0 && badArea=="");
+        Check("Virtual space constant",FILEHELPER_VirtualSpaceLeft()==1024);
+
+        local copyPath=saveDir+"/copied.txt";
+        FILEHELPER_CopyFile("fixtures/read.txt",FILEHELPER_AREA_GAMEDATA,
+            copyPath,FILEHELPER_AREA_SAVEDATA);
+        local copied=FILEHELPER_LoadString(copyPath,FILEHELPER_AREA_SAVEDATA);
+        local emptyPath=saveDir+"/empty-copy.txt";
+        FILEHELPER_CopyFile("fixtures/empty.txt",FILEHELPER_AREA_GAMEDATA,
+            emptyPath,FILEHELPER_AREA_SAVEDATA);
+        local saveListing=FILEHELPER_GetFileListing(saveDir,FILEHELPER_AREA_SAVEDATA);
+        local sawEmpty=0;
+        local sawMissing=0;
+        local saveIndex=0;
+        while (saveIndex<saveListing.size) {
+            if (saveListing[saveIndex]=="empty-copy.txt") { sawEmpty=1; }
+            if (saveListing[saveIndex]=="missing-copy.txt") { sawMissing=1; }
+            saveIndex+=1;
+        }
+        FILEHELPER_CopyFile("fixtures/missing.txt",FILEHELPER_AREA_GAMEDATA,
+            saveDir+"/missing-copy.txt",FILEHELPER_AREA_SAVEDATA);
+        FILEHELPER_DeleteFile(copyPath,0);
+        FILEHELPER_DeleteFile(emptyPath,0);
+        Check("Copy data between supported areas",copied=="OpenEgg file helper fixture\n");
+        Check("Copy missing and empty sources",sawEmpty==1 && sawMissing==0);
+
+        local hostCopy=saveDir+"/host-copy.txt";
+        FILEHELPER_CopyFile("tests/files/fixtures/read.txt",2,hostCopy,0);
+        local hostCopied=FILEHELPER_LoadString(hostCopy,0);
+        local hostCopyOK=hostCopied=="OpenEgg file helper fixture\n";
+        FILEHELPER_DeleteFile(hostCopy,0);
+        local saveListingAfterDelete=FILEHELPER_GetFileListing(saveDir,0);
+        local copiedStillListed=0;
+        local deleteIndex=0;
+        while (deleteIndex<saveListingAfterDelete.size) {
+            if (saveListingAfterDelete[deleteIndex]=="copied.txt") { copiedStillListed=1; }
+            deleteIndex+=1;
+        }
+        FILEHELPER_DeleteFile("fixtures/read.txt",1);
+        Check("Host copy and SaveData deletion",hostCopyOK && copiedStillListed==0 &&
+            FILE_IsExists("fixtures/read.txt",1)==1);
+
+        local writeResult=FILEHELPER_WriteString("fixtures/should-not-write.txt","x",1);
+        local writeHostResult=FILEHELPER_WriteString("tests/files/should-not-write.txt","x",2);
+        local writeNullResult=FILEHELPER_WriteString("should-not-write.txt","x",3);
+        local compressedPath=saveDir+"/roundtrip.z";
+        local compressedWrite=FILEHELPER_WriteCompressedString(compressedPath,"compressed text",0);
+        local compressedGameWrite=FILEHELPER_WriteCompressedString("fixtures/should-not-write.z","x",1);
+        local compressedRead=FILEHELPER_LoadCompressedString("fixtures/read.zlib",1);
+        local invalidCompressed=FILEHELPER_LoadCompressedString("fixtures/read.txt",1);
+        FILEHELPER_DeleteFile(compressedPath,0);
+        Check("WriteString area return behavior",writeResult==0 &&
+            writeHostResult==0 && writeNullResult==0 &&
+            FILE_IsExists("fixtures/should-not-write.txt")==0 &&
+            FILE_IsExists("tests/files/should-not-write.txt",2)==0);
+        Check("Compressed string roundtrip and invalid data",compressedWrite==1 &&
+            compressedGameWrite==0 && compressedRead=="compressed fixture" &&
+            invalidCompressed=="");
+        local existingPath=FILEHELPER_EnsurePathExists(saveDir+"/again.txt",0);
+        Check("EnsurePathExists nested and existing paths",made==0 && existingPath==0);
+
+        local out="_probe_output.txt";
+        local file=FILE();
+        local opened=file.openForWrite(out);
+        local wroteFile=file.write("first");
+        file.close();
+        local readFile=FILE();
+        local readOpened=readFile.openForRead(out);
+        local content=readFile.readAll();
+        readFile.close();
+        Check("File write, read, and close",opened==1 && wroteFile==1 &&
+            readOpened==1 && content=="first");
+
+        local reopened=FILE();
+        reopened.openForWrite(out);
+        reopened.write("replace");
+        reopened.close();
+        local readReopened=FILE();
+        readReopened.openForRead(out,1);
+        local replaced=readReopened.readAll();
+        readReopened.close();
+        Check("File reopen truncates and text mode reads",replaced=="replace");
+
+        local append=FILE();
+        local appendOpen=append.openForAppend(out);
+        append.write(" second");
+        append.close();
+        local readAppend=FILE();
+        readAppend.openForRead(out,0);
+        local appended=readAppend.readAll();
+        readAppend.close();
+        Check("File append modes and byte content",appendOpen==1 && appended=="replace second");
+
+        local absent=FILE();
+        local absentOpen=absent.openForRead("no-such-file",1);
+        local absentData=absent.readAll();
+        local closedWrite=absent.write("ignored");
+        absent.close();
+        Check("File missing path and closed operations",absentOpen==0 &&
+            absentData=="" && closedWrite==0);
+
+        local emptyFile=FILE();
+        emptyFile.openForRead("fixtures/empty.txt",0);
+        local emptyFileText=emptyFile.readAll();
+        emptyFile.close();
+        Check("File empty reads",emptyFileText=="");
+
+        FILE_Write("_bare_output.txt","one");
+        FILE_Append("_bare_output.txt","two");
+        local bare=FILE();
+        bare.openForRead("_bare_output.txt");
+        local bareText=bare.readAll();
+        bare.close();
+        Check("Bare FILE write and append formatting",bareText=="onetwo\n");
+    });
+};

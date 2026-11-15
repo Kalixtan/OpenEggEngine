@@ -1,0 +1,21 @@
+[
+  "FILE_IsExists",
+  "FILE_Write",
+  "FILE_Append",
+  "FILE",
+  "File.openForWrite",
+  "File.openForRead",
+  "File.openForAppend",
+  "File.write",
+  "File.readAll",
+  "File.close",
+  "FILEHELPER_VirtualSpaceLeft",
+  "FILEHELPER_GetFileListing",
+  "FILEHELPER_DeleteFile",
+  "FILEHELPER_CopyFile",
+  "FILEHELPER_WriteString",
+  "FILEHELPER_WriteCompressedString",
+  "FILEHELPER_LoadString",
+  "FILEHELPER_LoadCompressedString",
+  "FILEHELPER_EnsurePathExists"
+]
