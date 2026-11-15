@@ -14,11 +14,15 @@ global Main = function(p) {
                 print("HARD WARNING: Video.beginShape returned null");
                 return false;
             }
-            this.shape:plotVertex(-1, 1);
-            this.shape:plotVertex(1, 1);
-            this.shape:plotVertex(1, -1);
-            this.shape:plotVertex(-1, -1);
-            this.shape:endShape();
+            this.shape.plotVertex(-1, 1);
+            this.shape.plotVertex(1, 1);
+            this.shape.plotVertex(1, -1);
+            this.shape.plotVertex(-1, -1);
+            this.shape.endShape();
+            if (this.shape.getNumVertices() != 4) {
+                print("SHAPE_API_TEST_FAIL vertices were not stored");
+                return false;
+            }
             local immediate = Video.beginShape(SHAPETYPE_LINES);
             immediate.plotVertex(-1, 0);
             immediate.plotVertex(1, 0);
